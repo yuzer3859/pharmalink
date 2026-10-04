@@ -1,0 +1,155 @@
+// ============================================================================
+// Module 15 — Reviews & Ratings
+// (verified-transaction anchored; moderation workflow; async aggregation)
+// ============================================================================
+
+enum ReviewTargetType {
+  PRODUCT
+  PHARMACY
+  DOCTOR
+  PROVIDER
+  DRIVER
+  DIAGNOSTIC_SERVICE
+}
+
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+  FLAGGED
+  REMOVED
+  HIDDEN
+}
+
+enum TransactionType {
+  ORDER
+  APPOINTMENT
+  DELIVERY
+  DIAGNOSTIC_BOOKING
+  CONSULTATION
+}
+
+enum ModerationAction {
+  APPROVE
+  REJECT
+  REMOVE
+  RESTORE
+  FLAG
+}
+
+enum VoteType {
+  HELPFUL
+  UNHELPFUL
+}
+
+model Review {
+  id              String           @id @default(uuid())
+  authorUserId    String
+  targetType      ReviewTargetType
+  targetId        String
+  transactionType TransactionType
+  transactionId   String
+  rating          Int
+  title           String?
+  body            String?
+  status          ReviewStatus     @default(PENDING)
+  isVerified      Boolean          @default(true)
+  moderationScore Float?
+  editCount       Int              @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+
+  media          ReviewMedia[]
+  response       ReviewResponse?
+  votes          ReviewVote[]
+  reports        ReviewReport[]
+  moderationLogs ModerationLog[]
+
+  @@unique([authorUserId, transactionType, transactionId, targetId])
+  @@index([targetType, targetId, status])
+  @@map("reviews")
+}
+
+model ReviewMedia {
+  id        String   @id @default(uuid())
+  reviewId  String
+  fileRef   String
+  mediaType String?
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id])
+
+  @@map("review_media")
+}
+
+model ReviewResponse {
+  id              String   @id @default(uuid())
+  reviewId        String   @unique
+  responderUserId String
+  responderRole   String?
+  body            String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  review Review @relation(fields: [reviewId], references: [id])
+
+  @@map("review_responses")
+}
+
+model ReviewVote {
+  id        String   @id @default(uuid())
+  reviewId  String
+  userId    String
+  voteType  VoteType
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id])
+
+  @@unique([reviewId, userId])
+  @@map("review_votes")
+}
+
+model ReviewReport {
+  id             String   @id @default(uuid())
+  reviewId       String
+  reporterUserId String
+  reason         String
+  detail         String?
+  resolved       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id])
+
+  @@map("review_reports")
+}
+
+model ModerationLog {
+  id              String           @id @default(uuid())
+  reviewId        String
+  moderatorUserId String?
+  action          ModerationAction
+  reason          String?
+  isAutomated     Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id])
+
+  @@map("moderation_logs")
+}
+
+// Async-maintained aggregate projection per target.
+model RatingAggregate {
+  id           String           @id @default(uuid())
+  targetType   ReviewTargetType
+  targetId     String
+  ratingAvg    Float            @default(0)
+  ratingCount  Int              @default(0)
+  distribution Json?
+  lastReviewAt DateTime?
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([targetType, targetId])
+  @@map("rating_aggregates")
+}

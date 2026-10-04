@@ -1,0 +1,137 @@
+// ============================================================================
+// Module 02 — User & Profile Management
+// (consents shared with Module 01; notification_preferences owned here, read by Module 13)
+// ============================================================================
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+}
+
+enum BeneficiaryRelationship {
+  SELF
+  SPOUSE
+  CHILD
+  PARENT
+  SIBLING
+  GUARDIAN_DEPENDENT
+  OTHER
+}
+
+enum BeneficiaryStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+}
+
+enum NotificationCategory {
+  ORDER
+  PRESCRIPTION
+  APPOINTMENT
+  DELIVERY
+  MARKETING
+  SECURITY
+}
+
+model CustomerProfile {
+  id                String            @id @default(uuid())
+  userId            String            @unique
+  fullName          String?
+  gender            Gender?
+  dateOfBirth       DateTime?
+  photoUrl          String?
+  preferredLanguage PreferredLanguage @default(en)
+  secondaryPhone    String?
+  timezone          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+
+  @@map("customer_profiles")
+}
+
+model Beneficiary {
+  id                   String                  @id @default(uuid())
+  ownerUserId          String
+  relationship         BeneficiaryRelationship
+  fullName             String
+  gender               Gender?
+  dateOfBirth          DateTime?
+  phone                String?
+  isSelf               Boolean                 @default(false)
+  linkedUserId         String?
+  isMinor              Boolean                 @default(false)
+  healthNotesEncrypted String?
+  allergiesEncrypted   String?
+  bloodType            String?
+  status               BeneficiaryStatus       @default(ACTIVE)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  deletedAt            DateTime?
+
+  guardianships Guardianship[]
+  addresses     Address[]
+
+  @@index([ownerUserId])
+  @@map("beneficiaries")
+}
+
+model Guardianship {
+  id             String    @id @default(uuid())
+  guardianUserId String
+  beneficiaryId  String
+  verified       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  revokedAt      DateTime?
+
+  beneficiary Beneficiary @relation(fields: [beneficiaryId], references: [id])
+
+  @@map("guardianships")
+}
+
+model Address {
+  id               String       @id @default(uuid())
+  userId           String
+  beneficiaryId    String?
+  label            AddressLabel @default(HOME)
+  recipientName    String
+  recipientPhone   String
+  region           String?
+  city             String?
+  subcity          String?
+  woreda           String?
+  landmark         String?
+  addressLine      String?
+  lat              Float?
+  lng              Float?
+  isDefault        Boolean      @default(false)
+  isWithinEthiopia Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  deletedAt        DateTime?
+
+  beneficiary Beneficiary? @relation(fields: [beneficiaryId], references: [id])
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model NotificationPreference {
+  id        String               @id @default(uuid())
+  userId    String
+  category  NotificationCategory
+  push      Boolean              @default(true)
+  sms       Boolean              @default(true)
+  email     Boolean              @default(true)
+  updatedAt DateTime             @updatedAt
+
+  @@unique([userId, category])
+  @@map("notification_preferences")
+}

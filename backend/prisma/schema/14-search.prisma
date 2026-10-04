@@ -1,0 +1,116 @@
+// ============================================================================
+// Module 14 — Unified Search & Discovery
+// (CQRS read-model projections fed by domain events; Postgres FTS now, OpenSearch later)
+// ============================================================================
+
+enum SearchEntityType {
+  PRODUCT
+  PHARMACY
+  DOCTOR
+  PROVIDER
+  DIAGNOSTIC_SERVICE
+}
+
+enum ProjectionStatus {
+  ACTIVE
+  STALE
+  DELETED
+}
+
+// Denormalized read-model row. tsvector / geo columns added via raw migration.
+model SearchDocument {
+  id            String           @id @default(uuid())
+  entityType    SearchEntityType
+  entityId      String
+  title         String
+  subtitle      String?
+  description   String?
+  keywords      String[]
+  categories    String[]
+  locale        String           @default("en")
+  latitude      Float?
+  longitude     Float?
+  city          String?
+  price         Int?
+  currency      String?          @default("ETB")
+  ratingAvg     Float?
+  isAvailable   Boolean          @default(true)
+  boostScore    Float            @default(0)
+  attributes    Json?
+  status        ProjectionStatus @default(ACTIVE)
+  sourceVersion Int              @default(0)
+  updatedAt     DateTime         @updatedAt
+  createdAt     DateTime         @default(now())
+
+  @@unique([entityType, entityId, locale])
+  @@index([entityType, isAvailable])
+  @@index([city, entityType])
+  @@map("search_documents")
+}
+
+// Tracks last-applied event version per entity for idempotent projection.
+model ProjectionCheckpoint {
+  id            String           @id @default(uuid())
+  entityType    SearchEntityType
+  entityId      String
+  lastEventId   String?
+  lastVersion   Int              @default(0)
+  lastAppliedAt DateTime         @default(now())
+
+  @@unique([entityType, entityId])
+  @@map("projection_checkpoints")
+}
+
+model SearchSynonym {
+  id        String   @id @default(uuid())
+  term      String
+  synonyms  String[]
+  locale    String   @default("en")
+  createdAt DateTime @default(now())
+
+  @@unique([term, locale])
+  @@map("search_synonyms")
+}
+
+model SearchQueryLog {
+  id              String            @id @default(uuid())
+  userId          String?
+  sessionId       String?
+  rawQuery        String
+  normalized      String?
+  entityType      SearchEntityType?
+  filters         Json?
+  resultCount     Int               @default(0)
+  clickedEntityId String?
+  latencyMs       Int?
+  createdAt       DateTime          @default(now())
+
+  @@index([createdAt])
+  @@map("search_query_log")
+}
+
+model TrendingTerm {
+  id         String            @id @default(uuid())
+  term       String
+  entityType SearchEntityType?
+  score      Float             @default(0)
+  windowDate DateTime
+  createdAt  DateTime          @default(now())
+
+  @@unique([term, entityType, windowDate])
+  @@map("trending_terms")
+}
+
+model SavedSearch {
+  id           String            @id @default(uuid())
+  userId       String
+  name         String?
+  query        String
+  entityType   SearchEntityType?
+  filters      Json?
+  alertEnabled Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+
+  @@index([userId])
+  @@map("saved_searches")
+}

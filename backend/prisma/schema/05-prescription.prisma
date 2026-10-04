@@ -1,0 +1,178 @@
+// ============================================================================
+// Module 05 — Prescription & Matching
+// ============================================================================
+
+enum PrescriptionStatus {
+  UPLOADED
+  PENDING_VERIFICATION
+  APPROVED
+  REJECTED
+  CLARIFICATION_REQUESTED
+  EXPIRED
+  CONSUMED
+  DOCTOR_ISSUED
+}
+
+enum VerificationDecision {
+  APPROVED
+  REJECTED
+  CLARIFICATION
+}
+
+enum PrescriptionAccessType {
+  VIEW
+  DOWNLOAD
+}
+
+enum AccessOutcome {
+  ALLOW
+  DENY
+}
+
+enum MatchStatus {
+  PENDING
+  MATCHED
+  REMATCHING
+  PARTIAL
+  FAILED
+}
+
+enum MatchStrategy {
+  SINGLE
+  SPLIT
+}
+
+enum MatchCoverage {
+  ALL
+  PARTIAL
+}
+
+model Prescription {
+  id                  String             @id @default(uuid())
+  customerUserId      String
+  beneficiaryId       String?
+  status              PrescriptionStatus @default(UPLOADED)
+  fileRef             String?
+  encryptionKeyRef    String?
+  fileType            String?
+  doctorName          String?
+  hospitalName        String?
+  issueDate           DateTime?
+  expiryDate          DateTime?
+  verifiedByUserId    String?
+  verifiedAt          DateTime?
+  verifyingPharmacyId String?
+  rejectionReason     String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  retentionUntil      DateTime?
+
+  lines     PrescriptionLine[]
+  reviews   VerificationReview[]
+  accessLog PrescriptionAccessLog[]
+
+  @@index([verifyingPharmacyId, status])
+  @@index([customerUserId])
+  @@map("prescriptions")
+}
+
+model PrescriptionLine {
+  id                   String   @id @default(uuid())
+  prescriptionId       String
+  catalogProductId     String?
+  rawText              String?
+  prescribedQuantity   Int?
+  refillsAllowed       Int      @default(0)
+  dispensedQuantity    Int      @default(0)
+  remainingDispensable Int      @default(0)
+  isSingleUse          Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  prescription    Prescription     @relation(fields: [prescriptionId], references: [id])
+  dispenseRecords DispenseRecord[]
+
+  @@map("prescription_lines")
+}
+
+model VerificationReview {
+  id             String               @id @default(uuid())
+  prescriptionId String
+  reviewerUserId String
+  pharmacyId     String?
+  decision       VerificationDecision
+  reason         String?
+  legibilityOk   Boolean?
+  validityOk     Boolean?
+  reviewedAt     DateTime             @default(now())
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+
+  @@map("verification_reviews")
+}
+
+model DispenseRecord {
+  id                 String   @id @default(uuid())
+  prescriptionLineId String
+  idempotencyKey     String
+  orderId            String
+  pharmacyId         String
+  quantity           Int
+  dispensedByUserId  String
+  stockMovementId    String?
+  createdAt          DateTime @default(now())
+
+  prescriptionLine PrescriptionLine @relation(fields: [prescriptionLineId], references: [id])
+
+  @@unique([prescriptionLineId, idempotencyKey])
+  @@map("dispense_records")
+}
+
+model PrescriptionAccessLog {
+  id             String                 @id @default(uuid())
+  prescriptionId String
+  actorUserId    String
+  role           String?
+  accessType     PrescriptionAccessType
+  outcome        AccessOutcome
+  createdAt      DateTime               @default(now())
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+
+  @@map("prescription_access_log")
+}
+
+model MatchRequest {
+  id                 String        @id @default(uuid())
+  orderId            String?
+  customerUserId     String
+  deliveryLat        Float?
+  deliveryLng        Float?
+  status             MatchStatus   @default(PENDING)
+  strategy           MatchStrategy @default(SINGLE)
+  chosenResult       Json?
+  overridePharmacyId String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  candidates MatchCandidate[]
+
+  @@index([status, updatedAt])
+  @@map("match_requests")
+}
+
+model MatchCandidate {
+  id             String        @id @default(uuid())
+  matchRequestId String
+  pharmacyId     String
+  branchId       String
+  coverage       MatchCoverage
+  totalPrice     Int
+  distanceMeters Int?
+  rating         Float?
+  rank           Int
+  createdAt      DateTime      @default(now())
+
+  matchRequest MatchRequest @relation(fields: [matchRequestId], references: [id])
+
+  @@map("match_candidates")
+}

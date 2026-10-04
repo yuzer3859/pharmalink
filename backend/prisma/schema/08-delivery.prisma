@@ -1,0 +1,898 @@
+// ============================================================================
+// Module 08 — Delivery & Tracking
+// ============================================================================
+
+/// Operational availability (`architecture/module-08-delivery-tracking.md` §5.2's `Availability`).
+///
+/// `ONLINE` and `OFFLINE` are the driver's own toggle (§3.1 F-DRV-02). **`BUSY` is not**: it means
+/// "on shift, but at the concurrent-job limit" (BRULE-28) and is dispatch's to set, which is why
+/// `SetDriverAvailabilityCommand` accepts only the first two. The value is representable and
+/// rehydratable here so the dispatch work has somewhere to put it without a migration.
+enum DriverAvailability {
+  ONLINE
+  OFFLINE
+  BUSY
+}
+
+/// Delivery job lifecycle (`architecture/module-08-delivery-tracking.md` §3.3 F-STS-01). The
+/// Phase-0 placeholder enum predated the approved design and could not represent `ARRIVED_PICKUP`,
+/// `ARRIVED_DROPOFF`, `COMPLETED` or `REASSIGNING` at all; it is replaced here by the approved
+/// states (`20260914000000_module08_delivery_job_status`). No row ever carried the old values —
+/// nothing in Modules 01-07 writes `delivery_jobs`. The state machine itself lives in
+/// `DeliveryStatusPolicy`; this enum is only the vocabulary.
+enum DeliveryJobStatus {
+  CREATED
+  OFFERED
+  ASSIGNED
+  ARRIVED_PICKUP
+  PICKED_UP
+  EN_ROUTE
+  ARRIVED_DROPOFF
+  DELIVERED
+  COMPLETED
+  REASSIGNING
+  CANCELLED
+  FAILED
+}
+
+enum JobOfferStatus {
+  OFFERED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum DeliveryActorType {
+  DRIVER
+  SYSTEM
+  ADMIN
+}
+
+enum PodType {
+  CONFIRMATION
+  SIGNATURE
+  PHOTO
+}
+
+enum EarningStatus {
+  ACCRUED
+  SETTLED
+}
+
+/// How the customer handed the money over (§3.5 F-COD-01).
+///
+/// Two values, and deliberately no provider names. `ELECTRONIC` covers Telebirr, a bank transfer
+/// and whatever comes next, because which rail carried the money is a *reconciliation* detail that
+/// belongs with the module that talks to providers — putting `TELEBIRR` in a delivery enum would
+/// make every new rail a migration in the wrong module, and would tempt provider-shaped columns
+/// onto this table.
+enum CodCollectionMethod {
+  CASH
+  ELECTRONIC
+}
+
+/// Where a COD collection has got to on its way from the customer to the pharmacy.
+///
+/// **Three states, and each is a different party's assertion** — which is the point of having
+/// three rather than a `reconciled` boolean (the Phase-0 column this replaces):
+///
+///  - `COLLECTED` — *the driver says* they received the money. Nothing has been verified, and for
+///    cash nothing can be until it is counted.
+///  - `REMITTED` — the driver/channel has handed it to PharmaLink.
+///  - `RECONCILED` — PharmaLink has verified the remittance against this record.
+///
+/// **None of them means the pharmacy has been paid.** That is a Module 07 settlement fact and
+/// appears nowhere in this module. The customer's money travels
+/// customer → driver → PharmaLink → pharmacy, and these three states cover the first two legs
+/// only; the driver is a collection channel, never the owner of the money.
+///
+/// Delivery writes exactly one of them today — `COLLECTED` — for the reason `EarningStatus.SETTLED`
+/// is never written either: the later transitions require a remittance cadence and a verification
+/// authority that the design's Open Question 5 leaves undecided.
+///
+/// There is no `EXPECTED` state. A row exists only once a driver has recorded a collection, so
+/// `EXPECTED` would be a state nothing ever enters and nothing ever leaves — what is *expected* is
+/// `delivery_jobs.codAmount`, which exists from the moment the job is cut.
+enum CodCollectionStatus {
+  COLLECTED
+  REMITTED
+  RECONCILED
+}
+
+/// What PharmaLink concluded when it checked a remittance against the collection it was supposed
+/// to cover (§3.5 F-COD-01).
+///
+/// Two values, because the reconciliation work has exactly two honest answers: the money that
+/// arrived matched the money that was declared, or it did not. `DISCREPANCY` is **not** a failure
+/// of the reconciliation — the reconciliation succeeded and its finding was a difference. The row
+/// is written either way, which is the point: a shortfall that is merely refused leaves no record,
+/// and a shortfall recorded as `ACCEPTED` is a fake successful payment.
+///
+/// There is deliberately no `PARTIAL`, no `DISPUTED` and no `WRITTEN_OFF`. Each of those would
+/// encode a decision about **who absorbs the difference**, and nobody has taken it — the design's
+/// Open Question 5 leaves the whole cash-handling policy undecided. `DISCREPANCY` says what
+/// happened and stops there; the workflow that decides what follows adds its own vocabulary.
+enum CodReconciliationOutcome {
+  ACCEPTED
+  DISCREPANCY
+}
+
+/// What a COD correction is correcting (§3.5 F-COD-01, the design's Open Question 5).
+///
+/// Four values, and each names a **mistake in the record** rather than a decision about money:
+///
+///  - `RECORDING_MISTAKE` — an amount was keyed in wrong. The figure that was written down did not
+///    match what actually changed hands.
+///  - `REFERENCE_CORRECTION` — a transaction number, deposit slip or batch label was mistyped.
+///  - `RECONCILIATION_MISTAKE` — the finding was reached in error, against the wrong remittance or
+///    on the wrong evidence.
+///  - `ADMINISTRATIVE_ADJUSTMENT` — an operational note of record that fits none of the above and
+///    changes no figure.
+///
+/// **There is deliberately no `WRITE_OFF`, `RECOVERY`, `WAIVER` or `PENALTY`.** Every one of those
+/// would answer the question nobody has answered — who absorbs a shortfall — and would do it from
+/// inside a delivery module. A correction says what the record should have said; it never says what
+/// the platform is going to do about it.
+enum CodCorrectionType {
+  RECORDING_MISTAKE
+  REFERENCE_CORRECTION
+  RECONCILIATION_MISTAKE
+  ADMINISTRATIVE_ADJUSTMENT
+}
+
+/// Where a COD dispute has got to (§3.5 F-COD-01).
+///
+/// Two states, and the smallest lifecycle that can express "somebody is looking into this" and
+/// "somebody has finished looking". §5's "keep the lifecycle small and explicit", taken literally.
+///
+/// No `ESCALATED`, `REJECTED`, `WITHDRAWN` or `AWAITING_DRIVER`: each would be a step in a case
+/// workflow nobody has designed, and a status a queue filters on is the kind of thing that acquires
+/// business meaning by accident. A dispute is open until an authorized operator records how it
+/// ended, and the ending is free text rather than an outcome enum — precisely so that resolving one
+/// cannot quietly encode a write-off.
+enum CodDisputeStatus {
+  OPEN
+  RESOLVED
+}
+
+/// The **Delivery-owned operational driver profile** (§3.1, §5.1's `DriverProfile` aggregate root,
+/// §8's `driver_profiles`).
+///
+/// Module 01 remains the source of truth for who a driver *is* — identity, onboarding and
+/// verification. This table holds only what dispatch and tracking need to route work, and the two
+/// are joined by `userId` alone.
+///
+/// `20260916000000_module08_driver_operational_profile` reshapes the Phase-0 placeholder.
+model DriverProfile {
+  id     String @id @default(uuid())
+  /// **The Module 01 reference**, and a scalar one (ADR-002): `users.id` of a `DRIVER`-role
+  /// account. There is no Prisma relation and no FK — Module 01 is another bounded context.
+  ///
+  /// The design's §8 writes it "user_id (unique FK → users, role DRIVER)"; it is the *unique* half
+  /// that matters and is enforced, because one human driver has exactly one operational profile
+  /// and a second would mean two availability states for one person. There is deliberately no
+  /// `driverProfileId` column pointing at Module 01: Module 01 has no driver-profile table. Its
+  /// driver identity *is* the `users` row plus a `DRIVER_DOCS` `VerificationRequest`.
+  userId String @unique
+
+  /// Validated against a closed set by the `Vehicle` value object, stored as text: the design
+  /// names a `VehicleType` VO (§5.2) but the vocabulary is still moving (cold-chain-capable
+  /// vehicles, three-wheelers), and a Postgres enum would make each addition a migration.
+  vehicleType String?
+  plateNumber String?
+
+  /// The driver's delivery radius: `{ lat, lng, radiusMeters }`, shaped by the `ServiceArea` value
+  /// object. Deliberately the *simplest* structure §6's "nearby drivers" scoring can consume, and
+  /// the same `RADIUS` idea Module 04's `service_zones` already uses for branches. Geohash/PostGIS
+  /// indexing is §14's, and extends this rather than replacing it.
+  serviceArea Json?
+
+  /// Indexed by `20260917000000_module08_job_offers_dispatch`: the dispatch candidate query
+  /// filters on it, once per job and once per re-offer.
+  availability DriverAvailability @default(OFFLINE)
+
+  /// **Per-driver override of the concurrent-job limit (BRULE-28, F-DRV-04).** `null` — the
+  /// default — means "use the platform limit", `delivery.maxConcurrentJobs` via `IConfigPort`.
+  ///
+  /// Nullable, where Phase 0 had `NOT NULL DEFAULT 1`: a non-null default silently pinned every
+  /// driver at one job and made the platform-wide setting unreachable, so raising the limit would
+  /// have meant an UPDATE over every row rather than a config change. `null` is the honest
+  /// encoding of "this driver has no special limit".
+  maxConcurrent Int?
+
+  /// Module 15's, not Module 08's. Untouched here; no code in this module reads or writes them.
+  ratingAvg   Float @default(0)
+  ratingCount Int   @default(0)
+
+  /// Shift status (§3.1 F-DRV-02) as one timestamp rather than a boolean plus a timestamp: a
+  /// driver is on shift exactly while this is non-null, so "on shift with no start time" and
+  /// "off shift, started at 09:00" are both unrepresentable instead of merely discouraged.
+  shiftStartedAt DateTime?
+
+  /// When the driver last went `ONLINE`. Phase-0 column, now actually written.
+  lastOnlineAt DateTime?
+
+  /// Last-known position (§5.1's `DriverLocation`, §3.1 F-DRV-03). Three columns, not a child
+  /// table: this is *current* state that is overwritten in place, and §8 already designates
+  /// `location_snapshots` as the sampled trail for disputes. `lastLocationAt` is what makes a
+  /// stale buffered replay (NFR-LOC-04) detectable — without it, an out-of-order point from an
+  /// offline-tolerant driver app would silently move the driver backwards.
+  lastLat        Float?
+  lastLng        Float?
+  lastLocationAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs              DeliveryJob[]
+  offers            JobOffer[]
+  earnings          DriverEarning[]
+  codCollections    CodCollection[]
+  locationSnapshots LocationSnapshot[]
+
+  @@index([availability])
+  @@map("driver_profiles")
+}
+
+model DeliveryJob {
+  id               String            @id @default(uuid())
+  orderId          String
+  fulfillmentId    String
+  pharmacyId       String
+  branchId         String
+  pickupLat        Float?
+  pickupLng        Float?
+  /// One legible line for the driver, snapshotted at creation. `String` rather than the Phase-0
+  /// `Json?`: nothing ever reads a part of it, and a JSON column with no shape invites one
+  /// (`20260915000000_module08_delivery_job_fulfillment_unique`).
+  pickupAddress    String?
+  dropoffLat       Float?
+  dropoffLng       Float?
+  /// The address the *order was placed against* (Module 06's frozen `Order.addressSnapshot`),
+  /// never the customer's current one — editing an address must not redirect a delivery already
+  /// ordered.
+  dropoffAddress   String?
+  /// The item manifest the driver checks at handover: `[{ catalogProductId, name, quantity }]`.
+  /// §3.2 F-JOB-02 requires it and the Phase-0 table had no column for it. A snapshot read whole
+  /// and never queried, so it is a Json column rather than a child table — a table would invite
+  /// exactly the cross-context joins ADR-002 forbids. Deliberately carries no price, no
+  /// prescription reference and no health information.
+  items            Json?
+  assignedDriverId String?
+  status           DeliveryJobStatus @default(CREATED)
+  isColdChain      Boolean           @default(false)
+  isCod            Boolean           @default(false)
+  codAmount        Int?
+  deliveryFee      Int               @default(0)
+  distanceMeters   Int?
+  etaAt            DateTime?
+  pickedUpAt       DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  driver            DriverProfile?          @relation(fields: [assignedDriverId], references: [id])
+  offers            JobOffer[]
+  statusHistory     DeliveryStatusHistory[]
+  proofOfDelivery   ProofOfDelivery?
+  locationSnapshots LocationSnapshot[]
+  earnings          DriverEarning[]
+  codCollection     CodCollection?
+
+  /// §5.3's "job per fulfillment": an order can split across pharmacies, so one pickup location
+  /// is one job is one driver route. This makes `fulfillmentId` the job's natural key and is what
+  /// makes creation idempotent — a redelivered `order.ready` event, or two racing creators, can
+  /// only ever produce one job (`20260915000000_module08_delivery_job_fulfillment_unique`).
+  @@unique([fulfillmentId])
+  @@index([orderId])
+  /// Backs `IDeliveryJobRepository.countActiveJobs` — the concurrent-job limit's count (BRULE-28,
+  /// `20260916000000_module08_driver_operational_profile`). Composite because the count always
+  /// supplies both columns; without it the check would sequentially scan every delivery ever made,
+  /// on the path of every future accept.
+  @@index([assignedDriverId, status])
+  /// Backs the two background recovery scans — `lockNextStranded` and `lockNextStaleAssignment`
+  /// (`20260924000000_module08_recovery_scan_index`). Equality on `status`, range and ordering on
+  /// `updatedAt`, which is exactly the shape both queries have; the composite above cannot serve
+  /// either, because neither scan knows a driver.
+  @@index([status, updatedAt])
+  @@map("delivery_jobs")
+}
+
+/// One offer of one job to one driver, with a TTL (§3.2 F-JOB-04, §6.3, §8's `job_offers`).
+///
+/// Dispatch is **sequential**: one live offer at a time, per §6's own rationale ("sequential
+/// offer-with-TTL (vs broadcast-to-all) prevents race conditions on acceptance and respects
+/// concurrent limits"). The partial unique index added by
+/// `20260917000000_module08_job_offers_dispatch` is what makes that a guarantee rather than an
+/// intention — see the migration.
+model JobOffer {
+  id String @id @default(uuid())
+  /// `delivery_jobs.id`. A real relation: both tables are Module 08's own.
+  jobId String
+  /// `driver_profiles.id` — Module 08's operational driver, never a Module 01 user id. The same
+  /// reference `delivery_jobs.assignedDriverId` carries, so an offer and the assignment it
+  /// produces name the same thing.
+  driverId    String
+  status      JobOfferStatus @default(OFFERED)
+  offeredAt   DateTime       @default(now())
+  /// **Authoritative.** Expiry is a stored timestamp compared against the clock on every read,
+  /// not a scheduled callback: a process restart, a missed timer or a paused worker must not be
+  /// able to make an expired offer acceptable (§6.3, task 4).
+  expiresAt   DateTime
+  respondedAt DateTime?
+  /// Why the offer ended, where there is a reason to record: the driver's decline reason, or
+  /// `TTL_EXPIRED` when the dispatcher retired it. Null while the offer is live.
+  reason String?
+  /// The dispatch attempt this offer belongs to, 1-based (§6.4's "offer next candidate"). Unique
+  /// per job, so a retried dispatch of the same round converges instead of stacking offers.
+  round Int @default(1)
+
+  job    DeliveryJob   @relation(fields: [jobId], references: [id])
+  driver DriverProfile @relation(fields: [driverId], references: [id])
+
+  /// One offer per job per round — the idempotency key for a retried dispatch.
+  @@unique([jobId, round])
+  /// A driver's own live offers (`GET /driver/jobs`, and the accept path's lookup).
+  @@index([driverId, status])
+  /// The expiry sweep's lookup: live offers past their TTL.
+  @@index([status, expiresAt])
+  @@map("job_offers")
+}
+
+model DeliveryStatusHistory {
+  id         String            @id @default(uuid())
+  jobId      String
+  fromStatus String?
+  toStatus   String
+  actorType  DeliveryActorType
+  actorId    String?
+  reason     String?
+  lat        Float?
+  lng        Float?
+  createdAt  DateTime          @default(now())
+
+  job DeliveryJob @relation(fields: [jobId], references: [id])
+
+  /// A job's transitions, in order (`20260918000000_module08_status_history_index`). Postgres does
+  /// not index a foreign-key column on its own, and the status workflow reads this table per job.
+  /// Composite with `createdAt` so the ordering comes from the index rather than from a sort.
+  @@index([jobId, createdAt])
+  @@map("delivery_status_history")
+}
+
+/// Evidence that a delivery was handed over (§3.3 F-STS-04, §5.2, BR-DEL-06, BRULE-29).
+///
+/// Its own table rather than columns on `delivery_jobs`, which is the point of the separation: a
+/// job is a workload record read on every dispatch pass and every tracking refresh, and widening
+/// it with media metadata would make the hottest row in the module carry fields almost nothing
+/// reads. One row per job, and the `@unique` on `jobId` is what makes evidence immutable — see
+/// the entity for why that is preferred to a version chain in this work.
+///
+/// **No bytes live here.** `artifactRef` is an opaque handle into `IProofArtifactStoragePort`,
+/// exactly as Module 01's `VerificationRequest.documents[].storageRef` is a handle into encrypted
+/// object storage. The columns beside it describe the artifact — type, size, digest — so a dispute
+/// can be reasoned about, and an integrity claim made, without the row ever holding the image.
+model ProofOfDelivery {
+  id     String @id @default(uuid())
+  jobId  String @unique
+  /// Module 06 scalars, denormalised (ADR-002 — no relation across the context boundary). Copied
+  /// at capture so evidence can be found by order without joining the job, and so it still names
+  /// what it proves if the job is ever archived.
+  orderId       String
+  fulfillmentId String
+  type          PodType
+  recipientName String?
+  /// The recipient's attestation that they received the order (§3.3 F-STS-04's "recipient
+  /// confirmation"). Separate from `recipientName`, because a name is who, and this is whether.
+  recipientConfirmed Boolean @default(false)
+  /// `driver_profiles.id` of whoever captured it. Not a Module 01 user id: the question a dispute
+  /// asks is which operational driver was carrying the job, which is what the rest of this module
+  /// is keyed by.
+  capturedByDriverId String
+  /// Opaque storage handle. Null for a confirmation-only PoD, which has no artifact at all.
+  artifactRef         String?
+  artifactContentType String?
+  artifactBytes       Int?
+  /// SHA-256 of the stored bytes, hex. Two jobs: it makes tampering detectable long after the
+  /// fact, and it makes a retry recognisable as the *same* evidence rather than a correction.
+  artifactSha256 String?
+  capturedAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  job DeliveryJob @relation(fields: [jobId], references: [id])
+
+  /// "Show me the proof for this order." A split order has one job per fulfillment and so one PoD
+  /// per leg, and the customer-facing read arrives with an order id.
+  @@index([orderId])
+  @@map("proof_of_delivery")
+}
+
+model LocationSnapshot {
+  id         String   @id @default(uuid())
+  jobId      String
+  driverId   String
+  lat        Float
+  lng        Float
+  recordedAt DateTime @default(now())
+
+  job    DeliveryJob   @relation(fields: [jobId], references: [id])
+  driver DriverProfile @relation(fields: [driverId], references: [id])
+
+  @@index([jobId])
+  @@map("location_snapshots")
+}
+
+/// **The driver earnings ledger** (§3.5 F-ERN-01/F-ERN-02, §5.1's `DriverEarning`, §8's
+/// `driver_earnings`, BR-DEL-10) — what the platform owes a driver for a completed delivery.
+///
+/// ## Append-only, and enforced as such
+///
+/// §8 calls this "an **append-only ledger** (consistent with Module 7's philosophy)". There is no
+/// `updatedAt`, `IDriverEarningRepository` offers no `update` and no `delete`, and no route can
+/// reach either. An accrued earning is a historical statement about a delivery that has already
+/// happened; a table that could rewrite it would make every downstream settlement figure
+/// provisional. A correction, when the platform needs one, is a new adjustment row under its own
+/// workflow — not a mutation of this one.
+///
+/// ## It is not money, and this is not Module 07's ledger
+///
+/// An accrual records *what was earned*, not *what was paid*. No `ledger_entries` row is written
+/// from this module, no wallet moves, no settlement is created and no provider is called — §1's
+/// boundary gives all of that to Module 07, which consumes the `EarningAccrued` event. `status`
+/// is the seam: Delivery writes `ACCRUED` and never anything else; `SETTLED` belongs to whichever
+/// Module 07 work eventually pays these out.
+///
+/// `20260920000000_module08_driver_earnings` reshapes the Phase-0 placeholder, which no code ever
+/// wrote to.
+model DriverEarning {
+  id String @id @default(uuid())
+
+  /// **`driver_profiles.id`** — the operational driver, not a Module 01 `users.id`, exactly as
+  /// `delivery_jobs.assignedDriverId` and `proof_of_delivery.capturedByDriverId` are. No Module 01
+  /// identity is copied here: a name or a phone number on an earnings row would be a second home
+  /// for facts Module 01 owns, and it would drift.
+  driverId String
+
+  /// **The natural key**, unique. One completed delivery earns once (§6's "Earnings accrue **once**
+  /// per completed job (idempotent)"), and that is a database guarantee rather than an application
+  /// convention — the outbox is at-least-once (ADR-010), so a redelivered completion event *will*
+  /// arrive twice and must converge on this row rather than on a second payment obligation.
+  jobId String @unique
+
+  /// Module 06 scalars (ADR-002), carried so a settlement run can answer "which order produced
+  /// this?" without reaching into another context. Snapshots of the job's own references, frozen
+  /// at accrual.
+  orderId       String
+  fulfillmentId String
+
+  /// The four components, all ETB minor units (ADR-005). `total` is their sum after rounding and
+  /// clamping — stored rather than derived, because it is the figure the platform owes and a
+  /// recomputation from four columns and a rate card is not the same thing as a record of it.
+  ///
+  /// `incentive` is always `0` today and has no configuration knob at all: surge and incentive
+  /// rules are the unresolved half of the design's Open Question 4, and this platform has no
+  /// signal to drive them. The column exists because the design names it and because an incentive
+  /// paid later must be visible as its own component rather than folded into `base`.
+  base              Int
+  distanceComponent Int @default(0)
+  /// The share of the customer's delivery fee passed through to the driver, when an operator has
+  /// configured one. `0` by default — the platform asserts no relationship between what the
+  /// customer paid and what the driver earns, because that relationship is Open Question 4.
+  feeShare          Int @default(0)
+  incentive         Int @default(0)
+  total             Int
+
+  currency String        @default("ETB")
+  status   EarningStatus @default(ACCRUED)
+
+  /// The **frozen** distance the earning was computed from, copied from `delivery_jobs.distanceMeters`
+  /// (Work 09) — never re-measured from the driver's current position. `null` when the job never
+  /// had one, which is only reachable while the per-kilometre rate is zero: an earning that needed
+  /// a distance it did not have is refused rather than accrued against a guess.
+  distanceMeters Int?
+
+  /// The operator's label for the earning agreement this amount was computed under. What makes an
+  /// accrual explainable months later without inferring the rate card from the amount.
+  calculationVersion String @default("v1")
+
+  /// When the earning was accrued. There is no separate `accruedAt`: accrual is the act that
+  /// creates the row, so a second timestamp could only ever disagree with this one.
+  createdAt DateTime @default(now())
+
+  driver DriverProfile @relation(fields: [driverId], references: [id])
+  job    DeliveryJob   @relation(fields: [jobId], references: [id])
+
+  /// The driver's own earnings list (`GET /driver/earnings`), newest first.
+  @@index([driverId, createdAt])
+  @@map("driver_earnings")
+}
+
+/// **What the driver collected from the customer** (§3.5 F-COD-01, §5.1's `CodCollection`, §8's
+/// `cod_collections`).
+///
+/// ## Whose money this is
+///
+/// The approved flow is **customer → driver → PharmaLink → pharmacy**. The driver physically
+/// receives the cash and is a *collection channel*, not its owner: this row records a remittance
+/// obligation running from the driver to the platform, and the platform's obligation to the
+/// pharmacy is Module 07's payable, computed from the order rather than from this table. Nothing
+/// here is ever "the driver's money", which is why there is no driver-facing balance and no link
+/// from this row to `driver_earnings` — what a driver is *paid* and what a driver is *holding* are
+/// two unrelated amounts that must never be netted against each other by accident.
+///
+/// ## It is a record, not a payment
+///
+/// No ledger entry is written from this module, no `Payment` is marked `CAPTURED`, no wallet
+/// moves and no settlement is created — §1's boundary gives every one of those to Module 07, which
+/// consumes the `CodCollected` event. A row here means a driver said they took the money; it does
+/// not mean the platform has it, and it certainly does not mean the pharmacy has been paid.
+///
+/// ## Immutable
+///
+/// Append-only, like `driver_earnings` and `proof_of_delivery`: no `updatedAt`, no `update` on the
+/// repository, no route with a write verb beyond the single recording POST. A correction is a new
+/// auditable adjustment under a workflow that decides who may restate how much cash changed hands
+/// — not an edit to the driver's original declaration, which is evidence.
+///
+/// `20260921000000_module08_cod_collection` reshapes the Phase-0 placeholder, which no code ever
+/// wrote to.
+model CodCollection {
+  id String @id @default(uuid())
+
+  /// **The natural key**, unique. One delivery, one collection (§8's `1—1 cod_collection`). A
+  /// handset retrying over a bad connection at somebody's door is the ordinary case, and a second
+  /// row would be the platform recording that it is owed the same cash twice.
+  jobId String @unique
+
+  /// `driver_profiles.id` — the operational driver who took the money, not a Module 01 `users.id`.
+  /// No Module 01 identity is copied here.
+  driverId String
+
+  /// Module 06 scalars (ADR-002), frozen at recording so a reconciliation can say which order the
+  /// cash belongs to without reaching across the context boundary.
+  orderId       String
+  fulfillmentId String
+
+  /// **What the driver was supposed to collect**, copied from `delivery_jobs.codAmount` — itself
+  /// frozen from `Order.grandTotal` when the job was cut (Work 02). Never a figure the driver
+  /// supplied: a collection channel does not get to say how much it was asked to collect.
+  expectedAmount Int
+
+  /// **What the driver declared they actually received.** This is the only number on the row that
+  /// comes from the request, and it is a declaration rather than a verified fact — see
+  /// `CodCollectionStatus`. A difference from `expectedAmount` is recorded rather than rejected or
+  /// smoothed over, and blocks the row from being treated as reconcilable.
+  collectedAmount Int
+
+  currency String              @default("ETB")
+  method   CodCollectionMethod
+  status   CodCollectionStatus @default(COLLECTED)
+
+  /// A provider- or bank-issued reference for an electronic collection, when the driver has one —
+  /// a transaction number a human can quote during reconciliation. **Opaque and generic on
+  /// purpose**: no provider name, no callback payload, no signature, no account number, and never
+  /// a raw provider response. Null for cash, which has no reference to quote.
+  providerReference String?
+
+  /// When the driver says the money changed hands, and when the platform recorded it. Two
+  /// timestamps because they are two facts: a handset that queues a submission offline records it
+  /// minutes later, and a reconciliation that cannot tell the two apart cannot explain the gap.
+  collectedAt DateTime @default(now())
+  recordedAt  DateTime @default(now())
+
+  /// Set by whichever work implements remittance and reconciliation. Delivery writes neither today
+  /// — see `CodCollectionStatus`.
+  remittedAt   DateTime?
+  reconciledAt DateTime?
+
+  /// An opaque handle for the reconciliation batch this collection was settled in, written by the
+  /// same future work. Not a Module 07 foreign key: the two contexts are joined by event and by
+  /// reference, never by a relation (ADR-002).
+  settlementRef String?
+
+  job    DeliveryJob   @relation(fields: [jobId], references: [id])
+  driver DriverProfile @relation(fields: [driverId], references: [id])
+
+  /// The two later legs, each its own append-only record rather than more columns here. `status`,
+  /// `remittedAt` and `reconciledAt` above are the *projection* those records advance — what makes
+  /// "what is still outstanding?" one indexed scan instead of two joins — while the evidence
+  /// (amounts, references, and which operator asserted them) lives on the rows themselves, where
+  /// it cannot be overwritten.
+  remittance     CodRemittance?
+  reconciliation CodReconciliation?
+
+  /// Corrections and disputes raised against this collection (§3.5 F-COD-01). Both are records
+  /// *beside* the history rather than edits to it: nothing in either table can change an amount,
+  /// a reference or a status on the three rows above, and the original discrepancy stays exactly
+  /// as visible after a correction as it was before one.
+  corrections CodCorrection[]
+  disputes    CodDispute[]
+
+  /// The two questions an operator actually asks: what is this driver holding, and what is still
+  /// outstanding across the platform?
+  @@index([driverId, status])
+  @@index([status, collectedAt])
+  @@map("cod_collections")
+}
+
+/// **The driver/channel handing the collected money to PharmaLink** (§3.5 F-COD-01, the design's
+/// Open Question 5, §9.5's `/admin/delivery/cod-reconciliation`).
+///
+/// ## The second leg, and only the second
+///
+/// The money travels customer → driver → **PharmaLink** → pharmacy. `cod_collections` records the
+/// first leg on the driver's own word; this table records the second, on the word of an authorized
+/// PharmaLink operator. It does **not** mean the pharmacy has been paid, does not mean the
+/// remittance has been checked, and does not mean a provider verified anything — those are
+/// `cod_reconciliations` and, beyond it, Module 07.
+///
+/// ## Separate from `cod_collections`, deliberately
+///
+/// A remittance is a **different party's assertion at a different time**, and folding it into the
+/// collection row would mean the driver's declaration and the platform's confirmation shared one
+/// mutable record. Here the collection is never rewritten: the operator's confirmation is a new
+/// row, and `cod_collections.status`/`remittedAt` move to point at it.
+///
+/// ## One row per collection, and a reference that can span many
+///
+/// `collectionId` is unique — one confirmation per collection (§7's "do not invent a complicated
+/// partial-reconciliation state"). But a real handover is one driver handing over a day's cash at
+/// once, so `reference` is **shared across every collection in that handover**: grouping by it is
+/// how a batch is reconstructed without this work inventing a batch entity or a cadence nobody has
+/// approved.
+model CodRemittance {
+  id String @id @default(uuid())
+
+  /// **The natural key**, unique. Two operators confirming the same handover converge on one row
+  /// rather than on two obligations, and that is a database guarantee rather than a convention.
+  collectionId String @unique
+
+  /// **What actually reached PharmaLink**, in minor units (ADR-005). Never assumed equal to
+  /// `cod_collections.collectedAmount`: the difference between what a driver said they took and
+  /// what they handed over is precisely what a remittance check exists to surface, so the two are
+  /// two columns on two rows and neither is derived from the other.
+  remittedAmount Int
+
+  currency String @default("ETB")
+
+  /// **The PharmaLink-side handle for this handover** — a deposit slip number, a cash-office
+  /// batch label, an internal transfer id. Generic on purpose and generic in the name: not
+  /// `bankReference`, not `telebirrReference`, not anything that ties the delivery module to a
+  /// rail. Shared by every collection in the same handover, and indexed for exactly that.
+  reference String
+
+  /// Free text for the operator, when a handover needs a sentence of explanation. Never a provider
+  /// payload, never an image, never a customer detail.
+  note String?
+
+  /// **Module 01 `users.id` of the operator who confirmed it** — the separation of duties made
+  /// durable. The driver who collected the cash is on the collection row; whoever accepted it is
+  /// here, and they are never the same authority: recording a collection needs
+  /// `delivery:update:own`, confirming a remittance needs `finance:settlement:any`.
+  confirmedByUserId String
+
+  /// When the handover happened, and when the platform recorded it. Two facts, exactly as
+  /// `collectedAt`/`recordedAt` are: cash counted on Friday evening is often keyed in on Monday,
+  /// and a reconciliation that cannot tell the two apart cannot explain the gap.
+  remittedAt DateTime @default(now())
+  recordedAt DateTime @default(now())
+
+  collection  CodCollection   @relation(fields: [collectionId], references: [id])
+  corrections CodCorrection[]
+
+  /// "Show me everything that came in under this handover" — §19's grouping, without a batch table.
+  @@index([reference])
+  /// The day's remittances, for the cadence nobody has settled yet.
+  @@index([remittedAt])
+  @@map("cod_remittances")
+}
+
+/// **PharmaLink checking a remittance against the collection it was supposed to cover** (§3.5
+/// F-COD-01, §9.5's `/admin/delivery/cod-reconciliation`).
+///
+/// The third and last leg this module knows about. `RECONCILED` means an authorized operator
+/// compared what was due, what was declared and what arrived, and recorded the finding. **It still
+/// does not mean the pharmacy has been paid** — that is a Module 07 settlement fact, computed from
+/// the order rather than from this table, and §16 keeps `settled` out of this lifecycle entirely.
+///
+/// ## Why the amounts are not repeated here
+///
+/// Expected, collected and remitted are already on two immutable rows this one points at, so
+/// copying them would be three numbers that cannot drift but can still disagree with a reader's
+/// expectation about which is authoritative. `outcome` is the exception and is stored rather than
+/// derived, for the reason `driver_earnings.total` is: it is the platform's recorded determination
+/// at a moment in time, and "what still needs following up?" should be an indexed scan rather than
+/// arithmetic over a join.
+///
+/// The outcome is **computed, never supplied**. An operator cannot mark a shortfall `ACCEPTED`,
+/// because the one thing this table must never hold is a reconciliation that says the books
+/// balanced when they did not.
+model CodReconciliation {
+  id String @id @default(uuid())
+
+  /// **The natural key**, unique. One reconciliation per collection; a repeat replays it and
+  /// cannot move a collection back out of `RECONCILED`.
+  collectionId String @unique
+
+  /// Accepted, or a recorded difference. Derived from the three amounts by
+  /// `CodCollectionPolicy.classifyReconciliation` and enforced there.
+  outcome CodReconciliationOutcome
+
+  /// An optional PharmaLink-side handle for the reconciliation run itself — a cash-office session,
+  /// a finance batch label. Generic, like `cod_remittances.reference`, and for the same reason.
+  reference String?
+
+  /// What the operator wants the next reader to know, when the outcome is a difference. The
+  /// minimum §7 asks for: a reason field, not a dispute system.
+  note String?
+
+  /// **Module 01 `users.id` of the operator who reconciled it.** Answers §18's "who recorded each
+  /// step?" for the last step, as `confirmedByUserId` does for the one before.
+  reconciledByUserId String
+
+  reconciledAt DateTime @default(now())
+
+  collection  CodCollection   @relation(fields: [collectionId], references: [id])
+  corrections CodCorrection[]
+
+  /// "What did we reconcile this week, and how much of it needs chasing?"
+  @@index([outcome, reconciledAt])
+  @@map("cod_reconciliations")
+}
+
+/// **A correction recorded beside a COD record, never onto it** (§3.5 F-COD-01, the design's Open
+/// Question 5).
+///
+/// ## Why this table exists at all
+///
+/// `cod_collections`, `cod_remittances` and `cod_reconciliations` are evidence: a driver's
+/// declaration about a customer's money, an operator's confirmation that it arrived, and an
+/// operator's finding about the two. Evidence that can be edited is not evidence, so all three are
+/// append-only and none of them has an `update` path anywhere in this module.
+///
+/// That guarantee is only worth having if there is somewhere to put a genuine mistake. This is that
+/// somewhere. A correction is a **compensating record** — the same shape Module 07's `refunds`
+/// table takes against a payment it cannot un-charge — carrying what the record should have said,
+/// why, and who says so. The original stays exactly as it was written.
+///
+/// ## What it never does
+///
+/// It does not change `collectedAmount`, `expectedAmount`, `remittedAmount`, a method, a reference,
+/// a timestamp or a status on any of the three rows it points at. It does not move the collection
+/// backward or forward through `COLLECTED → REMITTED → RECONCILED`. It creates no ledger entry, no
+/// payable, no settlement and no payout — §7's whole list — and it does not decide who absorbs a
+/// difference, which is why `CodCorrectionType` has no write-off value.
+///
+/// **And it does not make a discrepancy disappear.** The finance view computes every variance from
+/// the original rows and lists corrections alongside them, so `original fact + correction` is the
+/// complete history rather than a replacement for it.
+///
+/// ## The value pair
+///
+/// Two typed pairs rather than one stringly-typed one: money stays an integer (ADR-005) and a
+/// reference stays text. A correction uses the pair its type calls for and leaves the other null —
+/// `RECORDING_MISTAKE` carries amounts, `REFERENCE_CORRECTION` carries references,
+/// `RECONCILIATION_MISTAKE` and `ADMINISTRATIVE_ADJUSTMENT` carry neither and rest on `reason`.
+/// Storing an amount as text so that one column could serve both would put money through a parser
+/// on every read.
+///
+/// There is no `currency` column. A correction cannot change one — no type admits it — and the
+/// currency of the money being talked about is on the row this one references.
+model CodCorrection {
+  id String @id @default(uuid())
+
+  /// **The anchor.** Always set, whatever the correction is about: every COD fact in this module
+  /// hangs off a collection, and a finance reader arrives holding one.
+  collectionId String
+
+  /// Set when the correction is about the handover rather than the collection itself. Null
+  /// otherwise — "where relevant", and the relevance is explicit rather than inferred.
+  remittanceId String?
+
+  /// Set when the correction is about the finding.
+  reconciliationId String?
+
+  type CodCorrectionType
+
+  /// What the record said, and what it should have said — minor units (ADR-005). Both null unless
+  /// the type is an amount correction. The original is repeated here rather than only living on the
+  /// source row because a correction has to remain readable as a standalone statement: "we recorded
+  /// 20,000 and it was 24,500" is the fact, and re-deriving half of it from a join is how a trail
+  /// becomes ambiguous after a second correction.
+  originalAmount  Int?
+  correctedAmount Int?
+
+  /// The same pair for a mistyped transaction number, deposit slip or batch label.
+  originalReference  String?
+  correctedReference String?
+
+  /// **Required.** A correction without a stated reason is an unexplained change to the financial
+  /// record, which is the thing this table exists to prevent rather than to enable.
+  reason String
+
+  /// The caller-supplied replay key, unique — §9's persistent idempotency mechanism. Corrections
+  /// have no natural key (two different corrections of the same type against the same collection
+  /// are both legitimate), so identity has to be supplied, exactly as `orders.idempotencyKey` and
+  /// `payments.idempotencyKey` are. A body field rather than a header, which is the project's
+  /// settled choice for this.
+  idempotencyKey String @unique
+
+  /// **Module 01 `users.id` of the operator who recorded it.** Never a `driver_profiles.id`: a
+  /// driver cannot create a correction against their own collection, and the permission that
+  /// reaches this table is one no driver role holds.
+  createdByUserId String
+
+  createdAt DateTime @default(now())
+
+  collection     CodCollection      @relation(fields: [collectionId], references: [id])
+  remittance     CodRemittance?     @relation(fields: [remittanceId], references: [id])
+  reconciliation CodReconciliation? @relation(fields: [reconciliationId], references: [id])
+
+  /// "What has been corrected on this collection, in order?" — the finance detail read.
+  @@index([collectionId, createdAt])
+  /// "What kind of mistakes are we making, and how often?" — the only aggregate question this
+  /// table is designed to answer, and it is an operational one rather than a financial one.
+  @@index([type, createdAt])
+  @@map("cod_corrections")
+}
+
+/// **An open question about a COD collection, and how it ended** (§3.5 F-COD-01).
+///
+/// ## The follow-up the reconciliation work had nowhere to put
+///
+/// `CodReconciliation` can record a `DISCREPANCY`, which is a finding that somebody has to act on —
+/// and until now there was no record of anybody acting. A dispute is that record, and deliberately
+/// nothing more: who raised it, what about, and what an authorized operator concluded.
+///
+/// ## Two states, and no case-management system
+///
+/// `OPEN → RESOLVED`. There is no queue, no assignee, no SLA, no escalation, no thread of messages
+/// and no attachment (§5's "do not build a full case-management system"). Resolution is **free
+/// text**, not an outcome enum, and that is a decision rather than laziness: an enum here would
+/// need values like `RECOVERED`, `WRITTEN_OFF` or `DRIVER_LIABLE`, each of which answers the
+/// commercial question the design's Open Question 5 leaves open.
+///
+/// ## One open dispute at a time
+///
+/// A partial unique index on `collectionId WHERE status = 'OPEN'`
+/// (`20260923000000_module08_cod_corrections`) makes concurrent openers converge on one dispute
+/// rather than stacking three, while still allowing a *new* dispute after an earlier one was
+/// resolved — a collection can legitimately be queried twice, months apart. Prisma's schema
+/// language cannot express a partial unique index, so it lives in the migration, exactly as
+/// `job_offers_one_live_per_job` does.
+///
+/// ## What it does not do
+///
+/// Opening or resolving a dispute changes nothing on `cod_collections`: not the status, not an
+/// amount, not a timestamp. A disputed collection that was `RECONCILED` stays `RECONCILED` —
+/// "somebody looked" remains true — and the dispute says the looking is not finished. No ledger
+/// entry, no settlement, no payout, no driver balance.
+model CodDispute {
+  id String @id @default(uuid())
+
+  collectionId String
+
+  /// **Required.** What is actually in question. The whole value of the record.
+  reason String
+
+  status CodDisputeStatus @default(OPEN)
+
+  /// Module 01 `users.id` of the operator who raised it, and of whoever closed it. Two columns
+  /// because they are two people as often as one, and §11's "who did what" is the question a
+  /// dispute trail is read to answer.
+  openedByUserId   String
+  openedAt         DateTime  @default(now())
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+
+  /// How it ended, in the operator's own words. Null while open.
+  resolutionNote String?
+
+  collection CodCollection @relation(fields: [collectionId], references: [id])
+
+  /// A collection's disputes, newest first.
+  @@index([collectionId, openedAt])
+  /// "What is still open across the platform?" — the one queue this table supports.
+  @@index([status, openedAt])
+  @@map("cod_disputes")
+}

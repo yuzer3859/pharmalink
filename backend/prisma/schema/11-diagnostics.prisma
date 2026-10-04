@@ -1,0 +1,201 @@
+// ============================================================================
+// Module 11 — Diagnostics & Lab Bookings
+// (at-center capacity slots + home sample collection; results versioned & encrypted)
+// ============================================================================
+
+enum FulfillmentMode {
+  AT_CENTER
+  HOME_COLLECTION
+}
+
+enum DiagnosticBookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CHECKED_IN
+  SAMPLE_COLLECTED
+  PROCESSING
+  RESULT_READY
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  SAMPLE_REJECTED
+}
+
+enum DiagnosticItemStatus {
+  PENDING
+  COLLECTED
+  PROCESSING
+  RESULT_READY
+  CANCELLED
+}
+
+enum DiagnosticSlotStatus {
+  OPEN
+  FULL
+  BLOCKED
+}
+
+enum HomeCollectionStatus {
+  SCHEDULED
+  COLLECTOR_ASSIGNED
+  EN_ROUTE
+  COLLECTED
+  DROPPED_AT_LAB
+  FAILED
+}
+
+enum ResultStatus {
+  PENDING
+  READY
+  AMENDED
+}
+
+enum AnalyteFlag {
+  NORMAL
+  HIGH
+  LOW
+  CRITICAL
+}
+
+model DiagnosticBooking {
+  id                  String                  @id @default(uuid())
+  bookingNumber       String                  @unique
+  patientUserId       String
+  beneficiarySnapshot Json?
+  providerId          String
+  locationId          String?
+  fulfillmentMode     FulfillmentMode
+  status              DiagnosticBookingStatus @default(PENDING_PAYMENT)
+  prepAcknowledgedAt  DateTime?
+  totalPrice          Int                     @default(0)
+  currency            String                  @default("ETB")
+  paymentId           String?
+  scheduledAt         DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  items          BookingItem[]
+  homeCollection HomeCollection?
+  statusHistory  DiagnosticStatusHistory[]
+
+  @@map("diagnostic_bookings")
+}
+
+model BookingItem {
+  id                String               @id @default(uuid())
+  bookingId         String
+  serviceOfferingId String
+  serviceSnapshot   Json?
+  price             Int
+  itemStatus        DiagnosticItemStatus @default(PENDING)
+  resultId          String?
+  createdAt         DateTime             @default(now())
+
+  booking DiagnosticBooking  @relation(fields: [bookingId], references: [id])
+  results DiagnosticResult[]
+
+  @@map("booking_items")
+}
+
+model DiagnosticSlot {
+  id          String               @id @default(uuid())
+  providerId  String
+  locationId  String
+  serviceType String?
+  startAt     DateTime
+  endAt       DateTime
+  capacity    Int                  @default(1)
+  bookedCount Int                  @default(0)
+  status      DiagnosticSlotStatus @default(OPEN)
+  createdAt   DateTime             @default(now())
+
+  @@index([providerId, startAt])
+  @@map("diagnostic_slots")
+}
+
+model HomeCollection {
+  id              String               @id @default(uuid())
+  bookingId       String               @unique
+  addressSnapshot Json?
+  windowStart     DateTime
+  windowEnd       DateTime
+  collectorUserId String?
+  deliveryJobId   String?
+  status          HomeCollectionStatus @default(SCHEDULED)
+  collectedAt     DateTime?
+  createdAt       DateTime             @default(now())
+
+  booking DiagnosticBooking @relation(fields: [bookingId], references: [id])
+
+  @@map("home_collections")
+}
+
+model DiagnosticResult {
+  id               String       @id @default(uuid())
+  bookingItemId    String
+  version          Int          @default(1)
+  status           ResultStatus @default(PENDING)
+  supersedesId     String?
+  fileRef          String?
+  encryptionKeyRef String?
+  issuedByUserId   String?
+  issuedAt         DateTime?
+  healthRecordId   String?
+  createdAt        DateTime     @default(now())
+
+  bookingItem BookingItem       @relation(fields: [bookingItemId], references: [id])
+  analytes    ResultAnalyte[]
+  accessLog   ResultAccessLog[]
+
+  @@map("diagnostic_results")
+}
+
+model ResultAnalyte {
+  id             String       @id @default(uuid())
+  resultId       String
+  analyteName    String
+  code           String?
+  value          String?
+  unit           String?
+  referenceRange String?
+  flag           AnalyteFlag?
+
+  result DiagnosticResult @relation(fields: [resultId], references: [id])
+
+  @@map("result_analytes")
+}
+
+model ResultAccessLog {
+  id          String               @id @default(uuid())
+  resultId    String
+  actorUserId String
+  role        String?
+  accessType  DiagnosticAccessType
+  outcome     AccessOutcome
+  createdAt   DateTime             @default(now())
+
+  result DiagnosticResult @relation(fields: [resultId], references: [id])
+
+  @@map("result_access_log")
+}
+
+enum DiagnosticAccessType {
+  VIEW
+  DOWNLOAD
+  SHARE
+}
+
+model DiagnosticStatusHistory {
+  id         String   @id @default(uuid())
+  bookingId  String
+  fromStatus String?
+  toStatus   String
+  actorType  String?
+  actorId    String?
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  booking DiagnosticBooking @relation(fields: [bookingId], references: [id])
+
+  @@map("booking_status_history")
+}

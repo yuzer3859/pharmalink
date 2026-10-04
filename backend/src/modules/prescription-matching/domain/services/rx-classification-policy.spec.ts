@@ -1,0 +1,30 @@
+import { RxClassificationPolicy } from './rx-classification-policy';
+
+/**
+ * Module 05's copy of the Rx-classification rule. Module 06 keeps an identical copy
+ * (`modules/orders/domain/services/rx-classification-policy.spec.ts`) asserting exactly the same
+ * table — the two must agree, since `CheckoutCommand` decides which lines to send to the gate and
+ * `CheckRxGateCommand` decides how to answer for them. If these two tables ever diverge, an OTC
+ * medicine silently becomes un-orderable again.
+ */
+describe('RxClassificationPolicy (prescription-matching)', () => {
+  it.each([
+    ['RX', true],
+    ['OTC', false],
+    [null, false],
+    [undefined, false],
+  ])('requiresPrescription(%p) -> %p', (classification, expected) => {
+    expect(
+      RxClassificationPolicy.requiresPrescription(classification as string | null | undefined),
+    ).toBe(expected);
+  });
+
+  it('does not treat an arbitrary non-RX string as requiring a prescription', () => {
+    expect(RxClassificationPolicy.requiresPrescription('SOMETHING_ELSE')).toBe(false);
+  });
+
+  it('is case-sensitive — only the exact catalog enum member counts', () => {
+    expect(RxClassificationPolicy.requiresPrescription('rx')).toBe(false);
+    expect(RxClassificationPolicy.requiresPrescription('RX')).toBe(true);
+  });
+});

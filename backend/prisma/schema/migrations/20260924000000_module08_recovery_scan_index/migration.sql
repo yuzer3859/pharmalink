@@ -1,0 +1,23 @@
+-- Module 08 — Work 14: the index behind the background recovery scans.
+--
+-- `DispatchRecoverySweeper` and `StaleAssignmentSweeper` both discover work with the same shape:
+--
+--     WHERE "status" = ANY(<a few states>) AND "updatedAt" < <cutoff>
+--     ORDER BY "updatedAt" ASC
+--     LIMIT 1 FOR UPDATE SKIP LOCKED
+--
+-- Without an index that is a sequential scan of `delivery_jobs`, executed once per candidate row,
+-- once a minute, on **every** application instance — and it gets slower every day the platform
+-- operates, because the table it scans is the permanent record of every delivery ever made while
+-- the rows it is looking for are only ever the handful that are currently stuck.
+--
+-- `(status, updatedAt)` is the right column order: equality (well, `= ANY`) on the leading column,
+-- range and ordering on the trailing one, so Postgres can seek to each status and walk `updatedAt`
+-- in order rather than sorting afterwards. The existing `(assignedDriverId, status)` index cannot
+-- serve either query — neither scan knows a driver, and the stale-assignment one is looking
+-- precisely for jobs whose driver is the thing that has gone wrong.
+--
+-- This is not a speculative index. Both consumers are in this same commit, and neither of them has
+-- another way to find its work.
+CREATE INDEX "delivery_jobs_status_updatedAt_idx"
+    ON "delivery_jobs"("status", "updatedAt");

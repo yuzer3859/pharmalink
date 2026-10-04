@@ -1,0 +1,167 @@
+// ============================================================================
+// Module 13 — Notifications & Communication
+// (event-driven multi-channel delivery; template versioning; per-user prefs & quiet hours)
+// ============================================================================
+
+enum NotificationChannel {
+  PUSH
+  SMS
+  EMAIL
+  IN_APP
+}
+
+enum MessageCategory {
+  TRANSACTIONAL
+  REMINDER
+  MARKETING
+  SYSTEM
+  SECURITY
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  SUPPRESSED
+  READ
+}
+
+enum TemplateStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum DigestFrequency {
+  IMMEDIATE
+  HOURLY
+  DAILY
+  WEEKLY
+}
+
+model NotificationTemplate {
+  id          String              @id @default(uuid())
+  code        String
+  version     Int                 @default(1)
+  channel     NotificationChannel
+  category    MessageCategory
+  locale      String              @default("en")
+  subject     String?
+  body        String
+  variables   Json?
+  providerRef String?
+  status      TemplateStatus      @default(DRAFT)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  notifications Notification[]
+
+  @@unique([code, channel, locale, version])
+  @@map("notification_templates")
+}
+
+model Notification {
+  id              String              @id @default(uuid())
+  recipientUserId String
+  category        MessageCategory
+  channel         NotificationChannel
+  templateId      String?
+  templateCode    String?
+  eventType       String?
+  dedupeKey       String?             @unique
+  payload         Json?
+  renderedTitle   String?
+  renderedBody    String?
+  status          DeliveryStatus      @default(QUEUED)
+  scheduledFor    DateTime?
+  priority        Int                 @default(5)
+  createdAt       DateTime            @default(now())
+
+  template NotificationTemplate? @relation(fields: [templateId], references: [id])
+  attempts DeliveryAttempt[]
+
+  @@index([recipientUserId, createdAt])
+  @@index([status, scheduledFor])
+  @@map("notifications")
+}
+
+model DeliveryAttempt {
+  id             String              @id @default(uuid())
+  notificationId String
+  attemptNumber  Int                 @default(1)
+  channel        NotificationChannel
+  provider       String?
+  providerMsgId  String?
+  status         DeliveryStatus
+  errorCode      String?
+  errorDetail    String?
+  attemptedAt    DateTime            @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id])
+
+  @@index([providerMsgId])
+  @@map("delivery_attempts")
+}
+
+model ChannelPreference {
+  id              String              @id @default(uuid())
+  userId          String
+  category        MessageCategory
+  channel         NotificationChannel
+  enabled         Boolean             @default(true)
+  digestFrequency DigestFrequency     @default(IMMEDIATE)
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([userId, category, channel])
+  @@map("channel_preferences")
+}
+
+model QuietHours {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  startTime String
+  endTime   String
+  timezone  String   @default("Africa/Addis_Ababa")
+  updatedAt DateTime @updatedAt
+
+  @@map("quiet_hours")
+}
+
+model DeviceToken {
+  id         String    @id @default(uuid())
+  userId     String
+  token      String    @unique
+  platform   String
+  isActive   Boolean   @default(true)
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model SuppressionEntry {
+  id        String              @id @default(uuid())
+  channel   NotificationChannel
+  address   String
+  reason    String?
+  createdAt DateTime            @default(now())
+
+  @@unique([channel, address])
+  @@map("suppression_list")
+}
+
+model InboundMessage {
+  id            String              @id @default(uuid())
+  channel       NotificationChannel
+  fromAddress   String
+  body          String?
+  providerRef   String?
+  matchedUserId String?
+  receivedAt    DateTime            @default(now())
+
+  @@map("inbound_messages")
+}

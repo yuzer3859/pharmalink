@@ -1,0 +1,200 @@
+// ============================================================================
+// Module 12 — Consultation / Telemedicine & Health Records
+// (records vault is an aggregation index; media not persisted; consent + access log)
+// ============================================================================
+
+enum SessionStatus {
+  SCHEDULED
+  WAITING
+  IN_PROGRESS
+  ENDED
+  CANCELLED
+}
+
+enum ParticipantRole {
+  DOCTOR
+  PATIENT
+  GUARDIAN
+}
+
+enum RecordType {
+  CONSULT_NOTE
+  E_PRESCRIPTION
+  DIAGNOSTIC_RESULT
+  APPOINTMENT
+  UPLOADED_DOC
+}
+
+enum ConsentStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum RecordAccessType {
+  VIEW
+  DOWNLOAD
+  SHARE
+  EXPORT
+}
+
+enum DataRequestType {
+  EXPORT
+  DELETE
+}
+
+enum DataRequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+model ConsultationSession {
+  id                  String        @id @default(uuid())
+  appointmentId       String
+  doctorId            String
+  patientUserId       String
+  beneficiarySnapshot Json?
+  status              SessionStatus @default(SCHEDULED)
+  mediaProvider       String?
+  mediaRoomId         String?
+  startedAt           DateTime?
+  endedAt             DateTime?
+  durationSeconds     Int?
+  isFollowupOf        String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  participants   SessionParticipant[]
+  notes          ConsultationNote[]
+  chatMessages   ChatMessage[]
+  ePrescriptions EPrescription[]
+
+  @@map("consultation_sessions")
+}
+
+model SessionParticipant {
+  id        String          @id @default(uuid())
+  sessionId String
+  userId    String
+  role      ParticipantRole
+  joinedAt  DateTime?
+  leftAt    DateTime?
+
+  session ConsultationSession @relation(fields: [sessionId], references: [id])
+
+  @@map("session_participants")
+}
+
+model ConsultationNote {
+  id             String   @id @default(uuid())
+  sessionId      String
+  version        Int      @default(1)
+  supersedesId   String?
+  diagnosis      String?
+  notes          String?
+  advice         String?
+  structured     Json?
+  authorDoctorId String
+  createdAt      DateTime @default(now())
+
+  session ConsultationSession @relation(fields: [sessionId], references: [id])
+
+  @@map("consultation_notes")
+}
+
+model ChatMessage {
+  id            String   @id @default(uuid())
+  sessionId     String
+  senderUserId  String
+  body          String?
+  attachmentRef String?
+  sentAt        DateTime @default(now())
+
+  session ConsultationSession @relation(fields: [sessionId], references: [id])
+
+  @@map("chat_messages")
+}
+
+model EPrescription {
+  id             String   @id @default(uuid())
+  sessionId      String
+  doctorId       String
+  patientUserId  String
+  beneficiaryId  String?
+  prescriptionId String?
+  items          Json
+  issuedAt       DateTime @default(now())
+  isImmutable    Boolean  @default(true)
+
+  session ConsultationSession @relation(fields: [sessionId], references: [id])
+
+  @@map("e_prescriptions")
+}
+
+model HealthRecord {
+  id               String     @id @default(uuid())
+  ownerUserId      String
+  beneficiaryId    String?
+  recordType       RecordType
+  sourceModule     String
+  sourceId         String
+  title            String?
+  summary          String?
+  occurredAt       DateTime?
+  artifactRef      String?
+  encryptionKeyRef String?
+  createdAt        DateTime   @default(now())
+  deletedAt        DateTime?
+
+  accessLog RecordAccessLog[]
+
+  @@index([ownerUserId, beneficiaryId, occurredAt])
+  @@map("health_records")
+}
+
+model RecordConsent {
+  id            String        @id @default(uuid())
+  ownerUserId   String
+  beneficiaryId String?
+  granteeUserId String
+  scope         Json
+  validFrom     DateTime
+  validUntil    DateTime
+  status        ConsentStatus @default(ACTIVE)
+  grantedAt     DateTime      @default(now())
+  revokedAt     DateTime?
+
+  @@map("record_consents")
+}
+
+model RecordAccessLog {
+  id             String           @id @default(uuid())
+  healthRecordId String?
+  sourceRef      String?
+  actorUserId    String
+  actorRole      String?
+  accessType     RecordAccessType
+  outcome        AccessOutcome
+  consentId      String?
+  createdAt      DateTime         @default(now())
+
+  healthRecord HealthRecord? @relation(fields: [healthRecordId], references: [id])
+
+  @@map("health_record_access_log")
+}
+
+model DataRightsRequest {
+  id          String            @id @default(uuid())
+  ownerUserId String
+  type        DataRequestType
+  status      DataRequestStatus @default(PENDING)
+  scope       Json?
+  processedBy String?
+  resultRef   String?
+  createdAt   DateTime          @default(now())
+  completedAt DateTime?
+
+  @@map("data_rights_requests")
+}

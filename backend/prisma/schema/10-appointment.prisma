@@ -1,0 +1,199 @@
+// ============================================================================
+// Module 10 — Doctor & Appointment
+// (materialized appointment_slots are the concurrency unit — atomic conditional update)
+// ============================================================================
+
+enum AvailabilityRuleType {
+  RECURRING
+  EXCEPTION_AVAILABLE
+  EXCEPTION_BLOCK
+}
+
+enum AppointmentType {
+  IN_PERSON
+  TELEMEDICINE
+  BOTH
+}
+
+enum SlotStatus {
+  OPEN
+  HELD
+  BOOKED
+  BLOCKED
+}
+
+enum AppointmentStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+  EXPIRED
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  BOOKED
+  EXPIRED
+}
+
+model DoctorProfile {
+  id                      String    @id @default(uuid())
+  userId                  String    @unique
+  specialty               String?
+  subSpecialties          String[]
+  qualifications          Json?
+  yearsExperience         Int?
+  bio                     String?
+  languages               String[]
+  photoUrl                String?
+  consultationFeeInPerson Int?
+  consultationFeeTele     Int?
+  currency                String    @default("ETB")
+  isVerified              Boolean   @default(false)
+  acceptsTelemedicine     Boolean   @default(false)
+  ratingAvg               Float     @default(0)
+  ratingCount             Int       @default(0)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  affiliations      DoctorAffiliation[]
+  availabilityRules AvailabilityRule[]
+  slots             AppointmentSlot[]
+  appointments      Appointment[]
+  waitlistEntries   WaitlistEntry[]
+  departmentDoctors DepartmentDoctor[]
+
+  @@map("doctor_profiles")
+}
+
+model DoctorAffiliation {
+  id           String   @id @default(uuid())
+  doctorId     String
+  providerId   String
+  departmentId String?
+  roleTitle    String?
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id])
+
+  @@map("doctor_affiliations")
+}
+
+// Join between Module 09 Department and Module 10 DoctorProfile (defined here).
+model DepartmentDoctor {
+  departmentId String
+  doctorId     String
+  createdAt    DateTime @default(now())
+
+  department Department    @relation(fields: [departmentId], references: [id])
+  doctor     DoctorProfile @relation(fields: [doctorId], references: [id])
+
+  @@id([departmentId, doctorId])
+  @@map("department_doctors")
+}
+
+model AvailabilityRule {
+  id                  String               @id @default(uuid())
+  doctorId            String
+  providerLocationId  String?
+  type                AvailabilityRuleType
+  weekday             Int?
+  startTime           String?
+  endTime             String?
+  validFrom           DateTime?
+  validTo             DateTime?
+  slotDurationMinutes Int?
+  bufferMinutes       Int?                 @default(0)
+  appointmentType     AppointmentType      @default(BOTH)
+  createdAt           DateTime             @default(now())
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id])
+
+  @@map("availability_rules")
+}
+
+model AppointmentSlot {
+  id                 String          @id @default(uuid())
+  doctorId           String
+  providerLocationId String?
+  startAt            DateTime
+  endAt              DateTime
+  appointmentType    AppointmentType
+  status             SlotStatus      @default(OPEN)
+  heldBy             String?
+  heldUntil          DateTime?
+  appointmentId      String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  doctor      DoctorProfile @relation(fields: [doctorId], references: [id])
+  appointment Appointment?
+
+  @@unique([doctorId, startAt, appointmentType])
+  @@index([doctorId, startAt, status])
+  @@map("appointment_slots")
+}
+
+model Appointment {
+  id                    String            @id @default(uuid())
+  slotId                String            @unique
+  doctorId              String
+  patientUserId         String
+  beneficiarySnapshot   Json?
+  appointmentType       AppointmentType
+  status                AppointmentStatus @default(PENDING_PAYMENT)
+  reasonNote            String?
+  fee                   Int?
+  paymentId             String?
+  consultationSessionId String?
+  scheduledStart        DateTime
+  scheduledEnd          DateTime
+  rescheduledFromId     String?
+  cancelReason          String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  slot          AppointmentSlot            @relation(fields: [slotId], references: [id])
+  doctor        DoctorProfile              @relation(fields: [doctorId], references: [id])
+  statusHistory AppointmentStatusHistory[]
+
+  @@map("appointments")
+}
+
+model AppointmentStatusHistory {
+  id            String   @id @default(uuid())
+  appointmentId String
+  fromStatus    String?
+  toStatus      String
+  actorType     String?
+  actorId       String?
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@map("appointment_status_history")
+}
+
+model WaitlistEntry {
+  id              String          @id @default(uuid())
+  doctorId        String
+  patientUserId   String
+  beneficiaryId   String?
+  preferredDate   DateTime?
+  appointmentType AppointmentType
+  status          WaitlistStatus  @default(WAITING)
+  notifiedAt      DateTime?
+  createdAt       DateTime        @default(now())
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id])
+
+  @@map("waitlist_entries")
+}

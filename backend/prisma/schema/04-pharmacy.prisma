@@ -1,0 +1,263 @@
+// ============================================================================
+// Module 04 — Pharmacy & Inventory
+// (catalogProductId references Module 03 Product by id — no cross-module relation)
+// ============================================================================
+
+enum TransactingStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum LicenseStatus {
+  VALID
+  EXPIRED
+  SUSPENDED
+}
+
+enum ServiceZoneType {
+  RADIUS
+  POLYGON
+}
+
+enum StockMovementType {
+  RECEIPT
+  RESERVE
+  RELEASE
+  DISPATCH
+  ADJUST
+  EXPIRE
+  RETURN
+}
+
+enum StockMovementRefType {
+  ORDER
+  IMPORT
+  MANUAL
+  SYSTEM
+}
+
+enum ReservationStatus {
+  HELD
+  CONFIRMED
+  RELEASED
+  EXPIRED
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Pharmacy {
+  id                String            @id @default(uuid())
+  organizationId    String            @unique
+  displayName       String
+  logoUrl           String?
+  description       String?
+  ratingAvg         Float             @default(0)
+  ratingCount       Int               @default(0)
+  transactingStatus TransactingStatus @default(PENDING)
+  licenseStatus     LicenseStatus     @default(VALID)
+  licenseExpiresAt  DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+
+  branches Branch[]
+  metrics  PharmacyMetric[]
+  imports  InventoryImport[]
+  listings InventoryListing[]
+
+  @@map("pharmacies")
+}
+
+model Branch {
+  id          String    @id @default(uuid())
+  pharmacyId  String
+  name        String
+  region      String?
+  city        String?
+  subcity     String?
+  woreda      String?
+  addressLine String?
+  lat         Float?
+  lng         Float?
+  phone       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  pharmacy       Pharmacy              @relation(fields: [pharmacyId], references: [id])
+  operatingHours BranchOperatingHour[]
+  serviceZones   ServiceZone[]
+  listings       InventoryListing[]
+
+  @@map("branches")
+}
+
+model BranchOperatingHour {
+  id        String  @id @default(uuid())
+  branchId  String
+  weekday   Int
+  openTime  String?
+  closeTime String?
+  isClosed  Boolean @default(false)
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("branch_operating_hours")
+}
+
+model ServiceZone {
+  id           String          @id @default(uuid())
+  branchId     String
+  type         ServiceZoneType
+  radiusMeters Int?
+  polygon      Json?
+  isActive     Boolean         @default(true)
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("service_zones")
+}
+
+model InventoryListing {
+  id                 String             @id @default(uuid())
+  pharmacyId         String
+  branchId           String
+  catalogProductId   String
+  price              Int
+  currency           String             @default("ETB")
+  onHand             Int                @default(0)
+  reserved           Int                @default(0)
+  sellable           Int                @default(0)
+  isEnabled          Boolean            @default(true)
+  storageRequirement StorageRequirement @default(AMBIENT)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+
+  pharmacy     Pharmacy           @relation(fields: [pharmacyId], references: [id])
+  branch       Branch             @relation(fields: [branchId], references: [id])
+  batches      StockBatch[]
+  movements    StockMovement[]
+  reservations StockReservation[]
+
+  @@unique([branchId, catalogProductId])
+  @@index([catalogProductId])
+  @@index([catalogProductId, isEnabled, sellable])
+  @@map("inventory_listings")
+}
+
+model StockBatch {
+  id          String    @id @default(uuid())
+  listingId   String
+  batchNumber String
+  quantity    Int
+  expiryDate  DateTime
+  supplier    String?
+  receivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  listing   InventoryListing @relation(fields: [listingId], references: [id])
+  movements StockMovement[]
+
+  @@index([listingId, expiryDate])
+  @@map("stock_batches")
+}
+
+model StockMovement {
+  id            String                @id @default(uuid())
+  listingId     String
+  batchId       String?
+  type          StockMovementType
+  quantityDelta Int
+  reason        String?
+  refType       StockMovementRefType?
+  refId         String?
+  actorUserId   String?
+  createdAt     DateTime              @default(now())
+  /// Explicit `StockReservation.id` this movement is the effect of (module-04 hardening —
+  /// dispatch/reservation fulfillment scoping). `refId` alone (`refType=ORDER, refId=orderId`)
+  /// is ambiguous once a single order can hold more than one reservation (same or different
+  /// listings): looking up "has THIS reservation been dispatched" by `orderId` alone could match
+  /// a DISPATCH movement belonging to a sibling reservation under the same order. Nullable for
+  /// backfill safety on pre-existing rows and on movements that are never reservation-scoped
+  /// (RECEIPT/ADJUST/EXPIRE/RETURN) — every RESERVE/RELEASE/DISPATCH movement written going
+  /// forward always sets it. Mirrors the nullable-for-backfill pattern already used by
+  /// `StockReservation.idempotencyKey`.
+  reservationId String?
+
+  listing     InventoryListing  @relation(fields: [listingId], references: [id])
+  batch       StockBatch?       @relation(fields: [batchId], references: [id])
+  reservation StockReservation? @relation(fields: [reservationId], references: [id])
+
+  @@index([listingId])
+  @@index([reservationId])
+  @@map("stock_movements")
+}
+
+model StockReservation {
+  id             String            @id @default(uuid())
+  listingId      String
+  orderId        String?
+  quantity       Int
+  status         ReservationStatus @default(HELD)
+  expiresAt      DateTime
+  createdAt      DateTime          @default(now())
+  /// Client-supplied idempotency key (module-04 §5.4/§8/§15). Nullable for backfill safety on
+  /// pre-existing rows created before this column existed; every new reservation created via
+  /// `ReserveStockCommand` always sets it. Uniqueness is scoped per-listing (`(listingId,
+  /// idempotencyKey)`), not global, because the resource being protected from a duplicate
+  /// mutation is the listing's stock — the same idempotency key value reused by a caller against
+  /// a *different* listing is not the same logical operation and must not collide (a global
+  /// unique constraint would incorrectly reject that). This mirrors the existing
+  /// `(branchId, catalogProductId)` per-aggregate uniqueness pattern already used on
+  /// `InventoryListing` in this same schema file.
+  idempotencyKey String?
+
+  listing   InventoryListing @relation(fields: [listingId], references: [id])
+  movements StockMovement[]
+
+  @@unique([listingId, idempotencyKey])
+  @@index([listingId])
+  @@index([status, expiresAt])
+  @@map("stock_reservations")
+}
+
+model PharmacyMetric {
+  id                    String   @id @default(uuid())
+  pharmacyId            String
+  period                String
+  ordersCount           Int      @default(0)
+  acceptanceRate        Float    @default(0)
+  avgFulfillmentMinutes Float    @default(0)
+  cancellationRate      Float    @default(0)
+  updatedAt             DateTime @updatedAt
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id])
+
+  @@map("pharmacy_metrics")
+}
+
+model InventoryImport {
+  id         String       @id @default(uuid())
+  pharmacyId String
+  uploadedBy String
+  fileRef    String
+  dryRun     Boolean      @default(true)
+  status     ImportStatus @default(PENDING)
+  rowsTotal  Int          @default(0)
+  rowsOk     Int          @default(0)
+  rowsFailed Int          @default(0)
+  report     Json?
+  createdAt  DateTime     @default(now())
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id])
+
+  @@map("inventory_imports")
+}

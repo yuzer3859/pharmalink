@@ -1,0 +1,37 @@
+-- Module 07 — Payment, Wallet & Settlement: platform-funded coupon discounts (ADR-019).
+--
+-- ADR-019's funding question is now resolved: a coupon discount is funded **by the platform**,
+-- not by the pharmacy. That makes the discount a genuine platform expense, and an expense has to
+-- exist somewhere in a double-entry ledger.
+--
+-- Why a new account type is unavoidable here. Under platform funding the pharmacy is paid as if
+-- no coupon existed, so for a discount `D` the capture's credits exceed the gross the customer
+-- actually paid by exactly `D`:
+--
+--     DEBIT  GATEWAY_CLEARING   grandTotal              (what was really collected)
+--     CREDIT PROVIDER_PAYABLE   grandTotal - fee + D    (as if there had been no coupon)
+--     CREDIT PLATFORM_REVENUE   fee                     (Order.platformFee, unchanged)
+--
+-- Those legs cannot balance on their own — `credits - debits = D`. The missing debit is the
+-- platform's promotion expense, and there is no existing account that can honestly carry it:
+-- PLATFORM_REVENUE is a revenue account (debiting it would understate commission actually earned
+-- and silently merge two different facts), and every other value is a clearing or liability
+-- account belonging to someone else. So `PROMOTION_EXPENSE` is added.
+--
+-- It is appended to the end of the enum rather than inserted next to the other platform-level
+-- accounts. Values are persisted by name so position does not affect stored data, but an enum's
+-- declaration order *is* its sort order in PostgreSQL, and reordering would silently change the
+-- ordering of any query that sorts by this column.
+--
+-- Nothing else changes. No table, column, index or constraint is touched: the account row itself
+-- is opened on first use by `LedgerService.resolveAccount` through the existing
+-- `ledger_accounts` natural key (`@@unique([type, ownerId, currency])`), exactly like every other
+-- platform account, so there is no chart-of-accounts seed to extend either. The account is
+-- platform-level and carries `owner_id = NULL`, like PLATFORM_REVENUE and GATEWAY_CLEARING.
+--
+-- `IF NOT EXISTS` makes this re-runnable against a database that already has the value. Adding an
+-- enum value is transactional on PostgreSQL 12+ (this project runs 16) provided the new value is
+-- not *used* in the same transaction — nothing here writes a row with it, so `prisma migrate
+-- deploy` wrapping this in a transaction is safe.
+
+ALTER TYPE "LedgerAccountType" ADD VALUE IF NOT EXISTS 'PROMOTION_EXPENSE';

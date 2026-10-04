@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   PharmaLink Design Tokens — semantic theming via CSS variables
+   Values are space-separated RGB channels for Tailwind alpha.
+   ============================================================ */
+@layer base {
+  :root {
+    --bg: 247 249 251;        /* app background */
+    --surface: 255 255 255;   /* cards */
+    --surface-2: 244 247 250; /* subtle fills */
+    --elevated: 255 255 255;  /* modals / popovers */
+    --border: 226 232 240;    /* hairlines */
+    --ring: 20 184 166;       /* focus ring (brand) */
+    --fg: 15 23 42;           /* primary text */
+    --muted: 71 85 105;       /* secondary text */
+    --subtle: 148 163 184;    /* tertiary text */
+  }
+
+  .dark {
+    --bg: 8 12 20;
+    --surface: 17 24 36;
+    --surface-2: 24 33 47;
+    --elevated: 22 30 44;
+    --border: 38 50 68;
+    --ring: 45 212 191;
+    --fg: 237 242 248;
+    --muted: 156 172 192;
+    --subtle: 107 124 147;
+  }
+
+  * {
+    border-color: rgb(var(--border));
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--fg));
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Accessible focus visibility everywhere */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(var(--bg)), 0 0 0 4px rgb(var(--ring) / 0.7);
+    border-radius: 0.5rem;
+  }
+
+  ::selection {
+    background: rgb(20 184 166 / 0.22);
+  }
+
+  /* Refined scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--subtle) / 0.4);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--subtle) / 0.7); background-clip: content-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+    html { scroll-behavior: auto; }
+  }
+}
+
+@layer components {
+  .container-app {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .card {
+    @apply rounded-2xl border border-border bg-surface shadow-sm;
+  }
+
+  .glass {
+    background: rgb(var(--surface) / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-surface-2;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background-image: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent);
+  }
+  .dark .skeleton::after {
+    background-image: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+  }
+
+  .gradient-brand {
+    background-image: linear-gradient(135deg, #0d9488 0%, #14b8a6 45%, #2563eb 130%);
+  }
+  .text-gradient {
+    background-image: linear-gradient(120deg, #0d9488, #14b8a6 55%, #2563eb);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}

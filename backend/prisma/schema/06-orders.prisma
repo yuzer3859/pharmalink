@@ -1,0 +1,195 @@
+// ============================================================================
+// Module 06 — Cart, Checkout & Orders
+// (defines the shared `outbox` table reused by all event-publishing modules)
+// ============================================================================
+
+enum CartStatus {
+  ACTIVE
+  CONVERTED
+  ABANDONED
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAID
+  ACCEPTED
+  READY
+  DISPATCHED
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum OrderStrategy {
+  SINGLE
+  SPLIT
+}
+
+enum OrderLineStatus {
+  PENDING
+  RESERVED
+  ACCEPTED
+  READY
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+  SUBSTITUTED
+}
+
+enum FulfillmentStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+model Cart {
+  id             String     @id @default(uuid())
+  customerUserId String
+  beneficiaryId  String?
+  status         CartStatus @default(ACTIVE)
+  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime   @default(now())
+
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id               String   @id @default(uuid())
+  cartId           String
+  catalogProductId String
+  quantity         Int
+  indicativePrice  Int?
+  requiresRx       Boolean  @default(false)
+  addedAt          DateTime @default(now())
+
+  cart Cart @relation(fields: [cartId], references: [id])
+
+  @@unique([cartId, catalogProductId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                  String        @id @default(uuid())
+  orderNumber         String        @unique
+  customerUserId      String
+  beneficiarySnapshot Json?
+  addressSnapshot     Json?
+  status              OrderStatus   @default(DRAFT)
+  strategy            OrderStrategy @default(SINGLE)
+  subtotal            Int           @default(0)
+  deliveryFee         Int           @default(0)
+  platformFee         Int           @default(0)
+  discountTotal       Int           @default(0)
+  grandTotal          Int           @default(0)
+  currency            String        @default("ETB")
+  paymentId           String?
+  matchRequestId      String?
+  deliverySlot        String?
+  idempotencyKey      String        @unique
+  isCod               Boolean       @default(false)
+  placedAt            DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  cancelReason        String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  lines         OrderLine[]
+  fulfillments  Fulfillment[]
+  statusHistory OrderStatusHistory[]
+  invoice       Invoice?
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id                       String          @id @default(uuid())
+  orderId                  String
+  catalogProductId         String
+  productSnapshot          Json?
+  quantity                 Int
+  unitPrice                Int
+  lineTotal                Int
+  fulfillmentId            String?
+  pharmacyId               String?
+  branchId                 String?
+  reservationId            String?
+  prescriptionLineId       String?
+  requiresRx               Boolean         @default(false)
+  lineStatus               OrderLineStatus @default(PENDING)
+  substitutedFromProductId String?
+  createdAt                DateTime        @default(now())
+
+  order       Order        @relation(fields: [orderId], references: [id])
+  fulfillment Fulfillment? @relation(fields: [fulfillmentId], references: [id])
+
+  @@map("order_lines")
+}
+
+model Fulfillment {
+  id            String            @id @default(uuid())
+  orderId       String
+  pharmacyId    String
+  branchId      String
+  status        FulfillmentStatus @default(PENDING)
+  deliveryJobId String?
+  acceptedAt    DateTime?
+  readyAt       DateTime?
+  createdAt     DateTime          @default(now())
+
+  order Order       @relation(fields: [orderId], references: [id])
+  lines OrderLine[]
+
+  @@map("fulfillments")
+}
+
+model OrderStatusHistory {
+  id          String   @id @default(uuid())
+  orderId     String
+  fromStatus  String?
+  toStatus    String
+  event       String?
+  actorUserId String?
+  actorRole   String?
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("order_status_history")
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  invoiceNumber String   @unique
+  pdfRef        String?
+  totals        Json?
+  issuedAt      DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("invoices")
+}
+
+// Shared reliable event-publishing table (outbox pattern) — used by all modules.
+model Outbox {
+  id            String    @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([publishedAt])
+  @@map("outbox")
+}

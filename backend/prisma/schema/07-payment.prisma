@@ -1,0 +1,347 @@
+// ============================================================================
+// Module 07 — Payment, Wallet & Settlement (double-entry ledger)
+// ============================================================================
+
+enum PaymentMethod {
+  CARD
+  TELEBIRR
+  BANK_TRANSFER
+  WALLET
+  COD
+  CROSS_BORDER
+}
+
+/// Payment lifecycle (`architecture/module-07-payment-wallet.md` §6). The Phase-0 placeholder
+/// enum carried `PENDING`/`CANCELLED`, which the approved §6 state machine does not define —
+/// they are replaced here by their §6 equivalents (`INITIATED`, and `VOIDED` for an authorization
+/// cancelled before capture), and `SETTLED`/`EXPIRED` are added (`20260908000000_module07_payment_
+/// ledger_foundation`). No row ever carried the old values: nothing in Modules 01-06 writes
+/// `payments` (Module 06's Slice-1 checkout is COD-only and leaves `Order.paymentId` null).
+enum PaymentStatus {
+  INITIATED
+  AUTHORIZED
+  CAPTURED
+  SETTLED
+  FAILED
+  VOIDED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  EXPIRED
+}
+
+enum LedgerAccountType {
+  CUSTOMER_WALLET
+  PROVIDER_PAYABLE
+  PLATFORM_REVENUE
+  GATEWAY_CLEARING
+  REFUNDS_PAYABLE
+  COD_CLEARING
+  FX_GAINLOSS
+  // Platform-funded promotion expense (ADR-019). A coupon discount is borne by the platform, so
+  // it is a real expense that must appear as its own debit leg rather than being netted out of
+  // PROVIDER_PAYABLE. Appended, never reordered: the values are persisted by name, but an enum's
+  // declaration order is its sort order in PostgreSQL.
+  PROMOTION_EXPENSE
+}
+
+enum LedgerTransactionType {
+  PAYMENT
+  CAPTURE
+  REFUND
+  WALLET_TOPUP
+  WALLET_SPEND
+  SETTLEMENT
+  FEE
+  ADJUSTMENT
+  FX
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum RefundType {
+  FULL
+  PARTIAL
+}
+
+enum RefundDestination {
+  ORIGINAL
+  WALLET
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  FAILED
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum RedemptionStatus {
+  APPLIED
+  REVERSED
+}
+
+enum SettlementStatus {
+  DRAFT
+  APPROVED
+  PAID
+  FAILED
+}
+
+enum FraudFlagStatus {
+  OPEN
+  CLEARED
+  CONFIRMED
+}
+
+model Payment {
+  id               String        @id @default(uuid())
+  orderId          String
+  customerUserId   String
+  method           PaymentMethod
+  status           PaymentStatus @default(INITIATED)
+  amount           Int
+  currency         String        @default("ETB")
+  originalAmount   Int?
+  originalCurrency String?
+  fxRate           Float?
+  fxSource         String?
+  provider         String?
+  providerRef      String?
+  providerToken    String?
+  idempotencyKey   String        @unique
+  authorizedAt     DateTime?
+  capturedAt       DateTime?
+  failureReason    String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  refunds    Refund[]
+  fraudFlags FraudFlag[]
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+model LedgerAccount {
+  id        String            @id @default(uuid())
+  type      LedgerAccountType
+  ownerId   String?
+  currency  String            @default("ETB")
+  createdAt DateTime          @default(now())
+
+  entries LedgerEntry[]
+  balance AccountBalance?
+
+  @@unique([type, ownerId, currency])
+  @@map("ledger_accounts")
+}
+
+model LedgerTransaction {
+  id          String                @id @default(uuid())
+  reference   String                @unique
+  type        LedgerTransactionType
+  refType     String?
+  refId       String?
+  description String?
+  createdAt   DateTime              @default(now())
+
+  entries LedgerEntry[]
+
+  @@map("ledger_transactions")
+}
+
+model LedgerEntry {
+  id            String          @id @default(uuid())
+  transactionId String
+  accountId     String
+  direction     LedgerDirection
+  amount        Int
+  currency      String          @default("ETB")
+  createdAt     DateTime        @default(now())
+
+  transaction LedgerTransaction @relation(fields: [transactionId], references: [id])
+  account     LedgerAccount     @relation(fields: [accountId], references: [id])
+
+  @@index([accountId])
+  @@index([transactionId])
+  @@map("ledger_entries")
+}
+
+model AccountBalance {
+  accountId String   @id
+  balance   Int      @default(0)
+  currency  String   @default("ETB")
+  updatedAt DateTime @updatedAt
+
+  account LedgerAccount @relation(fields: [accountId], references: [id])
+
+  @@map("account_balances")
+}
+
+model Refund {
+  id             String            @id @default(uuid())
+  paymentId      String
+  amount         Int
+  reason         String?
+  type           RefundType
+  destination    RefundDestination @default(ORIGINAL)
+  status         RefundStatus      @default(PENDING)
+  providerRef    String?
+  approvedBy     String?
+  idempotencyKey String            @unique
+  createdAt      DateTime          @default(now())
+  completedAt    DateTime?
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  /// Every refund decision reads "what has already been refunded against this payment"
+  /// (BRULE-24's over-refund invariant), so `paymentId` is the module's hottest refund lookup and
+  /// the one the over-refund check runs inside a `Serializable` transaction
+  /// (`20260909000000_module07_refunds`).
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+model Coupon {
+  id                String       @id @default(uuid())
+  code              String       @unique
+  discountType      DiscountType
+  value             Int
+  minSpend          Int?
+  maxDiscount       Int?
+  scope             Json?
+  startsAt          DateTime?
+  expiresAt         DateTime?
+  usageLimitGlobal  Int?
+  usageLimitPerUser Int?
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+
+  redemptions CouponRedemption[]
+
+  /// The admin list filters on `isActive` (§9.5's admin CRUD); `code` is already covered by its
+  /// own unique index, on the canonical upper-cased form (see `CouponCode`).
+  @@index([isActive])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id             String           @id @default(uuid())
+  couponId       String
+  userId         String
+  orderId        String
+  discountAmount Int
+  status         RedemptionStatus @default(APPLIED)
+  createdAt      DateTime         @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id])
+
+  /// F-CPN-02's two usage limits are both `COUNT(*) WHERE status = 'APPLIED'` over these rows —
+  /// there is no counter column, so these counts run on every validation and every application,
+  /// including inside the `Serializable` transaction that enforces the global limit
+  /// (`20260911000000_module07_coupons`).
+  @@unique([couponId, orderId])
+  @@index([couponId, status])
+  @@index([couponId, userId, status])
+  @@map("coupon_redemptions")
+}
+
+/// A provider's settlement statement for one period. Every figure is derived from the immutable
+/// ledger and never re-computed from order pricing (see `SettlementCalculator`).
+model Settlement {
+  id                    String           @id @default(uuid())
+  pharmacyId            String
+  periodStart           DateTime
+  periodEnd             DateTime
+  currency              String           @default("ETB")
+  /// Sum of the period's positive PROVIDER_PAYABLE movements.
+  grossAmount           Int
+  /// Platform commission on these postings. Reported beside the payable, never netted into it.
+  platformFeeTotal      Int
+  /// Platform-funded coupon expense (ADR-019). Reported, never applied to the payable.
+  promotionExpense      Int              @default(0)
+  /// Customer cash through GATEWAY_CLEARING. Context for reconciliation; not a payable figure.
+  customerCashCollected Int              @default(0)
+  refundClawback        Int              @default(0)
+  /// grossAmount - refundClawback. The only amount owed to the provider.
+  netAmount             Int
+  lineCount             Int              @default(0)
+  status                SettlementStatus @default(DRAFT)
+  statementRef          String?
+  paidAt                DateTime?
+  createdAt             DateTime         @default(now())
+
+  payoutLines PayoutLine[]
+
+  /// The idempotency key: one statement per provider, period and currency. A re-run replays this
+  /// row rather than creating a second (`20260913000000_module07_settlement`).
+  @@unique([pharmacyId, periodStart, periodEnd, currency])
+  @@index([pharmacyId, periodStart])
+  @@map("settlements")
+}
+
+/// One statement line: a single ledger posting, projected onto the four figures a statement shows
+/// separately. Deltas are signed, so a capture and the refund reversing it simply sum.
+model PayoutLine {
+  id                    String                @id @default(uuid())
+  settlementId          String
+  /// The posting this line reports — the line is fully reproducible from it.
+  ledgerTransactionId   String
+  /// CAPTURE-<paymentId> / REFUND-<refundId> (BRULE-25).
+  ledgerReference       String
+  transactionType       LedgerTransactionType
+  sourceRefType         String?
+  sourceRefId           String?
+  /// Nullable: labelling only. A line is derived from the ledger, never from the order.
+  orderId               String?
+  occurredAt            DateTime
+  currency              String                @default("ETB")
+  providerPayableDelta  Int
+  platformRevenueDelta  Int                   @default(0)
+  promotionExpenseDelta Int                   @default(0)
+  customerCashDelta     Int                   @default(0)
+  createdAt             DateTime              @default(now())
+
+  settlement Settlement @relation(fields: [settlementId], references: [id])
+
+  /// One line per posting per statement — the database's guard against a run double-counting a
+  /// single capture into the same statement.
+  @@unique([settlementId, ledgerTransactionId])
+  @@index([settlementId])
+  @@index([ledgerTransactionId])
+  @@map("payout_lines")
+}
+
+model ProviderWebhook {
+  id          String    @id @default(uuid())
+  provider    String
+  eventId     String
+  payload     Json
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([provider, eventId])
+  @@map("provider_webhooks")
+}
+
+model FraudFlag {
+  id        String          @id @default(uuid())
+  paymentId String
+  rule      String
+  severity  String?
+  details   Json?
+  status    FraudFlagStatus @default(OPEN)
+  createdAt DateTime        @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@map("fraud_flags")
+}

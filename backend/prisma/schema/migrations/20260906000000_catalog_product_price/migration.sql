@@ -1,0 +1,17 @@
+-- Module 06 — Checkout HTTP layer (backend/docs/06-orders-spec.md §5/§45/§69/§159/§197).
+-- The checkout saga prices every order line from a fresh `ICatalogPort.getProduct().price` read,
+-- and the spec describes that port as a direct read of Module 03's `Product` — but no price
+-- column had ever been added to `products`, leaving that contract unimplementable (Modules 04/05
+-- never noticed: their own `ICatalogPort` copies project only `status`/`rxClassification`).
+--
+-- Nullable, and deliberately not `DEFAULT 0`: a product nobody has priced is "not purchasable",
+-- not "free". Module 06's `ICatalogPort` adapter returns `null` for such a product, which routes
+-- it into the saga's existing `catalogProductUnavailable()` (`CATALOG_PRODUCT_NOT_FOUND`) branch —
+-- the same branch a non-`ACTIVE` product already takes. Nullable is also backfill-safe for the
+-- existing rows, mirroring `stock_reservations.idempotencyKey`
+-- (20260826000000_reservation_idempotency_key) and `stock_movements.reservationId`
+-- (20260827000000_stock_movement_reservation_id).
+--
+-- Integer minor units (ETB), per `00-shared-conventions.md` §11 — money is never a float.
+-- Distinct from `inventory_listings.price`, which remains the per-pharmacy selling price.
+ALTER TABLE "products" ADD COLUMN "price" INTEGER;

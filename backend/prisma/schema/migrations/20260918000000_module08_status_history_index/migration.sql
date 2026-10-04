@@ -1,0 +1,31 @@
+-- Module 08 — the delivery status workflow's one persistence need
+-- (architecture/module-08-delivery-tracking.md §3.3 F-STS-01, §8, §13).
+--
+-- The status workflow adds **no columns**. `delivery_jobs` already carries `picked_up_at` and
+-- `delivered_at` — the two physical timestamps §8 specifies — and `delivery_status_history`
+-- already records every transition with its own `created_at`, its actor and its coordinates. The
+-- workflow's job is to write those tables, not to extend them.
+--
+-- That is a deliberate decision about where the intermediate timestamps live, not an omission.
+-- Arrival at pickup, the start of the route, arrival at the doorstep and completion are all
+-- recorded — as history rows, which is the table §8 designates for exactly this and which the
+-- dispatch work already writes. Giving each of them a column on `delivery_jobs` as well would
+-- store the same fact in two places that can disagree, and there is no query that needs them
+-- denormalised: `picked_up_at` and `delivered_at` are columns because Module 06's order sync and
+-- the delivery SLA read them directly, and nothing reads the other four except a caller who wants
+-- the whole timeline, who is better served by the timeline itself.
+
+-- ---------------------------------------------------------------------------------------------
+-- One index, for one query that now exists.
+--
+-- `GetDeliveryJobStatusQuery` reads a job's transitions in order, which is what makes the
+-- intermediate timestamps above readable. Postgres does **not** index a foreign-key column
+-- automatically, so `delivery_status_history` has been reachable only by a sequential scan since
+-- Phase 0 — tolerable while nothing read it, and not tolerable now that a driver's app and an
+-- operator's console both will.
+--
+-- Composite with `createdAt` so the ordering comes from the index rather than from a sort: a
+-- job's history is always read whole and always in transition order.
+-- ---------------------------------------------------------------------------------------------
+CREATE INDEX "delivery_status_history_jobId_createdAt_idx"
+    ON "delivery_status_history"("jobId", "createdAt");

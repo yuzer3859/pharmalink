@@ -1,0 +1,19 @@
+// PharmaLink Ethiopia — Prisma schema (multi-file, schema-folder feature; requires Prisma >= 6).
+// Datasource + generator live here; each module has its own <NN>-<name>.prisma file.
+//
+// Conventions (see architecture/00-shared-conventions.md):
+//  - PKs: UUID (String @id @default(uuid())). App layer may issue UUID v7.
+//  - Money: integer minor units (Int) + currency string (ETB). Never floats for money.
+//  - Timestamps: createdAt / updatedAt; deletedAt for soft-delete where lifecycle applies.
+//  - Cross-module references: plain scalar UUID fields (NO relation) to preserve bounded-context
+//    isolation and enable future service extraction. Within-module: real Prisma relations.
+//  - Enum + model names are GLOBALLY unique across all files (Prisma merges them into one schema).
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}

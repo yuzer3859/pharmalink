@@ -1,0 +1,203 @@
+// ============================================================================
+// Module 03 — Catalog (canonical product master)
+// ============================================================================
+
+enum ProductType {
+  MEDICINE
+  HEALTH_PRODUCT
+}
+
+enum RxClassification {
+  RX
+  OTC
+}
+
+enum ControlledSchedule {
+  NONE
+  SCHEDULE_1
+  SCHEDULE_2
+  SCHEDULE_3
+  SCHEDULE_4
+  SCHEDULE_5
+  PROHIBITED
+}
+
+enum StorageRequirement {
+  AMBIENT
+  COLD_CHAIN
+  CONTROLLED_TEMP
+}
+
+enum ProductStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  DEPRECATED
+  DELISTED
+}
+
+enum CategoryAppliesTo {
+  MEDICINE
+  HEALTH_PRODUCT
+  BOTH
+}
+
+enum ProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MERGED
+}
+
+model Manufacturer {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  country   String?
+  status    String?
+  createdAt DateTime @default(now())
+
+  products Product[]
+
+  @@map("manufacturers")
+}
+
+model Product {
+  id                   String             @id @default(uuid())
+  type                 ProductType
+  genericName          String?
+  brandName            String?
+  manufacturerId       String?
+  dosageForm           String?
+  strengthValue        Float?
+  strengthUnit         String?
+  packSize             String?
+  atcCode              String?
+  rxClassification     RxClassification?
+  controlledSchedule   ControlledSchedule @default(NONE)
+  onlineSaleProhibited Boolean            @default(false)
+  storageRequirement   StorageRequirement @default(AMBIENT)
+  equivalenceGroupId   String?
+  nameAm               String?
+  nameEn               String?
+  descriptionAm        String?
+  descriptionEn        String?
+  warnings             String?
+  // Platform reference price in ETB minor units (`00-shared-conventions.md` §11 — never a float).
+  // Nullable on purpose: `06-orders-spec.md` §45/§69/§159/§197 specify checkout pricing as a fresh
+  // read of "real Module 03 prices" via `ICatalogPort.getProduct().price`, but no price column had
+  // been added to this model, so that contract was unimplementable. A `null` price means "not
+  // priced, therefore not purchasable" — Module 06's own `ICatalogPort` adapter returns `null` for
+  // such a product and the checkout saga's existing `catalogProductUnavailable()` path rejects it,
+  // rather than a `@default(0)` silently placing free orders. Distinct from
+  // `InventoryListing.price` (Module 04), which remains the per-pharmacy selling price.
+  price                Int?
+  status               ProductStatus      @default(DRAFT)
+  createdBy            String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  deletedAt            DateTime?
+
+  manufacturer     Manufacturer?       @relation(fields: [manufacturerId], references: [id])
+  equivalenceGroup EquivalenceGroup?   @relation(fields: [equivalenceGroupId], references: [id])
+  categories       ProductCategory[]
+  ingredients      ProductIngredient[]
+  images           ProductImage[]
+  tags             ProductTag[]
+
+  @@index([genericName])
+  @@map("products")
+}
+
+model Category {
+  id        String            @id @default(uuid())
+  parentId  String?
+  slug      String            @unique
+  nameAm    String?
+  nameEn    String?
+  appliesTo CategoryAppliesTo @default(BOTH)
+  sortOrder Int               @default(0)
+  isActive  Boolean           @default(true)
+
+  parent   Category?         @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[]        @relation("CategoryTree")
+  products ProductCategory[]
+
+  @@map("categories")
+}
+
+model ProductCategory {
+  productId  String
+  categoryId String
+  product    Product  @relation(fields: [productId], references: [id])
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@id([productId, categoryId])
+  @@map("product_categories")
+}
+
+model ProductIngredient {
+  id             String  @id @default(uuid())
+  productId      String
+  ingredientName String
+  amountValue    Float?
+  amountUnit     String?
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("product_ingredients")
+}
+
+model ProductImage {
+  id        String  @id @default(uuid())
+  productId String
+  url       String
+  isPrimary Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("product_images")
+}
+
+model EquivalenceGroup {
+  id            String   @id @default(uuid())
+  genericName   String
+  strengthValue Float?
+  strengthUnit  String?
+  dosageForm    String?
+  atcCode       String?
+  createdAt     DateTime @default(now())
+
+  products Product[]
+
+  @@map("equivalence_groups")
+}
+
+model ProductTag {
+  id        String  @id @default(uuid())
+  productId String
+  tag       String
+  locale    String?
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("product_tags")
+}
+
+model ProductProposal {
+  id                  String         @id @default(uuid())
+  submittedByUserId   String
+  organizationId      String
+  payload             Json
+  status              ProposalStatus @default(PENDING)
+  mergedIntoProductId String?
+  reviewerId          String?
+  rejectReason        String?
+  submittedAt         DateTime       @default(now())
+  reviewedAt          DateTime?
+
+  @@map("product_proposals")
+}
+
+// Note: catalog_search_view is a DB materialized view consolidated into Module 14
+// (product_search_docs). It is not modeled as a Prisma table here.

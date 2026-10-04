@@ -1,0 +1,144 @@
+// ============================================================================
+// Module 09 — Provider Directory (hospitals, clinics, diagnostic centers, labs)
+// ============================================================================
+
+enum ProviderType {
+  HOSPITAL
+  CLINIC
+  DIAGNOSTIC_CENTER
+  LAB
+}
+
+enum EmergencyAvailability {
+  NONE
+  BUSINESS_HOURS
+  H24_7
+}
+
+enum ServiceOfferingType {
+  LAB_TEST
+  IMAGING
+  SCREENING_PACKAGE
+}
+
+model HealthcareProvider {
+  id                String            @id @default(uuid())
+  organizationId    String            @unique
+  type              ProviderType
+  displayName       String
+  logoUrl           String?
+  description       String?
+  website           String?
+  contactPhone      String?
+  contactEmail      String?
+  transactingStatus TransactingStatus @default(PENDING)
+  licenseStatus     LicenseStatus     @default(VALID)
+  licenseExpiresAt  DateTime?
+  ratingAvg         Float             @default(0)
+  ratingCount       Int               @default(0)
+  nameAm            String?
+  nameEn            String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+
+  locations        ProviderLocation[]
+  departments      Department[]
+  serviceOfferings ServiceOffering[]
+
+  @@map("healthcare_providers")
+}
+
+model ProviderLocation {
+  id                    String                @id @default(uuid())
+  providerId            String
+  name                  String
+  region                String?
+  city                  String?
+  subcity               String?
+  woreda                String?
+  addressLine           String?
+  lat                   Float?
+  lng                   Float?
+  phone                 String?
+  emergencyAvailability EmergencyAvailability @default(NONE)
+  isPrimary             Boolean               @default(false)
+  isActive              Boolean               @default(true)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  deletedAt             DateTime?
+
+  provider         HealthcareProvider      @relation(fields: [providerId], references: [id])
+  operatingHours   LocationOperatingHour[]
+  facilities       LocationFacility[]
+  serviceOfferings ServiceOffering[]
+
+  @@index([lat, lng])
+  @@map("provider_locations")
+}
+
+model LocationOperatingHour {
+  id         String  @id @default(uuid())
+  locationId String
+  weekday    Int
+  openTime   String?
+  closeTime  String?
+  isClosed   Boolean @default(false)
+
+  location ProviderLocation @relation(fields: [locationId], references: [id])
+
+  @@map("location_operating_hours")
+}
+
+model LocationFacility {
+  id         String  @id @default(uuid())
+  locationId String
+  facility   String
+  notes      String?
+
+  location ProviderLocation @relation(fields: [locationId], references: [id])
+
+  @@map("location_facilities")
+}
+
+model Department {
+  id           String   @id @default(uuid())
+  providerId   String
+  name         String
+  specialty    String?
+  description  String?
+  contactPhone String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  provider          HealthcareProvider @relation(fields: [providerId], references: [id])
+  departmentDoctors DepartmentDoctor[]
+
+  @@map("departments")
+}
+
+model ServiceOffering {
+  id                      String              @id @default(uuid())
+  providerId              String
+  locationId              String?
+  type                    ServiceOfferingType
+  name                    String
+  code                    String?
+  description             String?
+  price                   Int?
+  currency                String              @default("ETB")
+  durationMinutes         Int?
+  preparationInstructions String?
+  attributes              Json?
+  isAvailable             Boolean             @default(true)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  provider HealthcareProvider @relation(fields: [providerId], references: [id])
+  location ProviderLocation?  @relation(fields: [locationId], references: [id])
+
+  @@map("service_offerings")
+}
+
+// Note: provider_search_view is a DB materialized view consolidated into Module 14
+// (provider_search_docs). Not modeled as a Prisma table here.

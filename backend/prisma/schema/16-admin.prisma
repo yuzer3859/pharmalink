@@ -1,0 +1,259 @@
+// ============================================================================
+// Module 16 — Admin Platform & Control Plane
+// (thin orchestration layer; maker-checker; hash-chained tamper-evident audit)
+// ============================================================================
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum ApprovalEntityType {
+  PHARMACY_VERIFICATION
+  PROVIDER_VERIFICATION
+  DOCTOR_VERIFICATION
+  PRODUCT_PROPOSAL
+  REFUND
+  PAYOUT
+  ROLE_GRANT
+  CONTENT_TAKEDOWN
+  CONFIG_CHANGE
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+  ESCALATED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum FeatureFlagStatus {
+  ENABLED
+  DISABLED
+  PARTIAL
+}
+
+enum AnnouncementAudience {
+  ALL
+  CUSTOMERS
+  PHARMACIES
+  PROVIDERS
+  DOCTORS
+  DRIVERS
+}
+
+// Maker-checker approval requests routed to admins.
+model ApprovalRequest {
+  id                String             @id @default(uuid())
+  entityType        ApprovalEntityType
+  entityId          String
+  requestedByUserId String
+  assignedToUserId  String?
+  status            ApprovalStatus     @default(PENDING)
+  payload           Json?
+  decisionNote      String?
+  decidedByUserId   String?
+  decidedAt         DateTime?
+  expiresAt         DateTime?
+  createdAt         DateTime           @default(now())
+
+  @@index([status, entityType])
+  @@map("approval_requests")
+}
+
+// Hash-chained, append-only tamper-evident audit trail for privileged actions.
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  sequence     BigInt   @default(autoincrement())
+  actorUserId  String
+  actorRole    String?
+  action       String
+  targetModule String?
+  targetType   String?
+  targetId     String?
+  before       Json?
+  after        Json?
+  ipAddress    String?
+  userAgent    String?
+  prevHash     String?
+  entryHash    String
+  createdAt    DateTime @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([targetModule, targetId])
+  @@map("admin_audit_logs")
+}
+
+model SupportTicket {
+  id               String         @id @default(uuid())
+  ticketNumber     String         @unique
+  requesterUserId  String
+  subject          String
+  category         String?
+  status           TicketStatus   @default(OPEN)
+  priority         TicketPriority @default(MEDIUM)
+  assignedToUserId String?
+  relatedModule    String?
+  relatedEntityId  String?
+  slaDueAt         DateTime?
+  resolvedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  messages TicketMessage[]
+
+  @@index([status, priority])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id            String   @id @default(uuid())
+  ticketId      String
+  senderUserId  String
+  isInternal    Boolean  @default(false)
+  body          String
+  attachmentRef String?
+  createdAt     DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id])
+
+  @@map("ticket_messages")
+}
+
+model FeatureFlag {
+  id              String            @id @default(uuid())
+  key             String            @unique
+  description     String?
+  status          FeatureFlagStatus @default(DISABLED)
+  rolloutPercent  Int               @default(0)
+  targetRules     Json?
+  updatedByUserId String?
+  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime          @default(now())
+
+  @@map("feature_flags")
+}
+
+/// **Superseded by `PlatformConfig`, and unused.** Phase 0 scaffolded this table; nothing has ever
+/// read or written it. It cannot express what the module-16 design §8 requires: `key` is globally
+/// unique and `version` is a counter on a mutable row, so an update overwrites the value that was
+/// in force and the history the design calls for does not survive. `platform_configs` below keeps
+/// one immutable row per version instead. The table is left in place rather than dropped — it holds
+/// no rows, and dropping a table is a destructive migration that buys nothing here.
+model SystemConfig {
+  id              String   @id @default(uuid())
+  key             String   @unique
+  value           Json
+  category        String?
+  description     String?
+  isSensitive     Boolean  @default(false)
+  updatedByUserId String?
+  version         Int      @default(1)
+  updatedAt       DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+/// The value types `PlatformConfig` can carry (module-16 §5.2's `ConfigValue`).
+///
+/// Exactly the five the repository's own configuration actually uses, and no more: every key in
+/// `ConfigCatalogue` is one of these today. A type nothing declares would be a shape the validator
+/// could never be exercised against.
+enum ConfigValueType {
+  BOOLEAN
+  INTEGER
+  DECIMAL
+  STRING
+  JSON
+}
+
+/// One **immutable version** of one platform configuration value (module-16 §5.1, §8).
+///
+/// ## Why a row per version rather than a row per key
+///
+/// A configuration change is a governance event: somebody with `config:manage:global` decided that
+/// the platform should behave differently from a named moment. Overwriting the previous value
+/// destroys the answer to "what was the fee when this order was priced?", which is the question an
+/// audit actually asks. So an update **inserts** `version + 1` and flips which row is active;
+/// nothing ever rewrites a historical row, and there is no delete anywhere in the repository for
+/// this model.
+///
+/// Rollback follows the same rule — it writes a *new* version carrying an older version's value
+/// (§8 of the work brief), so `v1 → v2 → v3 → v4(=v1)` reads as the sequence of decisions that were
+/// actually taken rather than as history being edited.
+model PlatformConfig {
+  id        String          @id @default(uuid())
+  /// The owning module's config namespace — `orders`, `delivery`. Together with `key` this is the
+  /// dotted path feature modules already read through `IConfigPort` (`orders.platformFeePercent`).
+  namespace String
+  key       String
+  /// The typed value, stored as JSON so an integer stays an integer and a boolean stays a boolean.
+  /// A `String`-typed column would make every read a parse and every write a chance to store "true"
+  /// where `true` was meant.
+  value     Json
+  valueType ConfigValueType
+  /// 1 for the first version of a key, incrementing thereafter. Never reused, never renumbered.
+  version   Int
+  /// Exactly one version per (namespace, key) may carry `true` — enforced by a partial unique index
+  /// rather than by application code, because "the platform has two different active fees" is not a
+  /// state any amount of careful code should be trusted to prevent alone.
+  isActive  Boolean         @default(false)
+  /// Why the change was made, where the operator supplied one. Free text; never a secret.
+  reason    String?
+  /// `users.id` of the administrator who published this version. A scalar reference across a module
+  /// boundary (ADR-002), never a Prisma relation into Module 01.
+  updatedBy String
+  createdAt DateTime        @default(now())
+
+  /// "Show me the history of this setting" — the ordering the audit reads.
+  @@unique([namespace, key, version])
+  /// "What is in force right now?" — the lookup the effective-config snapshot runs on every refresh.
+  @@index([namespace, key, isActive])
+  @@index([updatedBy, createdAt])
+  /// A partial unique index over (namespace, key) WHERE isActive guarantees the single-active-version
+  /// invariant. Prisma cannot express a partial index, so it is raw SQL in
+  /// `20260925000000_module16_platform_config` — the same position `job_offers_one_live_per_job` and
+  /// `cod_disputes_one_open_per_collection` take.
+  @@map("platform_configs")
+}
+
+model Announcement {
+  id              String               @id @default(uuid())
+  title           String
+  body            String
+  audience        AnnouncementAudience @default(ALL)
+  isActive        Boolean              @default(true)
+  publishAt       DateTime?
+  expiresAt       DateTime?
+  createdByUserId String?
+  createdAt       DateTime             @default(now())
+
+  @@map("announcements")
+}
+
+// Read-model snapshots powering admin dashboards (populated by projections/jobs).
+model DashboardMetric {
+  id          String   @id @default(uuid())
+  metricKey   String
+  dimension   String?
+  value       Float
+  windowStart DateTime
+  windowEnd   DateTime
+  computedAt  DateTime @default(now())
+
+  @@unique([metricKey, dimension, windowStart])
+  @@index([metricKey, windowStart])
+  @@map("dashboard_metrics")
+}

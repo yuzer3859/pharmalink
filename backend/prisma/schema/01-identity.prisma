@@ -1,0 +1,354 @@
+// ============================================================================
+// Module 01 — Identity & Authentication
+// ============================================================================
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  DELETED
+  PENDING_APPROVAL
+  REJECTED
+}
+
+enum PrimaryRole {
+  CUSTOMER
+  PHARMACY_OWNER
+  PHARMACY_MANAGER
+  PHARMACIST
+  CASHIER
+  INVENTORY_STAFF
+  DOCTOR
+  DRIVER
+  HOSPITAL_ADMIN
+  DIAGNOSTIC_CENTER_ADMIN
+  LAB_STAFF
+  CUSTOMER_SUPPORT
+  FINANCE_OFFICER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PreferredLanguage {
+  am
+  en
+}
+
+enum OrganizationType {
+  PHARMACY
+  HOSPITAL
+  CLINIC
+  LAB
+}
+
+enum OrgStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum RoleScope {
+  PLATFORM
+  ORG
+  INDIVIDUAL
+}
+
+enum PermissionScope {
+  own
+  org
+  any
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum OtpPurpose {
+  REGISTER
+  LOGIN
+  RESET
+  STEP_UP
+}
+
+enum LoginOutcome {
+  SUCCESS
+  FAILED
+  LOCKED
+  MFA_REQUIRED
+}
+
+enum VerificationType {
+  FAYDA
+  PHARMACY_LICENSE
+  DRIVER_DOCS
+  DOCTOR_LICENSE
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum ConsentType {
+  DATA_PROCESSING
+  HEALTH_DATA_SHARING
+  MARKETING
+  BENEFICIARY_DATA_MGMT
+}
+
+model User {
+  id                  String            @id @default(uuid())
+  phone               String?           @unique
+  email               String?           @unique
+  passwordHash        String?
+  primaryRole         PrimaryRole
+  status              UserStatus        @default(PENDING_VERIFICATION)
+  preferredLanguage   PreferredLanguage @default(en)
+  phoneVerifiedAt     DateTime?
+  emailVerifiedAt     DateTime?
+  faydaVerifiedAt     DateTime?
+  guardianId          String?
+  guardian            User?             @relation("GuardianMinors", fields: [guardianId], references: [id])
+  minors              User[]            @relation("GuardianMinors")
+  permVersion         Int               @default(1)
+  // Data-deletion request (NFR-PRIV-04): starts the retention grace period. `deletedAt` is only
+  // set once the scheduled purge actually erases the record (§4 "soft-delete + scheduled purge").
+  deletionRequestedAt DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  deletedAt           DateTime?
+
+  ownedOrganizations    Organization[]        @relation("OrgOwner")
+  userRoles             UserRole[]            @relation("UserRoleUser")
+  assignedRoles         UserRole[]            @relation("UserRoleAssigner")
+  sessions              Session[]
+  refreshTokens         RefreshToken[]
+  devices               Device[]
+  otps                  Otp[]
+  loginHistory          LoginHistory[]
+  verificationRequests  VerificationRequest[] @relation("VerificationSubject")
+  reviewedVerifications VerificationRequest[] @relation("VerificationReviewer")
+  consents              Consent[]
+
+  @@map("users")
+}
+
+model Organization {
+  id               String           @id @default(uuid())
+  type             OrganizationType
+  name             String
+  status           OrgStatus        @default(PENDING_APPROVAL)
+  ownerUserId      String
+  owner            User             @relation("OrgOwner", fields: [ownerUserId], references: [id])
+  licenseNumber    String?
+  licenseExpiresAt DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  userRoles UserRole[]
+
+  @@map("organizations")
+}
+
+model Role {
+  id          String    @id @default(uuid())
+  key         String    @unique
+  name        String
+  scope       RoleScope
+  isSystem    Boolean   @default(false)
+  description String?
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  resource    String
+  action      String
+  scope       PermissionScope?
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id             String   @id @default(uuid())
+  userId         String
+  roleId         String
+  organizationId String?
+  assignedBy     String?
+  createdAt      DateTime @default(now())
+
+  user         User          @relation("UserRoleUser", fields: [userId], references: [id])
+  role         Role          @relation(fields: [roleId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  assigner     User?         @relation("UserRoleAssigner", fields: [assignedBy], references: [id])
+
+  @@unique([userId, roleId, organizationId])
+  @@map("user_roles")
+}
+
+model Session {
+  id         String    @id @default(uuid())
+  userId     String
+  deviceId   String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  user   User    @relation(fields: [userId], references: [id])
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  deviceId   String?
+  tokenHash  String    @unique
+  familyId   String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  revokedAt  DateTime?
+  replacedBy String?   @unique
+  createdAt  DateTime  @default(now())
+
+  user        User          @relation(fields: [userId], references: [id])
+  device      Device?       @relation(fields: [deviceId], references: [id])
+  replaced    RefreshToken? @relation("TokenRotation", fields: [replacedBy], references: [id])
+  predecessor RefreshToken? @relation("TokenRotation")
+
+  @@map("refresh_tokens")
+}
+
+model Device {
+  id          String         @id @default(uuid())
+  userId      String
+  fingerprint String
+  name        String?
+  platform    DevicePlatform
+  fcmToken    String?
+  isTrusted   Boolean        @default(false)
+  lastLoginAt DateTime?
+  createdAt   DateTime       @default(now())
+  revokedAt   DateTime?
+
+  user          User           @relation(fields: [userId], references: [id])
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+  loginHistory  LoginHistory[]
+
+  @@map("devices")
+}
+
+model Otp {
+  id         String     @id @default(uuid())
+  userId     String?
+  identifier String
+  purpose    OtpPurpose
+  codeHash   String
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("otps")
+}
+
+model LoginHistory {
+  id            String       @id @default(uuid())
+  userId        String?
+  identifier    String
+  deviceId      String?
+  ip            String?
+  userAgent     String?
+  outcome       LoginOutcome
+  failureReason String?
+  createdAt     DateTime     @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id])
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@map("login_history")
+}
+
+model VerificationRequest {
+  id               String             @id @default(uuid())
+  userId           String
+  organizationId   String?
+  type             VerificationType
+  status           VerificationStatus @default(PENDING)
+  faydaIdEncrypted String?
+  documents        Json?
+  reviewerId       String?
+  rejectReason     String?
+  submittedAt      DateTime           @default(now())
+  reviewedAt       DateTime?
+  expiresAt        DateTime?
+
+  user     User  @relation("VerificationSubject", fields: [userId], references: [id])
+  reviewer User? @relation("VerificationReviewer", fields: [reviewerId], references: [id])
+
+  @@map("verification_requests")
+}
+
+// Immutable, hash-chained audit log (append-only). Shared by all modules.
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorUserId  String?
+  action       String
+  resourceType String
+  resourceId   String?
+  context      Json?
+  ip           String?
+  prevHash     String?
+  hash         String
+  createdAt    DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
+
+// Privacy consent records. Shared with Module 02 (health-consent types in ConsentType).
+model Consent {
+  id        String      @id @default(uuid())
+  userId    String
+  type      ConsentType
+  granted   Boolean
+  version   String
+  createdAt DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("consents")
+}

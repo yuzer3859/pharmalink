@@ -1,0 +1,24 @@
+-- Module 05 — Prescription & Matching, Slice 1 additive compatibility correction
+-- (backend/docs/05-prescription-matching-spec.md §3.11 invariant 8, §8.4, §16 edge case 5).
+--
+-- Finding: the spec's `MatchRequest.status` state machine (§3.11 invariant 8) is explicit that
+-- "MatchRequest.status transitions only PENDING -> MATCHED, MATCHED -> REMATCHING -> MATCHED, or
+-- -> FAILED (terminal, no candidates left)" — i.e. `REMATCHING` is a real, named status a
+-- `MatchRequest` passes through while `RematchCommand` releases the declined pharmacy's
+-- reservation and re-ranks the remaining candidates (§8.4). §16 edge case 5 reinforces this:
+-- "RematchCommand called on a MATCHED (not REMATCHING) request -> Allowed — transitions
+-- MATCHED -> REMATCHING internally before re-ranking." The actual, already-approved Prisma
+-- `MatchStatus` enum never included this value (`PENDING | MATCHED | PARTIAL | FAILED` only) —
+-- confirmed genuine code/spec drift while implementing the Module 05 domain foundation's
+-- match-status transition policy, the same class of gap `20260827010000_...` already fixed once
+-- for `PrescriptionStatus.CONSUMED`.
+--
+-- This is a pure additive compatibility correction (ADR-003/`00-domain-event-catalog.md` §3 rule
+-- 1, "additive evolution only") — safe, no data migration needed for existing rows (there are
+-- none yet, Module 05 is unimplemented). No workaround (repurposing `PARTIAL`, a string column,
+-- or collapsing `REMATCHING` into `MATCHED`) is used — the spec treats `REMATCHING` as a genuine,
+-- named state, so it is represented as a genuine Postgres enum value, exactly like `CONSUMED`
+-- was. This migration touches only the `MatchStatus` enum — no other Module 05 (or Module 01-04)
+-- schema/data is affected.
+-- AlterEnum
+ALTER TYPE "MatchStatus" ADD VALUE 'REMATCHING';
