@@ -499,7 +499,7 @@ describe('In-app notification center (e2e)', () => {
       }
     });
 
-    it('Module 13 reaches other modules only through Module 01’s language port, Module 06’s recipient port, the event contracts and @CurrentUser', () => {
+    it('Module 13 reaches other modules only through Module 01’s language port, Module 06’s and 07’s recipient ports, the event contracts and @CurrentUser', () => {
       const imports = new Set<string>();
       for (const file of sources()) {
         for (const m of readFileSync(file, 'utf8').matchAll(/from '((?:\.\.\/)+(?!shared\/)[^.'][^']*)'/g)) {
@@ -517,6 +517,9 @@ describe('In-app notification center (e2e)', () => {
         'orders/application/ports/inbound/order-recipient-read.port',
         'orders/domain/events',
         'orders/orders.module',
+        'payment/application/ports/inbound/payment-recipient-read.port',
+        'payment/domain/events',
+        'payment/payment.module',
       ]);
     });
   });

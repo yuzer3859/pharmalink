@@ -9,6 +9,12 @@ import type {
   OrderPlacedPayload,
   OrderReadyPayload,
 } from '../../../orders/domain/events';
+import type {
+  PaymentCapturedPayload,
+  PaymentFailedPayload,
+  PaymentRefundedPayload,
+} from '../../../payment/domain/events';
+import type { PaymentRecipientView } from '../../../payment/application/ports/inbound/payment-recipient-read.port';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** What one event asks Module 13 to tell one recipient. */
@@ -100,6 +106,37 @@ export const OrderLifecycleNotifications = {
     recipientUserId: customerUserId,
     templateCode: NotificationTemplateCode.ORDER_CANCELLED,
     data: { orderId: p.orderId, reason: p.reason ?? null },
+  }),
+};
+
+/**
+ * Event → notification for the payment events (module-13 Work 03). `payment.captured` and
+ * `payment.failed` carry the `orderId`, so their recipient is the order's customer from Module 06's
+ * `ORDER_RECIPIENT_READ_PORT`; `payment.refunded` carries only the `paymentId`, so its recipient,
+ * order and currency come from Module 07's `PAYMENT_RECIPIENT_READ_PORT`.
+ *
+ * Not kept: `fee` (the platform's commission on the capture — the platform's accounting, not the
+ * customer's), and anything a payment row holds beyond the view above. `reason` on a failure is
+ * kept: Module 07 defines it as a sanitized, customer-safe sentence and already returns it to the
+ * customer on `GET /payments/:id`.
+ */
+export const PaymentNotifications = {
+  paymentCaptured: (p: PaymentCapturedPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.PAYMENT_CAPTURED,
+    data: { paymentId: p.paymentId, orderId: p.orderId },
+  }),
+
+  paymentFailed: (p: PaymentFailedPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.PAYMENT_FAILED,
+    data: { paymentId: p.paymentId, orderId: p.orderId, reason: p.reason ?? null },
+  }),
+
+  paymentRefunded: (p: PaymentRefundedPayload, payment: PaymentRecipientView): NotificationIntent => ({
+    recipientUserId: payment.customerUserId,
+    templateCode: NotificationTemplateCode.PAYMENT_REFUNDED,
+    data: { paymentId: p.paymentId, orderId: payment.orderId, amount: p.amount, currency: payment.currency },
   }),
 };
 

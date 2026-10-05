@@ -24,6 +24,8 @@ import {
   FinanceOversightPortAdapter,
   FINANCE_OVERSIGHT_PORT,
 } from './application/ports/inbound/finance-oversight.port';
+import { PAYMENT_RECIPIENT_READ_PORT } from './application/ports/inbound/payment-recipient-read.port';
+import { PrismaPaymentRecipientReadAdapter } from './infrastructure/persistence/prisma-payment-recipient-read.adapter';
 import { RunSettlementCommand } from './application/commands/run-settlement.command';
 import {
   GetSettlementQuery,
@@ -153,6 +155,9 @@ import { WalletController } from './interface/controllers/wallet.controller';
  * It holds no command. Every mutation — capture, void, refund, settlement run — keeps its own
  * route and permission in this module.
  *
+ * `PAYMENT_RECIPIENT_READ_PORT` (module-13 Work 03) answers one question for Module 13's refund
+ * notification: whose payment this is, with its `orderId` and `currency`. Nothing else crosses it.
+ *
  * Deliberately absent, each belonging to its own later task: the bank/card/cross-border adapters,
  * the real Telebirr protocol, `IProviderStatusPort` lookup adapters, the scheduled reconciliation
  * sweeper, wallet holds (§3.3 F-WAL-03 names them but the design defines no hold model — see
@@ -274,7 +279,14 @@ import { WalletController } from './interface/controllers/wallet.controller';
     { provide: WALLET_PORT, useClass: WalletPortAdapter },
     { provide: COUPON_PORT, useClass: CouponPortAdapter },
     { provide: FINANCE_OVERSIGHT_PORT, useClass: FinanceOversightPortAdapter },
+    { provide: PAYMENT_RECIPIENT_READ_PORT, useClass: PrismaPaymentRecipientReadAdapter },
   ],
-  exports: [PAYMENT_AUTHORIZATION_PORT, WALLET_PORT, COUPON_PORT, FINANCE_OVERSIGHT_PORT],
+  exports: [
+    PAYMENT_AUTHORIZATION_PORT,
+    WALLET_PORT,
+    COUPON_PORT,
+    FINANCE_OVERSIGHT_PORT,
+    PAYMENT_RECIPIENT_READ_PORT,
+  ],
 })
 export class PaymentModule {}

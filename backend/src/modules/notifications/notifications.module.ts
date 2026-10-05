@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
 import { OrdersModule } from '../orders/orders.module';
+import { PaymentModule } from '../payment/payment.module';
 import { MarkAllNotificationsReadCommand } from './application/commands/mark-all-notifications-read.command';
 import { MarkNotificationReadCommand } from './application/commands/mark-notification-read.command';
 import { RecordNotificationCommand } from './application/commands/record-notification.command';
 import { RecordOrderNotificationCommand } from './application/commands/record-order-notification.command';
+import { RecordPaymentNotificationCommand } from './application/commands/record-payment-notification.command';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
 import { NOTIFICATION_REPOSITORY } from './domain/repositories/notification.repository';
@@ -14,7 +16,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
 
 /**
  * Module 13 — Notifications & Communication. Work 01: the in-app notification center. Work 02:
- * customer notifications for the order lifecycle (accepted, ready, cancelled).
+ * customer notifications for the order lifecycle (accepted, ready, cancelled). Work 03: customer
+ * notifications for payments (captured, failed, refunded).
  *
  * ## What it owns
  *
@@ -38,10 +41,17 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *         ├─ ORDER_RECIPIENT_READ_PORT (Module 06: the order's customerUserId; unknown → skip + warn)
  *         └─→ RecordNotificationCommand (as above)
  *
- * The event contracts (`identity/domain/events`, `orders/domain/events`), Module 01's language
- * port and Module 06's recipient port are the only things it takes from other modules;
- * `IdentityModule` is imported for the language port and `@CurrentUser`, `OrdersModule` for the
- * recipient port.
+ * Work 03: `payment.captured` and `payment.failed` name the order and take the same path;
+ * `payment.refunded` names only the payment:
+ *
+ *     payment.refunded ─→ RecordPaymentNotificationCommand
+ *         ├─ PAYMENT_RECIPIENT_READ_PORT (Module 07: customerUserId, orderId, currency; unknown → skip + warn)
+ *         └─→ RecordNotificationCommand (as above)
+ *
+ * The event contracts (`identity/domain/events`, `orders/domain/events`, `payment/domain/events`),
+ * Module 01's language port, Module 06's and Module 07's recipient ports are the only things it
+ * takes from other modules; `IdentityModule` is imported for the language port and
+ * `@CurrentUser`, `OrdersModule` and `PaymentModule` for their recipient ports.
  *
  * ## Known limitation — consumer failures are not retried
  *
@@ -54,17 +64,18 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * Push, SMS and email (no provider contract exists), BullMQ and a DLQ, preferences and quiet
  * hours, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
- * notification routes, and the events whose recipient lookup has no contract yet — payment,
- * delivery, prescription, matching, pharmacy and driver events.
+ * notification routes, and the events whose recipient lookup has no contract yet — delivery,
+ * prescription, matching, pharmacy, driver and wallet events.
  */
 @Module({
-  imports: [IdentityModule, OrdersModule],
+  imports: [IdentityModule, OrdersModule, PaymentModule],
   controllers: [NotificationsController],
   providers: [
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
 
     RecordNotificationCommand,
     RecordOrderNotificationCommand,
+    RecordPaymentNotificationCommand,
     MarkNotificationReadCommand,
     MarkAllNotificationsReadCommand,
     ListNotificationsQuery,

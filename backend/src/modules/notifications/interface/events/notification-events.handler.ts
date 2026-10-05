@@ -14,19 +14,30 @@ import {
   OrderReadyPayload,
   OrdersEventType,
 } from '../../../orders/domain/events';
+import {
+  PaymentCapturedPayload,
+  PaymentEventType,
+  PaymentFailedPayload,
+  PaymentRefundedPayload,
+} from '../../../payment/domain/events';
+import type { PaymentRecipientView } from '../../../payment/application/ports/inbound/payment-recipient-read.port';
 import { RecordOrderNotificationCommand } from '../../application/commands/record-order-notification.command';
+import { RecordPaymentNotificationCommand } from '../../application/commands/record-payment-notification.command';
 import { RecordNotificationCommand } from '../../application/commands/record-notification.command';
 import {
   EventNotifications,
   NotificationIntent,
   OrderLifecycleNotifications,
+  PaymentNotifications,
 } from '../../application/support/event-notifications';
 
 /**
  * Module 13's consumers on the shared event bus. Work 01: six events, each naming its recipient
  * in its own payload. Work 02: `order.accepted`, `order.ready` and `order.cancelled`, which name
  * the order only — their recipient is the order's customer, asked of Module 06 through
- * `RecordOrderNotificationCommand`.
+ * `RecordOrderNotificationCommand`. Work 03: `payment.captured` and `payment.failed` (which name the
+ * order, so the same path) and `payment.refunded` (which names the payment only — its customer
+ * is asked of Module 07 through `RecordPaymentNotificationCommand`).
  *
  * At-least-once, as the bus is (ADR-010): the outbox relay can deliver an event twice, and
  * `RecordNotificationCommand` writes at most one row per event per recipient. A handler that
@@ -39,6 +50,7 @@ export class NotificationEventsHandler implements OnModuleInit {
     @Inject(EVENT_BUS) private readonly bus: IEventBus,
     private readonly record: RecordNotificationCommand,
     private readonly recordForOrder: RecordOrderNotificationCommand,
+    private readonly recordForPayment: RecordPaymentNotificationCommand,
   ) {}
 
   onModuleInit(): void {
@@ -52,6 +64,10 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.onOrder<OrderAcceptedPayload>(OrdersEventType.OrderAccepted, OrderLifecycleNotifications.orderAccepted);
     this.onOrder<OrderReadyPayload>(OrdersEventType.OrderReady, OrderLifecycleNotifications.orderReady);
     this.onOrder<OrderCancelledPayload>(OrdersEventType.OrderCancelled, OrderLifecycleNotifications.orderCancelled);
+
+    this.onOrder<PaymentCapturedPayload>(PaymentEventType.PaymentCaptured, PaymentNotifications.paymentCaptured);
+    this.onOrder<PaymentFailedPayload>(PaymentEventType.PaymentFailed, PaymentNotifications.paymentFailed);
+    this.onPayment<PaymentRefundedPayload>(PaymentEventType.PaymentRefunded, PaymentNotifications.paymentRefunded);
   }
 
   private on<T>(eventType: string, toIntent: (payload: T) => NotificationIntent): void {
@@ -66,6 +82,15 @@ export class NotificationEventsHandler implements OnModuleInit {
   ): void {
     this.bus.subscribe<T>(eventType, async (event: DomainEvent<T>) => {
       await this.recordForOrder.execute({ eventId: event.id, eventType: event.type, payload: event.payload, toIntent });
+    });
+  }
+
+  private onPayment<T extends { paymentId: string }>(
+    eventType: string,
+    toIntent: (payload: T, payment: PaymentRecipientView) => NotificationIntent,
+  ): void {
+    this.bus.subscribe<T>(eventType, async (event: DomainEvent<T>) => {
+      await this.recordForPayment.execute({ eventId: event.id, eventType: event.type, payload: event.payload, toIntent });
     });
   }
 }

@@ -19,6 +19,9 @@ export enum NotificationTemplateCode {
   ORDER_ACCEPTED = 'ORDER_ACCEPTED',
   ORDER_READY = 'ORDER_READY',
   ORDER_CANCELLED = 'ORDER_CANCELLED',
+  PAYMENT_CAPTURED = 'PAYMENT_CAPTURED',
+  PAYMENT_FAILED = 'PAYMENT_FAILED',
+  PAYMENT_REFUNDED = 'PAYMENT_REFUNDED',
 }
 
 /**
@@ -144,6 +147,38 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
           d.reason === NO_PHARMACY_MATCH_REASON
             ? 'ትዕዛዝዎን ማሟላት የሚችል ፋርማሲ ስላልተገኘ ትዕዛዝዎ ተሰርዟል።'
             : 'ትዕዛዝዎ ተሰርዟል።',
+      }),
+    },
+  },
+  // Captured: the authorized amount was collected — and no more is claimed than that.
+  [NotificationTemplateCode.PAYMENT_CAPTURED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Payment completed', body: 'Your payment for your order has been completed.' }),
+      am: () => ({ title: 'ክፍያዎ ተጠናቋል', body: 'ለትዕዛዝዎ የፈጸሙት ክፍያ ተጠናቋል።' }),
+    },
+  },
+  // Failed: the body states the outcome only. The sanitized provider reason travels in `data`
+  // for the client to show, untranslated, as Module 07 already returns it on GET /payments/:id.
+  [NotificationTemplateCode.PAYMENT_FAILED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Payment failed', body: 'Your payment could not be completed.' }),
+      am: () => ({ title: 'ክፍያው አልተሳካም', body: 'ክፍያዎን ማጠናቀቅ አልተቻለም።' }),
+    },
+  },
+  // Refunded: emitted when the refund is COMPLETED. No destination or arrival time is claimed —
+  // the event carries neither.
+  [NotificationTemplateCode.PAYMENT_REFUNDED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Refund completed',
+        body: `A refund of ${formatMinorUnits(Number(d.amount))} ${text(d.currency)} has been completed for your payment.`,
+      }),
+      am: (d) => ({
+        title: 'ገንዘብዎ ተመላሽ ሆኗል',
+        body: `ለክፍያዎ ${formatMinorUnits(Number(d.amount))} ${text(d.currency)} ተመላሽ ተደርጓል።`,
       }),
     },
   },
