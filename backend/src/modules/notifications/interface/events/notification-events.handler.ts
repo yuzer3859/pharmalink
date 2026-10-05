@@ -21,6 +21,7 @@ import {
   PaymentRefundedPayload,
 } from '../../../payment/domain/events';
 import type { PaymentRecipientView } from '../../../payment/application/ports/inbound/payment-recipient-read.port';
+import { DeliveryEventType, DeliveryFailedPayload, DeliveryStatusPayload } from '../../../delivery/domain/events';
 import { RecordOrderNotificationCommand } from '../../application/commands/record-order-notification.command';
 import { RecordPaymentNotificationCommand } from '../../application/commands/record-payment-notification.command';
 import { RecordNotificationCommand } from '../../application/commands/record-notification.command';
@@ -28,6 +29,7 @@ import {
   EventNotifications,
   NotificationIntent,
   OrderLifecycleNotifications,
+  DeliveryNotifications,
   PaymentNotifications,
 } from '../../application/support/event-notifications';
 
@@ -37,7 +39,9 @@ import {
  * the order only — their recipient is the order's customer, asked of Module 06 through
  * `RecordOrderNotificationCommand`. Work 03: `payment.captured` and `payment.failed` (which name the
  * order, so the same path) and `payment.refunded` (which names the payment only — its customer
- * is asked of Module 07 through `RecordPaymentNotificationCommand`).
+ * is asked of Module 07 through `RecordPaymentNotificationCommand`). Work 04: Module 08's
+ * `delivery.order.picked_up`, `.en_route`, `.delivered` and `delivery.failed`, which name the
+ * order — the order path again, alongside (never instead of) Module 08's own consumers.
  *
  * At-least-once, as the bus is (ADR-010): the outbox relay can deliver an event twice, and
  * `RecordNotificationCommand` writes at most one row per event per recipient. A handler that
@@ -68,6 +72,11 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.onOrder<PaymentCapturedPayload>(PaymentEventType.PaymentCaptured, PaymentNotifications.paymentCaptured);
     this.onOrder<PaymentFailedPayload>(PaymentEventType.PaymentFailed, PaymentNotifications.paymentFailed);
     this.onPayment<PaymentRefundedPayload>(PaymentEventType.PaymentRefunded, PaymentNotifications.paymentRefunded);
+
+    this.onOrder<DeliveryStatusPayload>(DeliveryEventType.OrderPickedUp, DeliveryNotifications.orderPickedUp);
+    this.onOrder<DeliveryStatusPayload>(DeliveryEventType.EnRoute, DeliveryNotifications.orderEnRoute);
+    this.onOrder<DeliveryStatusPayload>(DeliveryEventType.OrderDelivered, DeliveryNotifications.orderDelivered);
+    this.onOrder<DeliveryFailedPayload>(DeliveryEventType.DeliveryFailed, DeliveryNotifications.deliveryFailed);
   }
 
   private on<T>(eventType: string, toIntent: (payload: T) => NotificationIntent): void {

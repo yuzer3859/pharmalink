@@ -22,6 +22,10 @@ export enum NotificationTemplateCode {
   PAYMENT_CAPTURED = 'PAYMENT_CAPTURED',
   PAYMENT_FAILED = 'PAYMENT_FAILED',
   PAYMENT_REFUNDED = 'PAYMENT_REFUNDED',
+  DELIVERY_PICKED_UP = 'DELIVERY_PICKED_UP',
+  DELIVERY_EN_ROUTE = 'DELIVERY_EN_ROUTE',
+  DELIVERY_DELIVERED = 'DELIVERY_DELIVERED',
+  DELIVERY_FAILED = 'DELIVERY_FAILED',
 }
 
 /**
@@ -180,6 +184,37 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         title: 'ገንዘብዎ ተመላሽ ሆኗል',
         body: `ለክፍያዎ ${formatMinorUnits(Number(d.amount))} ${text(d.currency)} ተመላሽ ተደርጓል።`,
       }),
+    },
+  },
+  // The delivery status workflow (Module 08). Each says what the transition means and nothing
+  // more: no ETA, driver, pharmacy name or failure cause — the events carry none that is
+  // customer-facing.
+  [NotificationTemplateCode.DELIVERY_PICKED_UP]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Order picked up', body: 'Your order has been picked up from the pharmacy.' }),
+      am: () => ({ title: 'ትዕዛዝዎ ተወስዷል', body: 'ትዕዛዝዎ ከፋርማሲው ተወስዷል።' }),
+    },
+  },
+  [NotificationTemplateCode.DELIVERY_EN_ROUTE]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Order on the way', body: 'Your order is on its way to you.' }),
+      am: () => ({ title: 'ትዕዛዝዎ በመንገድ ላይ ነው', body: 'ትዕዛዝዎ ወደ እርስዎ በመምጣት ላይ ነው።' }),
+    },
+  },
+  [NotificationTemplateCode.DELIVERY_DELIVERED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Order delivered', body: 'Your order has been delivered.' }),
+      am: () => ({ title: 'ትዕዛዝዎ ደርሷል', body: 'ትዕዛዝዎ ደርሷል።' }),
+    },
+  },
+  [NotificationTemplateCode.DELIVERY_FAILED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Delivery failed', body: 'We could not deliver your order.' }),
+      am: () => ({ title: 'ማድረስ አልተቻለም', body: 'ትዕዛዝዎን ማድረስ አልተቻለም።' }),
     },
   },
 };

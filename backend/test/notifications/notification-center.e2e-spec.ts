@@ -510,6 +510,7 @@ describe('In-app notification center (e2e)', () => {
         }
       }
       expect([...imports].sort()).toEqual([
+        'delivery/domain/events',
         'identity/application/ports/inbound/identity-language-read.port',
         'identity/domain/events',
         'identity/identity.module',

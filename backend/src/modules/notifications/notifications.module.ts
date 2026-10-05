@@ -17,7 +17,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
 /**
  * Module 13 — Notifications & Communication. Work 01: the in-app notification center. Work 02:
  * customer notifications for the order lifecycle (accepted, ready, cancelled). Work 03: customer
- * notifications for payments (captured, failed, refunded).
+ * notifications for payments (captured, failed, refunded). Work 04: customer notifications for
+ * delivery (picked up, en route, delivered, failed).
  *
  * ## What it owns
  *
@@ -41,14 +42,16 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *         ├─ ORDER_RECIPIENT_READ_PORT (Module 06: the order's customerUserId; unknown → skip + warn)
  *         └─→ RecordNotificationCommand (as above)
  *
- * Work 03: `payment.captured` and `payment.failed` name the order and take the same path;
+ * Work 03: `payment.captured` and `payment.failed` — and Work 04's four delivery status events —
+ * name the order and take the same path;
  * `payment.refunded` names only the payment:
  *
  *     payment.refunded ─→ RecordPaymentNotificationCommand
  *         ├─ PAYMENT_RECIPIENT_READ_PORT (Module 07: customerUserId, orderId, currency; unknown → skip + warn)
  *         └─→ RecordNotificationCommand (as above)
  *
- * The event contracts (`identity/domain/events`, `orders/domain/events`, `payment/domain/events`),
+ * The event contracts (`identity/domain/events`, `orders/domain/events`, `payment/domain/events`,
+ * `delivery/domain/events`),
  * Module 01's language port, Module 06's and Module 07's recipient ports are the only things it
  * takes from other modules; `IdentityModule` is imported for the language port and
  * `@CurrentUser`, `OrdersModule` and `PaymentModule` for their recipient ports.
@@ -64,8 +67,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * Push, SMS and email (no provider contract exists), BullMQ and a DLQ, preferences and quiet
  * hours, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
- * notification routes, and the events whose recipient lookup has no contract yet — delivery,
- * prescription, matching, pharmacy, driver and wallet events.
+ * notification routes, and the events whose recipient lookup has no contract yet — driver
+ * (offers, earnings, COD), prescription, matching, pharmacy and wallet events.
  */
 @Module({
   imports: [IdentityModule, OrdersModule, PaymentModule],

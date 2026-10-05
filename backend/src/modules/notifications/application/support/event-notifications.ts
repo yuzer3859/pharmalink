@@ -15,6 +15,7 @@ import type {
   PaymentRefundedPayload,
 } from '../../../payment/domain/events';
 import type { PaymentRecipientView } from '../../../payment/application/ports/inbound/payment-recipient-read.port';
+import type { DeliveryFailedPayload, DeliveryStatusPayload } from '../../../delivery/domain/events';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** What one event asks Module 13 to tell one recipient. */
@@ -138,6 +139,35 @@ export const PaymentNotifications = {
     templateCode: NotificationTemplateCode.PAYMENT_REFUNDED,
     data: { paymentId: p.paymentId, orderId: payment.orderId, amount: p.amount, currency: payment.currency },
   }),
+};
+
+/**
+ * Event → notification for the customer side of Module 08's status workflow (module-13 Work 04).
+ * Every event names the order, so the recipient is the order's customer from Module 06's
+ * `ORDER_RECIPIENT_READ_PORT` — the Work 02 path, unchanged. Module 08 is never asked.
+ *
+ * `data` is `{ orderId }` and nothing else. Not kept: `driverId` (a `driver_profiles.id` — the
+ * customer is not addressed by, and does not need, the courier's identifier), `jobId` and
+ * `fulfillmentId` (internal delivery and fulfillment handles), `status` (the template already is
+ * the status), and on a failure the `reason` — free text the driver types, which no contract
+ * defines as customer-safe.
+ */
+const deliveryIntent =
+  (templateCode: NotificationTemplateCode) =>
+  (p: DeliveryStatusPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode,
+    data: { orderId: p.orderId },
+  });
+
+export const DeliveryNotifications = {
+  orderPickedUp: deliveryIntent(NotificationTemplateCode.DELIVERY_PICKED_UP),
+  orderEnRoute: deliveryIntent(NotificationTemplateCode.DELIVERY_EN_ROUTE),
+  orderDelivered: deliveryIntent(NotificationTemplateCode.DELIVERY_DELIVERED),
+  deliveryFailed: deliveryIntent(NotificationTemplateCode.DELIVERY_FAILED) as (
+    p: DeliveryFailedPayload,
+    customerUserId: string,
+  ) => NotificationIntent,
 };
 
 /** One event delivered to one recipient is one notification, however often it is delivered. */
