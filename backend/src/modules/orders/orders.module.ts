@@ -36,7 +36,9 @@ import { PrismaCartRepository } from './infrastructure/persistence/prisma-cart.r
 import { PrismaFulfillmentRepository } from './infrastructure/persistence/prisma-fulfillment.repository';
 import { PrismaOrderRepository } from './infrastructure/persistence/prisma-order.repository';
 import { ORDER_ANALYTICS_READ_PORT } from './application/ports/inbound/order-analytics-read.port';
+import { ORDER_RECIPIENT_READ_PORT } from './application/ports/inbound/order-recipient-read.port';
 import { PrismaOrderAnalyticsReadAdapter } from './infrastructure/persistence/prisma-order-analytics-read.adapter';
+import { PrismaOrderRecipientReadAdapter } from './infrastructure/persistence/prisma-order-recipient-read.adapter';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { CartController } from './interface/controllers/cart.controller';
 import { CheckoutController } from './interface/controllers/checkout.controller';
@@ -75,8 +77,12 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     { provide: CART_REPOSITORY, useClass: PrismaCartRepository },
     { provide: ORDER_REPOSITORY, useClass: PrismaOrderRepository },
     // Inbound read contract for Module 16's operational dashboard (module-16 Work 08): order and
-    // fulfillment counts by status, aggregated in PostgreSQL. The only thing this module exports.
+    // fulfillment counts by status, aggregated in PostgreSQL.
     { provide: ORDER_ANALYTICS_READ_PORT, useClass: PrismaOrderAnalyticsReadAdapter },
+    // Inbound read contract for Module 13's order lifecycle notifications (module-13 Work 02): an
+    // order's `customerUserId`, nothing else. These two ports are the only things this module
+    // exports.
+    { provide: ORDER_RECIPIENT_READ_PORT, useClass: PrismaOrderRecipientReadAdapter },
     { provide: FULFILLMENT_REPOSITORY, useClass: PrismaFulfillmentRepository },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
 
@@ -111,6 +117,6 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PrepareFulfillmentCommand,
     MarkReadyCommand,
   ],
-  exports: [ORDER_ANALYTICS_READ_PORT],
+  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT],
 })
 export class OrdersModule {}

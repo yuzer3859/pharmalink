@@ -16,7 +16,17 @@ export enum NotificationTemplateCode {
   ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED',
   ACCOUNT_REACTIVATED = 'ACCOUNT_REACTIVATED',
   ORDER_PLACED = 'ORDER_PLACED',
+  ORDER_ACCEPTED = 'ORDER_ACCEPTED',
+  ORDER_READY = 'ORDER_READY',
+  ORDER_CANCELLED = 'ORDER_CANCELLED',
 }
+
+/**
+ * The one `order.cancelled` reason the platform itself writes (Module 06's decline path, when no
+ * pharmacy is left to re-route to). Any other reason is the customer's own words from their
+ * cancel request, which the notification does not echo back to them.
+ */
+export const NO_PHARMACY_MATCH_REASON = 'NO_PHARMACY_MATCH';
 
 /** The structured, UI-facing fields a notification carries. Never a raw event payload. */
 export type NotificationData = Record<string, string | number | null>;
@@ -101,6 +111,39 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
       am: (d) => ({
         title: 'ትዕዛዝዎ ደርሶናል',
         body: `ትዕዛዝዎን ተቀብለናል። ጠቅላላ ድምር፦ ${formatMinorUnits(Number(d.grandTotal))} ${text(d.currency)}።`,
+      }),
+    },
+  },
+  [NotificationTemplateCode.ORDER_ACCEPTED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Order accepted', body: 'The pharmacy has accepted your order and is preparing it.' }),
+      am: () => ({ title: 'ትዕዛዝዎ ተቀባይነት አግኝቷል', body: 'ፋርማሲው ትዕዛዝዎን ተቀብሎ እያዘጋጀው ነው።' }),
+    },
+  },
+  [NotificationTemplateCode.ORDER_READY]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Order ready', body: 'Your order is packed and ready to be sent out.' }),
+      am: () => ({ title: 'ትዕዛዝዎ ዝግጁ ነው', body: 'ትዕዛዝዎ ታሽጎ ለመላክ ዝግጁ ነው።' }),
+    },
+  },
+  [NotificationTemplateCode.ORDER_CANCELLED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Order cancelled',
+        body:
+          d.reason === NO_PHARMACY_MATCH_REASON
+            ? 'No pharmacy could fulfil your order, so it has been cancelled.'
+            : 'Your order has been cancelled.',
+      }),
+      am: (d) => ({
+        title: 'ትዕዛዝዎ ተሰርዟል',
+        body:
+          d.reason === NO_PHARMACY_MATCH_REASON
+            ? 'ትዕዛዝዎን ማሟላት የሚችል ፋርማሲ ስላልተገኘ ትዕዛዝዎ ተሰርዟል።'
+            : 'ትዕዛዝዎ ተሰርዟል።',
       }),
     },
   },

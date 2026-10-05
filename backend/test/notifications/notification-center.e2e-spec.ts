@@ -490,14 +490,16 @@ describe('In-app notification center (e2e)', () => {
           'orders/domain/entities',
           'orders/domain/repositories',
           'orders/infrastructure/',
-          'orders/application/',
+          'orders/application/commands/',
+          'orders/application/queries/',
+          'orders/application/ports/outbound',
         ]) {
           expect({ file, forbidden, found: source.includes(forbidden) }).toEqual({ file, forbidden, found: false });
         }
       }
     });
 
-    it('Module 13 reaches other modules only through Module 01’s language port, the event contracts and @CurrentUser', () => {
+    it('Module 13 reaches other modules only through Module 01’s language port, Module 06’s recipient port, the event contracts and @CurrentUser', () => {
       const imports = new Set<string>();
       for (const file of sources()) {
         for (const m of readFileSync(file, 'utf8').matchAll(/from '((?:\.\.\/)+(?!shared\/)[^.'][^']*)'/g)) {
@@ -512,7 +514,9 @@ describe('In-app notification center (e2e)', () => {
         'identity/domain/events',
         'identity/identity.module',
         'identity/interface/decorators/current-user.decorator',
+        'orders/application/ports/inbound/order-recipient-read.port',
         'orders/domain/events',
+        'orders/orders.module',
       ]);
     });
   });

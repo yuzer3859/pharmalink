@@ -3,7 +3,12 @@ import type {
   LicenseExpiredPayload,
   ProviderDecisionPayload,
 } from '../../../identity/domain/events';
-import type { OrderPlacedPayload } from '../../../orders/domain/events';
+import type {
+  OrderAcceptedPayload,
+  OrderCancelledPayload,
+  OrderPlacedPayload,
+  OrderReadyPayload,
+} from '../../../orders/domain/events';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** What one event asks Module 13 to tell one recipient. */
@@ -68,6 +73,33 @@ export const EventNotifications = {
     recipientUserId: p.customerUserId,
     templateCode: NotificationTemplateCode.ORDER_PLACED,
     data: { orderId: p.orderId, grandTotal: p.totals.grandTotal, currency: p.totals.currency },
+  }),
+};
+
+/**
+ * Event → notification for the order lifecycle events that carry the `orderId` but not the
+ * customer (module-13 Work 02). The recipient is supplied by the caller, resolved through Module
+ * 06's `ORDER_RECIPIENT_READ_PORT` — never taken from anywhere else. `fulfillmentId` and
+ * `pharmacyId` are not kept: the customer's notification is about their order.
+ */
+export const OrderLifecycleNotifications = {
+  orderAccepted: (p: OrderAcceptedPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.ORDER_ACCEPTED,
+    data: { orderId: p.orderId },
+  }),
+
+  orderReady: (p: OrderReadyPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.ORDER_READY,
+    data: { orderId: p.orderId },
+  }),
+
+  /** `reason` is kept because the event carries it; the template words only `NO_PHARMACY_MATCH`. */
+  orderCancelled: (p: OrderCancelledPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.ORDER_CANCELLED,
+    data: { orderId: p.orderId, reason: p.reason ?? null },
   }),
 };
 
