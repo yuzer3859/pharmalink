@@ -123,6 +123,10 @@ export const PERMISSIONS: Array<{
   // permission is one resource's (`rbac:read`, `audit:read:any`, `verification:queue:read`), and
   // `finance:report:any` is the finance desk's, not an operations dashboard's.
   { key: 'analytics:read', resource: 'analytics', action: 'read' },
+  // Module 13 — Notifications, Work 01: a user's own in-app notification center. Granted wherever
+  // `profile:read:own` is — i.e. to every role, because every account holder can be the recipient
+  // of an account notification (suspension, reactivation) — and to `SUPER_ADMIN` by wildcard.
+  { key: 'notification:read:own', resource: 'notification', action: 'read', scope: 'own' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -130,6 +134,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   CUSTOMER: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'profile:update:own',
     'beneficiary:manage:own',
     'order:create:own',
@@ -152,6 +157,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   PHARMACY_OWNER: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'profile:update:own',
     'catalog:manage:org',
     'inventory:manage:org',
@@ -167,6 +173,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   PHARMACY_MANAGER: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'profile:update:own',
     'catalog:manage:org',
     'inventory:manage:org',
@@ -177,6 +184,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   PHARMACIST: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'profile:update:own',
     'prescription:verify',
     'order:read:org',
@@ -185,23 +193,38 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   CASHIER: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'profile:update:own',
     'order:read:org',
     'payment:collect:org',
   ],
-  INVENTORY_STAFF: ['auth:login', 'profile:read:own', 'profile:update:own', 'inventory:manage:org'],
+  INVENTORY_STAFF: [
+    'auth:login',
+    'profile:read:own',
+    'notification:read:own',
+    'profile:update:own',
+    'inventory:manage:org',
+  ],
   DRIVER: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'profile:update:own',
     'delivery:accept:own',
     'delivery:update:own',
     'delivery:read:own',
   ],
-  DOCTOR: ['auth:login', 'profile:read:own', 'profile:update:own', 'appointment:manage:own'],
+  DOCTOR: [
+    'auth:login',
+    'profile:read:own',
+    'notification:read:own',
+    'profile:update:own',
+    'appointment:manage:own',
+  ],
   HOSPITAL_ADMIN: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'profile:update:own',
     'hospital:manage:org',
     'staff:manage:org',
@@ -209,6 +232,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   DIAGNOSTIC_CENTER_ADMIN: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'profile:update:own',
     'lab:manage:org',
     'labresult:release:org',
@@ -216,12 +240,14 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   CUSTOMER_SUPPORT: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'support:account:read',
     'support:recovery:assist',
   ],
   FINANCE_OFFICER: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     // Module 07 — Payment, HTTP slice (§9.1).
     'payment:capture:any',
     'payment:void:any',
@@ -232,6 +258,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ADMIN: [
     'auth:login',
     'profile:read:own',
+    'notification:read:own',
     'user:suspend:any',
     'user:reactivate:any',
     'provider:verify:any',

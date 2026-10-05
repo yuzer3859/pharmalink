@@ -13,6 +13,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 /**
  * Root module. Phase 0 wires the cross-cutting SharedModule + HealthModule and registers the
@@ -33,6 +34,7 @@ import { AdminModule } from './modules/admin/admin.module';
     PaymentModule,
     DeliveryModule,
     AdminModule,
+    NotificationsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
