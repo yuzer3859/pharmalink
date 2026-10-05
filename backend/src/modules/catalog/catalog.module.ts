@@ -22,6 +22,8 @@ import { PrismaManufacturerRepository } from './infrastructure/persistence/prism
 import { PrismaProductRepository } from './infrastructure/persistence/prisma-product.repository';
 import { CATALOG_ANALYTICS_READ_PORT } from './application/ports/inbound/catalog-analytics-read.port';
 import { PrismaCatalogAnalyticsReadAdapter } from './infrastructure/persistence/prisma-catalog-analytics-read.adapter';
+import { CATALOG_ADMIN_READ_PORT } from './application/ports/inbound/catalog-admin-read.port';
+import { PrismaCatalogAdminReadAdapter } from './infrastructure/persistence/prisma-catalog-admin-read.adapter';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { AdminCatalogController } from './interface/controllers/admin-catalog.controller';
 import { CatalogController } from './interface/controllers/catalog.controller';
@@ -40,8 +42,13 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
 
     // Inbound read contract for Module 16's operational dashboard (module-16 Work 08): product
-    // counts by status, aggregated in PostgreSQL. The only thing this module exports.
+    // counts by status, aggregated in PostgreSQL.
     { provide: CATALOG_ANALYTICS_READ_PORT, useClass: PrismaCatalogAnalyticsReadAdapter },
+    // Inbound read contract for Module 16's catalogue review list (module-16 Work 09): products
+    // in one lifecycle status, paged, each with the transitions `ProductStatusPolicy` allows.
+    // Read-only — the status writer stays `ChangeProductStatusCommand` behind this module's route.
+    // These two ports are the only things this module exports.
+    { provide: CATALOG_ADMIN_READ_PORT, useClass: PrismaCatalogAdminReadAdapter },
 
     // Application use cases — products
     CreateProductCommand,
@@ -63,6 +70,6 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     UpdateManufacturerCommand,
     ListManufacturersQuery,
   ],
-  exports: [CATALOG_ANALYTICS_READ_PORT],
+  exports: [CATALOG_ANALYTICS_READ_PORT, CATALOG_ADMIN_READ_PORT],
 })
 export class CatalogModule {}

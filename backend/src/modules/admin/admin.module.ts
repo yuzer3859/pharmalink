@@ -27,6 +27,7 @@ import { GetUserQuery } from './application/queries/get-user.query';
 import { GetUserRolesQuery } from './application/queries/get-user-roles.query';
 import { GetVerificationQuery } from './application/queries/get-verification.query';
 import { ListAuditQuery } from './application/queries/list-audit.query';
+import { ListCatalogReviewQuery } from './application/queries/list-catalog-review.query';
 import { ListCodDisputesQuery } from './application/queries/list-cod-disputes.query';
 import { ListFinancePaymentsQuery } from './application/queries/list-finance-payments.query';
 import { ListFinanceRefundsQuery } from './application/queries/list-finance-refunds.query';
@@ -41,6 +42,7 @@ import { PrismaPlatformConfigRepository } from './infrastructure/persistence/pri
 import { AdminAccountsController } from './interface/controllers/admin-accounts.controller';
 import { AdminAnalyticsController } from './interface/controllers/admin-analytics.controller';
 import { AdminAuditController } from './interface/controllers/admin-audit.controller';
+import { AdminCatalogReviewController } from './interface/controllers/admin-catalog-review.controller';
 import { AdminCodDisputesController } from './interface/controllers/admin-cod-disputes.controller';
 import { AdminConfigController } from './interface/controllers/admin-config.controller';
 import { AdminFeatureFlagController } from './interface/controllers/admin-feature-flag.controller';
@@ -52,7 +54,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
  * Module 16 — Admin & Platform Management. Work 01: platform configuration and feature flags.
  * Work 02: verification management. Work 03: user & account management. Work 04: role
  * assignment. Work 05: audit explorer. Work 06: COD dispute management. Work 07: finance
- * oversight. Work 08: operational analytics.
+ * oversight. Work 08: operational analytics. Work 09: catalogue review list.
  *
  * ## The module's shape, and why it is this small
  *
@@ -69,9 +71,11 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
  * `COD_FINANCE_READ_PORT`, and moves nothing. Work 08 counts — accounts, catalogue, providers,
  * orders, delivery jobs and drivers — through one read port per owning module, and keeps no
  * snapshot table of its own (the design's `analytics_snapshots` stays unused: the counts are
- * `GROUP BY`s the owners run on demand). Everything else the design lists — impersonation,
- * moderation, payouts, the cross-module `DisputeCase`, KPI/period dashboards — is a later work
- * and none of it is here.
+ * `GROUP BY`s the owners run on demand). Work 09 lists catalogue products by lifecycle status
+ * through `CATALOG_ADMIN_READ_PORT` and changes none: Module 03 has no proposal workflow, and
+ * the status transition stays on Module 03's own audited route. Everything else the design
+ * lists — impersonation, moderation, payouts, the cross-module `DisputeCase`, KPI/period
+ * dashboards — is a later work and none of it is here.
  *
  * ## How configuration reaches the modules that read it
  *
@@ -114,9 +118,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
   // for `COD_DISPUTE_ADMIN_PORT` (Work 06) and `COD_FINANCE_READ_PORT` (Work 07), and nothing
   // else of it. `PaymentModule` for `FINANCE_OVERSIGHT_PORT` (Work 07) alone. `CatalogModule`,
   // `PharmacyInventoryModule` and `OrdersModule` each for their `*_ANALYTICS_READ_PORT` (Work 08)
-  // and nothing else. `ScheduleModule.forRoot()` activates the loader's refresh tick; registered
-  // here rather than relied upon from another module's registration, for the reason
-  // `DeliveryModule` gives.
+  // and nothing else — `CatalogModule` also for `CATALOG_ADMIN_READ_PORT` (Work 09).
+  // `ScheduleModule.forRoot()` activates the loader's refresh tick; registered here rather than
+  // relied upon from another module's registration, for the reason `DeliveryModule` gives.
   imports: [
     IdentityModule,
     DeliveryModule,
@@ -175,6 +179,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
 
     // Work 08 — operational analytics, read-only, over six owner read ports.
     GetAnalyticsOverviewQuery,
+
+    // Work 09 — catalogue review list, read-only, through Module 03's admin read port.
+    ListCatalogReviewQuery,
   ],
   controllers: [
     AdminConfigController,
@@ -186,6 +193,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminCodDisputesController,
     AdminFinanceController,
     AdminAnalyticsController,
+    AdminCatalogReviewController,
   ],
   // Nothing is exported. No other module calls into Admin — they read configuration through
   // `IConfigPort`, which is `SharedModule`'s, and an exported port here would be a coupling that

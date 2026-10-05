@@ -613,6 +613,7 @@ describe('Admin operational analytics (e2e)', () => {
         }
       }
       expect([...imports].sort()).toEqual([
+        'catalog/application/ports/inbound/catalog-admin-read.port',
         'catalog/application/ports/inbound/catalog-analytics-read.port',
         'catalog/catalog.module',
         'delivery/application/ports/inbound/cod-dispute-admin.port',
