@@ -21,7 +21,17 @@ import {
   PaymentRefundedPayload,
 } from '../../../payment/domain/events';
 import type { PaymentRecipientView } from '../../../payment/application/ports/inbound/payment-recipient-read.port';
-import { DeliveryEventType, DeliveryFailedPayload, DeliveryStatusPayload } from '../../../delivery/domain/events';
+import {
+  CodCorrectionRecordedPayload,
+  CodReconciledPayload,
+  CodRemittedPayload,
+  DeliveryEventType,
+  DeliveryFailedPayload,
+  DeliveryStatusPayload,
+  EarningAccruedPayload,
+  JobOfferedPayload,
+} from '../../../delivery/domain/events';
+import { RecordDriverNotificationCommand } from '../../application/commands/record-driver-notification.command';
 import { RecordOrderNotificationCommand } from '../../application/commands/record-order-notification.command';
 import { RecordPaymentNotificationCommand } from '../../application/commands/record-payment-notification.command';
 import { RecordNotificationCommand } from '../../application/commands/record-notification.command';
@@ -30,6 +40,7 @@ import {
   NotificationIntent,
   OrderLifecycleNotifications,
   DeliveryNotifications,
+  DriverNotifications,
   PaymentNotifications,
 } from '../../application/support/event-notifications';
 
@@ -41,7 +52,10 @@ import {
  * order, so the same path) and `payment.refunded` (which names the payment only — its customer
  * is asked of Module 07 through `RecordPaymentNotificationCommand`). Work 04: Module 08's
  * `delivery.order.picked_up`, `.en_route`, `.delivered` and `delivery.failed`, which name the
- * order — the order path again, alongside (never instead of) Module 08's own consumers.
+ * order — the order path again, alongside (never instead of) Module 08's own consumers. Work 05:
+ * Module 08's driver-addressed events (offer, earning, COD remitted/reconciled/corrected), whose
+ * `driverId` is a driver profile — its person is asked of Module 08 through
+ * `RecordDriverNotificationCommand`.
  *
  * At-least-once, as the bus is (ADR-010): the outbox relay can deliver an event twice, and
  * `RecordNotificationCommand` writes at most one row per event per recipient. A handler that
@@ -55,6 +69,7 @@ export class NotificationEventsHandler implements OnModuleInit {
     private readonly record: RecordNotificationCommand,
     private readonly recordForOrder: RecordOrderNotificationCommand,
     private readonly recordForPayment: RecordPaymentNotificationCommand,
+    private readonly recordForDriver: RecordDriverNotificationCommand,
   ) {}
 
   onModuleInit(): void {
@@ -77,6 +92,15 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.onOrder<DeliveryStatusPayload>(DeliveryEventType.EnRoute, DeliveryNotifications.orderEnRoute);
     this.onOrder<DeliveryStatusPayload>(DeliveryEventType.OrderDelivered, DeliveryNotifications.orderDelivered);
     this.onOrder<DeliveryFailedPayload>(DeliveryEventType.DeliveryFailed, DeliveryNotifications.deliveryFailed);
+
+    this.onDriver<JobOfferedPayload>(DeliveryEventType.JobOffered, DriverNotifications.jobOffered);
+    this.onDriver<EarningAccruedPayload>(DeliveryEventType.EarningAccrued, DriverNotifications.earningAccrued);
+    this.onDriver<CodRemittedPayload>(DeliveryEventType.CodRemitted, DriverNotifications.codRemitted);
+    this.onDriver<CodReconciledPayload>(DeliveryEventType.CodReconciled, DriverNotifications.codReconciled);
+    this.onDriver<CodCorrectionRecordedPayload>(
+      DeliveryEventType.CodCorrectionRecorded,
+      DriverNotifications.codCorrectionRecorded,
+    );
   }
 
   private on<T>(eventType: string, toIntent: (payload: T) => NotificationIntent): void {
@@ -100,6 +124,15 @@ export class NotificationEventsHandler implements OnModuleInit {
   ): void {
     this.bus.subscribe<T>(eventType, async (event: DomainEvent<T>) => {
       await this.recordForPayment.execute({ eventId: event.id, eventType: event.type, payload: event.payload, toIntent });
+    });
+  }
+
+  private onDriver<T extends { driverId: string }>(
+    eventType: string,
+    toIntent: (payload: T, driverUserId: string) => NotificationIntent,
+  ): void {
+    this.bus.subscribe<T>(eventType, async (event: DomainEvent<T>) => {
+      await this.recordForDriver.execute({ eventId: event.id, eventType: event.type, payload: event.payload, toIntent });
     });
   }
 }

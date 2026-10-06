@@ -162,7 +162,11 @@ describe('Delivery notifications (e2e)', () => {
         ['DELIVERY_PICKED_UP', 'TRANSACTIONAL', 'Order picked up', { orderId: order.orderId }, false],
       ]);
       expect(await inbox(customerB.accessToken)).toEqual([]);
-      expect(await ctx.prisma.notification.count({ where: { recipientUserId: driver.userId } })).toBe(0);
+      // No customer delivery notification reaches the courier. (Since Work 05 the courier does
+      // receive their own DRIVER_* notifications for this job — offer and earning.)
+      expect(
+        await ctx.prisma.notification.count({ where: { recipientUserId: driver.userId, templateCode: { in: DELIVERY_TYPES } } }),
+      ).toBe(0);
 
       const stored = await ctx.prisma.notification.findMany({ where: { templateCode: { in: DELIVERY_TYPES } } });
       expect(stored.every((n) => n.recipientUserId === order.customer.userId && n.channel === 'IN_APP' && n.status === 'SENT')).toBe(true);
@@ -298,8 +302,9 @@ describe('Delivery notifications (e2e)', () => {
           'delivery/domain/repositories',
           'delivery/domain/enums',
           'delivery/infrastructure/',
-          'delivery/application/',
-          'delivery/delivery.module',
+          'delivery/application/commands/',
+          'delivery/application/queries/',
+          'delivery/application/ports/outbound',
           // Module 06, likewise, only through its recipient port.
           'prisma.order',
           'orders/domain/entities',
@@ -311,12 +316,16 @@ describe('Delivery notifications (e2e)', () => {
       }
     });
 
-    it('Module 13 takes nothing from Module 08 but its event contract', () => {
+    it('Module 13 takes nothing from Module 08 but its event contract and the driver-recipient port (Work 05)', () => {
       const imports = new Set<string>();
       for (const file of files()) {
         for (const m of readFileSync(file, 'utf8').matchAll(/from '(?:\.\.\/)+(delivery\/[^']*)'/g)) imports.add(m[1]);
       }
-      expect([...imports]).toEqual(['delivery/domain/events']);
+      expect([...imports].sort()).toEqual([
+        'delivery/application/ports/inbound/driver-recipient-read.port',
+        'delivery/delivery.module',
+        'delivery/domain/events',
+      ]);
     });
   });
 });

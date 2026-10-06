@@ -26,7 +26,15 @@ export enum NotificationTemplateCode {
   DELIVERY_EN_ROUTE = 'DELIVERY_EN_ROUTE',
   DELIVERY_DELIVERED = 'DELIVERY_DELIVERED',
   DELIVERY_FAILED = 'DELIVERY_FAILED',
+  DRIVER_JOB_OFFERED = 'DRIVER_JOB_OFFERED',
+  DRIVER_EARNING_ACCRUED = 'DRIVER_EARNING_ACCRUED',
+  DRIVER_COD_REMITTED = 'DRIVER_COD_REMITTED',
+  DRIVER_COD_RECONCILED = 'DRIVER_COD_RECONCILED',
+  DRIVER_COD_CORRECTION_RECORDED = 'DRIVER_COD_CORRECTION_RECORDED',
 }
+
+/** `delivery.cod.reconciled`'s `outcome` when every amount agreed; anything else is a difference. */
+export const COD_RECONCILED_ACCEPTED = 'ACCEPTED';
 
 /**
  * The one `order.cancelled` reason the platform itself writes (Module 06's decline path, when no
@@ -215,6 +223,86 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     render: {
       en: () => ({ title: 'Delivery failed', body: 'We could not deliver your order.' }),
       am: () => ({ title: 'ማድረስ አልተቻለም', body: 'ትዕዛዝዎን ማድረስ አልተቻለም።' }),
+    },
+  },
+  // ---- Driver (Module 08) ------------------------------------------------------------------
+  // An offer is a request for action with a deadline. The deadline is `data.expiresAt` (ISO-8601)
+  // for the client's countdown; the text does not render a clock time, which would have to pick a
+  // time zone and clock convention the driver may not share.
+  [NotificationTemplateCode.DRIVER_JOB_OFFERED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({
+        title: 'New delivery offer',
+        body: 'You have a new delivery job offer. Accept or decline it before it expires.',
+      }),
+      am: () => ({
+        title: 'አዲስ የማድረስ ሥራ ቀርቦልዎታል',
+        body: 'አዲስ የማድረስ ሥራ ቀርቦልዎታል። ጊዜው ከማለፉ በፊት ይቀበሉት ወይም ይመልሱት።',
+      }),
+    },
+  },
+  // Accrued is "owed and recorded" (EarningStatus.ACCRUED); SETTLED is Module 07's, later. The
+  // text says recorded — never paid, transferred or guaranteed.
+  [NotificationTemplateCode.DRIVER_EARNING_ACCRUED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Earning recorded',
+        body: `An earning of ${formatMinorUnits(Number(d.amount))} ${text(d.currency)} has been recorded for your delivery.`,
+      }),
+      am: (d) => ({
+        title: 'ገቢ ተመዝግቧል',
+        body: `ለማድረስ ሥራዎ ${formatMinorUnits(Number(d.amount))} ${text(d.currency)} ገቢ ተመዝግቧል።`,
+      }),
+    },
+  },
+  // A remittance is cash the driver collected for the order being received by PharmaLink —
+  // money passing through the driver, never the driver's income.
+  [NotificationTemplateCode.DRIVER_COD_REMITTED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Cash handover confirmed',
+        body: `PharmaLink has confirmed receiving the ${formatMinorUnits(Number(d.remittedAmount))} ${text(d.currency)} cash-on-delivery payment you handed over for this delivery.`,
+      }),
+      am: (d) => ({
+        title: 'የገንዘብ ርክክብ ተረጋግጧል',
+        body: `ለዚህ ማድረስ ያስረከቡትን ${formatMinorUnits(Number(d.remittedAmount))} ${text(d.currency)} የጥሬ ገንዘብ ክፍያ ፋርማሊንክ መቀበሉን አረጋግጧል።`,
+      }),
+    },
+  },
+  // The finding, nothing more: a DISCREPANCY decides no recovery, write-off or withholding.
+  [NotificationTemplateCode.DRIVER_COD_RECONCILED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Cash-on-delivery reconciled',
+        body:
+          d.outcome === COD_RECONCILED_ACCEPTED
+            ? 'The cash-on-delivery amounts for this delivery have been checked and agree.'
+            : 'The cash-on-delivery amounts for this delivery have been checked and a difference was recorded.',
+      }),
+      am: (d) => ({
+        title: 'የጥሬ ገንዘብ ክፍያ ተመሳክሯል',
+        body:
+          d.outcome === COD_RECONCILED_ACCEPTED
+            ? 'ለዚህ ማድረስ የጥሬ ገንዘብ ክፍያ መጠኖች ተረጋግጠው ተስማምተዋል።'
+            : 'ለዚህ ማድረስ የጥሬ ገንዘብ ክፍያ መጠኖች ተረጋግጠው ልዩነት ተመዝግቧል።',
+      }),
+    },
+  },
+  [NotificationTemplateCode.DRIVER_COD_CORRECTION_RECORDED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({
+        title: 'Cash-on-delivery record corrected',
+        body: 'A correction has been recorded to the cash-on-delivery record for this delivery.',
+      }),
+      am: () => ({
+        title: 'የጥሬ ገንዘብ ክፍያ መዝገብ ታርሟል',
+        body: 'ለዚህ ማድረስ የጥሬ ገንዘብ ክፍያ መዝገብ ላይ እርማት ተመዝግቧል።',
+      }),
     },
   },
 };

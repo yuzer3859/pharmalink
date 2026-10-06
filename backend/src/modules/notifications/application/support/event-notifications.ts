@@ -15,7 +15,15 @@ import type {
   PaymentRefundedPayload,
 } from '../../../payment/domain/events';
 import type { PaymentRecipientView } from '../../../payment/application/ports/inbound/payment-recipient-read.port';
-import type { DeliveryFailedPayload, DeliveryStatusPayload } from '../../../delivery/domain/events';
+import type {
+  CodCorrectionRecordedPayload,
+  CodReconciledPayload,
+  CodRemittedPayload,
+  DeliveryFailedPayload,
+  DeliveryStatusPayload,
+  EarningAccruedPayload,
+  JobOfferedPayload,
+} from '../../../delivery/domain/events';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** What one event asks Module 13 to tell one recipient. */
@@ -168,6 +176,58 @@ export const DeliveryNotifications = {
     p: DeliveryFailedPayload,
     customerUserId: string,
   ) => NotificationIntent,
+};
+
+/**
+ * Event → notification for the driver side of Module 08 (module-13 Work 05). Every event names
+ * its driver by `driver_profiles.id`; the recipient is that profile's Module 01 user, resolved by
+ * Module 08's `DRIVER_RECIPIENT_READ_PORT` and supplied by the caller.
+ *
+ * `jobId` is kept on every one: it is the handle the driver's own surface is keyed by
+ * (`/delivery/jobs/:id/...`, `/driver/jobs`), so it is what the notification links to. Never kept,
+ * on any of them: `driverId` (the recipient already is the driver), `orderId`/`fulfillmentId`
+ * (the customer's and pharmacy's handles), operator ids (`confirmedByUserId`, `reconciledByUserId`,
+ * `createdByUserId`), `providerReference`, `collectionId`/`remittanceId`/`reconciliationId`/
+ * `correctionId`/`earningId`, and `calculationVersion`. Per event:
+ *
+ * - offer — `expiresAt`, the deadline the offer is answered against. Not `offerId` or `round`.
+ * - earning — `amount`, `currency`: what is owed and recorded, not what was paid.
+ * - remitted — `remittedAmount`, `currency`, `reference` (the PharmaLink handover handle, the
+ *   driver's receipt). Not the expected/collected figures or the method.
+ * - reconciled — `outcome` only. No amounts.
+ * - correction — `correctionType` only. Not the operator's `reason`, the original/corrected
+ *   amounts or references: the correction's detail is the finance record's, not a notification's.
+ */
+export const DriverNotifications = {
+  jobOffered: (p: JobOfferedPayload, driverUserId: string): NotificationIntent => ({
+    recipientUserId: driverUserId,
+    templateCode: NotificationTemplateCode.DRIVER_JOB_OFFERED,
+    data: { jobId: p.jobId, expiresAt: p.expiresAt },
+  }),
+
+  earningAccrued: (p: EarningAccruedPayload, driverUserId: string): NotificationIntent => ({
+    recipientUserId: driverUserId,
+    templateCode: NotificationTemplateCode.DRIVER_EARNING_ACCRUED,
+    data: { jobId: p.jobId, amount: p.amount, currency: p.currency },
+  }),
+
+  codRemitted: (p: CodRemittedPayload, driverUserId: string): NotificationIntent => ({
+    recipientUserId: driverUserId,
+    templateCode: NotificationTemplateCode.DRIVER_COD_REMITTED,
+    data: { jobId: p.jobId, remittedAmount: p.remittedAmount, currency: p.currency, reference: p.reference },
+  }),
+
+  codReconciled: (p: CodReconciledPayload, driverUserId: string): NotificationIntent => ({
+    recipientUserId: driverUserId,
+    templateCode: NotificationTemplateCode.DRIVER_COD_RECONCILED,
+    data: { jobId: p.jobId, outcome: p.outcome },
+  }),
+
+  codCorrectionRecorded: (p: CodCorrectionRecordedPayload, driverUserId: string): NotificationIntent => ({
+    recipientUserId: driverUserId,
+    templateCode: NotificationTemplateCode.DRIVER_COD_CORRECTION_RECORDED,
+    data: { jobId: p.jobId, correctionType: p.type },
+  }),
 };
 
 /** One event delivered to one recipient is one notification, however often it is delivered. */

@@ -35,6 +35,7 @@ import {
   CodFinanceReadPortAdapter,
 } from './application/ports/inbound/cod-finance-read.port';
 import { DELIVERY_ANALYTICS_READ_PORT } from './application/ports/inbound/delivery-analytics-read.port';
+import { DRIVER_RECIPIENT_READ_PORT } from './application/ports/inbound/driver-recipient-read.port';
 import { DELIVERY_PRICING_PORT } from './application/ports/inbound/delivery-pricing.port';
 import { AccrueDriverEarningCommand } from './application/commands/accrue-driver-earning.command';
 import { RecordCodCollectionCommand } from './application/commands/record-cod-collection.command';
@@ -81,6 +82,7 @@ import { OrdersPortAdapter } from './infrastructure/orders/orders-port.adapter';
 import { PharmacyPortAdapter } from './infrastructure/pharmacy/pharmacy-port.adapter';
 import { PrismaDeliveryJobRepository } from './infrastructure/persistence/prisma-delivery-job.repository';
 import { PrismaDeliveryAnalyticsReadAdapter } from './infrastructure/persistence/prisma-delivery-analytics-read.adapter';
+import { PrismaDriverRecipientReadAdapter } from './infrastructure/persistence/prisma-driver-recipient-read.adapter';
 import { PrismaDriverProfileRepository } from './infrastructure/persistence/prisma-driver-profile.repository';
 import { PrismaJobOfferRepository } from './infrastructure/persistence/prisma-job-offer.repository';
 import { PrismaProofOfDeliveryRepository } from './infrastructure/persistence/prisma-proof-of-delivery.repository';
@@ -324,6 +326,9 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     // Inbound read contract for Module 16's operational dashboard (module-16 Work 08): job and
     // driver counts, aggregated in PostgreSQL. No job, no driver, no cash crosses it.
     { provide: DELIVERY_ANALYTICS_READ_PORT, useClass: PrismaDeliveryAnalyticsReadAdapter },
+    // Inbound read contract for Module 13's driver notifications (module-13 Work 05): a driver
+    // profile's Module 01 `userId`, nothing else.
+    { provide: DRIVER_RECIPIENT_READ_PORT, useClass: PrismaDriverRecipientReadAdapter },
 
     // Driver earnings (§3.5 F-ERN-01/F-ERN-02, BR-DEL-10, §6's
     // `CompleteDelivery → AccrueEarning → DriverEarning(ACCRUED)`).
@@ -441,6 +446,7 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     COD_DISPUTE_ADMIN_PORT,
     COD_FINANCE_READ_PORT,
     DELIVERY_ANALYTICS_READ_PORT,
+    DRIVER_RECIPIENT_READ_PORT,
   ],
 })
 export class DeliveryModule {}

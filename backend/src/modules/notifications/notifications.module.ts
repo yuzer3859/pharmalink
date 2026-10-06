@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DeliveryModule } from '../delivery/delivery.module';
 import { IdentityModule } from '../identity/identity.module';
 import { OrdersModule } from '../orders/orders.module';
 import { PaymentModule } from '../payment/payment.module';
@@ -7,6 +8,7 @@ import { MarkNotificationReadCommand } from './application/commands/mark-notific
 import { RecordNotificationCommand } from './application/commands/record-notification.command';
 import { RecordOrderNotificationCommand } from './application/commands/record-order-notification.command';
 import { RecordPaymentNotificationCommand } from './application/commands/record-payment-notification.command';
+import { RecordDriverNotificationCommand } from './application/commands/record-driver-notification.command';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
 import { NOTIFICATION_REPOSITORY } from './domain/repositories/notification.repository';
@@ -18,7 +20,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * Module 13 — Notifications & Communication. Work 01: the in-app notification center. Work 02:
  * customer notifications for the order lifecycle (accepted, ready, cancelled). Work 03: customer
  * notifications for payments (captured, failed, refunded). Work 04: customer notifications for
- * delivery (picked up, en route, delivered, failed).
+ * delivery (picked up, en route, delivered, failed). Work 05: driver notifications (job offer,
+ * earning accrued, COD remitted, reconciled, corrected).
  *
  * ## What it owns
  *
@@ -50,11 +53,18 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *         ├─ PAYMENT_RECIPIENT_READ_PORT (Module 07: customerUserId, orderId, currency; unknown → skip + warn)
  *         └─→ RecordNotificationCommand (as above)
  *
+ * Work 05's driver events name a `driver_profiles.id`, not a person:
+ *
+ *     delivery.job.offered | .earning.accrued | .cod.remitted | .cod.reconciled
+ *       | .cod.correction_recorded ─→ RecordDriverNotificationCommand
+ *         ├─ DRIVER_RECIPIENT_READ_PORT (Module 08: the profile's userId; unknown → skip + warn)
+ *         └─→ RecordNotificationCommand (as above)
+ *
  * The event contracts (`identity/domain/events`, `orders/domain/events`, `payment/domain/events`,
  * `delivery/domain/events`),
- * Module 01's language port, Module 06's and Module 07's recipient ports are the only things it
+ * Module 01's language port, and Module 06's, 07's and 08's recipient ports are the only things it
  * takes from other modules; `IdentityModule` is imported for the language port and
- * `@CurrentUser`, `OrdersModule` and `PaymentModule` for their recipient ports.
+ * `@CurrentUser`, `OrdersModule`, `PaymentModule` and `DeliveryModule` for their recipient ports.
  *
  * ## Known limitation — consumer failures are not retried
  *
@@ -67,11 +77,11 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * Push, SMS and email (no provider contract exists), BullMQ and a DLQ, preferences and quiet
  * hours, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
- * notification routes, and the events whose recipient lookup has no contract yet — driver
- * (offers, earnings, COD), prescription, matching, pharmacy and wallet events.
+ * notification routes, and the events whose recipient lookup has no contract yet — prescription,
+ * matching, pharmacy and wallet events.
  */
 @Module({
-  imports: [IdentityModule, OrdersModule, PaymentModule],
+  imports: [IdentityModule, OrdersModule, PaymentModule, DeliveryModule],
   controllers: [NotificationsController],
   providers: [
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
@@ -79,6 +89,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     RecordNotificationCommand,
     RecordOrderNotificationCommand,
     RecordPaymentNotificationCommand,
+    RecordDriverNotificationCommand,
     MarkNotificationReadCommand,
     MarkAllNotificationsReadCommand,
     ListNotificationsQuery,
