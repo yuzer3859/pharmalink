@@ -39,6 +39,8 @@ export enum NotificationTemplateCode {
   WALLET_CREDITED = 'WALLET_CREDITED',
   WALLET_DEBITED = 'WALLET_DEBITED',
   DRIVER_JOB_ASSIGNED = 'DRIVER_JOB_ASSIGNED',
+  MATCHING_ORDER_MATCHED = 'MATCHING_ORDER_MATCHED',
+  MATCHING_REMATCH_TRIGGERED = 'MATCHING_REMATCH_TRIGGERED',
 }
 
 /** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
@@ -406,6 +408,28 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     render: {
       en: () => ({ title: 'Delivery job assigned', body: 'This delivery job is now assigned to you.' }),
       am: () => ({ title: 'የማድረስ ሥራ ተመድቦልዎታል', body: 'ይህ የማድረስ ሥራ አሁን ለእርስዎ ተመድቧል።' }),
+    },
+  },
+  // ---- Matching outcomes (Module 05), Work 10 -------------------------------------------------
+  // `matching.order_matched` is written when a pharmacy is selected for the request (by the
+  // customer, or inside checkout) and its stock reserved. It says a pharmacy was found — not that
+  // the order is accepted, ready, paid or dispensed — and never which pharmacy.
+  [NotificationTemplateCode.MATCHING_ORDER_MATCHED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Pharmacy found', body: 'We found a pharmacy that can fulfil your request.' }),
+      am: () => ({ title: 'ፋርማሲ ተገኝቷል', body: 'ጥያቄዎን ማሟላት የሚችል ፋርማሲ ተገኝቷል።' }),
+    },
+  },
+  // `matching.rematch_triggered` is written only once a rematch has *succeeded*: the previous
+  // pharmacy is excluded and the request is MATCHED to another, with stock reserved (a rematch that
+  // finds none emits `matching.match_failed` instead). So the text says it moved — never which
+  // pharmacy, why, or that the customer must act.
+  [NotificationTemplateCode.MATCHING_REMATCH_TRIGGERED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Moved to another pharmacy', body: 'Your request has been moved to another pharmacy.' }),
+      am: () => ({ title: 'ወደ ሌላ ፋርማሲ ተዛውሯል', body: 'ጥያቄዎ ወደ ሌላ ፋርማሲ ተዛውሯል።' }),
     },
   },
 };

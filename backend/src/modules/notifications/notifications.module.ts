@@ -29,7 +29,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * prescriptions (approved, rejected) and matching (no pharmacy found). Work 07: pharmacy owner
  * notifications (pharmacy activated, suspended). Work 08: wallet notifications (credited,
  * debited) — their events name the user, so they take Work 01's direct path. Work 09: the driver's
- * job-assigned notification, on Work 05's driver path.
+ * job-assigned notification, on Work 05's driver path. Work 10: customer matching outcomes (pharmacy
+ * found, moved to another pharmacy), on Work 06's path.
  *
  * ## What it owns
  *
@@ -70,7 +71,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * Work 06's events name a prescription or a match request:
  *
- *     prescription.approved | .rejected | matching.match_failed ─→ RecordPrescriptionNotificationCommand
+ *     prescription.approved | .rejected | matching.match_failed | .order_matched
+ *       | .rematch_triggered ─→ RecordPrescriptionNotificationCommand
  *         ├─ PRESCRIPTION_RECIPIENT_READ_PORT (Module 05: customerUserId; unknown → skip + warn)
  *         └─→ RecordNotificationCommand (as above)
  *

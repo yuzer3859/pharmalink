@@ -28,8 +28,10 @@ import type {
 } from '../../../delivery/domain/events';
 import type {
   MatchFailedPayload,
+  OrderMatchedPayload,
   PrescriptionApprovedPayload,
   PrescriptionRejectedPayload,
+  RematchTriggeredPayload,
 } from '../../../prescription-matching/domain/events';
 import type { PharmacyActivatedPayload, PharmacySuspendedPayload } from '../../../pharmacy-inventory/domain/events';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
@@ -298,6 +300,25 @@ export const PrescriptionNotifications = {
   matchFailed: (p: MatchFailedPayload, customerUserId: string): NotificationIntent => ({
     recipientUserId: customerUserId,
     templateCode: NotificationTemplateCode.MATCHING_FAILED,
+    data: { matchRequestId: p.matchRequestId },
+  }),
+
+  /**
+   * Work 10 — `{ matchRequestId }` only, the handle `GET /matching/:id` and `MATCHING_FAILED` use.
+   * Not kept: `result` (the chosen pharmacy, branch, listings, reservations and quantities) and
+   * `orderId` (the match request's own, null whenever the select precedes the order — as it does
+   * inside checkout — so not a stable reference).
+   */
+  orderMatched: (p: OrderMatchedPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.MATCHING_ORDER_MATCHED,
+    data: { matchRequestId: p.matchRequestId },
+  }),
+
+  /** Work 10 — `{ matchRequestId }` only; `excludedPharmacyId` is internal and never kept. */
+  rematchTriggered: (p: RematchTriggeredPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.MATCHING_REMATCH_TRIGGERED,
     data: { matchRequestId: p.matchRequestId },
   }),
 };

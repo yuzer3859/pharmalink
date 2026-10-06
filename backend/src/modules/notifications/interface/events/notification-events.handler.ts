@@ -37,9 +37,11 @@ import {
 import { RecordDriverNotificationCommand } from '../../application/commands/record-driver-notification.command';
 import {
   MatchFailedPayload,
+  OrderMatchedPayload,
   PrescriptionApprovedPayload,
   PrescriptionMatchingEventType,
   PrescriptionRejectedPayload,
+  RematchTriggeredPayload,
 } from '../../../prescription-matching/domain/events';
 import {
   PrescriptionSubject,
@@ -83,7 +85,8 @@ import {
  * `RecordPharmacyNotificationCommand`. Work 08: Module 07's `wallet.credited` and
  * `wallet.debited`, which name their user — the direct path, like Work 01's. Work 09:
  * `delivery.job.assigned`, through the Work 05 driver path — a separate notification from the
- * offer, because it is a separate event.
+ * offer, because it is a separate event. Work 10: Module 05's `matching.order_matched` and
+ * `matching.rematch_triggered`, to the match request's customer on Work 06's path.
  *
  * At-least-once, as the bus is (ADR-010): the outbox relay can deliver an event twice, and
  * `RecordNotificationCommand` writes at most one row per event per recipient. A handler that
@@ -149,6 +152,16 @@ export class NotificationEventsHandler implements OnModuleInit {
       PrescriptionMatchingEventType.MatchFailed,
       (p) => ({ kind: 'matchRequest', id: p.matchRequestId }),
       PrescriptionNotifications.matchFailed,
+    );
+    this.onPrescription<OrderMatchedPayload>(
+      PrescriptionMatchingEventType.OrderMatched,
+      (p) => ({ kind: 'matchRequest', id: p.matchRequestId }),
+      PrescriptionNotifications.orderMatched,
+    );
+    this.onPrescription<RematchTriggeredPayload>(
+      PrescriptionMatchingEventType.RematchTriggered,
+      (p) => ({ kind: 'matchRequest', id: p.matchRequestId }),
+      PrescriptionNotifications.rematchTriggered,
     );
 
     this.onPharmacy<PharmacyActivatedPayload>(PharmacyInventoryEventType.PharmacyActivated, PharmacyNotifications.pharmacyActivated);

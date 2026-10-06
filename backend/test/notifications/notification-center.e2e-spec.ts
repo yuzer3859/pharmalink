@@ -142,8 +142,9 @@ describe('In-app notification center (e2e)', () => {
       const order = await ctx.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
 
       const page = await readInbox(customer.accessToken);
-      expect(page.total).toBe(1);
-      expect(page.items[0]).toEqual({
+      // Since Work 10 a checkout's own select also notifies (MATCHING_ORDER_MATCHED); exactly these two.
+      expect(page.items.map((i) => i.type).sort()).toEqual(['MATCHING_ORDER_MATCHED', 'ORDER_PLACED']);
+      expect(page.items.find((i) => i.type === 'ORDER_PLACED')).toEqual({
         id: expect.any(String),
         type: 'ORDER_PLACED',
         category: 'TRANSACTIONAL',
@@ -153,7 +154,7 @@ describe('In-app notification center (e2e)', () => {
         read: false,
         createdAt: expect.any(String),
       });
-      const stored = await ctx.prisma.notification.findFirstOrThrow({ where: { recipientUserId: customer.userId } });
+      const stored = await ctx.prisma.notification.findFirstOrThrow({ where: { recipientUserId: customer.userId, templateCode: 'ORDER_PLACED' } });
       expect(stored).toMatchObject({ channel: 'IN_APP', status: 'SENT', eventType: 'order.placed' });
       const envelope = await ctx.prisma.outbox.findFirstOrThrow({ where: { eventType: 'order.placed', aggregateId: orderId } });
       expect(stored.dedupeKey).toBe(`${(envelope.payload as unknown as DomainEvent).id}:${customer.userId}`);
@@ -254,7 +255,7 @@ describe('In-app notification center (e2e)', () => {
         await ctx.prisma.outbox.updateMany({ where: { eventType: 'order.placed', aggregateId: orderId }, data: { publishedAt: null } });
         await ctx.drainOutbox();
       }
-      expect(await ctx.prisma.notification.count({ where: { recipientUserId: customer.userId } })).toBe(1);
+      expect(await ctx.prisma.notification.count({ where: { recipientUserId: customer.userId, templateCode: 'ORDER_PLACED' } })).toBe(1);
     });
 
     it('concurrent deliveries of one event write one notification', async () => {
@@ -263,7 +264,7 @@ describe('In-app notification center (e2e)', () => {
       const event = envelope.payload as unknown as DomainEvent;
       const bus = ctx.app.get(EventBusService);
       await Promise.all(Array.from({ length: 5 }, () => bus.publish(event)));
-      expect(await ctx.prisma.notification.count({ where: { recipientUserId: customer.userId } })).toBe(1);
+      expect(await ctx.prisma.notification.count({ where: { recipientUserId: customer.userId, templateCode: 'ORDER_PLACED' } })).toBe(1);
     });
 
     it('the unique index holds even against a direct duplicate insert', async () => {
