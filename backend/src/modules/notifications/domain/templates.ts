@@ -38,6 +38,7 @@ export enum NotificationTemplateCode {
   PHARMACY_SUSPENDED = 'PHARMACY_SUSPENDED',
   WALLET_CREDITED = 'WALLET_CREDITED',
   WALLET_DEBITED = 'WALLET_DEBITED',
+  DRIVER_JOB_ASSIGNED = 'DRIVER_JOB_ASSIGNED',
 }
 
 /** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
@@ -396,6 +397,15 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         title: 'ከዋሌትዎ ገንዘብ ተቀንሷል',
         body: `ከፋርማሊንክ ዋሌትዎ ${formatMinorUnits(Number(d.amount))} ${text(d.currency)} ተቀንሷል።`,
       }),
+    },
+  },
+  // Work 09 (driver, Module 08 event): the offer the driver accepted is now their job. States the assignment only —
+  // no pickup, ETA, earning or COD claim; not a repeat of the offer, which asked for a decision.
+  [NotificationTemplateCode.DRIVER_JOB_ASSIGNED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Delivery job assigned', body: 'This delivery job is now assigned to you.' }),
+      am: () => ({ title: 'የማድረስ ሥራ ተመድቦልዎታል', body: 'ይህ የማድረስ ሥራ አሁን ለእርስዎ ተመድቧል።' }),
     },
   },
 };

@@ -23,6 +23,7 @@ import type {
   DeliveryFailedPayload,
   DeliveryStatusPayload,
   EarningAccruedPayload,
+  JobAssignedPayload,
   JobOfferedPayload,
 } from '../../../delivery/domain/events';
 import type {
@@ -231,6 +232,17 @@ export const DriverNotifications = {
     recipientUserId: driverUserId,
     templateCode: NotificationTemplateCode.DRIVER_JOB_OFFERED,
     data: { jobId: p.jobId, expiresAt: p.expiresAt },
+  }),
+
+  /**
+   * Work 09 — `delivery.job.assigned` (raised by `AcceptJobOfferCommand`, on first assignment and
+   * on reassignment alike). `{ jobId }` only: not `offerId` (the offer is spent), `orderId` (the
+   * customer's handle) or `driverId` (the recipient already is the driver).
+   */
+  jobAssigned: (p: JobAssignedPayload, driverUserId: string): NotificationIntent => ({
+    recipientUserId: driverUserId,
+    templateCode: NotificationTemplateCode.DRIVER_JOB_ASSIGNED,
+    data: { jobId: p.jobId },
   }),
 
   earningAccrued: (p: EarningAccruedPayload, driverUserId: string): NotificationIntent => ({

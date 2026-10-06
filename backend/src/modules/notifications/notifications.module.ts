@@ -28,7 +28,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * earning accrued, COD remitted, reconciled, corrected). Work 06: customer notifications for
  * prescriptions (approved, rejected) and matching (no pharmacy found). Work 07: pharmacy owner
  * notifications (pharmacy activated, suspended). Work 08: wallet notifications (credited,
- * debited) — their events name the user, so they take Work 01's direct path.
+ * debited) — their events name the user, so they take Work 01's direct path. Work 09: the driver's
+ * job-assigned notification, on Work 05's driver path.
  *
  * ## What it owns
  *
@@ -62,7 +63,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * Work 05's driver events name a `driver_profiles.id`, not a person:
  *
- *     delivery.job.offered | .earning.accrued | .cod.remitted | .cod.reconciled
+ *     delivery.job.offered | .job.assigned | .earning.accrued | .cod.remitted | .cod.reconciled
  *       | .cod.correction_recorded ─→ RecordDriverNotificationCommand
  *         ├─ DRIVER_RECIPIENT_READ_PORT (Module 08: the profile's userId; unknown → skip + warn)
  *         └─→ RecordNotificationCommand (as above)

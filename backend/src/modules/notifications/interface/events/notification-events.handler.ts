@@ -31,6 +31,7 @@ import {
   DeliveryFailedPayload,
   DeliveryStatusPayload,
   EarningAccruedPayload,
+  JobAssignedPayload,
   JobOfferedPayload,
 } from '../../../delivery/domain/events';
 import { RecordDriverNotificationCommand } from '../../application/commands/record-driver-notification.command';
@@ -80,7 +81,9 @@ import {
  * `RecordPrescriptionNotificationCommand`. Work 07: Module 04's `pharmacy.pharmacy.activated` and
  * `.suspended`, told to the pharmacy's organization owner through
  * `RecordPharmacyNotificationCommand`. Work 08: Module 07's `wallet.credited` and
- * `wallet.debited`, which name their user — the direct path, like Work 01's.
+ * `wallet.debited`, which name their user — the direct path, like Work 01's. Work 09:
+ * `delivery.job.assigned`, through the Work 05 driver path — a separate notification from the
+ * offer, because it is a separate event.
  *
  * At-least-once, as the bus is (ADR-010): the outbox relay can deliver an event twice, and
  * `RecordNotificationCommand` writes at most one row per event per recipient. A handler that
@@ -123,6 +126,7 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.onOrder<DeliveryFailedPayload>(DeliveryEventType.DeliveryFailed, DeliveryNotifications.deliveryFailed);
 
     this.onDriver<JobOfferedPayload>(DeliveryEventType.JobOffered, DriverNotifications.jobOffered);
+    this.onDriver<JobAssignedPayload>(DeliveryEventType.JobAssigned, DriverNotifications.jobAssigned);
     this.onDriver<EarningAccruedPayload>(DeliveryEventType.EarningAccrued, DriverNotifications.earningAccrued);
     this.onDriver<CodRemittedPayload>(DeliveryEventType.CodRemitted, DriverNotifications.codRemitted);
     this.onDriver<CodReconciledPayload>(DeliveryEventType.CodReconciled, DriverNotifications.codReconciled);
