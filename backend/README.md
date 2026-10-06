@@ -68,7 +68,8 @@ See `../architecture/00-shared-conventions.md` §11 (Data & Persistence). Highli
 ## Notes on shared tables
 
 - `consents` (Module 01) is shared with Module 02 (health-consent types added to the enum).
-- **Notification preferences are split by concern (Prisma merges all files into one global namespace, so names must be unique):**
-  - `notification_preferences` + enum `NotificationCategory` are owned by **Module 02** — the profile-level, category toggles a user sees in settings (push/sms/email booleans per category).
-  - `channel_preferences` (model `ChannelPreference`) + enum `MessageCategory` are owned by **Module 13** — the delivery engine's per-channel routing/opt-in and digest cadence. Module 13 also honors Module 02's toggles at send time.
+- **Notification preferences have one owner: Module 13** (decided in Module 13 Work 11).
+  - `channel_preferences` (model `ChannelPreference`, enums `MessageCategory` × `NotificationChannel`, plus `DigestFrequency`) is the single source of truth, read and written only by Module 13 (`/notification-preferences`).
+  - `notification_preferences` (model `NotificationPreference`, enum `NotificationCategory`) is **deprecated**: no code ever used it, its categories do not match the notification templates, and it has no in-app channel or digest. It is left in place for a later migration to drop.
+  - Module 02 keeps profile data; the language a notification is rendered in is Module 01's `preferredLanguage`, read through its language port.
 - `outbox` is defined once (Module 06) and reused by all event-publishing modules.

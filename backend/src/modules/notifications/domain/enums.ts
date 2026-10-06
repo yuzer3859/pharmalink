@@ -48,3 +48,14 @@ export enum NotificationLanguage {
  * `@default(en)`.
  */
 export const DEFAULT_NOTIFICATION_LANGUAGE = NotificationLanguage.en;
+
+/**
+ * Mirrors Prisma's `DigestFrequency`, the cadence column of `channel_preferences`. Stored and
+ * served as a preference only: no channel batches anything yet (see `domain/preferences.ts`).
+ */
+export enum DigestFrequency {
+  IMMEDIATE = 'IMMEDIATE',
+  HOURLY = 'HOURLY',
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+}

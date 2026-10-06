@@ -106,6 +106,9 @@ model DeliveryAttempt {
   @@map("delivery_attempts")
 }
 
+// The single source of truth for notification preferences (Work 11): one row per (user, category,
+// channel); an absent row means the column defaults. Owned by Module 13, which alone reads and
+// writes it.
 model ChannelPreference {
   id              String              @id @default(uuid())
   userId          String

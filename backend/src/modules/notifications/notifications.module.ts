@@ -13,10 +13,15 @@ import { RecordPaymentNotificationCommand } from './application/commands/record-
 import { RecordDriverNotificationCommand } from './application/commands/record-driver-notification.command';
 import { RecordPrescriptionNotificationCommand } from './application/commands/record-prescription-notification.command';
 import { RecordPharmacyNotificationCommand } from './application/commands/record-pharmacy-notification.command';
+import { UpdateNotificationPreferencesCommand } from './application/commands/update-notification-preferences.command';
+import { GetNotificationPreferencesQuery } from './application/queries/get-notification-preferences.query';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
+import { NOTIFICATION_PREFERENCE_REPOSITORY } from './domain/repositories/notification-preference.repository';
 import { NOTIFICATION_REPOSITORY } from './domain/repositories/notification.repository';
+import { PrismaNotificationPreferenceRepository } from './infrastructure/persistence/prisma-notification-preference.repository';
 import { PrismaNotificationRepository } from './infrastructure/persistence/prisma-notification.repository';
+import { NotificationPreferencesController } from './interface/controllers/notification-preferences.controller';
 import { NotificationsController } from './interface/controllers/notifications.controller';
 import { NotificationEventsHandler } from './interface/events/notification-events.handler';
 
@@ -30,7 +35,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * notifications (pharmacy activated, suspended). Work 08: wallet notifications (credited,
  * debited) — their events name the user, so they take Work 01's direct path. Work 09: the driver's
  * job-assigned notification, on Work 05's driver path. Work 10: customer matching outcomes (pharmacy
- * found, moved to another pharmacy), on Work 06's path.
+ * found, moved to another pharmacy), on Work 06's path. Work 11: notification preferences — the
+ * user's own per-category, per-channel settings — with this module as their single owner.
  *
  * ## What it owns
  *
@@ -38,6 +44,12 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * are written `SENT` and become `READ`. The schema already carried everything this needs — a
  * unique `dedupeKey`, `templateCode`, `eventType`, a JSON `payload` and the rendered title and
  * body — so there is no migration.
+ *
+ * And, from Work 11, the `channel_preferences` table: the one authority for notification
+ * preferences (`domain/preferences.ts` has the policy and the precedence rule). Module 02's
+ * `notification_preferences` table predates both and is used by no code; it is left in place,
+ * deprecated, for a later migration to drop. Preferences are recorded and served only — no
+ * delivery channel consults them yet, and in-app notifications never do.
  *
  * ## How a notification is made
  *
@@ -97,8 +109,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * ## Deliberately absent
  *
- * Push, SMS and email (no provider contract exists), BullMQ and a DLQ, preferences and quiet
- * hours, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
+ * Push, SMS and email (no provider contract exists), BullMQ and a DLQ, enforcing preferences
+ * (nothing sends on a configurable channel yet), quiet hours, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
  * notification routes, pharmacy staff (non-owner) routing, and the events whose recipient lookup
  * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy.
  */
@@ -111,9 +123,10 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     PrescriptionMatchingModule,
     PharmacyInventoryModule,
   ],
-  controllers: [NotificationsController],
+  controllers: [NotificationsController, NotificationPreferencesController],
   providers: [
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
+    { provide: NOTIFICATION_PREFERENCE_REPOSITORY, useClass: PrismaNotificationPreferenceRepository },
 
     RecordNotificationCommand,
     RecordOrderNotificationCommand,
@@ -125,6 +138,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     MarkAllNotificationsReadCommand,
     ListNotificationsQuery,
     GetUnreadCountQuery,
+    GetNotificationPreferencesQuery,
+    UpdateNotificationPreferencesCommand,
 
     NotificationEventsHandler,
   ],

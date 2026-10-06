@@ -12,4 +12,11 @@ export const NotificationErrors = {
    * else's address), so a caller cannot probe which ids exist.
    */
   notFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Notification not found.'),
+
+  /**
+   * A preference outside the configurable set (`domain/preferences.ts`). The DTO refuses these
+   * first; this is the application layer's own check, so the rule holds for any caller.
+   */
+  preferenceNotConfigurable: (details: { category: string; channel?: string }) =>
+    ApiException.validation('This notification preference is not configurable.', details),
 };

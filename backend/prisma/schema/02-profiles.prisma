@@ -1,6 +1,6 @@
 // ============================================================================
 // Module 02 — User & Profile Management
-// (consents shared with Module 01; notification_preferences owned here, read by Module 13)
+// (consents shared with Module 01; notification_preferences — deprecated, see the model)
 // ============================================================================
 
 enum Gender {
@@ -123,6 +123,9 @@ model Address {
   @@map("addresses")
 }
 
+// DEPRECATED (Module 13 Work 11). No code reads or writes this table: notification preferences
+// are owned by Module 13's `channel_preferences` (13-notifications.prisma). Kept, unchanged, until
+// a later migration drops it; do not build on it.
 model NotificationPreference {
   id        String               @id @default(uuid())
   userId    String

@@ -127,6 +127,11 @@ export const PERMISSIONS: Array<{
   // `profile:read:own` is — i.e. to every role, because every account holder can be the recipient
   // of an account notification (suspension, reactivation) — and to `SUPER_ADMIN` by wildcard.
   { key: 'notification:read:own', resource: 'notification', action: 'read', scope: 'own' },
+  // Module 13 — Notifications, Work 11: changing one's own notification preferences. No existing
+  // key covers a notification write; this follows the `*:manage:own` convention
+  // (`address:manage:own`), is granted beside every `notification:read:own`, and guards only
+  // `PUT /notification-preferences/:category`.
+  { key: 'notification:manage:own', resource: 'notification', action: 'manage', scope: 'own' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -135,6 +140,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'beneficiary:manage:own',
     'order:create:own',
@@ -158,6 +164,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'catalog:manage:org',
     'inventory:manage:org',
@@ -174,6 +181,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'catalog:manage:org',
     'inventory:manage:org',
@@ -185,6 +193,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'prescription:verify',
     'order:read:org',
@@ -194,6 +203,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'order:read:org',
     'payment:collect:org',
@@ -202,6 +212,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'inventory:manage:org',
   ],
@@ -209,6 +220,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'delivery:accept:own',
     'delivery:update:own',
@@ -218,6 +230,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'appointment:manage:own',
   ],
@@ -225,6 +238,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'hospital:manage:org',
     'staff:manage:org',
@@ -233,6 +247,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'profile:update:own',
     'lab:manage:org',
     'labresult:release:org',
@@ -241,6 +256,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'support:account:read',
     'support:recovery:assist',
   ],
@@ -248,6 +264,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     // Module 07 — Payment, HTTP slice (§9.1).
     'payment:capture:any',
     'payment:void:any',
@@ -259,6 +276,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     'profile:read:own',
     'notification:read:own',
+    'notification:manage:own',
     'user:suspend:any',
     'user:reactivate:any',
     'provider:verify:any',
