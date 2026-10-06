@@ -13,6 +13,7 @@ import type {
   PaymentCapturedPayload,
   PaymentFailedPayload,
   PaymentRefundedPayload,
+  WalletMovementPayload,
 } from '../../../payment/domain/events';
 import type { PaymentRecipientView } from '../../../payment/application/ports/inbound/payment-recipient-read.port';
 import type {
@@ -31,6 +32,9 @@ import type {
 } from '../../../prescription-matching/domain/events';
 import type { PharmacyActivatedPayload, PharmacySuspendedPayload } from '../../../pharmacy-inventory/domain/events';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
+
+/** The currency `WalletMovementPayload.amount` is defined in by Module 07's event contract. */
+export const WALLET_EVENT_CURRENCY = 'ETB';
 
 /** What one event asks Module 13 to tell one recipient. */
 export interface NotificationIntent {
@@ -94,6 +98,24 @@ export const EventNotifications = {
     recipientUserId: p.customerUserId,
     templateCode: NotificationTemplateCode.ORDER_PLACED,
     data: { orderId: p.orderId, grandTotal: p.totals.grandTotal, currency: p.totals.currency },
+  }),
+
+  /**
+   * Work 08 — the wallet's owner is the event's `userId`. `data` is the amount and its currency:
+   * the payload carries `amount` only, and its contract defines it as "always positive ETB minor
+   * units" (`WalletMovementPayload`), so the currency is that contract's, stated rather than
+   * guessed. No balance (the event has none by design), no ledger reference, no payment or order.
+   */
+  walletCredited: (p: WalletMovementPayload): NotificationIntent => ({
+    recipientUserId: p.userId,
+    templateCode: NotificationTemplateCode.WALLET_CREDITED,
+    data: { amount: p.amount, currency: WALLET_EVENT_CURRENCY },
+  }),
+
+  walletDebited: (p: WalletMovementPayload): NotificationIntent => ({
+    recipientUserId: p.userId,
+    templateCode: NotificationTemplateCode.WALLET_DEBITED,
+    data: { amount: p.amount, currency: WALLET_EVENT_CURRENCY },
   }),
 };
 

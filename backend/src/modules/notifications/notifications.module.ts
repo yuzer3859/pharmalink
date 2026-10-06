@@ -27,7 +27,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * delivery (picked up, en route, delivered, failed). Work 05: driver notifications (job offer,
  * earning accrued, COD remitted, reconciled, corrected). Work 06: customer notifications for
  * prescriptions (approved, rejected) and matching (no pharmacy found). Work 07: pharmacy owner
- * notifications (pharmacy activated, suspended).
+ * notifications (pharmacy activated, suspended). Work 08: wallet notifications (credited,
+ * debited) — their events name the user, so they take Work 01's direct path.
  *
  * ## What it owns
  *
@@ -96,8 +97,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * Push, SMS and email (no provider contract exists), BullMQ and a DLQ, preferences and quiet
  * hours, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
  * notification routes, pharmacy staff (non-owner) routing, and the events whose recipient lookup
- * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy, and wallet
- * events.
+ * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy.
  */
 @Module({
   imports: [

@@ -36,6 +36,8 @@ export enum NotificationTemplateCode {
   MATCHING_FAILED = 'MATCHING_FAILED',
   PHARMACY_ACTIVATED = 'PHARMACY_ACTIVATED',
   PHARMACY_SUSPENDED = 'PHARMACY_SUSPENDED',
+  WALLET_CREDITED = 'WALLET_CREDITED',
+  WALLET_DEBITED = 'WALLET_DEBITED',
 }
 
 /** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
@@ -363,6 +365,36 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
       am: (d) => ({
         title: 'ፋርማሲዎ ታግዷል',
         body: d.reason === PHARMACY_SUSPENDED_LICENSE_EXPIRED ? 'የፈቃዱ ጊዜ ስላለፈ ፋርማሲዎ ታግዷል።' : 'ፋርማሲዎ ታግዷል።',
+      }),
+    },
+  },
+  // ---- Wallet (Module 07) -----------------------------------------------------------------
+  // Money entering or leaving the customer's PharmaLink wallet — an internal stored balance. Not a
+  // bank transfer, not income, not a completed external payment; no balance is stated (the event
+  // carries none, by design: a balance is derived at read time).
+  [NotificationTemplateCode.WALLET_CREDITED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Wallet credited',
+        body: `Your PharmaLink wallet has been credited with ${formatMinorUnits(Number(d.amount))} ${text(d.currency)}.`,
+      }),
+      am: (d) => ({
+        title: 'ወደ ዋሌትዎ ገንዘብ ገብቷል',
+        body: `ወደ ፋርማሊንክ ዋሌትዎ ${formatMinorUnits(Number(d.amount))} ${text(d.currency)} ገብቷል።`,
+      }),
+    },
+  },
+  [NotificationTemplateCode.WALLET_DEBITED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Wallet debited',
+        body: `${formatMinorUnits(Number(d.amount))} ${text(d.currency)} has been deducted from your PharmaLink wallet.`,
+      }),
+      am: (d) => ({
+        title: 'ከዋሌትዎ ገንዘብ ተቀንሷል',
+        body: `ከፋርማሊንክ ዋሌትዎ ${formatMinorUnits(Number(d.amount))} ${text(d.currency)} ተቀንሷል።`,
       }),
     },
   },

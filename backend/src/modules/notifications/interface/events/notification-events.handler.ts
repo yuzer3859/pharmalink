@@ -19,6 +19,8 @@ import {
   PaymentEventType,
   PaymentFailedPayload,
   PaymentRefundedPayload,
+  WalletEventType,
+  WalletMovementPayload,
 } from '../../../payment/domain/events';
 import type { PaymentRecipientView } from '../../../payment/application/ports/inbound/payment-recipient-read.port';
 import {
@@ -77,7 +79,8 @@ import {
  * and `matching.match_failed`, whose customer is asked of Module 05 through
  * `RecordPrescriptionNotificationCommand`. Work 07: Module 04's `pharmacy.pharmacy.activated` and
  * `.suspended`, told to the pharmacy's organization owner through
- * `RecordPharmacyNotificationCommand`.
+ * `RecordPharmacyNotificationCommand`. Work 08: Module 07's `wallet.credited` and
+ * `wallet.debited`, which name their user — the direct path, like Work 01's.
  *
  * At-least-once, as the bus is (ADR-010): the outbox relay can deliver an event twice, and
  * `RecordNotificationCommand` writes at most one row per event per recipient. A handler that
@@ -103,6 +106,8 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.on<AccountStatusChangedPayload>(IdentityEventType.AccountSuspended, EventNotifications.accountSuspended);
     this.on<AccountStatusChangedPayload>(IdentityEventType.AccountReactivated, EventNotifications.accountReactivated);
     this.on<OrderPlacedPayload>(OrdersEventType.OrderPlaced, EventNotifications.orderPlaced);
+    this.on<WalletMovementPayload>(WalletEventType.WalletCredited, EventNotifications.walletCredited);
+    this.on<WalletMovementPayload>(WalletEventType.WalletDebited, EventNotifications.walletDebited);
 
     this.onOrder<OrderAcceptedPayload>(OrdersEventType.OrderAccepted, OrderLifecycleNotifications.orderAccepted);
     this.onOrder<OrderReadyPayload>(OrdersEventType.OrderReady, OrderLifecycleNotifications.orderReady);
