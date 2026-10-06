@@ -32,6 +32,16 @@ import {
   JobOfferedPayload,
 } from '../../../delivery/domain/events';
 import { RecordDriverNotificationCommand } from '../../application/commands/record-driver-notification.command';
+import {
+  MatchFailedPayload,
+  PrescriptionApprovedPayload,
+  PrescriptionMatchingEventType,
+  PrescriptionRejectedPayload,
+} from '../../../prescription-matching/domain/events';
+import {
+  PrescriptionSubject,
+  RecordPrescriptionNotificationCommand,
+} from '../../application/commands/record-prescription-notification.command';
 import { RecordOrderNotificationCommand } from '../../application/commands/record-order-notification.command';
 import { RecordPaymentNotificationCommand } from '../../application/commands/record-payment-notification.command';
 import { RecordNotificationCommand } from '../../application/commands/record-notification.command';
@@ -42,6 +52,7 @@ import {
   DeliveryNotifications,
   DriverNotifications,
   PaymentNotifications,
+  PrescriptionNotifications,
 } from '../../application/support/event-notifications';
 
 /**
@@ -55,7 +66,9 @@ import {
  * order — the order path again, alongside (never instead of) Module 08's own consumers. Work 05:
  * Module 08's driver-addressed events (offer, earning, COD remitted/reconciled/corrected), whose
  * `driverId` is a driver profile — its person is asked of Module 08 through
- * `RecordDriverNotificationCommand`.
+ * `RecordDriverNotificationCommand`. Work 06: Module 05's `prescription.approved`, `.rejected`
+ * and `matching.match_failed`, whose customer is asked of Module 05 through
+ * `RecordPrescriptionNotificationCommand`.
  *
  * At-least-once, as the bus is (ADR-010): the outbox relay can deliver an event twice, and
  * `RecordNotificationCommand` writes at most one row per event per recipient. A handler that
@@ -70,6 +83,7 @@ export class NotificationEventsHandler implements OnModuleInit {
     private readonly recordForOrder: RecordOrderNotificationCommand,
     private readonly recordForPayment: RecordPaymentNotificationCommand,
     private readonly recordForDriver: RecordDriverNotificationCommand,
+    private readonly recordForPrescription: RecordPrescriptionNotificationCommand,
   ) {}
 
   onModuleInit(): void {
@@ -100,6 +114,22 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.onDriver<CodCorrectionRecordedPayload>(
       DeliveryEventType.CodCorrectionRecorded,
       DriverNotifications.codCorrectionRecorded,
+    );
+
+    this.onPrescription<PrescriptionApprovedPayload>(
+      PrescriptionMatchingEventType.PrescriptionApproved,
+      (p) => ({ kind: 'prescription', id: p.prescriptionId }),
+      PrescriptionNotifications.prescriptionApproved,
+    );
+    this.onPrescription<PrescriptionRejectedPayload>(
+      PrescriptionMatchingEventType.PrescriptionRejected,
+      (p) => ({ kind: 'prescription', id: p.prescriptionId }),
+      PrescriptionNotifications.prescriptionRejected,
+    );
+    this.onPrescription<MatchFailedPayload>(
+      PrescriptionMatchingEventType.MatchFailed,
+      (p) => ({ kind: 'matchRequest', id: p.matchRequestId }),
+      PrescriptionNotifications.matchFailed,
     );
   }
 
@@ -133,6 +163,22 @@ export class NotificationEventsHandler implements OnModuleInit {
   ): void {
     this.bus.subscribe<T>(eventType, async (event: DomainEvent<T>) => {
       await this.recordForDriver.execute({ eventId: event.id, eventType: event.type, payload: event.payload, toIntent });
+    });
+  }
+
+  private onPrescription<T>(
+    eventType: string,
+    subjectOf: (payload: T) => PrescriptionSubject,
+    toIntent: (payload: T, customerUserId: string) => NotificationIntent,
+  ): void {
+    this.bus.subscribe<T>(eventType, async (event: DomainEvent<T>) => {
+      await this.recordForPrescription.execute({
+        eventId: event.id,
+        eventType: event.type,
+        payload: event.payload,
+        subject: subjectOf(event.payload),
+        toIntent,
+      });
     });
   }
 }

@@ -31,6 +31,9 @@ export enum NotificationTemplateCode {
   DRIVER_COD_REMITTED = 'DRIVER_COD_REMITTED',
   DRIVER_COD_RECONCILED = 'DRIVER_COD_RECONCILED',
   DRIVER_COD_CORRECTION_RECORDED = 'DRIVER_COD_CORRECTION_RECORDED',
+  PRESCRIPTION_APPROVED = 'PRESCRIPTION_APPROVED',
+  PRESCRIPTION_REJECTED = 'PRESCRIPTION_REJECTED',
+  MATCHING_FAILED = 'MATCHING_FAILED',
 }
 
 /** `delivery.cod.reconciled`'s `outcome` when every amount agreed; anything else is a difference. */
@@ -303,6 +306,32 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         title: 'የጥሬ ገንዘብ ክፍያ መዝገብ ታርሟል',
         body: 'ለዚህ ማድረስ የጥሬ ገንዘብ ክፍያ መዝገብ ላይ እርማት ተመዝግቧል።',
       }),
+    },
+  },
+  // ---- Prescription & matching (Module 05) ------------------------------------------------
+  // Medical content never enters the text: no medicine, quantity, diagnosis, prescriber or
+  // pharmacy. The text says what happened; the details are behind the customer's own routes.
+  [NotificationTemplateCode.PRESCRIPTION_APPROVED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Prescription approved', body: 'Your prescription has been reviewed and approved by a pharmacist.' }),
+      am: () => ({ title: 'የሐኪም ማዘዣዎ ጸድቋል', body: 'የሐኪም ማዘዣዎ በፋርማሲስት ተገምግሞ ጸድቋል።' }),
+    },
+  },
+  // The pharmacist's reason travels in `data` (Module 05 already shows it to the customer on
+  // GET /prescriptions/:id), never in the body — it is free text that may name a medicine.
+  [NotificationTemplateCode.PRESCRIPTION_REJECTED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Prescription not approved', body: 'Your prescription was not approved after review.' }),
+      am: () => ({ title: 'የሐኪም ማዘዣዎ አልጸደቀም', body: 'የሐኪም ማዘዣዎ ከግምገማ በኋላ አልጸደቀም።' }),
+    },
+  },
+  [NotificationTemplateCode.MATCHING_FAILED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'No pharmacy found', body: 'We could not find a pharmacy able to fulfil your request.' }),
+      am: () => ({ title: 'ፋርማሲ አልተገኘም', body: 'ጥያቄዎን ማሟላት የሚችል ፋርማሲ ማግኘት አልተቻለም።' }),
     },
   },
 };

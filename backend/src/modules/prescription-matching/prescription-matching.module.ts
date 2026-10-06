@@ -15,6 +15,8 @@ import { CHECK_RX_GATE_PORT } from './application/ports/inbound/check-rx-gate.po
 import { DISPENSING_PORT } from './application/ports/inbound/dispensing.port';
 import { MatchingPortAdapter } from './application/ports/inbound/matching-port.adapter';
 import { MATCHING_PORT } from './application/ports/inbound/matching.port';
+import { PRESCRIPTION_RECIPIENT_READ_PORT } from './application/ports/inbound/prescription-recipient-read.port';
+import { PrismaPrescriptionRecipientReadAdapter } from './infrastructure/persistence/prisma-prescription-recipient-read.adapter';
 import { AVAILABILITY_PORT } from './application/ports/outbound/availability.port';
 import { CATALOG_PORT } from './application/ports/outbound/catalog.port';
 import { IDENTITY_PORT } from './application/ports/outbound/identity.port';
@@ -106,7 +108,10 @@ import { VerificationController } from './interface/controllers/verification.con
     // Matching — this module's own inbound port (06-orders-spec.md §13.1 Option B). Delegates
     // 1:1 to the three commands above; owns no ranking/reservation/retry logic of its own.
     { provide: MATCHING_PORT, useClass: MatchingPortAdapter },
+    // Inbound read contract for Module 13's prescription/matching notifications (module-13
+    // Work 06): a prescription's or match request's `customerUserId`, nothing else.
+    { provide: PRESCRIPTION_RECIPIENT_READ_PORT, useClass: PrismaPrescriptionRecipientReadAdapter },
   ],
-  exports: [CHECK_RX_GATE_PORT, DISPENSING_PORT, MATCHING_PORT],
+  exports: [CHECK_RX_GATE_PORT, DISPENSING_PORT, MATCHING_PORT, PRESCRIPTION_RECIPIENT_READ_PORT],
 })
 export class PrescriptionMatchingModule {}

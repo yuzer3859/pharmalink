@@ -24,6 +24,11 @@ import type {
   EarningAccruedPayload,
   JobOfferedPayload,
 } from '../../../delivery/domain/events';
+import type {
+  MatchFailedPayload,
+  PrescriptionApprovedPayload,
+  PrescriptionRejectedPayload,
+} from '../../../prescription-matching/domain/events';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** What one event asks Module 13 to tell one recipient. */
@@ -227,6 +232,38 @@ export const DriverNotifications = {
     recipientUserId: driverUserId,
     templateCode: NotificationTemplateCode.DRIVER_COD_CORRECTION_RECORDED,
     data: { jobId: p.jobId, correctionType: p.type },
+  }),
+};
+
+/**
+ * Event → notification for Module 05 (module-13 Work 06). The prescription events name only the
+ * prescription and the matching event only the match request; the customer is resolved by Module
+ * 05's `PRESCRIPTION_RECIPIENT_READ_PORT` and supplied by the caller.
+ *
+ * Kept: the handle the customer's own surface is keyed by (`prescriptionId` →
+ * `GET /prescriptions/:id`, `matchRequestId` → `GET /matching/:id`), and on a rejection the
+ * pharmacist's `reason` — Module 05 records it for the customer (BRULE-14, BR-RX-05) and already
+ * returns it to them as `rejectionReason`. Never kept: the approved `lines` (catalogue products and
+ * quantities are medical detail), and nothing else of either record — no file reference, reviewer,
+ * pharmacy or matching diagnostic is even on these events.
+ */
+export const PrescriptionNotifications = {
+  prescriptionApproved: (p: PrescriptionApprovedPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.PRESCRIPTION_APPROVED,
+    data: { prescriptionId: p.prescriptionId },
+  }),
+
+  prescriptionRejected: (p: PrescriptionRejectedPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.PRESCRIPTION_REJECTED,
+    data: { prescriptionId: p.prescriptionId, reason: p.reason ?? null },
+  }),
+
+  matchFailed: (p: MatchFailedPayload, customerUserId: string): NotificationIntent => ({
+    recipientUserId: customerUserId,
+    templateCode: NotificationTemplateCode.MATCHING_FAILED,
+    data: { matchRequestId: p.matchRequestId },
   }),
 };
 

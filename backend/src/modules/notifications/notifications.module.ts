@@ -3,12 +3,14 @@ import { DeliveryModule } from '../delivery/delivery.module';
 import { IdentityModule } from '../identity/identity.module';
 import { OrdersModule } from '../orders/orders.module';
 import { PaymentModule } from '../payment/payment.module';
+import { PrescriptionMatchingModule } from '../prescription-matching/prescription-matching.module';
 import { MarkAllNotificationsReadCommand } from './application/commands/mark-all-notifications-read.command';
 import { MarkNotificationReadCommand } from './application/commands/mark-notification-read.command';
 import { RecordNotificationCommand } from './application/commands/record-notification.command';
 import { RecordOrderNotificationCommand } from './application/commands/record-order-notification.command';
 import { RecordPaymentNotificationCommand } from './application/commands/record-payment-notification.command';
 import { RecordDriverNotificationCommand } from './application/commands/record-driver-notification.command';
+import { RecordPrescriptionNotificationCommand } from './application/commands/record-prescription-notification.command';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
 import { NOTIFICATION_REPOSITORY } from './domain/repositories/notification.repository';
@@ -21,7 +23,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * customer notifications for the order lifecycle (accepted, ready, cancelled). Work 03: customer
  * notifications for payments (captured, failed, refunded). Work 04: customer notifications for
  * delivery (picked up, en route, delivered, failed). Work 05: driver notifications (job offer,
- * earning accrued, COD remitted, reconciled, corrected).
+ * earning accrued, COD remitted, reconciled, corrected). Work 06: customer notifications for
+ * prescriptions (approved, rejected) and matching (no pharmacy found).
  *
  * ## What it owns
  *
@@ -60,11 +63,17 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *         ├─ DRIVER_RECIPIENT_READ_PORT (Module 08: the profile's userId; unknown → skip + warn)
  *         └─→ RecordNotificationCommand (as above)
  *
+ * Work 06's events name a prescription or a match request:
+ *
+ *     prescription.approved | .rejected | matching.match_failed ─→ RecordPrescriptionNotificationCommand
+ *         ├─ PRESCRIPTION_RECIPIENT_READ_PORT (Module 05: customerUserId; unknown → skip + warn)
+ *         └─→ RecordNotificationCommand (as above)
+ *
  * The event contracts (`identity/domain/events`, `orders/domain/events`, `payment/domain/events`,
  * `delivery/domain/events`),
- * Module 01's language port, and Module 06's, 07's and 08's recipient ports are the only things it
- * takes from other modules; `IdentityModule` is imported for the language port and
- * `@CurrentUser`, `OrdersModule`, `PaymentModule` and `DeliveryModule` for their recipient ports.
+ * Module 01's language port, and Module 05's, 06's, 07's and 08's recipient ports are the only
+ * things it takes from other modules; `IdentityModule` is imported for the language port and
+ * `@CurrentUser`, the others for their recipient ports.
  *
  * ## Known limitation — consumer failures are not retried
  *
@@ -77,11 +86,11 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * Push, SMS and email (no provider contract exists), BullMQ and a DLQ, preferences and quiet
  * hours, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
- * notification routes, and the events whose recipient lookup has no contract yet — prescription,
- * matching, pharmacy and wallet events.
+ * notification routes, and the events whose recipient lookup has no contract yet — pharmacy and
+ * wallet events.
  */
 @Module({
-  imports: [IdentityModule, OrdersModule, PaymentModule, DeliveryModule],
+  imports: [IdentityModule, OrdersModule, PaymentModule, DeliveryModule, PrescriptionMatchingModule],
   controllers: [NotificationsController],
   providers: [
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
@@ -90,6 +99,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     RecordOrderNotificationCommand,
     RecordPaymentNotificationCommand,
     RecordDriverNotificationCommand,
+    RecordPrescriptionNotificationCommand,
     MarkNotificationReadCommand,
     MarkAllNotificationsReadCommand,
     ListNotificationsQuery,

@@ -523,6 +523,9 @@ describe('In-app notification center (e2e)', () => {
         'payment/application/ports/inbound/payment-recipient-read.port',
         'payment/domain/events',
         'payment/payment.module',
+        'prescription-matching/application/ports/inbound/prescription-recipient-read.port',
+        'prescription-matching/domain/events',
+        'prescription-matching/prescription-matching.module',
       ]);
     });
   });
