@@ -42,6 +42,12 @@ import {
   PrescriptionSubject,
   RecordPrescriptionNotificationCommand,
 } from '../../application/commands/record-prescription-notification.command';
+import {
+  PharmacyActivatedPayload,
+  PharmacyInventoryEventType,
+  PharmacySuspendedPayload,
+} from '../../../pharmacy-inventory/domain/events';
+import { RecordPharmacyNotificationCommand } from '../../application/commands/record-pharmacy-notification.command';
 import { RecordOrderNotificationCommand } from '../../application/commands/record-order-notification.command';
 import { RecordPaymentNotificationCommand } from '../../application/commands/record-payment-notification.command';
 import { RecordNotificationCommand } from '../../application/commands/record-notification.command';
@@ -52,6 +58,7 @@ import {
   DeliveryNotifications,
   DriverNotifications,
   PaymentNotifications,
+  PharmacyNotifications,
   PrescriptionNotifications,
 } from '../../application/support/event-notifications';
 
@@ -68,7 +75,9 @@ import {
  * `driverId` is a driver profile — its person is asked of Module 08 through
  * `RecordDriverNotificationCommand`. Work 06: Module 05's `prescription.approved`, `.rejected`
  * and `matching.match_failed`, whose customer is asked of Module 05 through
- * `RecordPrescriptionNotificationCommand`.
+ * `RecordPrescriptionNotificationCommand`. Work 07: Module 04's `pharmacy.pharmacy.activated` and
+ * `.suspended`, told to the pharmacy's organization owner through
+ * `RecordPharmacyNotificationCommand`.
  *
  * At-least-once, as the bus is (ADR-010): the outbox relay can deliver an event twice, and
  * `RecordNotificationCommand` writes at most one row per event per recipient. A handler that
@@ -84,6 +93,7 @@ export class NotificationEventsHandler implements OnModuleInit {
     private readonly recordForPayment: RecordPaymentNotificationCommand,
     private readonly recordForDriver: RecordDriverNotificationCommand,
     private readonly recordForPrescription: RecordPrescriptionNotificationCommand,
+    private readonly recordForPharmacy: RecordPharmacyNotificationCommand,
   ) {}
 
   onModuleInit(): void {
@@ -131,6 +141,9 @@ export class NotificationEventsHandler implements OnModuleInit {
       (p) => ({ kind: 'matchRequest', id: p.matchRequestId }),
       PrescriptionNotifications.matchFailed,
     );
+
+    this.onPharmacy<PharmacyActivatedPayload>(PharmacyInventoryEventType.PharmacyActivated, PharmacyNotifications.pharmacyActivated);
+    this.onPharmacy<PharmacySuspendedPayload>(PharmacyInventoryEventType.PharmacySuspended, PharmacyNotifications.pharmacySuspended);
   }
 
   private on<T>(eventType: string, toIntent: (payload: T) => NotificationIntent): void {
@@ -179,6 +192,15 @@ export class NotificationEventsHandler implements OnModuleInit {
         subject: subjectOf(event.payload),
         toIntent,
       });
+    });
+  }
+
+  private onPharmacy<T extends { pharmacyId: string }>(
+    eventType: string,
+    toIntent: (payload: T, ownerUserId: string) => NotificationIntent,
+  ): void {
+    this.bus.subscribe<T>(eventType, async (event: DomainEvent<T>) => {
+      await this.recordForPharmacy.execute({ eventId: event.id, eventType: event.type, payload: event.payload, toIntent });
     });
   }
 }

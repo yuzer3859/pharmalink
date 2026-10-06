@@ -85,7 +85,9 @@ describe('Order lifecycle notifications (e2e)', () => {
         ['ORDER_ACCEPTED', 'TRANSACTIONAL', 'Order accepted', { orderId: order.orderId }, false],
       ]);
       expect(await inbox(customerB.accessToken)).toEqual([]);
-      expect(await inbox(order.pharmacy.accessToken)).toEqual([]);
+      // No customer lifecycle notification reaches the pharmacy. (Since Work 07 its owner does
+      // receive their own PHARMACY_ACTIVATED from the fixture's activation.)
+      expect(await lifecycle(order.pharmacy.accessToken)).toEqual([]);
 
       const stored = await ctx.prisma.notification.findMany({
         where: { templateCode: { in: LIFECYCLE } },
@@ -137,7 +139,9 @@ describe('Order lifecycle notifications (e2e)', () => {
         }),
       ]);
       expect(JSON.stringify(items)).not.toContain('Out of stock');
-      expect(await inbox(order.pharmacy.accessToken)).toEqual([]);
+      // No customer lifecycle notification reaches the pharmacy. (Since Work 07 its owner does
+      // receive their own PHARMACY_ACTIVATED from the fixture's activation.)
+      expect(await lifecycle(order.pharmacy.accessToken)).toEqual([]);
     });
 
     it('an event for an order that does not exist writes nothing', async () => {

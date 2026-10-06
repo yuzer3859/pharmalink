@@ -36,6 +36,10 @@ import { PrismaBranchRepository } from './infrastructure/persistence/prisma-bran
 import { PrismaListingRepository } from './infrastructure/persistence/prisma-listing.repository';
 import { PrismaPharmacyRepository } from './infrastructure/persistence/prisma-pharmacy.repository';
 import { PHARMACY_ANALYTICS_READ_PORT } from './application/ports/inbound/pharmacy-analytics-read.port';
+import {
+  PHARMACY_RECIPIENT_READ_PORT,
+  PharmacyRecipientReadPortAdapter,
+} from './application/ports/inbound/pharmacy-recipient-read.port';
 import { PrismaPharmacyAnalyticsReadAdapter } from './infrastructure/persistence/prisma-pharmacy-analytics-read.adapter';
 import { PrismaReservationRepository } from './infrastructure/persistence/prisma-reservation.repository';
 import { PrismaStockLedgerRepository } from './infrastructure/persistence/prisma-stock-ledger.repository';
@@ -103,11 +107,14 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     // Inbound read contract for Module 16's operational dashboard (module-16 Work 08): provider,
     // branch and listing counts, aggregated in PostgreSQL. It can move no stock.
     { provide: PHARMACY_ANALYTICS_READ_PORT, useClass: PrismaPharmacyAnalyticsReadAdapter },
+    // Inbound read contract for Module 13's pharmacy notifications (module-13 Work 07): a
+    // pharmacy's organization owner `userId`, via the existing `IIdentityPort` owner read.
+    { provide: PHARMACY_RECIPIENT_READ_PORT, useClass: PharmacyRecipientReadPortAdapter },
 
     // Scheduling
     LicenseExpirySweeper,
     ReservationTtlSweeper,
   ],
-  exports: [INVENTORY_PORT, GetAvailabilityQuery, PHARMACY_ANALYTICS_READ_PORT],
+  exports: [INVENTORY_PORT, GetAvailabilityQuery, PHARMACY_ANALYTICS_READ_PORT, PHARMACY_RECIPIENT_READ_PORT],
 })
 export class PharmacyInventoryModule {}

@@ -29,6 +29,7 @@ import type {
   PrescriptionApprovedPayload,
   PrescriptionRejectedPayload,
 } from '../../../prescription-matching/domain/events';
+import type { PharmacyActivatedPayload, PharmacySuspendedPayload } from '../../../pharmacy-inventory/domain/events';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** What one event asks Module 13 to tell one recipient. */
@@ -264,6 +265,29 @@ export const PrescriptionNotifications = {
     recipientUserId: customerUserId,
     templateCode: NotificationTemplateCode.MATCHING_FAILED,
     data: { matchRequestId: p.matchRequestId },
+  }),
+};
+
+/**
+ * Event → notification for Module 04's pharmacy state changes (module-13 Work 07). The recipient
+ * is the pharmacy's organization owner, resolved by Module 04's `PHARMACY_RECIPIENT_READ_PORT` and
+ * supplied by the caller.
+ *
+ * Kept: `pharmacyId` (the owner's handle on their pharmacy), and on a suspension its `reason` — a
+ * platform code (`LICENSE_EXPIRED` | `MANUAL`), not free text. Not kept: `organizationId` (the
+ * recipient's own organization adds nothing for them).
+ */
+export const PharmacyNotifications = {
+  pharmacyActivated: (p: PharmacyActivatedPayload, ownerUserId: string): NotificationIntent => ({
+    recipientUserId: ownerUserId,
+    templateCode: NotificationTemplateCode.PHARMACY_ACTIVATED,
+    data: { pharmacyId: p.pharmacyId },
+  }),
+
+  pharmacySuspended: (p: PharmacySuspendedPayload, ownerUserId: string): NotificationIntent => ({
+    recipientUserId: ownerUserId,
+    templateCode: NotificationTemplateCode.PHARMACY_SUSPENDED,
+    data: { pharmacyId: p.pharmacyId, reason: p.reason },
   }),
 };
 

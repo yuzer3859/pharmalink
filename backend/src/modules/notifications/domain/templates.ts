@@ -34,7 +34,12 @@ export enum NotificationTemplateCode {
   PRESCRIPTION_APPROVED = 'PRESCRIPTION_APPROVED',
   PRESCRIPTION_REJECTED = 'PRESCRIPTION_REJECTED',
   MATCHING_FAILED = 'MATCHING_FAILED',
+  PHARMACY_ACTIVATED = 'PHARMACY_ACTIVATED',
+  PHARMACY_SUSPENDED = 'PHARMACY_SUSPENDED',
 }
+
+/** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
+export const PHARMACY_SUSPENDED_LICENSE_EXPIRED = 'LICENSE_EXPIRED';
 
 /** `delivery.cod.reconciled`'s `outcome` when every amount agreed; anything else is a difference. */
 export const COD_RECONCILED_ACCEPTED = 'ACCEPTED';
@@ -332,6 +337,33 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     render: {
       en: () => ({ title: 'No pharmacy found', body: 'We could not find a pharmacy able to fulfil your request.' }),
       am: () => ({ title: 'ፋርማሲ አልተገኘም', body: 'ጥያቄዎን ማሟላት የሚችል ፋርማሲ ማግኘት አልተቻለም።' }),
+    },
+  },
+  // ---- Pharmacy (Module 04) ---------------------------------------------------------------
+  // Administrative state changes, told to the pharmacy's owner. The text states the change only.
+  [NotificationTemplateCode.PHARMACY_ACTIVATED]: {
+    category: NotificationCategory.SYSTEM,
+    render: {
+      en: () => ({ title: 'Pharmacy activated', body: 'Your pharmacy has been activated on PharmaLink.' }),
+      am: () => ({ title: 'ፋርማሲዎ ነቅቷል', body: 'ፋርማሲዎ በፋርማሊንክ ላይ ነቅቷል።' }),
+    },
+  },
+  // `LICENSE_EXPIRED` is the reason the platform itself records (Module 04's expiry sweep) and
+  // the owner can act on; any other reason is worded generically.
+  [NotificationTemplateCode.PHARMACY_SUSPENDED]: {
+    category: NotificationCategory.SYSTEM,
+    render: {
+      en: (d) => ({
+        title: 'Pharmacy suspended',
+        body:
+          d.reason === PHARMACY_SUSPENDED_LICENSE_EXPIRED
+            ? 'Your pharmacy has been suspended because its licence has expired.'
+            : 'Your pharmacy has been suspended.',
+      }),
+      am: (d) => ({
+        title: 'ፋርማሲዎ ታግዷል',
+        body: d.reason === PHARMACY_SUSPENDED_LICENSE_EXPIRED ? 'የፈቃዱ ጊዜ ስላለፈ ፋርማሲዎ ታግዷል።' : 'ፋርማሲዎ ታግዷል።',
+      }),
     },
   },
 };
