@@ -17,6 +17,9 @@ export const NotificationErrors = {
    * A preference outside the configurable set (`domain/preferences.ts`). The DTO refuses these
    * first; this is the application layer's own check, so the rule holds for any caller.
    */
+  /** A device registration that does not exist or is someone else's — the same answer (Work 14). */
+  deviceNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Device not found.'),
+
   preferenceNotConfigurable: (details: { category: string; channel?: string }) =>
     ApiException.validation('This notification preference is not configurable.', details),
 };

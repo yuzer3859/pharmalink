@@ -51,7 +51,7 @@ const MAX_PROVIDER_MESSAGE_ID = 128;
 
 type ProviderOutcome =
   | { kind: 'SUCCESS'; status: NotificationStatus.SENT | NotificationStatus.DELIVERED; providerMessageId: string | null }
-  | { kind: 'FAILURE'; errorCode: string }
+  | { kind: 'FAILURE'; errorCode: string; retryable: boolean }
   | { kind: 'NOT_CONFIGURED' };
 
 /**
@@ -67,7 +67,8 @@ type ProviderOutcome =
  *       provider gone / reports not configured       → PENDING later, no attempt, no retry used
  *       provider SENT | DELIVERED                    → COMPLETED + attempt n
  *       provider FAILED | throws | invalid result    → attempt n FAILED; PENDING at backoff, or
- *                                                      EXHAUSTED after the 5th
+ *                                                      EXHAUSTED after the 5th — or at once when
+ *                                                      the provider says it is not retryable
  *
  * The job is the authority for attempt numbers: attempt n is `attemptCount + 1`, written in the
  * same fenced transaction that sets `attemptCount = n`. Only non-secret, pipeline-controlled values
@@ -188,7 +189,7 @@ export class NotificationDeliveryDispatcher {
       ];
     }
 
-    const delay = retryDelayAfter(attemptNumber);
+    const delay = result.retryable ? retryDelayAfter(attemptNumber) : null;
     const attempt = { attemptNumber, status: NotificationStatus.FAILED, provider: name, providerMessageId: null, errorCode: result.errorCode };
     if (delay === null) {
       return [
@@ -217,7 +218,7 @@ export class NotificationDeliveryDispatcher {
     } catch {
       // The exception's message is not stored or logged: it may carry a credential or an address.
       this.logger.warn(`provider ${name} threw delivering notification ${request.notificationId} on ${request.channel}`);
-      return { kind: 'FAILURE', errorCode: DeliveryErrorCode.PROVIDER_ERROR };
+      return { kind: 'FAILURE', errorCode: DeliveryErrorCode.PROVIDER_ERROR, retryable: true };
     }
     switch (result?.outcome) {
       case 'SENT':
@@ -231,11 +232,13 @@ export class NotificationDeliveryDispatcher {
         return {
           kind: 'FAILURE',
           errorCode: typeof result.errorCode === 'string' && PROVIDER_ERROR_CODE.test(result.errorCode) ? result.errorCode : DeliveryErrorCode.PROVIDER_ERROR,
+          // Only an explicit `false` stops retries; anything else keeps the Work 13 schedule.
+          retryable: result.retryable !== false,
         };
       case 'NOT_CONFIGURED':
         return { kind: 'NOT_CONFIGURED' };
       default:
-        return { kind: 'FAILURE', errorCode: DeliveryErrorCode.PROVIDER_INVALID_RESULT };
+        return { kind: 'FAILURE', errorCode: DeliveryErrorCode.PROVIDER_INVALID_RESULT, retryable: true };
     }
   }
 }

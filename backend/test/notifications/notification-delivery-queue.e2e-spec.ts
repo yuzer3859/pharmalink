@@ -326,10 +326,19 @@ describe('Notification delivery queue (e2e)', () => {
       }
     });
 
-    it('the shipped module binds no provider, never the in-memory one', () => {
-      const providers = Reflect.getMetadata('providers', NotificationsModule) as Array<{ provide?: unknown; useValue?: INotificationChannelProviderRegistry }>;
-      const bound = providers.find((p) => p.provide === NOTIFICATION_CHANNEL_PROVIDER_REGISTRY)!;
-      for (const channel of Object.values(NotificationChannel)) expect(bound.useValue!.providerFor(channel)).toBeNull();
+    // Work 14 made the registry a factory: PUSH is bound when FCM credentials are present, and
+    // nothing at all without them — which is still Work 13's production behaviour.
+    it('the shipped module binds no provider without FCM credentials, only PUSH with them, never the in-memory one', () => {
+      const providers = Reflect.getMetadata('providers', NotificationsModule) as Array<{
+        provide?: unknown;
+        useFactory?: (transport: { isConfigured(): boolean }, push: INotificationChannelProvider) => INotificationChannelProviderRegistry;
+      }>;
+      const factory = providers.find((p) => p.provide === NOTIFICATION_CHANNEL_PROVIDER_REGISTRY)!.useFactory!;
+      const push = { name: 'fcm', channel: NotificationChannel.PUSH, deliver: async () => ({ outcome: 'NOT_CONFIGURED' as const }) };
+      const unconfigured = factory({ isConfigured: () => false }, push);
+      for (const channel of Object.values(NotificationChannel)) expect(unconfigured.providerFor(channel)).toBeNull();
+      const configured = factory({ isConfigured: () => true }, push);
+      expect(Object.values(NotificationChannel).map((c) => configured.providerFor(c)?.name ?? null)).toEqual(['fcm', null, null, null]);
       expect(readFileSync(join(__dirname, '..', '..', 'src', 'modules', 'notifications', 'notifications.module.ts'), 'utf8')).not.toContain('InMemoryNotificationChannelProvider');
     });
   });
@@ -355,9 +364,13 @@ describe('Notification delivery queue (e2e)', () => {
       const checked = sources().filter((f) => /^(application\/services|application\/ports|infrastructure\/providers|infrastructure\/scheduling)\//.test(rel(f)));
       expect(checked.map(rel).sort()).toEqual([
         'application/ports/outbound/notification-channel-provider.port.ts',
+        // Work 14
+        'application/ports/outbound/push-transport.port.ts',
         'application/services/notification-delivery.dispatcher.ts',
         'infrastructure/providers/in-memory-notification-channel.provider.ts',
         'infrastructure/providers/notification-channel-provider.registry.ts',
+        // Work 14
+        'infrastructure/providers/push-notification.provider.ts',
         'infrastructure/scheduling/notification-delivery.scheduler.ts',
       ]);
       for (const file of checked) expect({ file: rel(file), prisma: PRISMA.test(readFileSync(file, 'utf8')) }).toEqual({ file: rel(file), prisma: false });

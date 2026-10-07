@@ -34,3 +34,19 @@ export function retryDelayAfter(failedAttempts: number): number | null {
   if (failedAttempts >= DELIVERY_QUEUE_POLICY.maxProviderAttempts) return null;
   return DELIVERY_QUEUE_POLICY.retryDelaysMs[Math.max(failedAttempts, 1) - 1] ?? null;
 }
+
+/**
+ * Push delivery bounds (module-13 Work 14). A push to a user is one OAuth token exchange (only
+ * when the cached access token is stale) followed by one request per device, sent in parallel —
+ * each request with its own timeout. Worst case: `requestTimeoutMs` (token) + `requestTimeoutMs`
+ * (sends) = 20 s, and `deliveryDeadlineMs` caps the whole call regardless; both are far inside the
+ * 120 s claim lease, so a slow push service can never outlive its lease and be sent twice.
+ */
+export const PUSH_DELIVERY_POLICY = Object.freeze({
+  /** Per HTTP request to the push service or its OAuth endpoint. */
+  requestTimeoutMs: 10_000,
+  /** Hard cap on one logical push delivery, whatever the transport does. */
+  deliveryDeadlineMs: 30_000,
+  /** Devices one notification is pushed to: the user's most recently seen active registrations. */
+  maxDevicesPerDelivery: 10,
+});

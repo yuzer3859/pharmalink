@@ -16,18 +16,26 @@ import { RecordPrescriptionNotificationCommand } from './application/commands/re
 import { RecordPharmacyNotificationCommand } from './application/commands/record-pharmacy-notification.command';
 import { UpdateNotificationPreferencesCommand } from './application/commands/update-notification-preferences.command';
 import { GetNotificationPreferencesQuery } from './application/queries/get-notification-preferences.query';
+import { ManageDeviceTokensCommand } from './application/commands/manage-device-tokens.command';
 import { NOTIFICATION_CHANNEL_PROVIDER_REGISTRY } from './application/ports/outbound/notification-channel-provider.port';
+import { IPushTransport, PUSH_TRANSPORT } from './application/ports/outbound/push-transport.port';
 import { NotificationDeliveryDispatcher } from './application/services/notification-delivery.dispatcher';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
+import { DEVICE_TOKEN_REPOSITORY } from './domain/repositories/device-token.repository';
 import { NOTIFICATION_DELIVERY_REPOSITORY } from './domain/repositories/notification-delivery.repository';
 import { NOTIFICATION_PREFERENCE_REPOSITORY } from './domain/repositories/notification-preference.repository';
 import { NOTIFICATION_REPOSITORY } from './domain/repositories/notification.repository';
+import { PrismaDeviceTokenRepository } from './infrastructure/persistence/prisma-device-token.repository';
 import { PrismaNotificationDeliveryRepository } from './infrastructure/persistence/prisma-notification-delivery.repository';
 import { PrismaNotificationPreferenceRepository } from './infrastructure/persistence/prisma-notification-preference.repository';
 import { StaticNotificationChannelProviderRegistry } from './infrastructure/providers/notification-channel-provider.registry';
+import { PushNotificationProvider } from './infrastructure/providers/push-notification.provider';
+import { FcmHttpV1Transport } from './infrastructure/push/fcm-http-v1.transport';
+import { FcmConfig } from './infrastructure/push/fcm.config';
 import { NotificationDeliveryScheduler } from './infrastructure/scheduling/notification-delivery.scheduler';
 import { PrismaNotificationRepository } from './infrastructure/persistence/prisma-notification.repository';
+import { NotificationDevicesController } from './interface/controllers/notification-devices.controller';
 import { NotificationPreferencesController } from './interface/controllers/notification-preferences.controller';
 import { NotificationsController } from './interface/controllers/notifications.controller';
 import { NotificationEventsHandler } from './interface/events/notification-events.handler';
@@ -45,7 +53,9 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * found, moved to another pharmacy), on Work 06's path. Work 11: notification preferences — the
  * user's own per-category, per-channel settings — with this module as their single owner. Work
  * 12: the provider-neutral delivery foundation — no provider yet. Work 13: the durable delivery
- * queue (`notification_delivery_jobs`), its dispatcher, scheduler and bounded retry policy.
+ * queue (`notification_delivery_jobs`), its dispatcher, scheduler and bounded retry policy. Work
+ * 14: push — users register devices (`/notification-devices`, `device_tokens`) and PUSH jobs go out
+ * through Firebase Cloud Messaging when its credentials are configured.
  *
  * ## What it owns
  *
@@ -72,9 +82,16 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * runs `NotificationDeliveryDispatcher` every 5 s: it claims due jobs (conditional UPDATE + lease),
  * re-reads the preference, calls the channel's provider and settles the job with a lease-fenced
  * write — `COMPLETED`, `SUPPRESSED`, retry at 30 s / 2 min / 10 min / 30 min, `EXHAUSTED` after the
- * fifth failure (`domain/delivery-retry-policy.ts`). The provider registry is bound **empty**, so
- * jobs wait `PENDING`, untouched and attempt-free, until a provider exists; nothing leaves the
- * process. Notifications recorded before Work 13 have no job and are never swept.
+ * fifth failure (`domain/delivery-retry-policy.ts`). A channel with no provider is not even read:
+ * its jobs wait `PENDING`, untouched and attempt-free, until one exists. Notifications recorded
+ * before Work 13 have no job and are never swept.
+ *
+ * Push (Work 14): `PushNotificationProvider` is bound for PUSH **only when `FcmConfig` has all three
+ * credentials** (`FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY`); without them production
+ * behaves exactly as Work 13. It fans one job out to the recipient's active `device_tokens` through
+ * `FcmHttpV1Transport` (FCM HTTP v1, 10 s per request, 30 s per delivery — inside the 120 s lease),
+ * deactivates tokens FCM reports dead, and closes the job at once when there is no device to reach.
+ * SMS and EMAIL still have no provider.
  *
  * ## How a notification is made
  *
@@ -134,7 +151,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * ## Deliberately absent
  *
- * Real push, SMS and email providers (and the contact / device-token lookups they need), BullMQ
+ * SMS and email providers (and the contact lookup they need), BullMQ
  * and a DLQ, quiet hours, digest batching, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
  * notification routes, pharmacy staff (non-owner) routing, and the events whose recipient lookup
  * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy.
@@ -150,13 +167,23 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     PrescriptionMatchingModule,
     PharmacyInventoryModule,
   ],
-  controllers: [NotificationsController, NotificationPreferencesController],
+  controllers: [NotificationsController, NotificationPreferencesController, NotificationDevicesController],
   providers: [
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
     { provide: NOTIFICATION_PREFERENCE_REPOSITORY, useClass: PrismaNotificationPreferenceRepository },
     { provide: NOTIFICATION_DELIVERY_REPOSITORY, useClass: PrismaNotificationDeliveryRepository },
-    // No external provider exists yet: PUSH / SMS / EMAIL jobs wait PENDING until one is bound here.
-    { provide: NOTIFICATION_CHANNEL_PROVIDER_REGISTRY, useValue: new StaticNotificationChannelProviderRegistry([]) },
+    { provide: DEVICE_TOKEN_REPOSITORY, useClass: PrismaDeviceTokenRepository },
+    FcmConfig,
+    { provide: PUSH_TRANSPORT, useClass: FcmHttpV1Transport },
+    PushNotificationProvider,
+    // PUSH is bound only when FCM credentials are present; SMS and EMAIL have no provider, so their
+    // jobs (and PUSH's, when unconfigured) wait PENDING, unread by the dispatcher.
+    {
+      provide: NOTIFICATION_CHANNEL_PROVIDER_REGISTRY,
+      useFactory: (transport: IPushTransport, push: PushNotificationProvider) =>
+        new StaticNotificationChannelProviderRegistry(transport.isConfigured() ? [push] : []),
+      inject: [PUSH_TRANSPORT, PushNotificationProvider],
+    },
 
     RecordNotificationCommand,
     RecordOrderNotificationCommand,
@@ -171,6 +198,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     GetNotificationPreferencesQuery,
     UpdateNotificationPreferencesCommand,
     NotificationDeliveryDispatcher,
+    ManageDeviceTokensCommand,
     NotificationDeliveryScheduler,
 
     NotificationEventsHandler,

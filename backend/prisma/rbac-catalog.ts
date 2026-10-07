@@ -127,10 +127,11 @@ export const PERMISSIONS: Array<{
   // `profile:read:own` is — i.e. to every role, because every account holder can be the recipient
   // of an account notification (suspension, reactivation) — and to `SUPER_ADMIN` by wildcard.
   { key: 'notification:read:own', resource: 'notification', action: 'read', scope: 'own' },
-  // Module 13 — Notifications, Work 11: changing one's own notification preferences. No existing
+  // Module 13 — Notifications, Work 11: changing one's own notification settings. No existing
   // key covers a notification write; this follows the `*:manage:own` convention
-  // (`address:manage:own`), is granted beside every `notification:read:own`, and guards only
-  // `PUT /notification-preferences/:category`.
+  // (`address:manage:own`) and is granted beside every `notification:read:own`. It guards
+  // `PUT /notification-preferences/:category` and (Work 14) registering / revoking one's own push
+  // devices, `POST` / `DELETE /notification-devices`.
   { key: 'notification:manage:own', resource: 'notification', action: 'manage', scope: 'own' },
 ];
 

@@ -18,11 +18,16 @@ export interface ChannelDeliveryRequest {
   readonly body: string;
 }
 
-/** What a provider reports. It carries no recipient: the recipient is never the provider's to set. */
+/**
+ * What a provider reports. It carries no recipient: the recipient is never the provider's to set.
+ * A `FAILED` result is retried on the Work 13 schedule unless `retryable` is `false` (Work 14) —
+ * for a failure that retrying the same delivery cannot fix, e.g. the recipient has no active push
+ * device, or every device token is dead — which closes the job `EXHAUSTED` at once.
+ */
 export type ChannelDeliveryResult =
   | { outcome: 'SENT'; providerMessageId?: string }
   | { outcome: 'DELIVERED'; providerMessageId?: string }
-  | { outcome: 'FAILED'; errorCode?: string }
+  | { outcome: 'FAILED'; errorCode?: string; retryable?: boolean }
   | { outcome: 'NOT_CONFIGURED' };
 
 /** One external channel's provider. Implementations hold their own credentials; none cross this port. */
