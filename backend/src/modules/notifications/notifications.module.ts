@@ -15,11 +15,16 @@ import { RecordPrescriptionNotificationCommand } from './application/commands/re
 import { RecordPharmacyNotificationCommand } from './application/commands/record-pharmacy-notification.command';
 import { UpdateNotificationPreferencesCommand } from './application/commands/update-notification-preferences.command';
 import { GetNotificationPreferencesQuery } from './application/queries/get-notification-preferences.query';
+import { NOTIFICATION_CHANNEL_PROVIDER_REGISTRY } from './application/ports/outbound/notification-channel-provider.port';
+import { NotificationDeliveryService } from './application/services/notification-delivery.service';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
+import { NOTIFICATION_DELIVERY_REPOSITORY } from './domain/repositories/notification-delivery.repository';
 import { NOTIFICATION_PREFERENCE_REPOSITORY } from './domain/repositories/notification-preference.repository';
 import { NOTIFICATION_REPOSITORY } from './domain/repositories/notification.repository';
+import { PrismaNotificationDeliveryRepository } from './infrastructure/persistence/prisma-notification-delivery.repository';
 import { PrismaNotificationPreferenceRepository } from './infrastructure/persistence/prisma-notification-preference.repository';
+import { StaticNotificationChannelProviderRegistry } from './infrastructure/providers/notification-channel-provider.registry';
 import { PrismaNotificationRepository } from './infrastructure/persistence/prisma-notification.repository';
 import { NotificationPreferencesController } from './interface/controllers/notification-preferences.controller';
 import { NotificationsController } from './interface/controllers/notifications.controller';
@@ -36,7 +41,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * debited) — their events name the user, so they take Work 01's direct path. Work 09: the driver's
  * job-assigned notification, on Work 05's driver path. Work 10: customer matching outcomes (pharmacy
  * found, moved to another pharmacy), on Work 06's path. Work 11: notification preferences — the
- * user's own per-category, per-channel settings — with this module as their single owner.
+ * user's own per-category, per-channel settings — with this module as their single owner. Work
+ * 12: the provider-neutral delivery foundation (`NotificationDeliveryService`) — no provider yet.
  *
  * ## What it owns
  *
@@ -50,6 +56,18 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * `notification_preferences` table predates both and is used by no code; it is left in place,
  * deprecated, for a later migration to drop. Preferences are recorded and served only — no
  * delivery channel consults them yet, and in-app notifications never do.
+ *
+ * ## Delivery to external channels (Work 12) — foundation only
+ *
+ * `NotificationDeliveryService.deliver(notificationId)` takes an already-stored notification —
+ * not the event, so the event bus's no-retry limitation does not reach it — applies Work 11's
+ * preferences (`domain/delivery-policy.ts`) and records one `delivery_attempts` row per external
+ * channel: `SUPPRESSED` when the preference disables it, `SENT` / `FAILED` from a provider. The
+ * provider registry is bound **empty**, so today every allowed channel is recorded `FAILED` with
+ * `CHANNEL_NOT_CONFIGURED` and nothing leaves the process. Nothing calls the service
+ * automatically: no scheduler (the schema has no "awaiting external delivery" marker that would
+ * not sweep up every historical notification) and no hook in the event handlers. The in-app row
+ * is never touched.
  *
  * ## How a notification is made
  *
@@ -109,8 +127,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * ## Deliberately absent
  *
- * Push, SMS and email (no provider contract exists), BullMQ and a DLQ, enforcing preferences
- * (nothing sends on a configurable channel yet), quiet hours, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
+ * Real push, SMS and email providers (and the contact / device-token lookups they need), BullMQ
+ * and a DLQ, a delivery scheduler, quiet hours, digest batching, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
  * notification routes, pharmacy staff (non-owner) routing, and the events whose recipient lookup
  * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy.
  */
@@ -127,6 +145,9 @@ import { NotificationEventsHandler } from './interface/events/notification-event
   providers: [
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
     { provide: NOTIFICATION_PREFERENCE_REPOSITORY, useClass: PrismaNotificationPreferenceRepository },
+    { provide: NOTIFICATION_DELIVERY_REPOSITORY, useClass: PrismaNotificationDeliveryRepository },
+    // No external provider exists yet: every PUSH / SMS / EMAIL attempt is CHANNEL_NOT_CONFIGURED.
+    { provide: NOTIFICATION_CHANNEL_PROVIDER_REGISTRY, useValue: new StaticNotificationChannelProviderRegistry([]) },
 
     RecordNotificationCommand,
     RecordOrderNotificationCommand,
@@ -140,6 +161,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     GetUnreadCountQuery,
     GetNotificationPreferencesQuery,
     UpdateNotificationPreferencesCommand,
+    NotificationDeliveryService,
 
     NotificationEventsHandler,
   ],
