@@ -27,15 +27,33 @@ function toRecord(row: PrismaNotification): NotificationRecord {
   };
 }
 
-/** `INotificationRepository` over Prisma, on Module 13's own `notifications` table. */
+/**
+ * `INotificationRepository` over Prisma, on Module 13's own `notifications` table — and, at insert
+ * time only, its `notification_delivery_jobs` (Work 13).
+ */
 @Injectable()
 export class PrismaNotificationRepository implements INotificationRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async insertIfAbsent(n: NewNotification): Promise<boolean> {
+  async insertIfAbsent(n: NewNotification, deliveryChannels: readonly NotificationChannel[] = []): Promise<boolean> {
+    if (deliveryChannels.length === 0) return this.insertNotification(this.prisma, n);
+    // The notification and its delivery jobs commit together: a crash between the two cannot leave
+    // a notification whose external delivery was silently never queued.
+    return this.prisma.$transaction(async (tx) => {
+      if (!(await this.insertNotification(tx, n))) return false;
+      const { id } = await tx.notification.findUniqueOrThrow({ where: { dedupeKey: n.dedupeKey }, select: { id: true } });
+      await tx.notificationDeliveryJob.createMany({
+        data: deliveryChannels.map((channel) => ({ notificationId: id, channel: channel as unknown as PrismaNotification['channel'] })),
+        skipDuplicates: true,
+      });
+      return true;
+    });
+  }
+
+  private async insertNotification(db: Prisma.TransactionClient, n: NewNotification): Promise<boolean> {
     // `skipDuplicates` is `INSERT … ON CONFLICT DO NOTHING`: the unique `dedupeKey` index decides,
     // atomically, so two concurrent deliveries of one event write one row and neither fails.
-    const { count } = await this.prisma.notification.createMany({
+    const { count } = await db.notification.createMany({
       data: [
         {
           recipientUserId: n.recipientUserId,

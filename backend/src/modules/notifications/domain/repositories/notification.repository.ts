@@ -44,10 +44,14 @@ export interface NotificationListFilter {
 export interface INotificationRepository {
   /**
    * Inserts unless a row with the same `dedupeKey` exists. Returns `true` when a row was
-   * written, `false` when the key was already present. One statement, so concurrent duplicate
-   * deliveries cannot both insert.
+   * written, `false` when the key was already present. The insert is `ON CONFLICT DO NOTHING`, so
+   * concurrent duplicate deliveries cannot both insert.
+   *
+   * Work 13: when the row is written, one `PENDING` delivery job per `deliveryChannels` entry is
+   * written in the same transaction — never for a duplicate, so a redelivered event queues nothing
+   * twice (the jobs' unique (notificationId, channel) index backs that up).
    */
-  insertIfAbsent(notification: NewNotification): Promise<boolean>;
+  insertIfAbsent(notification: NewNotification, deliveryChannels?: readonly NotificationChannel[]): Promise<boolean>;
   listForRecipient(
     recipientUserId: string,
     filter: NotificationListFilter,

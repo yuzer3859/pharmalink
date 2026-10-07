@@ -9,6 +9,9 @@ import { RecordNotificationCommand } from './commands/record-notification.comman
 import { RecordPharmacyNotificationCommand } from './commands/record-pharmacy-notification.command';
 import { NotificationIntent, PharmacyNotifications } from './support/event-notifications';
 
+/** Work 13: no stored preference — every external channel at its default. */
+const NO_STORED_PREFERENCES = { listForUser: async () => [], upsert: async () => undefined };
+
 class RecordingRepository implements Pick<INotificationRepository, 'insertIfAbsent'> {
   rows: NewNotification[] = [];
   async insertIfAbsent(n: NewNotification): Promise<boolean> {
@@ -53,7 +56,7 @@ describe('Pharmacy notifications (application)', () => {
     logger = fakeLogger();
     const record = new RecordNotificationCommand(repo as unknown as INotificationRepository, {
       preferredLanguageOf: async (id) => languages[id] ?? null,
-    } satisfies IIdentityLanguageReadPort);
+    } satisfies IIdentityLanguageReadPort, NO_STORED_PREFERENCES);
     const port: IPharmacyRecipientReadPort = {
       ownerUserIdOfPharmacy: async (id) => {
         asked.push(id);
@@ -154,7 +157,7 @@ describe('Pharmacy notifications (application)', () => {
   it('passes an owner-lookup failure through and writes nothing', async () => {
     const failing = new RecordPharmacyNotificationCommand(
       { ownerUserIdOfPharmacy: () => Promise.reject(new Error('db down')) },
-      new RecordNotificationCommand(repo as unknown as INotificationRepository, { preferredLanguageOf: async () => null }),
+      new RecordNotificationCommand(repo as unknown as INotificationRepository, { preferredLanguageOf: async () => null }, NO_STORED_PREFERENCES),
       logger,
     );
     await expect(

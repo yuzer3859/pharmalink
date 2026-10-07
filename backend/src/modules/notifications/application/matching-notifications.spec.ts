@@ -9,6 +9,9 @@ import { RecordNotificationCommand } from './commands/record-notification.comman
 import { RecordPrescriptionNotificationCommand } from './commands/record-prescription-notification.command';
 import { NotificationIntent, PrescriptionNotifications } from './support/event-notifications';
 
+/** Work 13: no stored preference — every external channel at its default. */
+const NO_STORED_PREFERENCES = { listForUser: async () => [], upsert: async () => undefined };
+
 class RecordingRepository implements Pick<INotificationRepository, 'insertIfAbsent'> {
   rows: NewNotification[] = [];
   async insertIfAbsent(n: NewNotification): Promise<boolean> {
@@ -53,7 +56,7 @@ describe('Matching outcome notifications (application)', () => {
     logger = fakeLogger();
     const record = new RecordNotificationCommand(repo as unknown as INotificationRepository, {
       preferredLanguageOf: async (id) => languages[id] ?? null,
-    } satisfies IIdentityLanguageReadPort);
+    } satisfies IIdentityLanguageReadPort, NO_STORED_PREFERENCES);
     const port: IPrescriptionRecipientReadPort = {
       customerUserIdOfPrescription: async () => {
         throw new Error('matching events resolve through the match request');

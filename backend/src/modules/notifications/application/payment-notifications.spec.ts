@@ -14,6 +14,9 @@ import { RecordOrderNotificationCommand } from './commands/record-order-notifica
 import { RecordPaymentNotificationCommand } from './commands/record-payment-notification.command';
 import { PaymentNotifications } from './support/event-notifications';
 
+/** Work 13: no stored preference — every external channel at its default. */
+const NO_STORED_PREFERENCES = { listForUser: async () => [], upsert: async () => undefined };
+
 class RecordingRepository implements Pick<INotificationRepository, 'insertIfAbsent'> {
   rows: NewNotification[] = [];
   async insertIfAbsent(n: NewNotification): Promise<boolean> {
@@ -62,7 +65,7 @@ describe('Payment notifications (application)', () => {
     const languagePort: IIdentityLanguageReadPort = { preferredLanguageOf: async (id) => languages[id] ?? null };
     const orderPort: IOrderRecipientReadPort = { customerUserIdOf: async (id) => orderOwners[id] ?? null };
     const paymentPort: IPaymentRecipientReadPort = { recipientOf: async (id) => payments[id] ?? null };
-    const record = new RecordNotificationCommand(repo as unknown as INotificationRepository, languagePort);
+    const record = new RecordNotificationCommand(repo as unknown as INotificationRepository, languagePort, NO_STORED_PREFERENCES);
     forOrder = new RecordOrderNotificationCommand(orderPort, record, logger);
     forPayment = new RecordPaymentNotificationCommand(paymentPort, record, logger);
   });
@@ -211,7 +214,7 @@ describe('Payment notifications (application)', () => {
   it('passes a recipient-lookup failure through and writes nothing', async () => {
     const failing = new RecordPaymentNotificationCommand(
       { recipientOf: () => Promise.reject(new Error('db down')) },
-      new RecordNotificationCommand(repo as unknown as INotificationRepository, { preferredLanguageOf: async () => null }),
+      new RecordNotificationCommand(repo as unknown as INotificationRepository, { preferredLanguageOf: async () => null }, NO_STORED_PREFERENCES),
       logger,
     );
     await expect(

@@ -35,6 +35,15 @@ enum TemplateStatus {
   ARCHIVED
 }
 
+// Work 13: the current state of one notification's delivery on one external channel.
+enum NotificationDeliveryJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  SUPPRESSED
+  EXHAUSTED
+}
+
 enum DigestFrequency {
   IMMEDIATE
   HOURLY
@@ -80,8 +89,9 @@ model Notification {
   priority        Int                 @default(5)
   createdAt       DateTime            @default(now())
 
-  template NotificationTemplate? @relation(fields: [templateId], references: [id])
-  attempts DeliveryAttempt[]
+  template     NotificationTemplate?     @relation(fields: [templateId], references: [id])
+  attempts     DeliveryAttempt[]
+  deliveryJobs NotificationDeliveryJob[]
 
   @@index([recipientUserId, createdAt])
   @@index([status, scheduledFor])
@@ -104,6 +114,31 @@ model DeliveryAttempt {
 
   @@index([providerMsgId])
   @@map("delivery_attempts")
+}
+
+// Work 13: durable external-delivery work — one row per (notification, external channel), created
+// with the in-app notification for each channel the user's preference allowed at that moment.
+// `delivery_attempts` stays the immutable history; this row is the current state and the authority
+// for the next attempt number. `leaseExpiresAt` is set while a dispatcher holds the job
+// (PROCESSING) and doubles as the fencing token for its completion write. No contact data.
+model NotificationDeliveryJob {
+  id             String                        @id @default(uuid())
+  notificationId String
+  channel        NotificationChannel
+  status         NotificationDeliveryJobStatus @default(PENDING)
+  attemptCount   Int                           @default(0)
+  nextAttemptAt  DateTime                      @default(now())
+  leaseExpiresAt DateTime?
+  lastErrorCode  String?
+  completedAt    DateTime?
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id])
+
+  @@unique([notificationId, channel])
+  @@index([status, nextAttemptAt])
+  @@map("notification_delivery_jobs")
 }
 
 // The single source of truth for notification preferences (Work 11): one row per (user, category,

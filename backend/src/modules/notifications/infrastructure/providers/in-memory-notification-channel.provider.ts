@@ -5,7 +5,7 @@ import {
   INotificationChannelProvider,
 } from '../../application/ports/outbound/notification-channel-provider.port';
 
-export type InMemoryProviderBehaviour = 'SENT' | 'FAILED' | 'NOT_CONFIGURED' | 'THROW';
+export type InMemoryProviderBehaviour = 'SENT' | 'DELIVERED' | 'FAILED' | 'NOT_CONFIGURED' | 'THROW' | 'INVALID';
 
 /**
  * **NON-PRODUCTION.** A deterministic, in-process stand-in for a PUSH / SMS / EMAIL provider
@@ -33,12 +33,16 @@ export class InMemoryNotificationChannelProvider implements INotificationChannel
     switch (this.behaviour) {
       case 'SENT':
         return { outcome: 'SENT', providerMessageId: `in-memory:${request.channel}:${request.notificationId}` };
+      case 'DELIVERED':
+        return { outcome: 'DELIVERED', providerMessageId: `in-memory:${request.channel}:${request.notificationId}` };
       case 'FAILED':
         return { outcome: 'FAILED', errorCode: this.failureCode };
       case 'NOT_CONFIGURED':
         return { outcome: 'NOT_CONFIGURED' };
       case 'THROW':
         throw new Error('in-memory provider failure');
+      case 'INVALID':
+        return { outcome: 'MAYBE' } as unknown as ChannelDeliveryResult;
     }
   }
 }

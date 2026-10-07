@@ -20,6 +20,9 @@ import { GetUnreadCountQuery } from './queries/get-unread-count.query';
 import { ListNotificationsQuery, MAX_NOTIFICATION_PAGE_SIZE } from './queries/list-notifications.query';
 import { dedupeKeyFor, EventNotifications } from './support/event-notifications';
 
+/** Work 13: no stored preference — every external channel at its default. */
+const NO_STORED_PREFERENCES = { listForUser: async () => [], upsert: async () => undefined };
+
 /** The repository contract, in memory: unique `dedupeKey`, every read scoped to one recipient. */
 class InMemoryNotificationRepository implements INotificationRepository {
   rows: Array<NotificationRecord & { dedupeKey: string; channel: NotificationChannel; eventType: string }> = [];
@@ -91,7 +94,7 @@ describe('Notifications (application)', () => {
   beforeEach(() => {
     repo = new InMemoryNotificationRepository();
     languages = { [ALICE]: PreferredLanguage.en, [BOB]: PreferredLanguage.am };
-    record = new RecordNotificationCommand(repo, languagePort);
+    record = new RecordNotificationCommand(repo, languagePort, NO_STORED_PREFERENCES);
   });
 
   const decision = { userId: ALICE, organizationId: 'org-1', verificationRequestId: 'vr-1', verificationType: 'PHARMACY_LICENSE', reviewerId: 'admin-1' };
@@ -239,7 +242,7 @@ describe('Notifications (application)', () => {
     });
 
     it('fails when the language read fails, writing nothing', async () => {
-      const failing = new RecordNotificationCommand(repo, { preferredLanguageOf: () => Promise.reject(new Error('db down')) });
+      const failing = new RecordNotificationCommand(repo, { preferredLanguageOf: () => Promise.reject(new Error('db down')) }, NO_STORED_PREFERENCES);
       await expect(failing.execute({ eventId: 'e', eventType: 'order.placed', intent: orderIntent(ALICE) })).rejects.toThrow('db down');
       expect(repo.rows).toHaveLength(0);
     });

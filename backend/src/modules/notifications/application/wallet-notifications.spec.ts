@@ -6,6 +6,9 @@ import { NotificationTemplateCode, renderNotification } from '../domain/template
 import { RecordNotificationCommand } from './commands/record-notification.command';
 import { EventNotifications, NotificationIntent } from './support/event-notifications';
 
+/** Work 13: no stored preference — every external channel at its default. */
+const NO_STORED_PREFERENCES = { listForUser: async () => [], upsert: async () => undefined };
+
 class RecordingRepository implements Pick<INotificationRepository, 'insertIfAbsent'> {
   rows: NewNotification[] = [];
   async insertIfAbsent(n: NewNotification): Promise<boolean> {
@@ -30,7 +33,7 @@ describe('Wallet notifications (application)', () => {
     languages = { [USER]: PreferredLanguage.en };
     record = new RecordNotificationCommand(repo as unknown as INotificationRepository, {
       preferredLanguageOf: async (id) => languages[id] ?? null,
-    } satisfies IIdentityLanguageReadPort);
+    } satisfies IIdentityLanguageReadPort, NO_STORED_PREFERENCES);
   });
 
   const movement = { userId: USER, amount: 12_550 };

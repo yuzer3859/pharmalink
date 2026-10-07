@@ -21,6 +21,7 @@ export interface ChannelDeliveryRequest {
 /** What a provider reports. It carries no recipient: the recipient is never the provider's to set. */
 export type ChannelDeliveryResult =
   | { outcome: 'SENT'; providerMessageId?: string }
+  | { outcome: 'DELIVERED'; providerMessageId?: string }
   | { outcome: 'FAILED'; errorCode?: string }
   | { outcome: 'NOT_CONFIGURED' };
 

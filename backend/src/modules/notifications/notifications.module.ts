@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { DeliveryModule } from '../delivery/delivery.module';
 import { IdentityModule } from '../identity/identity.module';
 import { OrdersModule } from '../orders/orders.module';
@@ -16,7 +17,7 @@ import { RecordPharmacyNotificationCommand } from './application/commands/record
 import { UpdateNotificationPreferencesCommand } from './application/commands/update-notification-preferences.command';
 import { GetNotificationPreferencesQuery } from './application/queries/get-notification-preferences.query';
 import { NOTIFICATION_CHANNEL_PROVIDER_REGISTRY } from './application/ports/outbound/notification-channel-provider.port';
-import { NotificationDeliveryService } from './application/services/notification-delivery.service';
+import { NotificationDeliveryDispatcher } from './application/services/notification-delivery.dispatcher';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
 import { NOTIFICATION_DELIVERY_REPOSITORY } from './domain/repositories/notification-delivery.repository';
@@ -25,6 +26,7 @@ import { NOTIFICATION_REPOSITORY } from './domain/repositories/notification.repo
 import { PrismaNotificationDeliveryRepository } from './infrastructure/persistence/prisma-notification-delivery.repository';
 import { PrismaNotificationPreferenceRepository } from './infrastructure/persistence/prisma-notification-preference.repository';
 import { StaticNotificationChannelProviderRegistry } from './infrastructure/providers/notification-channel-provider.registry';
+import { NotificationDeliveryScheduler } from './infrastructure/scheduling/notification-delivery.scheduler';
 import { PrismaNotificationRepository } from './infrastructure/persistence/prisma-notification.repository';
 import { NotificationPreferencesController } from './interface/controllers/notification-preferences.controller';
 import { NotificationsController } from './interface/controllers/notifications.controller';
@@ -42,7 +44,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * job-assigned notification, on Work 05's driver path. Work 10: customer matching outcomes (pharmacy
  * found, moved to another pharmacy), on Work 06's path. Work 11: notification preferences — the
  * user's own per-category, per-channel settings — with this module as their single owner. Work
- * 12: the provider-neutral delivery foundation (`NotificationDeliveryService`) — no provider yet.
+ * 12: the provider-neutral delivery foundation — no provider yet. Work 13: the durable delivery
+ * queue (`notification_delivery_jobs`), its dispatcher, scheduler and bounded retry policy.
  *
  * ## What it owns
  *
@@ -57,17 +60,21 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * deprecated, for a later migration to drop. Preferences are recorded and served only — no
  * delivery channel consults them yet, and in-app notifications never do.
  *
- * ## Delivery to external channels (Work 12) — foundation only
+ * ## Delivery to external channels (Works 12–13)
  *
- * `NotificationDeliveryService.deliver(notificationId)` takes an already-stored notification —
- * not the event, so the event bus's no-retry limitation does not reach it — applies Work 11's
- * preferences (`domain/delivery-policy.ts`) and records one `delivery_attempts` row per external
- * channel: `SUPPRESSED` when the preference disables it, `SENT` / `FAILED` from a provider. The
- * provider registry is bound **empty**, so today every allowed channel is recorded `FAILED` with
- * `CHANNEL_NOT_CONFIGURED` and nothing leaves the process. Nothing calls the service
- * automatically: no scheduler (the schema has no "awaiting external delivery" marker that would
- * not sweep up every historical notification) and no hook in the event handlers. The in-app row
- * is never touched.
+ *     Notification             — content and the in-app lifecycle (SENT → READ); never changed here
+ *     ChannelPreference        — what the user allows (Work 11)
+ *     NotificationDeliveryJob  — one per (notification, external channel): the current state
+ *     DeliveryAttempt          — immutable history, one row per provider attempt or suppression
+ *
+ * `RecordNotificationCommand` queues a `PENDING` job, in the same transaction as the notification,
+ * for each of PUSH / SMS / EMAIL the preference allows at that moment. `NotificationDeliveryScheduler`
+ * runs `NotificationDeliveryDispatcher` every 5 s: it claims due jobs (conditional UPDATE + lease),
+ * re-reads the preference, calls the channel's provider and settles the job with a lease-fenced
+ * write — `COMPLETED`, `SUPPRESSED`, retry at 30 s / 2 min / 10 min / 30 min, `EXHAUSTED` after the
+ * fifth failure (`domain/delivery-retry-policy.ts`). The provider registry is bound **empty**, so
+ * jobs wait `PENDING`, untouched and attempt-free, until a provider exists; nothing leaves the
+ * process. Notifications recorded before Work 13 have no job and are never swept.
  *
  * ## How a notification is made
  *
@@ -128,12 +135,14 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * ## Deliberately absent
  *
  * Real push, SMS and email providers (and the contact / device-token lookups they need), BullMQ
- * and a DLQ, a delivery scheduler, quiet hours, digest batching, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
+ * and a DLQ, quiet hours, digest batching, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
  * notification routes, pharmacy staff (non-owner) routing, and the events whose recipient lookup
  * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy.
  */
 @Module({
   imports: [
+    // Activates `NotificationDeliveryScheduler`'s `@Interval`, as Modules 04, 08 and 16 do for theirs.
+    ScheduleModule.forRoot(),
     IdentityModule,
     OrdersModule,
     PaymentModule,
@@ -146,7 +155,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
     { provide: NOTIFICATION_PREFERENCE_REPOSITORY, useClass: PrismaNotificationPreferenceRepository },
     { provide: NOTIFICATION_DELIVERY_REPOSITORY, useClass: PrismaNotificationDeliveryRepository },
-    // No external provider exists yet: every PUSH / SMS / EMAIL attempt is CHANNEL_NOT_CONFIGURED.
+    // No external provider exists yet: PUSH / SMS / EMAIL jobs wait PENDING until one is bound here.
     { provide: NOTIFICATION_CHANNEL_PROVIDER_REGISTRY, useValue: new StaticNotificationChannelProviderRegistry([]) },
 
     RecordNotificationCommand,
@@ -161,7 +170,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     GetUnreadCountQuery,
     GetNotificationPreferencesQuery,
     UpdateNotificationPreferencesCommand,
-    NotificationDeliveryService,
+    NotificationDeliveryDispatcher,
+    NotificationDeliveryScheduler,
 
     NotificationEventsHandler,
   ],

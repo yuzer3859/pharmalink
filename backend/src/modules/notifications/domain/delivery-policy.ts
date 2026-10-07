@@ -1,5 +1,5 @@
 import { NotificationErrors } from './errors';
-import { NotificationCategory, NotificationChannel, NotificationStatus } from './enums';
+import { NotificationCategory, NotificationChannel } from './enums';
 import {
   CONFIGURABLE_CHANNELS,
   ChannelPreferenceValue,
@@ -21,6 +21,7 @@ import {
  *   path. `REMINDER` and `MARKETING` are refused, exactly as Work 11's API refuses them.
  *
  * Quiet hours and digest cadence are not applied here: `digestFrequency` is reported, not acted on.
+ * Work 13 applies these rules twice: when queuing (`channelsToEnqueue`) and again before each send.
  */
 
 /** Why a channel was allowed or not. */
@@ -78,8 +79,11 @@ export function evaluateChannel(
 export const DeliveryErrorCode = {
   /** The preference disabled the channel; recorded `SUPPRESSED`, no provider called. */
   PREFERENCE_DISABLED: 'PREFERENCE_DISABLED',
-  /** No provider is bound for the channel (every channel, today). Recorded `FAILED`. */
-  CHANNEL_NOT_CONFIGURED: 'CHANNEL_NOT_CONFIGURED',
+  /**
+   * A job whose notification can no longer be delivered (gone, not an in-app source row, or an
+   * unsupported category). Kept on the job only — no attempt, since no provider was asked.
+   */
+  NOT_DELIVERABLE: 'NOT_DELIVERABLE',
   /** The provider threw, or reported a failure without a usable code. Recorded `FAILED`. */
   PROVIDER_ERROR: 'PROVIDER_ERROR',
   /** The provider returned something that is not a delivery result. Recorded `FAILED`. */
@@ -89,11 +93,15 @@ export const DeliveryErrorCode = {
 export const PROVIDER_ERROR_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 /**
- * Attempt statuses after which a channel is settled for that notification: a repeated delivery
- * call records nothing new for it. A `FAILED` channel is attempted again, as attempt n + 1.
+ * The external channels to queue a delivery job for when a notification is recorded (Work 13):
+ * those the user's preference allows *now*. A disabled channel gets no job; the dispatcher
+ * re-evaluates the preference before each send, so a later change is still honoured.
  */
-export const SETTLED_ATTEMPT_STATUSES: ReadonlySet<NotificationStatus> = new Set([
-  NotificationStatus.SENT,
-  NotificationStatus.DELIVERED,
-  NotificationStatus.SUPPRESSED,
-]);
+export function channelsToEnqueue(
+  category: NotificationCategory,
+  stored: ReadonlyArray<ChannelPreferenceValue & { channel: NotificationChannel }>,
+): NotificationChannel[] {
+  return externalChannelsFor(category).filter(
+    (channel) => evaluateChannel(category, channel, stored.find((s) => s.channel === channel) ?? null).allowed,
+  );
+}

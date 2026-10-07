@@ -59,3 +59,16 @@ export enum DigestFrequency {
   DAILY = 'DAILY',
   WEEKLY = 'WEEKLY',
 }
+
+/**
+ * Mirrors Prisma's `NotificationDeliveryJobStatus` (Work 13): the current state of one
+ * notification's delivery on one external channel. `PENDING` covers both "never tried" and "waiting
+ * to retry" (`attemptCount` tells them apart); the last three are terminal.
+ */
+export enum DeliveryJobStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  SUPPRESSED = 'SUPPRESSED',
+  EXHAUSTED = 'EXHAUSTED',
+}

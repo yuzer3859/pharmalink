@@ -9,6 +9,9 @@ import { RecordDriverNotificationCommand } from './commands/record-driver-notifi
 import { RecordNotificationCommand } from './commands/record-notification.command';
 import { DriverNotifications } from './support/event-notifications';
 
+/** Work 13: no stored preference — every external channel at its default. */
+const NO_STORED_PREFERENCES = { listForUser: async () => [], upsert: async () => undefined };
+
 class RecordingRepository implements Pick<INotificationRepository, 'insertIfAbsent'> {
   rows: NewNotification[] = [];
   async insertIfAbsent(n: NewNotification): Promise<boolean> {
@@ -52,7 +55,7 @@ describe('Driver job-assigned notification (application)', () => {
     logger = fakeLogger();
     const record = new RecordNotificationCommand(repo as unknown as INotificationRepository, {
       preferredLanguageOf: async (id) => languages[id] ?? null,
-    } satisfies IIdentityLanguageReadPort);
+    } satisfies IIdentityLanguageReadPort, NO_STORED_PREFERENCES);
     const drivers: IDriverRecipientReadPort = { userIdOf: async (id) => profiles[id] ?? null };
     command = new RecordDriverNotificationCommand(drivers, record, logger);
   });

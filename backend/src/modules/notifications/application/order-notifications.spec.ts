@@ -9,6 +9,9 @@ import { RecordNotificationCommand } from './commands/record-notification.comman
 import { RecordOrderNotificationCommand } from './commands/record-order-notification.command';
 import { OrderLifecycleNotifications } from './support/event-notifications';
 
+/** Work 13: no stored preference — every external channel at its default. */
+const NO_STORED_PREFERENCES = { listForUser: async () => [], upsert: async () => undefined };
+
 /** Only the write path matters here; the inbox reads are Work 01's and tested there. */
 class RecordingRepository implements Pick<INotificationRepository, 'insertIfAbsent'> {
   rows: NewNotification[] = [];
@@ -60,7 +63,7 @@ describe('Order lifecycle notifications (application)', () => {
         return owners[orderId] ?? null;
       },
     };
-    const record = new RecordNotificationCommand(repo as unknown as INotificationRepository, languagePort);
+    const record = new RecordNotificationCommand(repo as unknown as INotificationRepository, languagePort, NO_STORED_PREFERENCES);
     command = new RecordOrderNotificationCommand(orderPort, record, logger);
   });
 
@@ -184,7 +187,7 @@ describe('Order lifecycle notifications (application)', () => {
   it('passes a lookup failure through and writes nothing', async () => {
     const failing = new RecordOrderNotificationCommand(
       { customerUserIdOf: () => Promise.reject(new Error('db down')) },
-      new RecordNotificationCommand(repo as unknown as INotificationRepository, { preferredLanguageOf: async () => null }),
+      new RecordNotificationCommand(repo as unknown as INotificationRepository, { preferredLanguageOf: async () => null }, NO_STORED_PREFERENCES),
       logger,
     );
     await expect(

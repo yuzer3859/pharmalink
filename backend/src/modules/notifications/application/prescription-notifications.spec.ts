@@ -9,6 +9,9 @@ import { RecordNotificationCommand } from './commands/record-notification.comman
 import { PrescriptionSubject, RecordPrescriptionNotificationCommand } from './commands/record-prescription-notification.command';
 import { NotificationIntent, PrescriptionNotifications } from './support/event-notifications';
 
+/** Work 13: no stored preference — every external channel at its default. */
+const NO_STORED_PREFERENCES = { listForUser: async () => [], upsert: async () => undefined };
+
 class RecordingRepository implements Pick<INotificationRepository, 'insertIfAbsent'> {
   rows: NewNotification[] = [];
   async insertIfAbsent(n: NewNotification): Promise<boolean> {
@@ -56,7 +59,7 @@ describe('Prescription & matching notifications (application)', () => {
     logger = fakeLogger();
     const record = new RecordNotificationCommand(repo as unknown as INotificationRepository, {
       preferredLanguageOf: async (id) => languages[id] ?? null,
-    } satisfies IIdentityLanguageReadPort);
+    } satisfies IIdentityLanguageReadPort, NO_STORED_PREFERENCES);
     const port: IPrescriptionRecipientReadPort = {
       customerUserIdOfPrescription: async (id) => {
         asked.push(`rx:${id}`);
@@ -208,7 +211,7 @@ describe('Prescription & matching notifications (application)', () => {
         customerUserIdOfPrescription: () => Promise.reject(new Error('db down')),
         customerUserIdOfMatchRequest: () => Promise.reject(new Error('db down')),
       },
-      new RecordNotificationCommand(repo as unknown as INotificationRepository, { preferredLanguageOf: async () => null }),
+      new RecordNotificationCommand(repo as unknown as INotificationRepository, { preferredLanguageOf: async () => null }, NO_STORED_PREFERENCES),
       logger,
     );
     await expect(

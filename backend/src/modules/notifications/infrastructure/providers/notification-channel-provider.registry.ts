@@ -6,8 +6,8 @@ import {
 
 /**
  * A fixed set of channel providers, at most one per channel (module-13 Work 12). The module binds
- * it **empty**: no PUSH, SMS or EMAIL provider exists yet, so every external channel answers
- * "not configured" and nothing is sent. A real provider is added here when its work lands.
+ * it **empty**: no PUSH, SMS or EMAIL provider exists yet, so delivery jobs wait `PENDING` and
+ * nothing is sent. A real provider is added here when its work lands; waiting jobs then go out.
  */
 export class StaticNotificationChannelProviderRegistry implements INotificationChannelProviderRegistry {
   private readonly byChannel = new Map<NotificationChannel, INotificationChannelProvider>();
