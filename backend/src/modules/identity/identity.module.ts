@@ -30,6 +30,7 @@ import {
   IdentityAdminPortAdapter,
 } from './application/ports/inbound/identity-admin.port';
 import { IDENTITY_ANALYTICS_READ_PORT } from './application/ports/inbound/identity-analytics-read.port';
+import { IDENTITY_CONTACT_READ_PORT } from './application/ports/inbound/identity-contact-read.port';
 import { IDENTITY_LANGUAGE_READ_PORT } from './application/ports/inbound/identity-language-read.port';
 import { NOTIFICATION_PORT } from './application/ports/notification.port';
 import { OTP_SERVICE } from './application/ports/otp.service';
@@ -75,6 +76,7 @@ import {
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma-user.repository';
 import { PrismaIdentityAnalyticsReadAdapter } from './infrastructure/persistence/prisma-identity-analytics-read.adapter';
+import { PrismaIdentityContactReadAdapter } from './infrastructure/persistence/prisma-identity-contact-read.adapter';
 import { PrismaIdentityLanguageReadAdapter } from './infrastructure/persistence/prisma-identity-language-read.adapter';
 import { PrismaRbacRepository } from './infrastructure/persistence/prisma-rbac.repository';
 import { PrismaRoleAssignmentRepository } from './infrastructure/persistence/prisma-role-assignment.repository';
@@ -192,6 +194,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     // Inbound read contract for Module 13's notification rendering (module-13 Work 01): one
     // user's `preferredLanguage`, nothing else.
     { provide: IDENTITY_LANGUAGE_READ_PORT, useClass: PrismaIdentityLanguageReadAdapter },
+    // Inbound read contract for Module 13's SMS channel (module-13 Work 15): one user's verified,
+    // normalized phone, or why there is none.
+    { provide: IDENTITY_CONTACT_READ_PORT, useClass: PrismaIdentityContactReadAdapter },
 
     // Event handlers
     UserRegisteredHandler,
@@ -231,6 +236,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
    *
    * `IDENTITY_LANGUAGE_READ_PORT` is the fourth: one user's preferred language, so Module 13 can
    * render a notification in it without keeping a copy of the preference.
+   *
+   * `IDENTITY_CONTACT_READ_PORT` is the fifth: one user's verified phone, for Module 13 to send an
+   * SMS to — used transiently, never stored.
    */
   exports: [
     TOKEN_SERVICE,
@@ -238,6 +246,7 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     IDENTITY_ADMIN_PORT,
     IDENTITY_ANALYTICS_READ_PORT,
     IDENTITY_LANGUAGE_READ_PORT,
+    IDENTITY_CONTACT_READ_PORT,
   ],
 })
 export class IdentityModule {}

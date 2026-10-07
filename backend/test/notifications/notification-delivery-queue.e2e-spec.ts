@@ -326,18 +326,23 @@ describe('Notification delivery queue (e2e)', () => {
       }
     });
 
-    // Work 14 made the registry a factory: PUSH is bound when FCM credentials are present, and
-    // nothing at all without them — which is still Work 13's production behaviour.
-    it('the shipped module binds no provider without FCM credentials, only PUSH with them, never the in-memory one', () => {
+    // Work 14 made the registry a factory, Work 15 added SMS to it: each channel's provider is bound
+    // only when its transport is configured, and nothing at all without them — which is still Work
+    // 13's production behaviour.
+    it('the shipped module binds no provider without configured transports, only those configured, never the in-memory one', () => {
+      type Transport = { isConfigured(): boolean };
       const providers = Reflect.getMetadata('providers', NotificationsModule) as Array<{
         provide?: unknown;
-        useFactory?: (transport: { isConfigured(): boolean }, push: INotificationChannelProvider) => INotificationChannelProviderRegistry;
+        useFactory?: (pushTransport: Transport, push: INotificationChannelProvider, smsTransport: Transport, sms: INotificationChannelProvider) => INotificationChannelProviderRegistry;
       }>;
       const factory = providers.find((p) => p.provide === NOTIFICATION_CHANNEL_PROVIDER_REGISTRY)!.useFactory!;
       const push = { name: 'fcm', channel: NotificationChannel.PUSH, deliver: async () => ({ outcome: 'NOT_CONFIGURED' as const }) };
-      const unconfigured = factory({ isConfigured: () => false }, push);
+      const sms = { name: 'sms', channel: NotificationChannel.SMS, deliver: async () => ({ outcome: 'NOT_CONFIGURED' as const }) };
+      const off = { isConfigured: () => false };
+      const on = { isConfigured: () => true };
+      const unconfigured = factory(off, push, off, sms);
       for (const channel of Object.values(NotificationChannel)) expect(unconfigured.providerFor(channel)).toBeNull();
-      const configured = factory({ isConfigured: () => true }, push);
+      const configured = factory(on, push, off, sms);
       expect(Object.values(NotificationChannel).map((c) => configured.providerFor(c)?.name ?? null)).toEqual(['fcm', null, null, null]);
       expect(readFileSync(join(__dirname, '..', '..', 'src', 'modules', 'notifications', 'notifications.module.ts'), 'utf8')).not.toContain('InMemoryNotificationChannelProvider');
     });
@@ -366,11 +371,16 @@ describe('Notification delivery queue (e2e)', () => {
         'application/ports/outbound/notification-channel-provider.port.ts',
         // Work 14
         'application/ports/outbound/push-transport.port.ts',
+        // Work 15
+        'application/ports/outbound/sms-transport.port.ts',
         'application/services/notification-delivery.dispatcher.ts',
         'infrastructure/providers/in-memory-notification-channel.provider.ts',
         'infrastructure/providers/notification-channel-provider.registry.ts',
         // Work 14
         'infrastructure/providers/push-notification.provider.ts',
+        // Work 15
+        'infrastructure/providers/sms-notification.provider.ts',
+        'infrastructure/providers/with-deadline.ts',
         'infrastructure/scheduling/notification-delivery.scheduler.ts',
       ]);
       for (const file of checked) expect({ file: rel(file), prisma: PRISMA.test(readFileSync(file, 'utf8')) }).toEqual({ file: rel(file), prisma: false });

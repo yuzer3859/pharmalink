@@ -9,6 +9,7 @@ import { IPushTransport, PUSH_TRANSPORT, PushSendResult } from '../../applicatio
 import { PUSH_DELIVERY_POLICY } from '../../domain/delivery-retry-policy';
 import { NotificationChannel } from '../../domain/enums';
 import { DEVICE_TOKEN_REPOSITORY, IDeviceTokenRepository } from '../../domain/repositories/device-token.repository';
+import { withDeadline } from './with-deadline';
 
 /** The FAILED code when the recipient has no active device. */
 export const NO_ACTIVE_DEVICE = 'NO_ACTIVE_DEVICE';
@@ -82,14 +83,4 @@ export class PushNotificationProvider implements INotificationChannelProvider {
     if (rejected) return { outcome: 'FAILED', errorCode: rejected.code, retryable: false };
     return { outcome: 'FAILED', errorCode: (results[0] as { code: string }).code, retryable: false };
   }
-}
-
-/** `promise`, or `fallback` once `ms` have passed — whichever comes first. */
-function withDeadline<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  const deadline = new Promise<T>((resolve) => {
-    timer = setTimeout(() => resolve(fallback), ms);
-    timer.unref();
-  });
-  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }

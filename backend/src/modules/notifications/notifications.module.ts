@@ -19,6 +19,7 @@ import { GetNotificationPreferencesQuery } from './application/queries/get-notif
 import { ManageDeviceTokensCommand } from './application/commands/manage-device-tokens.command';
 import { NOTIFICATION_CHANNEL_PROVIDER_REGISTRY } from './application/ports/outbound/notification-channel-provider.port';
 import { IPushTransport, PUSH_TRANSPORT } from './application/ports/outbound/push-transport.port';
+import { ISmsTransport, SMS_TRANSPORT } from './application/ports/outbound/sms-transport.port';
 import { NotificationDeliveryDispatcher } from './application/services/notification-delivery.dispatcher';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
@@ -31,8 +32,10 @@ import { PrismaNotificationDeliveryRepository } from './infrastructure/persisten
 import { PrismaNotificationPreferenceRepository } from './infrastructure/persistence/prisma-notification-preference.repository';
 import { StaticNotificationChannelProviderRegistry } from './infrastructure/providers/notification-channel-provider.registry';
 import { PushNotificationProvider } from './infrastructure/providers/push-notification.provider';
+import { SmsNotificationProvider } from './infrastructure/providers/sms-notification.provider';
 import { FcmHttpV1Transport } from './infrastructure/push/fcm-http-v1.transport';
 import { FcmConfig } from './infrastructure/push/fcm.config';
+import { UnconfiguredSmsTransport } from './infrastructure/sms/unconfigured-sms.transport';
 import { NotificationDeliveryScheduler } from './infrastructure/scheduling/notification-delivery.scheduler';
 import { PrismaNotificationRepository } from './infrastructure/persistence/prisma-notification.repository';
 import { NotificationDevicesController } from './interface/controllers/notification-devices.controller';
@@ -55,7 +58,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * 12: the provider-neutral delivery foundation — no provider yet. Work 13: the durable delivery
  * queue (`notification_delivery_jobs`), its dispatcher, scheduler and bounded retry policy. Work
  * 14: push — users register devices (`/notification-devices`, `device_tokens`) and PUSH jobs go out
- * through Firebase Cloud Messaging when its credentials are configured.
+ * through Firebase Cloud Messaging when its credentials are configured. Work 15: SMS — the
+ * provider, Module 01's contact port and the gateway seam; no gateway is approved yet, so SMS jobs wait.
  *
  * ## What it owns
  *
@@ -91,7 +95,12 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * behaves exactly as Work 13. It fans one job out to the recipient's active `device_tokens` through
  * `FcmHttpV1Transport` (FCM HTTP v1, 10 s per request, 30 s per delivery — inside the 120 s lease),
  * deactivates tokens FCM reports dead, and closes the job at once when there is no device to reach.
- * SMS and EMAIL still have no provider.
+ *
+ * SMS (Work 15): `SmsNotificationProvider` texts the notification's rendered body to the recipient's
+ * verified phone, read at send time through Module 01's `IDENTITY_CONTACT_READ_PORT` and never
+ * stored. No SMS gateway has been approved (architecture open question), so `SMS_TRANSPORT` is
+ * `UnconfiguredSmsTransport`, the provider is not registered, and SMS jobs wait `PENDING` until a
+ * real transport is bound. EMAIL has no provider.
  *
  * ## How a notification is made
  *
@@ -151,7 +160,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * ## Deliberately absent
  *
- * SMS and email providers (and the contact lookup they need), BullMQ
+ * a real SMS gateway (none approved), an e-mail provider, BullMQ
  * and a DLQ, quiet hours, digest batching, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
  * notification routes, pharmacy staff (non-owner) routing, and the events whose recipient lookup
  * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy.
@@ -176,13 +185,19 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     FcmConfig,
     { provide: PUSH_TRANSPORT, useClass: FcmHttpV1Transport },
     PushNotificationProvider,
-    // PUSH is bound only when FCM credentials are present; SMS and EMAIL have no provider, so their
-    // jobs (and PUSH's, when unconfigured) wait PENDING, unread by the dispatcher.
+    // No SMS gateway is approved yet: never configured, sends nothing (see SMS_TRANSPORT).
+    { provide: SMS_TRANSPORT, useClass: UnconfiguredSmsTransport },
+    SmsNotificationProvider,
+    // A channel's provider is bound only when its transport is configured; otherwise its jobs wait
+    // PENDING, unread by the dispatcher. EMAIL has no provider.
     {
       provide: NOTIFICATION_CHANNEL_PROVIDER_REGISTRY,
-      useFactory: (transport: IPushTransport, push: PushNotificationProvider) =>
-        new StaticNotificationChannelProviderRegistry(transport.isConfigured() ? [push] : []),
-      inject: [PUSH_TRANSPORT, PushNotificationProvider],
+      useFactory: (pushTransport: IPushTransport, push: PushNotificationProvider, smsTransport: ISmsTransport, sms: SmsNotificationProvider) =>
+        new StaticNotificationChannelProviderRegistry([
+          ...(pushTransport.isConfigured() ? [push] : []),
+          ...(smsTransport.isConfigured() ? [sms] : []),
+        ]),
+      inject: [PUSH_TRANSPORT, PushNotificationProvider, SMS_TRANSPORT, SmsNotificationProvider],
     },
 
     RecordNotificationCommand,

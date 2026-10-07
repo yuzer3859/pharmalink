@@ -50,3 +50,14 @@ export const PUSH_DELIVERY_POLICY = Object.freeze({
   /** Devices one notification is pushed to: the user's most recently seen active registrations. */
   maxDevicesPerDelivery: 10,
 });
+
+/**
+ * SMS delivery bounds (module-13 Work 15). One gateway request per notification;
+ * `deliveryDeadlineMs` caps it whatever the transport does — far inside the 120 s claim lease.
+ */
+export const SMS_DELIVERY_POLICY = Object.freeze({
+  /** Passed to the transport for its HTTP request. */
+  requestTimeoutMs: 10_000,
+  /** Hard cap on one SMS delivery. */
+  deliveryDeadlineMs: 30_000,
+});

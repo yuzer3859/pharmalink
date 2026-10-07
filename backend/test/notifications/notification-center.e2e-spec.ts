@@ -518,6 +518,8 @@ describe('In-app notification center (e2e)', () => {
         'delivery/application/ports/inbound/driver-recipient-read.port',
         'delivery/delivery.module',
         'delivery/domain/events',
+        // Work 15: the SMS channel's recipient phone.
+        'identity/application/ports/inbound/identity-contact-read.port',
         'identity/application/ports/inbound/identity-language-read.port',
         'identity/domain/events',
         'identity/identity.module',
