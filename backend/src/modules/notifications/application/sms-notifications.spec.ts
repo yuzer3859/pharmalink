@@ -42,6 +42,10 @@ describe('SMS notifications (application)', () => {
       contactReads.push(userId);
       return contacts[userId] ?? { available: false, reason: 'UNKNOWN_USER' };
     },
+    // Work 16 extended the port; the SMS provider never calls this.
+    emailRecipientOf: async () => {
+      throw new Error('SMS must not read the e-mail address');
+    },
   };
 
   beforeEach(() => {

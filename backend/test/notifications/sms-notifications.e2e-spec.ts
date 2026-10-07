@@ -228,9 +228,10 @@ describe('SMS notifications (e2e)', () => {
     expect(providers.find((p) => p.provide === SMS_TRANSPORT)!.useClass).toBe(UnconfiguredSmsTransport);
     const factory = providers.find((p) => p.provide === NOTIFICATION_CHANNEL_PROVIDER_REGISTRY)!.useFactory!;
     const fake = (channel: NotificationChannel, name: string): INotificationChannelProvider => ({ name, channel, deliver: async () => ({ outcome: 'NOT_CONFIGURED' }) });
-    const reg = factory({ isConfigured: () => false }, fake(NotificationChannel.PUSH, 'fcm'), new UnconfiguredSmsTransport(), fake(NotificationChannel.SMS, 'sms'));
+    const noEmail = { isConfigured: () => false };
+    const reg = factory({ isConfigured: () => false }, fake(NotificationChannel.PUSH, 'fcm'), new UnconfiguredSmsTransport(), fake(NotificationChannel.SMS, 'sms'), noEmail, fake(NotificationChannel.EMAIL, 'email'));
     expect(Object.values(NotificationChannel).map((c) => reg.providerFor(c))).toEqual([null, null, null, null]);
-    const both = factory({ isConfigured: () => true }, fake(NotificationChannel.PUSH, 'fcm'), gateway, fake(NotificationChannel.SMS, 'sms'));
+    const both = factory({ isConfigured: () => true }, fake(NotificationChannel.PUSH, 'fcm'), gateway, fake(NotificationChannel.SMS, 'sms'), noEmail, fake(NotificationChannel.EMAIL, 'email'));
     expect(Object.values(NotificationChannel).map((c) => both.providerFor(c)?.name ?? null)).toEqual(['fcm', 'sms', null, null]);
     expect(readFileSync(join(__dirname, '..', '..', 'src', 'modules', 'notifications', 'notifications.module.ts'), 'utf8')).not.toContain('InMemorySmsTransport');
   });
@@ -259,6 +260,8 @@ describe('SMS notifications (e2e)', () => {
         }
       }
       expect(sources(join(root, 'notifications')).filter((f) => /identity-contact-read\.port/.test(readFileSync(f, 'utf8'))).map(rel)).toEqual([
+        // Work 16: the e-mail provider reads the address through the same port.
+        'notifications/infrastructure/providers/email-notification.provider.ts',
         'notifications/infrastructure/providers/sms-notification.provider.ts',
       ]);
     });

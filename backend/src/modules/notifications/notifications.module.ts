@@ -20,6 +20,7 @@ import { ManageDeviceTokensCommand } from './application/commands/manage-device-
 import { NOTIFICATION_CHANNEL_PROVIDER_REGISTRY } from './application/ports/outbound/notification-channel-provider.port';
 import { IPushTransport, PUSH_TRANSPORT } from './application/ports/outbound/push-transport.port';
 import { ISmsTransport, SMS_TRANSPORT } from './application/ports/outbound/sms-transport.port';
+import { EMAIL_TRANSPORT, IEmailTransport } from './application/ports/outbound/email-transport.port';
 import { NotificationDeliveryDispatcher } from './application/services/notification-delivery.dispatcher';
 import { GetUnreadCountQuery } from './application/queries/get-unread-count.query';
 import { ListNotificationsQuery } from './application/queries/list-notifications.query';
@@ -33,6 +34,8 @@ import { PrismaNotificationPreferenceRepository } from './infrastructure/persist
 import { StaticNotificationChannelProviderRegistry } from './infrastructure/providers/notification-channel-provider.registry';
 import { PushNotificationProvider } from './infrastructure/providers/push-notification.provider';
 import { SmsNotificationProvider } from './infrastructure/providers/sms-notification.provider';
+import { EmailNotificationProvider } from './infrastructure/providers/email-notification.provider';
+import { UnconfiguredEmailTransport } from './infrastructure/email/unconfigured-email.transport';
 import { FcmHttpV1Transport } from './infrastructure/push/fcm-http-v1.transport';
 import { FcmConfig } from './infrastructure/push/fcm.config';
 import { UnconfiguredSmsTransport } from './infrastructure/sms/unconfigured-sms.transport';
@@ -60,6 +63,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * 14: push — users register devices (`/notification-devices`, `device_tokens`) and PUSH jobs go out
  * through Firebase Cloud Messaging when its credentials are configured. Work 15: SMS — the
  * provider, Module 01's contact port and the gateway seam; no gateway is approved yet, so SMS jobs wait.
+ * Work 16: e-mail — the same shape; no provider is approved yet, so EMAIL jobs wait.
  *
  * ## What it owns
  *
@@ -100,7 +104,12 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * verified phone, read at send time through Module 01's `IDENTITY_CONTACT_READ_PORT` and never
  * stored. No SMS gateway has been approved (architecture open question), so `SMS_TRANSPORT` is
  * `UnconfiguredSmsTransport`, the provider is not registered, and SMS jobs wait `PENDING` until a
- * real transport is bound. EMAIL has no provider.
+ * real transport is bound.
+ *
+ * E-mail (Work 16): `EmailNotificationProvider` sends a plain-text e-mail — subject the rendered
+ * title, body the rendered body — to the recipient's verified address from the same Module 01
+ * port. No e-mail provider has been approved, so `EMAIL_TRANSPORT` is `UnconfiguredEmailTransport`
+ * and EMAIL jobs wait `PENDING` until a real transport is bound.
  *
  * ## How a notification is made
  *
@@ -160,7 +169,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * ## Deliberately absent
  *
- * a real SMS gateway (none approved), an e-mail provider, BullMQ
+ * a real SMS gateway or e-mail provider (none approved), BullMQ
  * and a DLQ, quiet hours, digest batching, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
  * notification routes, pharmacy staff (non-owner) routing, and the events whose recipient lookup
  * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy.
@@ -188,16 +197,27 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     // No SMS gateway is approved yet: never configured, sends nothing (see SMS_TRANSPORT).
     { provide: SMS_TRANSPORT, useClass: UnconfiguredSmsTransport },
     SmsNotificationProvider,
+    // No e-mail provider is approved yet: never configured, sends nothing (see EMAIL_TRANSPORT).
+    { provide: EMAIL_TRANSPORT, useClass: UnconfiguredEmailTransport },
+    EmailNotificationProvider,
     // A channel's provider is bound only when its transport is configured; otherwise its jobs wait
-    // PENDING, unread by the dispatcher. EMAIL has no provider.
+    // PENDING, unread by the dispatcher.
     {
       provide: NOTIFICATION_CHANNEL_PROVIDER_REGISTRY,
-      useFactory: (pushTransport: IPushTransport, push: PushNotificationProvider, smsTransport: ISmsTransport, sms: SmsNotificationProvider) =>
+      useFactory: (
+        pushTransport: IPushTransport,
+        push: PushNotificationProvider,
+        smsTransport: ISmsTransport,
+        sms: SmsNotificationProvider,
+        emailTransport: IEmailTransport,
+        email: EmailNotificationProvider,
+      ) =>
         new StaticNotificationChannelProviderRegistry([
           ...(pushTransport.isConfigured() ? [push] : []),
           ...(smsTransport.isConfigured() ? [sms] : []),
+          ...(emailTransport.isConfigured() ? [email] : []),
         ]),
-      inject: [PUSH_TRANSPORT, PushNotificationProvider, SMS_TRANSPORT, SmsNotificationProvider],
+      inject: [PUSH_TRANSPORT, PushNotificationProvider, SMS_TRANSPORT, SmsNotificationProvider, EMAIL_TRANSPORT, EmailNotificationProvider],
     },
 
     RecordNotificationCommand,

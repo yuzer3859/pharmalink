@@ -333,16 +333,24 @@ describe('Notification delivery queue (e2e)', () => {
       type Transport = { isConfigured(): boolean };
       const providers = Reflect.getMetadata('providers', NotificationsModule) as Array<{
         provide?: unknown;
-        useFactory?: (pushTransport: Transport, push: INotificationChannelProvider, smsTransport: Transport, sms: INotificationChannelProvider) => INotificationChannelProviderRegistry;
+        useFactory?: (
+          pushTransport: Transport,
+          push: INotificationChannelProvider,
+          smsTransport: Transport,
+          sms: INotificationChannelProvider,
+          emailTransport: Transport,
+          email: INotificationChannelProvider,
+        ) => INotificationChannelProviderRegistry;
       }>;
       const factory = providers.find((p) => p.provide === NOTIFICATION_CHANNEL_PROVIDER_REGISTRY)!.useFactory!;
       const push = { name: 'fcm', channel: NotificationChannel.PUSH, deliver: async () => ({ outcome: 'NOT_CONFIGURED' as const }) };
       const sms = { name: 'sms', channel: NotificationChannel.SMS, deliver: async () => ({ outcome: 'NOT_CONFIGURED' as const }) };
+      const email = { name: 'email', channel: NotificationChannel.EMAIL, deliver: async () => ({ outcome: 'NOT_CONFIGURED' as const }) };
       const off = { isConfigured: () => false };
       const on = { isConfigured: () => true };
-      const unconfigured = factory(off, push, off, sms);
+      const unconfigured = factory(off, push, off, sms, off, email);
       for (const channel of Object.values(NotificationChannel)) expect(unconfigured.providerFor(channel)).toBeNull();
-      const configured = factory(on, push, off, sms);
+      const configured = factory(on, push, off, sms, off, email);
       expect(Object.values(NotificationChannel).map((c) => configured.providerFor(c)?.name ?? null)).toEqual(['fcm', null, null, null]);
       expect(readFileSync(join(__dirname, '..', '..', 'src', 'modules', 'notifications', 'notifications.module.ts'), 'utf8')).not.toContain('InMemoryNotificationChannelProvider');
     });
@@ -368,12 +376,16 @@ describe('Notification delivery queue (e2e)', () => {
     it('the dispatcher, the scheduler and the providers never touch Prisma', () => {
       const checked = sources().filter((f) => /^(application\/services|application\/ports|infrastructure\/providers|infrastructure\/scheduling)\//.test(rel(f)));
       expect(checked.map(rel).sort()).toEqual([
+        // Work 16
+        'application/ports/outbound/email-transport.port.ts',
         'application/ports/outbound/notification-channel-provider.port.ts',
         // Work 14
         'application/ports/outbound/push-transport.port.ts',
         // Work 15
         'application/ports/outbound/sms-transport.port.ts',
         'application/services/notification-delivery.dispatcher.ts',
+        // Work 16
+        'infrastructure/providers/email-notification.provider.ts',
         'infrastructure/providers/in-memory-notification-channel.provider.ts',
         'infrastructure/providers/notification-channel-provider.registry.ts',
         // Work 14

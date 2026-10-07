@@ -61,3 +61,15 @@ export const SMS_DELIVERY_POLICY = Object.freeze({
   /** Hard cap on one SMS delivery. */
   deliveryDeadlineMs: 30_000,
 });
+
+/**
+ * E-mail delivery bounds (module-13 Work 16). One provider request per notification — allowed a
+ * little longer than an SMS request, since mail relays are slower to accept — and
+ * `deliveryDeadlineMs` caps it whatever the transport does, far inside the 120 s claim lease.
+ */
+export const EMAIL_DELIVERY_POLICY = Object.freeze({
+  /** Passed to the transport for its request. */
+  requestTimeoutMs: 15_000,
+  /** Hard cap on one e-mail delivery. */
+  deliveryDeadlineMs: 30_000,
+});
