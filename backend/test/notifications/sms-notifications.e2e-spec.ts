@@ -275,9 +275,14 @@ describe('SMS notifications (e2e)', () => {
       }
     });
 
+    // Work 17 approved Resend, whose config legitimately names an API key; the `apiKey` check is
+    // therefore scoped to the SMS files, while SMS_GATEWAY_* stays forbidden everywhere.
     it('no SMS credential or configuration key exists anywhere — none has been approved', () => {
       for (const file of sources(join(root, 'notifications'))) {
-        expect({ file: rel(file), found: /SMS_GATEWAY_[A-Z_]+'|apiKey\s*[:=]\s*'|sk_sms/.test(readFileSync(file, 'utf8')) }).toEqual({ file: rel(file), found: false });
+        const source = readFileSync(file, 'utf8');
+        const smsFile = /infrastructure\/sms\/|providers\/sms-|sms-transport\.port/.test(rel(file));
+        const found = /SMS_GATEWAY_[A-Z_]+'|sk_sms/.test(source) || (smsFile && /apiKey\s*[:=]\s*'/.test(source));
+        expect({ file: rel(file), found }).toEqual({ file: rel(file), found: false });
       }
     });
   });

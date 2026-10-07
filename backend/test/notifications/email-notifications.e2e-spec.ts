@@ -15,7 +15,7 @@ import {
 import { NotificationDeliveryDispatcher } from '../../src/modules/notifications/application/services/notification-delivery.dispatcher';
 import { NotificationChannel } from '../../src/modules/notifications/domain/enums';
 import { InMemoryEmailTransport } from '../../src/modules/notifications/infrastructure/email/in-memory-email.transport';
-import { UnconfiguredEmailTransport } from '../../src/modules/notifications/infrastructure/email/unconfigured-email.transport';
+import { ResendEmailTransport } from '../../src/modules/notifications/infrastructure/email/resend-email.transport';
 import { NOTIFICATION_DELIVERY_INTERVAL } from '../../src/modules/notifications/infrastructure/scheduling/notification-delivery.scheduler';
 import { NotificationsModule } from '../../src/modules/notifications/notifications.module';
 import { OtpPurpose } from '../../src/modules/identity/domain/enums';
@@ -249,13 +249,14 @@ describe('E-mail notifications (e2e)', () => {
     }
   });
 
-  it('production binds the unconfigured transport: no e-mail provider registered, jobs wait; other channels unaffected', () => {
+  // Work 17: production binds Resend, which is unconfigured without RESEND_* (and always under test).
+  it('production binds the Resend transport; unconfigured, no e-mail provider is registered and jobs wait; other channels unaffected', () => {
     const providers = Reflect.getMetadata('providers', NotificationsModule) as Array<{ provide?: unknown; useClass?: unknown; useFactory?: (...a: unknown[]) => INotificationChannelProviderRegistry }>;
-    expect(providers.find((p) => p.provide === EMAIL_TRANSPORT)!.useClass).toBe(UnconfiguredEmailTransport);
+    expect(providers.find((p) => p.provide === EMAIL_TRANSPORT)!.useClass).toBe(ResendEmailTransport);
     const factory = providers.find((p) => p.provide === NOTIFICATION_CHANNEL_PROVIDER_REGISTRY)!.useFactory!;
     const fake = (channel: NotificationChannel, name: string): INotificationChannelProvider => ({ name, channel, deliver: async () => ({ outcome: 'NOT_CONFIGURED' }) });
     const off = { isConfigured: () => false };
-    const reg = factory(off, fake(NotificationChannel.PUSH, 'fcm'), off, fake(NotificationChannel.SMS, 'sms'), new UnconfiguredEmailTransport(), fake(NotificationChannel.EMAIL, 'email'));
+    const reg = factory(off, fake(NotificationChannel.PUSH, 'fcm'), off, fake(NotificationChannel.SMS, 'sms'), off, fake(NotificationChannel.EMAIL, 'email'));
     expect(Object.values(NotificationChannel).map((c) => reg.providerFor(c))).toEqual([null, null, null, null]);
     const withMail = factory(off, fake(NotificationChannel.PUSH, 'fcm'), off, fake(NotificationChannel.SMS, 'sms'), mailer, fake(NotificationChannel.EMAIL, 'email'));
     expect(Object.values(NotificationChannel).map((c) => withMail.providerFor(c)?.name ?? null)).toEqual([null, null, 'email', null]);
@@ -299,11 +300,16 @@ describe('E-mail notifications (e2e)', () => {
       }
     });
 
-    it('no e-mail credential, SMTP setting, sender address or provider endpoint exists — none has been approved', () => {
+    // Work 17: Resend is approved — its two settings are read only by ResendConfig; still no SMTP,
+    // no literal credential and no hard-coded sender.
+    it('no SMTP setting, credential literal or hard-coded sender; RESEND_* keys are read only by ResendConfig', () => {
       for (const file of sources(join(root, 'notifications'))) {
         const source = readFileSync(file, 'utf8');
-        expect({ file: rel(file), found: /SMTP_|EMAIL_(HOST|USER|PASS|API|FROM|SENDER)|smtp:\/\/|noreply@|from:\s*'/i.test(source) }).toEqual({ file: rel(file), found: false });
+        expect({ file: rel(file), found: /SMTP_|smtp:\/\/|noreply@|from:\s*'|re_[A-Za-z0-9]{8,}/i.test(source) }).toEqual({ file: rel(file), found: false });
       }
+      expect(sources(join(root, 'notifications')).filter((f) => /'RESEND_(API_KEY|FROM_EMAIL)'/.test(readFileSync(f, 'utf8'))).map(rel)).toEqual([
+        'notifications/infrastructure/email/resend.config.ts',
+      ]);
     });
   });
 });

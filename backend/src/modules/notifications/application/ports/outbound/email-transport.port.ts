@@ -26,9 +26,8 @@ export type EmailSendResult =
   | { kind: 'NOT_CONFIGURED' };
 
 /**
- * The external e-mail provider. **None has been chosen** (the architecture names "SES/SMTP" only
- * as options), so production binds `UnconfiguredEmailTransport`; a real adapter implements this
- * port — and defines its own configuration and sender address — once one is approved.
+ * The external e-mail provider. Production binds `ResendEmailTransport` (Work 17) — Resend is the
+ * approved provider; tests bind `InMemoryEmailTransport`.
  */
 export interface IEmailTransport {
   /** A short, non-secret name stored on attempts, e.g. the provider's. */

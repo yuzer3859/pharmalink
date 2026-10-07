@@ -35,7 +35,8 @@ import { StaticNotificationChannelProviderRegistry } from './infrastructure/prov
 import { PushNotificationProvider } from './infrastructure/providers/push-notification.provider';
 import { SmsNotificationProvider } from './infrastructure/providers/sms-notification.provider';
 import { EmailNotificationProvider } from './infrastructure/providers/email-notification.provider';
-import { UnconfiguredEmailTransport } from './infrastructure/email/unconfigured-email.transport';
+import { ResendEmailTransport } from './infrastructure/email/resend-email.transport';
+import { ResendConfig } from './infrastructure/email/resend.config';
 import { FcmHttpV1Transport } from './infrastructure/push/fcm-http-v1.transport';
 import { FcmConfig } from './infrastructure/push/fcm.config';
 import { UnconfiguredSmsTransport } from './infrastructure/sms/unconfigured-sms.transport';
@@ -63,7 +64,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * 14: push — users register devices (`/notification-devices`, `device_tokens`) and PUSH jobs go out
  * through Firebase Cloud Messaging when its credentials are configured. Work 15: SMS — the
  * provider, Module 01's contact port and the gateway seam; no gateway is approved yet, so SMS jobs wait.
- * Work 16: e-mail — the same shape; no provider is approved yet, so EMAIL jobs wait.
+ * Work 16: e-mail — the same shape. Work 17: the e-mail provider is Resend, over its REST API.
  *
  * ## What it owns
  *
@@ -108,8 +109,9 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * E-mail (Work 16): `EmailNotificationProvider` sends a plain-text e-mail — subject the rendered
  * title, body the rendered body — to the recipient's verified address from the same Module 01
- * port. No e-mail provider has been approved, so `EMAIL_TRANSPORT` is `UnconfiguredEmailTransport`
- * and EMAIL jobs wait `PENDING` until a real transport is bound.
+ * port. The provider is Resend (Work 17): `EMAIL_TRANSPORT` is `ResendEmailTransport`, configured by
+ * `RESEND_API_KEY` and `RESEND_FROM_EMAIL`; without both (or under NODE_ENV=test) it is not
+ * configured, the e-mail provider is not registered, and EMAIL jobs wait `PENDING` as before.
  *
  * ## How a notification is made
  *
@@ -169,7 +171,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * ## Deliberately absent
  *
- * a real SMS gateway or e-mail provider (none approved), BullMQ
+ * a real SMS gateway (none approved), BullMQ
  * and a DLQ, quiet hours, digest batching, template CRUD (`notification_templates` stays unused), a WebSocket stream, admin
  * notification routes, pharmacy staff (non-owner) routing, and the events whose recipient lookup
  * has no contract yet — e.g. a new order or an uploaded prescription for a pharmacy.
@@ -197,8 +199,9 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     // No SMS gateway is approved yet: never configured, sends nothing (see SMS_TRANSPORT).
     { provide: SMS_TRANSPORT, useClass: UnconfiguredSmsTransport },
     SmsNotificationProvider,
-    // No e-mail provider is approved yet: never configured, sends nothing (see EMAIL_TRANSPORT).
-    { provide: EMAIL_TRANSPORT, useClass: UnconfiguredEmailTransport },
+    // Resend (Work 17): configured only when RESEND_API_KEY and RESEND_FROM_EMAIL are both set.
+    ResendConfig,
+    { provide: EMAIL_TRANSPORT, useClass: ResendEmailTransport },
     EmailNotificationProvider,
     // A channel's provider is bound only when its transport is configured; otherwise its jobs wait
     // PENDING, unread by the dispatcher.

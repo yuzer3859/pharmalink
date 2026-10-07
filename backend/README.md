@@ -73,3 +73,22 @@ See `../architecture/00-shared-conventions.md` §11 (Data & Persistence). Highli
   - `notification_preferences` (model `NotificationPreference`, enum `NotificationCategory`) is **deprecated**: no code ever used it, its categories do not match the notification templates, and it has no in-app channel or digest. It is left in place for a later migration to drop.
   - Module 02 keeps profile data; the language a notification is rendered in is Module 01's `preferredLanguage`, read through its language port.
 - `outbox` is defined once (Module 06) and reused by all event-publishing modules.
+
+## E-mail notifications (Resend)
+
+Module 13 sends e-mail through [Resend](https://resend.com) over its REST API (`POST https://api.resend.com/emails`), plain text only. Two settings, both required, both secret-handled through the normal config port (never logged, never stored):
+
+| Variable | Meaning |
+| --- | --- |
+| `RESEND_API_KEY` | Resend API key with sending access |
+| `RESEND_FROM_EMAIL` | Sender on a domain verified in Resend, e.g. `PharmaLink <alerts@your-domain>` |
+
+With either unset — and always under `NODE_ENV=test` — the e-mail provider is not registered and EMAIL delivery jobs wait `PENDING` (no attempts, no retries used). Automated tests never call Resend.
+
+**Manual smoke test (sends one real e-mail; opt-in only):**
+
+```bash
+RESEND_API_KEY=... RESEND_FROM_EMAIL="PharmaLink <alerts@your-domain>" RESEND_SMOKE_TO=you@your-inbox npx ts-node test/manual/resend-smoke.ts
+```
+
+Use your own inbox, never a customer address. It sends the ACCOUNT_REACTIVATED text and prints only the outcome, the Resend message id and a masked recipient. Add `RESEND_SMOKE_LANG=am` for the Amharic rendering.

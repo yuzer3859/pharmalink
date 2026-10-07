@@ -14,7 +14,9 @@ import {
 import { INotificationPreferenceRepository, StoredChannelPreference } from '../domain/repositories/notification-preference.repository';
 import { NotificationTemplateCode, renderNotification } from '../domain/templates';
 import { InMemoryEmailTransport } from '../infrastructure/email/in-memory-email.transport';
-import { UnconfiguredEmailTransport } from '../infrastructure/email/unconfigured-email.transport';
+import { ResendEmailTransport } from '../infrastructure/email/resend-email.transport';
+import { ResendConfig } from '../infrastructure/email/resend.config';
+import { IConfigPort } from '../../../shared/config/config.port';
 import { EmailNotificationProvider } from '../infrastructure/providers/email-notification.provider';
 import { StaticNotificationChannelProviderRegistry } from '../infrastructure/providers/notification-channel-provider.registry';
 import { ChannelDeliveryRequest } from './ports/outbound/notification-channel-provider.port';
@@ -106,14 +108,18 @@ describe('E-mail notifications (application)', () => {
       expect(provider.name).toBe('email-in-memory');
     });
 
-    it('unconfigured → NOT_CONFIGURED without reading the contact or calling the provider; production’s transport is never configured', async () => {
+    // Work 17: production's transport is Resend; with no RESEND_* settings it is not configured.
+    it('unconfigured → NOT_CONFIGURED without reading the contact or calling the provider; production’s transport is unconfigured without settings', async () => {
       transport.configured = false;
       expect(await provider.deliver(request())).toEqual({ outcome: 'NOT_CONFIGURED' });
       expect(contactReads).toEqual([]);
       expect(transport.sent).toEqual([]);
-      const prod = new UnconfiguredEmailTransport();
+      const noSettings = { get: () => undefined, getOrThrow: () => '', isFeatureEnabled: () => false } as unknown as IConfigPort;
+      const prod = new ResendEmailTransport(new ResendConfig(noSettings), logger, async () => {
+        throw new Error('must not call the network');
+      });
       expect(prod.isConfigured()).toBe(false);
-      expect(await prod.send()).toEqual({ kind: 'NOT_CONFIGURED' });
+      expect(await prod.send({ to: EMAIL_A, subject: 's', text: 't', reference: 'n-1' }, 1000)).toEqual({ kind: 'NOT_CONFIGURED' });
     });
 
     it.each(['UNKNOWN_USER', 'INACTIVE', 'NO_EMAIL', 'UNVERIFIED'] as const)('a contact that is %s → FAILED, not retryable, nothing sent', async (reason) => {
