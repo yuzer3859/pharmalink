@@ -181,6 +181,23 @@ model DeviceToken {
   @@map("device_tokens")
 }
 
+// Work 18: one row per provider webhook delivery already applied — its provider and event id
+// (Resend: the `svix-id` header) and the event type, nothing of the payload. The unique key is what
+// makes a redelivered or concurrent duplicate a no-op; the row is written in the same transaction
+// as the event's effects, so a failed apply leaves no receipt and the provider's retry reprocesses.
+model NotificationWebhookReceipt {
+  id         String   @id @default(uuid())
+  provider   String
+  eventId    String
+  eventType  String
+  receivedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@map("notification_webhook_receipts")
+}
+
+// Work 18: for EMAIL, `address` holds `sha256:<hex>` of Module 01's canonical (lowercased) address —
+// never the raw address; deterministic, so a send-time check matches a webhook-time suppression.
 model SuppressionEntry {
   id        String              @id @default(uuid())
   channel   NotificationChannel

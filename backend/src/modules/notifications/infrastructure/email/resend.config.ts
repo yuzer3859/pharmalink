@@ -15,6 +15,8 @@ export const RESEND_CONFIG_KEYS = {
    * Used verbatim as the `from` field; there is no default.
    */
   fromEmail: 'RESEND_FROM_EMAIL',
+  /** The Svix signing secret (`whsec_…`) of the Resend webhook endpoint (Work 18). Never logged. */
+  webhookSecret: 'RESEND_WEBHOOK_SECRET',
 } as const;
 
 export interface ResendCredentials {
@@ -39,8 +41,17 @@ export class ResendConfig {
     return typeof v === 'string' && v.trim().length > 0 ? v.trim() : null;
   }
 
+  /** The sending keys that are unset, by name. */
   missing(): string[] {
-    return Object.values(RESEND_CONFIG_KEYS).filter((key) => this.value(key) === null);
+    return [RESEND_CONFIG_KEYS.apiKey, RESEND_CONFIG_KEYS.fromEmail].filter((key) => this.value(key) === null);
+  }
+
+  /**
+   * The webhook signing secret, or `null` — in which case the webhook endpoint refuses everything.
+   * Independent of the sending keys and of the test guard: receiving sends nothing. Never log it.
+   */
+  webhookSecret(): string | null {
+    return this.value(RESEND_CONFIG_KEYS.webhookSecret);
   }
 
   /** The credentials, or `null` when either is unset (or under test). Callers must never log the result. */

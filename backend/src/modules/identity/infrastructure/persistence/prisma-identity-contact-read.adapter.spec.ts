@@ -63,6 +63,15 @@ describe('PrismaIdentityContactReadAdapter', () => {
     expect(selects).toEqual([{ phone: true, phoneVerifiedAt: true, status: true, deletedAt: true }]);
   });
 
+  describe('canonicalEmail (Work 18)', () => {
+    it('is Module 01’s Email rule: trimmed and lowercased, invalid → null, and reads nothing', () => {
+      expect(adapter().canonicalEmail('  Customer.A@Example.COM ')).toBe('customer.a@example.com');
+      expect(adapter().canonicalEmail('not-an-email')).toBeNull();
+      expect(adapter().canonicalEmail(undefined as unknown as string)).toBeNull();
+      expect(selects).toEqual([]);
+    });
+  });
+
   describe('emailRecipientOf (Work 16)', () => {
     it('a verified address on an active account is available, lowercased by Module 01’s Email rule', async () => {
       rows.u = { email: 'Customer.A@Example.COM', emailVerifiedAt: verified, status: 'ACTIVE', deletedAt: null };

@@ -37,6 +37,13 @@ import { SmsNotificationProvider } from './infrastructure/providers/sms-notifica
 import { EmailNotificationProvider } from './infrastructure/providers/email-notification.provider';
 import { ResendEmailTransport } from './infrastructure/email/resend-email.transport';
 import { ResendConfig } from './infrastructure/email/resend.config';
+import { ProcessEmailDeliveryReportCommand } from './application/commands/process-email-delivery-report.command';
+import { DestinationSuppressionService } from './application/services/destination-suppression.service';
+import { DESTINATION_SUPPRESSION_REPOSITORY, EMAIL_WEBHOOK_REPOSITORY } from './domain/repositories/email-webhook.repository';
+import { PrismaDestinationSuppressionRepository, PrismaEmailWebhookRepository } from './infrastructure/persistence/prisma-email-webhook.repository';
+import { ResendWebhookController } from './interface/controllers/resend-webhook.controller';
+import { EMAIL_WEBHOOK_READER } from './application/ports/outbound/email-webhook-reader.port';
+import { ResendWebhookReader } from './infrastructure/webhooks/resend-webhook.reader';
 import { FcmHttpV1Transport } from './infrastructure/push/fcm-http-v1.transport';
 import { FcmConfig } from './infrastructure/push/fcm.config';
 import { UnconfiguredSmsTransport } from './infrastructure/sms/unconfigured-sms.transport';
@@ -65,6 +72,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * through Firebase Cloud Messaging when its credentials are configured. Work 15: SMS — the
  * provider, Module 01's contact port and the gateway seam; no gateway is approved yet, so SMS jobs wait.
  * Work 16: e-mail — the same shape. Work 17: the e-mail provider is Resend, over its REST API.
+ * Work 18: Resend webhooks — delivery receipts, bounces and complaints — and destination suppression.
  *
  * ## What it owns
  *
@@ -112,6 +120,15 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * port. The provider is Resend (Work 17): `EMAIL_TRANSPORT` is `ResendEmailTransport`, configured by
  * `RESEND_API_KEY` and `RESEND_FROM_EMAIL`; without both (or under NODE_ENV=test) it is not
  * configured, the e-mail provider is not registered, and EMAIL jobs wait `PENDING` as before.
+ *
+ * Webhooks (Work 18): `POST /webhooks/resend` verifies Resend's Svix signature over the raw body
+ * (`RESEND_WEBHOOK_SECRET`; absent → every call refused) and `ProcessEmailDeliveryReportCommand`
+ * applies each event once by `svix-id` (`notification_webhook_receipts`), correlating `email_id` to
+ * the SENT attempt's `providerMsgId`: delivered → a DELIVERED history row; delayed → acknowledged;
+ * bounced → BOUNCED, and a permanent bounce suppresses the destination; complained → BOUNCED and
+ * suppressed. `suppression_list` keys are SHA-256 hashes of Module 01's canonical address, checked
+ * by `EmailNotificationProvider` before every send — a suppressed destination is never mailed, and
+ * its job closes SUPPRESSED. Webhooks never create notifications, jobs or resends.
  *
  * ## How a notification is made
  *
@@ -187,7 +204,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     PrescriptionMatchingModule,
     PharmacyInventoryModule,
   ],
-  controllers: [NotificationsController, NotificationPreferencesController, NotificationDevicesController],
+  controllers: [NotificationsController, NotificationPreferencesController, NotificationDevicesController, ResendWebhookController],
   providers: [
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
     { provide: NOTIFICATION_PREFERENCE_REPOSITORY, useClass: PrismaNotificationPreferenceRepository },
@@ -201,6 +218,11 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     SmsNotificationProvider,
     // Resend (Work 17): configured only when RESEND_API_KEY and RESEND_FROM_EMAIL are both set.
     ResendConfig,
+    { provide: EMAIL_WEBHOOK_REPOSITORY, useClass: PrismaEmailWebhookRepository },
+    { provide: DESTINATION_SUPPRESSION_REPOSITORY, useClass: PrismaDestinationSuppressionRepository },
+    DestinationSuppressionService,
+    ProcessEmailDeliveryReportCommand,
+    { provide: EMAIL_WEBHOOK_READER, useClass: ResendWebhookReader },
     { provide: EMAIL_TRANSPORT, useClass: ResendEmailTransport },
     EmailNotificationProvider,
     // A channel's provider is bound only when its transport is configured; otherwise its jobs wait

@@ -260,6 +260,8 @@ describe('SMS notifications (e2e)', () => {
         }
       }
       expect(sources(join(root, 'notifications')).filter((f) => /identity-contact-read\.port/.test(readFileSync(f, 'utf8'))).map(rel)).toEqual([
+        // Work 18: the webhook command canonicalizes reported addresses through the same port.
+        'notifications/application/commands/process-email-delivery-report.command.ts',
         // Work 16: the e-mail provider reads the address through the same port.
         'notifications/infrastructure/providers/email-notification.provider.ts',
         'notifications/infrastructure/providers/sms-notification.provider.ts',

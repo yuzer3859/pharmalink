@@ -28,4 +28,11 @@ export type EmailContact =
 export interface IIdentityContactReadPort {
   smsRecipientOf(userId: string): Promise<SmsContact>;
   emailRecipientOf(userId: string): Promise<EmailContact>;
+  /**
+   * Module 01's canonical form of an e-mail address (trimmed, lowercased, validated) — the same
+   * rule `users.email` is stored under — or `null` when it is not a valid address. Pure: reads
+   * nothing. Lets Module 13 key an address reported by its e-mail provider (Work 18) exactly as
+   * `emailRecipientOf` returns it, without a second normalization rule.
+   */
+  canonicalEmail(raw: string): string | null;
 }

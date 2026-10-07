@@ -28,6 +28,11 @@ export type ChannelDeliveryResult =
   | { outcome: 'SENT'; providerMessageId?: string }
   | { outcome: 'DELIVERED'; providerMessageId?: string }
   | { outcome: 'FAILED'; errorCode?: string; retryable?: boolean }
+  /**
+   * Work 18: the destination is on the suppression list — nothing was sent and nothing ever will be
+   * for this delivery. Closes the job `SUPPRESSED` with a `SUPPRESSED` attempt carrying `code`.
+   */
+  | { outcome: 'SUPPRESSED'; code: string }
   | { outcome: 'NOT_CONFIGURED' };
 
 /** One external channel's provider. Implementations hold their own credentials; none cross this port. */

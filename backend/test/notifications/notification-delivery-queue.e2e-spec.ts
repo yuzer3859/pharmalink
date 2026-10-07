@@ -378,11 +378,15 @@ describe('Notification delivery queue (e2e)', () => {
       expect(checked.map(rel).sort()).toEqual([
         // Work 16
         'application/ports/outbound/email-transport.port.ts',
+        // Work 18
+        'application/ports/outbound/email-webhook-reader.port.ts',
         'application/ports/outbound/notification-channel-provider.port.ts',
         // Work 14
         'application/ports/outbound/push-transport.port.ts',
         // Work 15
         'application/ports/outbound/sms-transport.port.ts',
+        // Work 18
+        'application/services/destination-suppression.service.ts',
         'application/services/notification-delivery.dispatcher.ts',
         // Work 16
         'infrastructure/providers/email-notification.provider.ts',
@@ -399,7 +403,9 @@ describe('Notification delivery queue (e2e)', () => {
     });
 
     it('jobs and attempts are reached only through the persistence adapters; no controller reaches delivery', () => {
-      expect(sources().filter((f) => /prisma\.deliveryAttempt\b|tx\.deliveryAttempt\b/.test(readFileSync(f, 'utf8'))).map(rel)).toEqual([
+      expect(sources().filter((f) => /prisma\.deliveryAttempt\b|tx\.deliveryAttempt\b/.test(readFileSync(f, 'utf8'))).map(rel).sort()).toEqual([
+        // Work 18: webhook receipts append delivery history (DELIVERED / BOUNCED).
+        'infrastructure/persistence/prisma-email-webhook.repository.ts',
         'infrastructure/persistence/prisma-notification-delivery.repository.ts',
       ]);
       expect(sources().filter((f) => /\.notificationDeliveryJob\b/.test(readFileSync(f, 'utf8'))).map(rel).sort()).toEqual([

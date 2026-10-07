@@ -52,7 +52,8 @@ const MAX_PROVIDER_MESSAGE_ID = 128;
 type ProviderOutcome =
   | { kind: 'SUCCESS'; status: NotificationStatus.SENT | NotificationStatus.DELIVERED; providerMessageId: string | null }
   | { kind: 'FAILURE'; errorCode: string; retryable: boolean }
-  | { kind: 'NOT_CONFIGURED' };
+  | { kind: 'NOT_CONFIGURED' }
+  | { kind: 'SUPPRESSED'; code: string };
 
 /**
  * Dispatches due external-delivery jobs (module-13 Work 13). PostgreSQL is the queue: a job is
@@ -65,6 +66,7 @@ type ProviderOutcome =
  *       notification not deliverable                 → EXHAUSTED (NOT_DELIVERABLE), no attempt
  *       current preference disables the channel      → SUPPRESSED + SUPPRESSED attempt
  *       provider gone / reports not configured       → PENDING later, no attempt, no retry used
+ *       provider says the destination is suppressed  → SUPPRESSED + SUPPRESSED attempt (Work 18)
  *       provider SENT | DELIVERED                    → COMPLETED + attempt n
  *       provider FAILED | throws | invalid result    → attempt n FAILED; PENDING at backoff, or
  *                                                      EXHAUSTED after the 5th — or at once when
@@ -174,6 +176,18 @@ export class NotificationDeliveryDispatcher {
     });
     const result = await this.invoke(provider, name, request);
     if (result.kind === 'NOT_CONFIGURED') return release();
+    if (result.kind === 'SUPPRESSED') {
+      return [
+        JobOutcome.SUPPRESSED,
+        {
+          status: DeliveryJobStatus.SUPPRESSED,
+          ...keep,
+          lastErrorCode: result.code,
+          completedAt: now,
+          attempt: { attemptNumber: job.attemptCount + 1, status: NotificationStatus.SUPPRESSED, provider: name, providerMessageId: null, errorCode: result.code },
+        },
+      ];
+    }
 
     const attemptNumber = job.attemptCount + 1;
     if (result.kind === 'SUCCESS') {
@@ -237,6 +251,11 @@ export class NotificationDeliveryDispatcher {
         };
       case 'NOT_CONFIGURED':
         return { kind: 'NOT_CONFIGURED' };
+      case 'SUPPRESSED':
+        return {
+          kind: 'SUPPRESSED',
+          code: typeof result.code === 'string' && PROVIDER_ERROR_CODE.test(result.code) ? result.code : DeliveryErrorCode.PREFERENCE_DISABLED,
+        };
       default:
         return { kind: 'FAILURE', errorCode: DeliveryErrorCode.PROVIDER_INVALID_RESULT, retryable: true };
     }

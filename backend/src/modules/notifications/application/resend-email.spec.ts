@@ -9,6 +9,10 @@ import { classifyResendError, RESEND_SEND_URL, ResendEmailTransport, resendIdemp
 import { RESEND_CONFIG_KEYS, ResendConfig } from '../infrastructure/email/resend.config';
 import { ChannelDeliveryRequest } from './ports/outbound/notification-channel-provider.port';
 import { EmailMessage } from './ports/outbound/email-transport.port';
+import { DestinationSuppressionService } from './services/destination-suppression.service';
+
+/** Work 18: no destination suppressed. */
+const NOT_SUPPRESSED = { isSuppressed: async () => false } as unknown as DestinationSuppressionService;
 
 function fakeLogger(): AppLogger & { lines: string[] } {
   const lines: string[] = [];
@@ -170,6 +174,8 @@ describe('Resend e-mail transport (application)', () => {
         throw new Error('e-mail must not read the phone');
       },
       emailRecipientOf: async () => ({ available: true, email: TO }),
+      // Work 18 extended the port.
+      canonicalEmail: (raw: string) => raw.trim().toLowerCase(),
     };
     const request: ChannelDeliveryRequest = Object.freeze({
       notificationId: 'n-1',
@@ -179,7 +185,7 @@ describe('Resend e-mail transport (application)', () => {
       title: 'Order ready',
       body: 'Your order is packed and ready to be sent out.',
     });
-    const provider = (values: Record<string, string | undefined> = SETTINGS) => new EmailNotificationProvider(contacts, transport(values), logger);
+    const provider = (values: Record<string, string | undefined> = SETTINGS) => new EmailNotificationProvider(contacts, transport(values), NOT_SUPPRESSED, logger);
 
     it.each([
       [200, null, { outcome: 'SENT', providerMessageId: '49a3999c-0ce1-4ea6-ab68-afcd6dc2e794' }],

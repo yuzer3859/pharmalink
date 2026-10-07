@@ -46,6 +46,9 @@ describe('SMS notifications (application)', () => {
     emailRecipientOf: async () => {
       throw new Error('SMS must not read the e-mail address');
     },
+    canonicalEmail: () => {
+      throw new Error('SMS must not touch e-mail addresses');
+    },
   };
 
   beforeEach(() => {

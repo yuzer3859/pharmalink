@@ -524,6 +524,8 @@ describe('In-app notification center (e2e)', () => {
         'identity/domain/events',
         'identity/identity.module',
         'identity/interface/decorators/current-user.decorator',
+        // Work 18: the provider webhook is public, like the payment webhooks.
+        'identity/interface/decorators/public.decorator',
         'orders/application/ports/inbound/order-recipient-read.port',
         'orders/domain/events',
         'orders/orders.module',

@@ -43,4 +43,8 @@ export class PrismaIdentityContactReadAdapter implements IIdentityContactReadPor
     if (!row.emailVerifiedAt) return { available: false, reason: 'UNVERIFIED' };
     return { available: true, email };
   }
+
+  canonicalEmail(raw: string): string | null {
+    return typeof raw === 'string' ? Email.normalize(raw) : null;
+  }
 }

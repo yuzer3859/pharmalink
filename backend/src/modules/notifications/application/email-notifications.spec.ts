@@ -20,6 +20,10 @@ import { IConfigPort } from '../../../shared/config/config.port';
 import { EmailNotificationProvider } from '../infrastructure/providers/email-notification.provider';
 import { StaticNotificationChannelProviderRegistry } from '../infrastructure/providers/notification-channel-provider.registry';
 import { ChannelDeliveryRequest } from './ports/outbound/notification-channel-provider.port';
+import { DestinationSuppressionService } from './services/destination-suppression.service';
+
+/** Work 18: no destination suppressed. */
+const NOT_SUPPRESSED = { isSuppressed: async () => false } as unknown as DestinationSuppressionService;
 import { NotificationDeliveryDispatcher } from './services/notification-delivery.dispatcher';
 
 function fakeLogger(): AppLogger & { lines: string[] } {
@@ -47,6 +51,8 @@ describe('E-mail notifications (application)', () => {
       contactReads.push(userId);
       return contacts[userId] ?? { available: false, reason: 'UNKNOWN_USER' };
     },
+    // Work 18 extended the port.
+    canonicalEmail: (raw: string) => raw.trim().toLowerCase(),
   };
 
   beforeEach(() => {
@@ -54,7 +60,7 @@ describe('E-mail notifications (application)', () => {
     contactReads = [];
     transport = new InMemoryEmailTransport();
     logger = fakeLogger();
-    provider = new EmailNotificationProvider(contactPort, transport, logger);
+    provider = new EmailNotificationProvider(contactPort, transport, NOT_SUPPRESSED, logger);
   });
 
   const request = (over: Partial<ChannelDeliveryRequest> = {}): ChannelDeliveryRequest =>

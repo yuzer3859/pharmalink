@@ -4,6 +4,7 @@ import {
   IIdentityContactReadPort,
 } from '../../../identity/application/ports/inbound/identity-contact-read.port';
 import { AppLogger } from '../../../../shared/logging/app-logger.service';
+import { DestinationSuppressionService } from '../../application/services/destination-suppression.service';
 import { EMAIL_TRANSPORT, EmailSendResult, IEmailTransport } from '../../application/ports/outbound/email-transport.port';
 import {
   ChannelDeliveryRequest,
@@ -24,6 +25,8 @@ import { withDeadline } from './with-deadline';
  *
  *     provider not configured / credentials refused → NOT_CONFIGURED (job waits, no attempt)
  *     no usable address (Module 01 says why)        → FAILED `EMAIL_RECIPIENT_<REASON>`, not retryable
+ *     address on the suppression list (Work 18)     → SUPPRESSED `EMAIL_DESTINATION_SUPPRESSED`, no send —
+ *                                                     whatever the user's preference says
  *     SENT                                          → SENT
  *     invalid recipient / rejected message          → FAILED, not retryable
  *     unavailable / throttled / network / timeout / throw → FAILED, retryable (Work 13 backoff)
@@ -36,6 +39,7 @@ export class EmailNotificationProvider implements INotificationChannelProvider {
   constructor(
     @Inject(IDENTITY_CONTACT_READ_PORT) private readonly contacts: IIdentityContactReadPort,
     @Inject(EMAIL_TRANSPORT) private readonly transport: IEmailTransport,
+    private readonly suppression: DestinationSuppressionService,
     private readonly logger: AppLogger,
   ) {
     this.logger.setContext(EmailNotificationProvider.name);
@@ -49,6 +53,9 @@ export class EmailNotificationProvider implements INotificationChannelProvider {
     if (!this.transport.isConfigured()) return { outcome: 'NOT_CONFIGURED' };
     const contact = await this.contacts.emailRecipientOf(request.recipient.userId);
     if (!contact.available) return { outcome: 'FAILED', errorCode: `EMAIL_RECIPIENT_${contact.reason}`, retryable: false };
+    if (await this.suppression.isSuppressed(NotificationChannel.EMAIL, contact.email)) {
+      return { outcome: 'SUPPRESSED', code: 'EMAIL_DESTINATION_SUPPRESSED' };
+    }
 
     const { subject, text } = emailContentOf(request);
     const timedOut: EmailSendResult = { kind: 'TRANSIENT', code: 'EMAIL_TIMEOUT' };
