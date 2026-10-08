@@ -243,6 +243,8 @@ describe('Admin notification delivery queue health (e2e)', () => {
       }
       expect([...imports].sort()).toEqual([
         'application/ports/inbound/notification-delivery-admin.port',
+        // Work 24: the channel-health port (admin-delivery-channels.e2e-spec.ts).
+        'application/ports/inbound/notification-delivery-channel-health.port',
         'application/ports/inbound/notification-delivery-health.port',
         // Work 23: the lease-release port (admin-delivery-lease.e2e-spec.ts).
         'application/ports/inbound/notification-delivery-lease-release.port',

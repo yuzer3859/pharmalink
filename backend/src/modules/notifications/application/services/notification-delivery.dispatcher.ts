@@ -3,7 +3,7 @@ import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { DeliveryErrorCode, evaluateChannel, PROVIDER_ERROR_CODE } from '../../domain/delivery-policy';
 import { DELIVERY_QUEUE_POLICY, retryDelayAfter } from '../../domain/delivery-retry-policy';
 import { DeliveryJobStatus, NotificationChannel, NotificationStatus } from '../../domain/enums';
-import { CONFIGURABLE_CHANNELS, isConfigurableCategory } from '../../domain/preferences';
+import { isConfigurableCategory } from '../../domain/preferences';
 import {
   ClaimedDeliveryJob,
   DeliveryJobSettlement,
@@ -17,6 +17,7 @@ import {
 import {
   ChannelDeliveryRequest,
   ChannelDeliveryResult,
+  channelsWithProvider,
   INotificationChannelProvider,
   INotificationChannelProviderRegistry,
   NOTIFICATION_CHANNEL_PROVIDER_REGISTRY,
@@ -91,7 +92,7 @@ export class NotificationDeliveryDispatcher {
   async dispatchDue(now: Date = new Date(), limit: number = DELIVERY_QUEUE_POLICY.dispatchBatchSize): Promise<DispatchSummary> {
     const summary: DispatchSummary = { due: 0, claimed: 0, outcomes: {} };
     // Jobs on a channel with no provider are not even read: they wait, untouched, for one to exist.
-    const configured = CONFIGURABLE_CHANNELS.filter((c) => this.providers.providerFor(c) !== null);
+    const configured = channelsWithProvider(this.providers);
     if (configured.length === 0) return summary;
 
     const ids = await this.deliveries.findDueJobIds(now, configured, limit);

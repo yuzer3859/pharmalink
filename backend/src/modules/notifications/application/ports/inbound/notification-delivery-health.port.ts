@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DELIVERY_QUEUE_POLICY } from '../../../domain/delivery-retry-policy';
+import { ageSeconds, claimStartedAt } from '../../../domain/delivery-queue-health';
 import { DeliveryJobStatus } from '../../../domain/enums';
 import { DELIVERY_HEALTH_REPOSITORY, IDeliveryHealthRepository } from '../../../domain/repositories/delivery-health.repository';
 
@@ -42,8 +42,6 @@ export interface INotificationDeliveryHealthPort {
   health(): Promise<DeliveryQueueHealth>;
 }
 
-const ageSeconds = (from: Date | null, to: Date) => (from ? Math.max(0, Math.floor((+to - +from) / 1000)) : null);
-
 /** `INotificationDeliveryHealthPort` over Module 13's own aggregate repository. */
 @Injectable()
 export class NotificationDeliveryHealthPortAdapter implements INotificationDeliveryHealthPort {
@@ -61,9 +59,7 @@ export class NotificationDeliveryHealthPortAdapter implements INotificationDeliv
       suppressed: count(DeliveryJobStatus.SUPPRESSED),
       exhausted: count(DeliveryJobStatus.EXHAUSTED),
     };
-    const oldestProcessingStartedAt = a.oldestProcessingLeaseExpiresAt
-      ? new Date(+a.oldestProcessingLeaseExpiresAt - DELIVERY_QUEUE_POLICY.leaseMs)
-      : null;
+    const oldestProcessingStartedAt = claimStartedAt(a.oldestProcessingLeaseExpiresAt);
     return {
       generatedAt,
       queue,

@@ -1,4 +1,5 @@
 import { NotificationCategory, NotificationChannel } from '../../../domain/enums';
+import { CONFIGURABLE_CHANNELS, ConfigurableChannel } from '../../../domain/preferences';
 
 export const NOTIFICATION_CHANNEL_PROVIDER_REGISTRY = Symbol('NOTIFICATION_CHANNEL_PROVIDER_REGISTRY');
 
@@ -47,3 +48,12 @@ export interface INotificationChannelProvider {
 export interface INotificationChannelProviderRegistry {
   providerFor(channel: NotificationChannel): INotificationChannelProvider | null;
 }
+
+/**
+ * The channels the delivery layer can attempt: those with a provider bound. A provider is bound only
+ * when its transport reports itself configured at startup (FCM's three credentials; Resend's key and
+ * sender; SMS never — no gateway is approved). The one definition, used by the dispatcher to decide
+ * which jobs it even reads and by the admin channel readiness view (module-16 Work 24).
+ */
+export const channelsWithProvider = (registry: INotificationChannelProviderRegistry): ConfigurableChannel[] =>
+  CONFIGURABLE_CHANNELS.filter((c) => registry.providerFor(c) !== null);

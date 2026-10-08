@@ -378,6 +378,8 @@ describe('Notification delivery queue (e2e)', () => {
       expect(checked.map(rel).sort()).toEqual([
         // Work 20: Module 13's inbound delivery-admin port (no Prisma; over the repository port).
         'application/ports/inbound/notification-delivery-admin.port.ts',
+        // Work 24: Module 13's inbound channel-health port (no Prisma; over the aggregate repository and the provider registry).
+        'application/ports/inbound/notification-delivery-channel-health.port.ts',
         // Work 22: Module 13's inbound queue-health port (no Prisma; over the aggregate repository port).
         'application/ports/inbound/notification-delivery-health.port.ts',
         // Work 23: Module 13's inbound lease-release port (no Prisma; over the release repository port).

@@ -49,6 +49,11 @@ import { DELIVERY_ADMIN_REPOSITORY } from './domain/repositories/delivery-admin.
 import { DELIVERY_REQUEUE_REPOSITORY } from './domain/repositories/delivery-requeue.repository';
 import { DELIVERY_HEALTH_REPOSITORY } from './domain/repositories/delivery-health.repository';
 import { DELIVERY_LEASE_RELEASE_REPOSITORY } from './domain/repositories/delivery-lease-release.repository';
+import { DELIVERY_CHANNEL_HEALTH_REPOSITORY } from './domain/repositories/delivery-channel-health.repository';
+import {
+  NOTIFICATION_DELIVERY_CHANNEL_HEALTH_PORT,
+  NotificationDeliveryChannelHealthPortAdapter,
+} from './application/ports/inbound/notification-delivery-channel-health.port';
 import {
   NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT,
   NotificationDeliveryLeaseReleasePortAdapter,
@@ -106,7 +111,9 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * mutation; the transition itself is the delivery adapter's. Work 22:
  * `NOTIFICATION_DELIVERY_HEALTH_PORT` — read-only queue health aggregates (backlog, stale leases).
  * Work 23: `NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT` — an operator's release of a lapsed lease,
- * again a transition of the delivery adapter's. These five ports are the exports.
+ * again a transition of the delivery adapter's. Work 24: `NOTIFICATION_DELIVERY_CHANNEL_HEALTH_PORT` —
+ * read-only per-channel health and provider readiness (a boolean from the provider registry).
+ * These six ports are the exports.
  *
  * ## What it owns
  *
@@ -266,10 +273,13 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     { provide: DELIVERY_ADMIN_REPOSITORY, useExisting: PrismaDeliveryAdminRepository },
     // Work 22: queue health aggregates — the same read-only adapter.
     { provide: DELIVERY_HEALTH_REPOSITORY, useExisting: PrismaDeliveryAdminRepository },
+    // Work 24: per-channel health aggregates — the same read-only adapter.
+    { provide: DELIVERY_CHANNEL_HEALTH_REPOSITORY, useExisting: PrismaDeliveryAdminRepository },
     { provide: NOTIFICATION_DELIVERY_ADMIN_PORT, useClass: NotificationDeliveryAdminPortAdapter },
     { provide: NOTIFICATION_DELIVERY_RETRY_PORT, useClass: NotificationDeliveryRetryPortAdapter },
     { provide: NOTIFICATION_DELIVERY_HEALTH_PORT, useClass: NotificationDeliveryHealthPortAdapter },
     { provide: NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT, useClass: NotificationDeliveryLeaseReleasePortAdapter },
+    { provide: NOTIFICATION_DELIVERY_CHANNEL_HEALTH_PORT, useClass: NotificationDeliveryChannelHealthPortAdapter },
     DestinationSuppressionService,
     ProcessEmailDeliveryReportCommand,
     { provide: EMAIL_WEBHOOK_READER, useClass: ResendWebhookReader },
@@ -319,6 +329,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     NOTIFICATION_DELIVERY_RETRY_PORT,
     NOTIFICATION_DELIVERY_HEALTH_PORT,
     NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT,
+    NOTIFICATION_DELIVERY_CHANNEL_HEALTH_PORT,
   ],
 })
 export class NotificationsModule {}

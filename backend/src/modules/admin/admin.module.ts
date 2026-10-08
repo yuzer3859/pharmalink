@@ -13,6 +13,7 @@ import { ListSuppressionsQuery } from './application/queries/list-suppressions.q
 import { AdminSuppressionsController } from './interface/controllers/admin-suppressions.controller';
 import { AdminDeliveryQueueController } from './interface/controllers/admin-delivery-queue.controller';
 import { GetDeliveryQueueHealthQuery } from './application/queries/delivery-queue-health.query';
+import { GetDeliveryChannelHealthQuery } from './application/queries/delivery-channel-health.query';
 import { AdminDeliveryRetryController } from './interface/controllers/admin-delivery-retry.controller';
 import { AdminDeliveryLeaseController } from './interface/controllers/admin-delivery-lease.controller';
 import {
@@ -146,8 +147,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     PharmacyInventoryModule,
     OrdersModule,
     // Module 13: NOTIFICATION_SUPPRESSION_ADMIN_PORT (Work 19), NOTIFICATION_DELIVERY_ADMIN_PORT (Work 20),
-    // NOTIFICATION_DELIVERY_RETRY_PORT (Work 21), NOTIFICATION_DELIVERY_HEALTH_PORT (Work 22) and
-    // NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT (Work 23).
+    // NOTIFICATION_DELIVERY_RETRY_PORT (Work 21), NOTIFICATION_DELIVERY_HEALTH_PORT (Work 22),
+    // NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT (Work 23) and NOTIFICATION_DELIVERY_CHANNEL_HEALTH_PORT (Work 24).
     NotificationsModule,
     ScheduleModule.forRoot(),
   ],
@@ -204,6 +205,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     GetDeliveryQueueHealthQuery,
     // Work 23 — releasing a lapsed delivery lease, over Module 13's lease-release port.
     ReleaseDeliveryLeaseCommand,
+    // Work 24 — per-channel health and provider readiness, over Module 13's channel-health port.
+    GetDeliveryChannelHealthQuery,
 
     // Work 07 — finance oversight, read-only, through Module 07's and Module 08's read ports.
     GetFinanceOverviewQuery,

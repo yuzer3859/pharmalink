@@ -7,6 +7,7 @@ import {
   ListDeliveryJobsQuery,
 } from '../../application/queries/delivery-queue.queries';
 import { GetDeliveryQueueHealthQuery } from '../../application/queries/delivery-queue-health.query';
+import { GetDeliveryChannelHealthQuery } from '../../application/queries/delivery-channel-health.query';
 import { ListDeliveryJobsQueryDto } from '../dtos/delivery-queue.dto';
 import {
   DeliveryAttemptResponse,
@@ -19,6 +20,7 @@ import {
   toDeliveryQueueSummaryResponse,
 } from '../dtos/delivery-queue.response';
 import { DeliveryQueueHealthResponse, toDeliveryQueueHealthResponse } from '../dtos/delivery-queue-health.response';
+import { DeliveryChannelHealthSnapshotResponse, toDeliveryChannelHealthResponse } from '../dtos/delivery-channel-health.response';
 
 /**
  * Read-only visibility into Module 13's notification delivery queue (module-16 Work 20), over
@@ -28,6 +30,7 @@ import { DeliveryQueueHealthResponse, toDeliveryQueueHealthResponse } from '../d
  *                                                      &createdTo &nextAttemptFrom &nextAttemptTo &page &size
  *     GET /admin/notifications/delivery/summary        exact job counts, total / by status / by channel
  *     GET /admin/notifications/delivery/health         backlog and stale-lease aggregates (Work 22)
+ *     GET /admin/notifications/delivery/channels       the same per channel, with provider readiness (Work 24)
  *     GET /admin/notifications/delivery/:id            one job
  *     GET /admin/notifications/delivery/:id/attempts   its history, oldest first
  *
@@ -43,6 +46,7 @@ export class AdminDeliveryQueueController {
     private readonly attempts: ListDeliveryAttemptsQuery,
     private readonly summaryQuery: GetDeliveryQueueSummaryQuery,
     private readonly healthQuery: GetDeliveryQueueHealthQuery,
+    private readonly channelHealthQuery: GetDeliveryChannelHealthQuery,
   ) {}
 
   @Get()
@@ -73,6 +77,12 @@ export class AdminDeliveryQueueController {
   @Get('health')
   async health(): Promise<DeliveryQueueHealthResponse> {
     return toDeliveryQueueHealthResponse(await this.healthQuery.execute());
+  }
+
+  // Also before `:id`. Work 24.
+  @Get('channels')
+  async channels(): Promise<DeliveryChannelHealthSnapshotResponse> {
+    return toDeliveryChannelHealthResponse(await this.channelHealthQuery.execute());
   }
 
   @Get(':id')

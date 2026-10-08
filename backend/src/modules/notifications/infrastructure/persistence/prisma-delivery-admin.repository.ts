@@ -10,6 +10,10 @@ import {
   IDeliveryAdminRepository,
 } from '../../domain/repositories/delivery-admin.repository';
 import { DeliveryHealthAggregates, IDeliveryHealthRepository } from '../../domain/repositories/delivery-health.repository';
+import {
+  DeliveryChannelAggregates,
+  IDeliveryChannelHealthRepository,
+} from '../../domain/repositories/delivery-channel-health.repository';
 import { lapsedLeaseWhere } from './delivery-lease';
 
 type Channel = PrismaJob['channel'];
@@ -42,10 +46,12 @@ const range = (from?: Date, to?: Date) =>
  * Also the queue health aggregates (module-16 Work 22): four aggregate statements in one
  * `REPEATABLE READ` transaction — one PostgreSQL snapshot, so the counts and timestamps agree with
  * each other. No row is loaded; the status-prefixed `(status, nextAttemptAt)` index narrows each to
- * its status.
+ * its status. And the same figures grouped by channel (Work 24), likewise one snapshot.
  */
 @Injectable()
-export class PrismaDeliveryAdminRepository implements IDeliveryAdminRepository, IDeliveryHealthRepository {
+export class PrismaDeliveryAdminRepository
+  implements IDeliveryAdminRepository, IDeliveryHealthRepository, IDeliveryChannelHealthRepository
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async listJobs(c: DeliveryJobSearchCriteria, page: number, size: number): Promise<{ items: DeliveryJobRecord[]; total: number }> {
@@ -117,6 +123,29 @@ export class PrismaDeliveryAdminRepository implements IDeliveryAdminRepository, 
       oldestPendingCreatedAt: pending._min.createdAt,
       staleProcessingCount: stale,
       oldestProcessingLeaseExpiresAt: processing._min.leaseExpiresAt,
+    };
+  }
+
+  async channelAggregatesAt(now: Date): Promise<DeliveryChannelAggregates> {
+    const PENDING = DeliveryJobStatus.PENDING as unknown as JobStatus;
+    const PROCESSING = DeliveryJobStatus.PROCESSING as unknown as JobStatus;
+    const jobs = this.prisma.notificationDeliveryJob;
+    const [byChannelAndStatus, pending, processing, stale] = await this.prisma.$transaction(
+      [
+        jobs.groupBy({ by: ['channel', 'status'], _count: { _all: true }, orderBy: [{ channel: 'asc' }, { status: 'asc' }] }),
+        jobs.groupBy({ by: ['channel'], where: { status: PENDING }, _min: { createdAt: true }, orderBy: { channel: 'asc' } }),
+        jobs.groupBy({ by: ['channel'], where: { status: PROCESSING }, _min: { leaseExpiresAt: true }, orderBy: { channel: 'asc' } }),
+        jobs.groupBy({ by: ['channel'], where: lapsedLeaseWhere(now), _count: { _all: true }, orderBy: { channel: 'asc' } }),
+      ],
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    const channel = (c: Channel) => c as unknown as NotificationChannel;
+    const all = (g: { _count?: unknown }) => (g._count as { _all: number })._all;
+    return {
+      byChannelAndStatus: byChannelAndStatus.map((g) => ({ channel: channel(g.channel), status: g.status as unknown as DeliveryJobStatus, count: all(g) })),
+      oldestPendingCreatedAt: pending.map((g) => ({ channel: channel(g.channel), at: g._min?.createdAt ?? null })),
+      staleProcessing: stale.map((g) => ({ channel: channel(g.channel), count: all(g) })),
+      oldestProcessingLeaseExpiresAt: processing.map((g) => ({ channel: channel(g.channel), at: g._min?.leaseExpiresAt ?? null })),
     };
   }
 }
