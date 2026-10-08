@@ -8,9 +8,17 @@ import {
   DeliveryJobSettlement,
   INotificationDeliveryRepository,
 } from '../../domain/repositories/notification-delivery.repository';
+import {
+  IDeliveryRequeueRepository,
+  MANUALLY_REQUEUEABLE_STATUS,
+  RequeueOutcome,
+  requeuedJobState,
+} from '../../domain/repositories/delivery-requeue.repository';
+import { toDeliveryJobRecord } from './prisma-delivery-admin.repository';
 
 const PENDING = DeliveryJobStatus.PENDING as unknown as PrismaJob['status'];
 const PROCESSING = DeliveryJobStatus.PROCESSING as unknown as PrismaJob['status'];
+const REQUEUEABLE = MANUALLY_REQUEUEABLE_STATUS as unknown as PrismaJob['status'];
 
 /** Thrown inside `settle`'s transaction to roll it back when the lease is no longer ours. */
 class LeaseLost extends Error {}
@@ -19,10 +27,11 @@ class LeaseLost extends Error {}
  * `INotificationDeliveryRepository` over Prisma, on Module 13's own tables: `notifications` is
  * read (a fixed column selection — no payload, dedupe key or event type) and never updated;
  * `notification_delivery_jobs` is claimed and settled with conditional updates; `delivery_attempts`
- * is only inserted into.
+ * is only inserted into. Also the operator's manual requeue (module-16 Work 21), so every
+ * transition of a job's status lives in this one adapter.
  */
 @Injectable()
-export class PrismaNotificationDeliveryRepository implements INotificationDeliveryRepository {
+export class PrismaNotificationDeliveryRepository implements INotificationDeliveryRepository, IDeliveryRequeueRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findDeliverable(notificationId: string): Promise<DeliverableNotification | null> {
@@ -112,5 +121,23 @@ export class PrismaNotificationDeliveryRepository implements INotificationDelive
       if (e instanceof LeaseLost) return false;
       throw e;
     }
+  }
+
+  async requeueExhausted(jobId: string, now: Date): Promise<RequeueOutcome> {
+    return this.prisma.$transaction(async (tx) => {
+      const next = requeuedJobState(now);
+      // One UPDATE … WHERE status = EXHAUSTED: a concurrent requeue blocks on the row, then
+      // re-checks the WHERE against the committed PENDING row and matches nothing. The dispatcher
+      // never claims an EXHAUSTED job, so it cannot race this either.
+      const { count } = await tx.notificationDeliveryJob.updateMany({
+        where: { id: jobId, status: REQUEUEABLE },
+        data: { status: next.status as unknown as PrismaJob['status'], nextAttemptAt: next.nextAttemptAt, leaseExpiresAt: next.leaseExpiresAt, completedAt: next.completedAt },
+      });
+      // Read inside the same transaction: the row as this update left it, before any claim.
+      const row = await tx.notificationDeliveryJob.findUnique({ where: { id: jobId } });
+      if (!row) return { kind: 'NOT_FOUND' };
+      if (count === 1) return { kind: 'REQUEUED', job: toDeliveryJobRecord(row) };
+      return { kind: 'NOT_REQUEUEABLE', status: row.status as unknown as DeliveryJobStatus };
+    });
   }
 }

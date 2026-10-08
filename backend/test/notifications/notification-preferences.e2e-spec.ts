@@ -233,6 +233,8 @@ describe('Notification preferences (e2e)', () => {
       expect(await holdersOf('notification:manage:own')).toEqual(await holdersOf('notification:read:own'));
       expect(await ctx.prisma.permission.findMany({ where: { resource: 'notification' }, select: { key: true }, orderBy: { key: 'asc' } })).toEqual([
         { key: 'notification:manage:own' },
+        // Work 21: the ADMIN-only delivery retry (test/admin/admin-delivery-retry.e2e-spec.ts).
+        { key: 'notification:queue:manage' },
         // Work 20: the ADMIN-only delivery-queue read (test/admin/admin-delivery-queue.e2e-spec.ts).
         { key: 'notification:queue:read' },
         { key: 'notification:read:own' },

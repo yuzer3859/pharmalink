@@ -46,6 +46,11 @@ import { EMAIL_WEBHOOK_READER } from './application/ports/outbound/email-webhook
 import { ResendWebhookReader } from './infrastructure/webhooks/resend-webhook.reader';
 import { SUPPRESSION_ADMIN_REPOSITORY } from './domain/repositories/suppression-admin.repository';
 import { DELIVERY_ADMIN_REPOSITORY } from './domain/repositories/delivery-admin.repository';
+import { DELIVERY_REQUEUE_REPOSITORY } from './domain/repositories/delivery-requeue.repository';
+import {
+  NOTIFICATION_DELIVERY_RETRY_PORT,
+  NotificationDeliveryRetryPortAdapter,
+} from './application/ports/inbound/notification-delivery-retry.port';
 import { PrismaDeliveryAdminRepository } from './infrastructure/persistence/prisma-delivery-admin.repository';
 import {
   NOTIFICATION_DELIVERY_ADMIN_PORT,
@@ -86,7 +91,9 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * Work 18: Resend webhooks — delivery receipts, bounces and complaints — and destination suppression.
  * Work 19: `NOTIFICATION_SUPPRESSION_ADMIN_PORT` — list / read / remove suppressions, exported for
  * Module 16's admin control plane. Work 20: `NOTIFICATION_DELIVERY_ADMIN_PORT` — read-only queue
- * visibility (jobs, history, counts) for the same control plane. These two ports are the exports.
+ * visibility (jobs, history, counts) for the same control plane. Work 21:
+ * `NOTIFICATION_DELIVERY_RETRY_PORT` — an operator's requeue of an `EXHAUSTED` job, the only
+ * mutation; the transition itself is the delivery adapter's. These three ports are the exports.
  *
  * ## What it owns
  *
@@ -222,7 +229,10 @@ import { NotificationEventsHandler } from './interface/events/notification-event
   providers: [
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
     { provide: NOTIFICATION_PREFERENCE_REPOSITORY, useClass: PrismaNotificationPreferenceRepository },
-    { provide: NOTIFICATION_DELIVERY_REPOSITORY, useClass: PrismaNotificationDeliveryRepository },
+    PrismaNotificationDeliveryRepository,
+    { provide: NOTIFICATION_DELIVERY_REPOSITORY, useExisting: PrismaNotificationDeliveryRepository },
+    // Work 21: the manual requeue — the same adapter that claims and settles jobs.
+    { provide: DELIVERY_REQUEUE_REPOSITORY, useExisting: PrismaNotificationDeliveryRepository },
     { provide: DEVICE_TOKEN_REPOSITORY, useClass: PrismaDeviceTokenRepository },
     FcmConfig,
     { provide: PUSH_TRANSPORT, useClass: FcmHttpV1Transport },
@@ -239,6 +249,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     { provide: NOTIFICATION_SUPPRESSION_ADMIN_PORT, useClass: NotificationSuppressionAdminPortAdapter },
     { provide: DELIVERY_ADMIN_REPOSITORY, useClass: PrismaDeliveryAdminRepository },
     { provide: NOTIFICATION_DELIVERY_ADMIN_PORT, useClass: NotificationDeliveryAdminPortAdapter },
+    { provide: NOTIFICATION_DELIVERY_RETRY_PORT, useClass: NotificationDeliveryRetryPortAdapter },
     DestinationSuppressionService,
     ProcessEmailDeliveryReportCommand,
     { provide: EMAIL_WEBHOOK_READER, useClass: ResendWebhookReader },
@@ -282,6 +293,6 @@ import { NotificationEventsHandler } from './interface/events/notification-event
 
     NotificationEventsHandler,
   ],
-  exports: [NOTIFICATION_SUPPRESSION_ADMIN_PORT, NOTIFICATION_DELIVERY_ADMIN_PORT],
+  exports: [NOTIFICATION_SUPPRESSION_ADMIN_PORT, NOTIFICATION_DELIVERY_ADMIN_PORT, NOTIFICATION_DELIVERY_RETRY_PORT],
 })
 export class NotificationsModule {}

@@ -13,7 +13,7 @@ import {
 type Channel = PrismaJob['channel'];
 type JobStatus = PrismaJob['status'];
 
-const toJob = (r: PrismaJob): DeliveryJobRecord => ({
+export const toDeliveryJobRecord = (r: PrismaJob): DeliveryJobRecord => ({
   id: r.id,
   notificationId: r.notificationId,
   channel: r.channel as unknown as NotificationChannel,
@@ -53,12 +53,12 @@ export class PrismaDeliveryAdminRepository implements IDeliveryAdminRepository {
       this.prisma.notificationDeliveryJob.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * size, take: size }),
       this.prisma.notificationDeliveryJob.count({ where }),
     ]);
-    return { items: rows.map(toJob), total };
+    return { items: rows.map(toDeliveryJobRecord), total };
   }
 
   async findJob(id: string): Promise<DeliveryJobRecord | null> {
     const row = await this.prisma.notificationDeliveryJob.findUnique({ where: { id } });
-    return row ? toJob(row) : null;
+    return row ? toDeliveryJobRecord(row) : null;
   }
 
   async attemptsOf(notificationId: string, channel: NotificationChannel): Promise<DeliveryAttemptAdminRecord[]> {

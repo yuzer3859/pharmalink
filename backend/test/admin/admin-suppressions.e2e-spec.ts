@@ -215,6 +215,8 @@ describe('Admin notification suppressions (e2e)', () => {
       expect([...imports].sort()).toEqual([
         // Work 20: the delivery-queue admin port (admin-delivery-queue.e2e-spec.ts).
         'application/ports/inbound/notification-delivery-admin.port',
+        // Work 21: the delivery retry port (admin-delivery-retry.e2e-spec.ts).
+        'application/ports/inbound/notification-delivery-retry.port',
         'application/ports/inbound/notification-suppression-admin.port',
         'notifications.module',
       ]);

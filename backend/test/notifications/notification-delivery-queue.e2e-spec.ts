@@ -378,6 +378,8 @@ describe('Notification delivery queue (e2e)', () => {
       expect(checked.map(rel).sort()).toEqual([
         // Work 20: Module 13's inbound delivery-admin port (no Prisma; over the repository port).
         'application/ports/inbound/notification-delivery-admin.port.ts',
+        // Work 21: Module 13's inbound delivery-retry port (no Prisma; over the requeue repository port).
+        'application/ports/inbound/notification-delivery-retry.port.ts',
         // Work 19: Module 13's inbound suppression-admin port (no Prisma; over the repository port).
         'application/ports/inbound/notification-suppression-admin.port.ts',
         // Work 16

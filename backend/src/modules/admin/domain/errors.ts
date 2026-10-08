@@ -35,6 +35,14 @@ export const AdminErrors = {
   deliveryJobNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Delivery job not found.'),
 
   /**
+   * Only an `EXHAUSTED` job may be retried (module-16 Work 21) — the shared `CONFLICT`: the request
+   * is well-formed and allowed, the job's current state refuses it. Also what the loser of two
+   * concurrent retries sees, the winner having already made it `PENDING`.
+   */
+  deliveryJobNotRetryable: (status: string) =>
+    new ApiException(ErrorCode.CONFLICT, 'Only an exhausted delivery job can be retried.', { status }),
+
+  /**
    * The key is not in `ConfigCatalogue` — it is not a setting an administrator may govern.
    *
    * This is the security refusal §18 depends on, and it is deliberately indistinguishable from

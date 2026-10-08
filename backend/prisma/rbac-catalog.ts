@@ -142,8 +142,11 @@ export const PERMISSIONS: Array<{
   // Module 16 Work 20 — read-only visibility into Module 13's notification delivery queue (jobs,
   // attempt history, counts). Named after `verification:queue:read`, the existing key for reading
   // an operational queue; distinct from `notification:read:own` (a user's own inbox) and from
-  // Module 08's `delivery:*` (driver jobs). Read only — no mutation key exists. ADMIN only.
+  // Module 08's `delivery:*` (driver jobs). Read only — the one mutation is Work 21's key below. ADMIN only.
   { key: 'notification:queue:read', resource: 'notification', action: 'queue_read' },
+  // Module 16 Work 21 — requeueing an EXHAUSTED delivery job, the queue's only mutation. A separate
+  // key from `notification:queue:read`, so seeing the queue never implies changing it. ADMIN only.
+  { key: 'notification:queue:manage', resource: 'notification', action: 'queue_manage' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -313,6 +316,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'suppression:manage:any',
     // Module 16 Work 20 — notification delivery queue visibility.
     'notification:queue:read',
+    // Module 16 Work 21 — manual retry of an exhausted delivery job.
+    'notification:queue:manage',
   ],
   SUPER_ADMIN: ['*'],
 };

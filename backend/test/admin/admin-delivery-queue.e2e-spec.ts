@@ -219,11 +219,12 @@ describe('Admin notification delivery queue (e2e)', () => {
     await get(BASE, (await createUserWithRole(ctx, 'SUPER_ADMIN')).accessToken).expect(200);
   });
 
-  it('no mutation route exists; the queue is unchanged after trying, and delivery still runs normally', async () => {
+  // Work 21 added the one mutation, POST :id/retry (admin-delivery-retry.e2e-spec.ts); every other stays absent.
+  it('no other mutation route exists; the queue is unchanged after trying, and delivery still runs normally', async () => {
     const before = await ctx.prisma.notificationDeliveryJob.findMany({ orderBy: { id: 'asc' } });
     const attemptsBefore = await ctx.prisma.deliveryAttempt.count();
     for (const [method, path] of [
-      ['post', BASE], ['post', `${BASE}/${seeded.emailExhausted}/retry`], ['post', `${BASE}/${seeded.emailExhausted}/replay`],
+      ['post', BASE], ['post', `${BASE}/${seeded.emailExhausted}/replay`],
       ['put', `${BASE}/${seeded.emailExhausted}`], ['patch', `${BASE}/${seeded.emailExhausted}`], ['delete', `${BASE}/${seeded.emailExhausted}`],
       ['delete', `${BASE}/${seeded.emailExhausted}/attempts`], ['post', `${BASE}/summary`],
     ] as const) {
@@ -265,6 +266,8 @@ describe('Admin notification delivery queue (e2e)', () => {
       }
       expect([...imports].sort()).toEqual([
         'application/ports/inbound/notification-delivery-admin.port',
+        // Work 21: the delivery retry port (admin-delivery-retry.e2e-spec.ts).
+        'application/ports/inbound/notification-delivery-retry.port',
         'application/ports/inbound/notification-suppression-admin.port',
         'notifications.module',
       ]);
