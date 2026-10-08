@@ -133,6 +133,12 @@ export const PERMISSIONS: Array<{
   // `PUT /notification-preferences/:category` and (Work 14) registering / revoking one's own push
   // devices, `POST` / `DELETE /notification-devices`.
   { key: 'notification:manage:own', resource: 'notification', action: 'manage', scope: 'own' },
+  // Module 13 Work 19 — the notification suppression list (destinations Resend reported as hard
+  // bounces or complaints). Administrative only: reading it and removing an entry are operations
+  // over every user's delivery, so neither `notification:*:own` key (a user's own settings) nor a
+  // broad `admin:*` grant fits. Granted to ADMIN alone; SUPER_ADMIN holds them by wildcard.
+  { key: 'suppression:read:any', resource: 'suppression', action: 'read', scope: 'any' },
+  { key: 'suppression:manage:any', resource: 'suppression', action: 'manage', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -297,6 +303,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // Module 07 — Coupons (§9.5): the design assigns coupon curation to Admin, not to the
     // Finance Officer.
     'coupon:manage',
+    // Module 13 Work 19 — notification suppression management.
+    'suppression:read:any',
+    'suppression:manage:any',
   ],
   SUPER_ADMIN: ['*'],
 };

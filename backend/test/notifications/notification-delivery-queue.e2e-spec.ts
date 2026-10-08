@@ -376,6 +376,8 @@ describe('Notification delivery queue (e2e)', () => {
     it('the dispatcher, the scheduler and the providers never touch Prisma', () => {
       const checked = sources().filter((f) => /^(application\/services|application\/ports|infrastructure\/providers|infrastructure\/scheduling)\//.test(rel(f)));
       expect(checked.map(rel).sort()).toEqual([
+        // Work 19: Module 13's inbound suppression-admin port (no Prisma; over the repository port).
+        'application/ports/inbound/notification-suppression-admin.port.ts',
         // Work 16
         'application/ports/outbound/email-transport.port.ts',
         // Work 18

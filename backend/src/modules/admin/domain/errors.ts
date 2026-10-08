@@ -28,6 +28,9 @@ export const AdminErrors = {
   validation: (message: string, details?: unknown) =>
     new ApiException(ErrorCode.VALIDATION_ERROR, message, details),
 
+  /** No notification suppression with that id — unknown, or already removed (module-13 Work 19). */
+  suppressionNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Suppression not found.'),
+
   /**
    * The key is not in `ConfigCatalogue` — it is not a setting an administrator may govern.
    *

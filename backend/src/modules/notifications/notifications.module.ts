@@ -44,6 +44,11 @@ import { PrismaDestinationSuppressionRepository, PrismaEmailWebhookRepository } 
 import { ResendWebhookController } from './interface/controllers/resend-webhook.controller';
 import { EMAIL_WEBHOOK_READER } from './application/ports/outbound/email-webhook-reader.port';
 import { ResendWebhookReader } from './infrastructure/webhooks/resend-webhook.reader';
+import { SUPPRESSION_ADMIN_REPOSITORY } from './domain/repositories/suppression-admin.repository';
+import {
+  NOTIFICATION_SUPPRESSION_ADMIN_PORT,
+  NotificationSuppressionAdminPortAdapter,
+} from './application/ports/inbound/notification-suppression-admin.port';
 import { FcmHttpV1Transport } from './infrastructure/push/fcm-http-v1.transport';
 import { FcmConfig } from './infrastructure/push/fcm.config';
 import { UnconfiguredSmsTransport } from './infrastructure/sms/unconfigured-sms.transport';
@@ -73,6 +78,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * provider, Module 01's contact port and the gateway seam; no gateway is approved yet, so SMS jobs wait.
  * Work 16: e-mail — the same shape. Work 17: the e-mail provider is Resend, over its REST API.
  * Work 18: Resend webhooks — delivery receipts, bounces and complaints — and destination suppression.
+ * Work 19: `NOTIFICATION_SUPPRESSION_ADMIN_PORT` — list / read / remove suppressions, exported for
+ * Module 16's admin control plane (the module's only export).
  *
  * ## What it owns
  *
@@ -219,7 +226,10 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     // Resend (Work 17): configured only when RESEND_API_KEY and RESEND_FROM_EMAIL are both set.
     ResendConfig,
     { provide: EMAIL_WEBHOOK_REPOSITORY, useClass: PrismaEmailWebhookRepository },
-    { provide: DESTINATION_SUPPRESSION_REPOSITORY, useClass: PrismaDestinationSuppressionRepository },
+    PrismaDestinationSuppressionRepository,
+    { provide: DESTINATION_SUPPRESSION_REPOSITORY, useExisting: PrismaDestinationSuppressionRepository },
+    { provide: SUPPRESSION_ADMIN_REPOSITORY, useExisting: PrismaDestinationSuppressionRepository },
+    { provide: NOTIFICATION_SUPPRESSION_ADMIN_PORT, useClass: NotificationSuppressionAdminPortAdapter },
     DestinationSuppressionService,
     ProcessEmailDeliveryReportCommand,
     { provide: EMAIL_WEBHOOK_READER, useClass: ResendWebhookReader },
@@ -263,5 +273,6 @@ import { NotificationEventsHandler } from './interface/events/notification-event
 
     NotificationEventsHandler,
   ],
+  exports: [NOTIFICATION_SUPPRESSION_ADMIN_PORT],
 })
 export class NotificationsModule {}

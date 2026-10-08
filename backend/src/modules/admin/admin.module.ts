@@ -4,6 +4,11 @@ import { CatalogModule } from '../catalog/catalog.module';
 import { DeliveryModule } from '../delivery/delivery.module';
 import { IdentityModule } from '../identity/identity.module';
 import { OrdersModule } from '../orders/orders.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { RemoveSuppressionCommand } from './application/commands/remove-suppression.command';
+import { GetSuppressionQuery } from './application/queries/get-suppression.query';
+import { ListSuppressionsQuery } from './application/queries/list-suppressions.query';
+import { AdminSuppressionsController } from './interface/controllers/admin-suppressions.controller';
 import { PaymentModule } from '../payment/payment.module';
 import { PharmacyInventoryModule } from '../pharmacy-inventory/pharmacy-inventory.module';
 import { ApproveVerificationCommand } from './application/commands/approve-verification.command';
@@ -128,6 +133,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     CatalogModule,
     PharmacyInventoryModule,
     OrdersModule,
+    // Module 13 Work 19: NOTIFICATION_SUPPRESSION_ADMIN_PORT, the module's only export.
+    NotificationsModule,
     ScheduleModule.forRoot(),
   ],
   providers: [
@@ -170,6 +177,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     ListCodDisputesQuery,
     GetCodDisputeQuery,
     ResolveCodDisputeCommand,
+    ListSuppressionsQuery,
+    GetSuppressionQuery,
+    RemoveSuppressionCommand,
 
     // Work 07 — finance oversight, read-only, through Module 07's and Module 08's read ports.
     GetFinanceOverviewQuery,
@@ -194,6 +204,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminFinanceController,
     AdminAnalyticsController,
     AdminCatalogReviewController,
+    AdminSuppressionsController,
   ],
   // Nothing is exported. No other module calls into Admin — they read configuration through
   // `IConfigPort`, which is `SharedModule`'s, and an exported port here would be a coupling that

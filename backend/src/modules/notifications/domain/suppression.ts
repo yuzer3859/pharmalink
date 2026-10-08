@@ -22,3 +22,13 @@ export const SuppressionReason = {
   COMPLAINT: 'COMPLAINT',
 } as const;
 export type SuppressionReason = (typeof SuppressionReason)[keyof typeof SuppressionReason];
+
+/**
+ * A short, non-reversible handle for a suppression key, for operators to tell rows apart (Work 19):
+ * `sha256:` and the first 8 hex digits. Anything not in the hashed form — which this module never
+ * writes — yields `null` rather than echoing what is stored.
+ */
+export function suppressionFingerprintOf(key: string): string | null {
+  const m = /^sha256:([0-9a-f]{64})$/.exec(key);
+  return m ? `sha256:${m[1].slice(0, 8)}…` : null;
+}
