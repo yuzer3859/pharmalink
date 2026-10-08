@@ -217,6 +217,8 @@ describe('Admin notification suppressions (e2e)', () => {
         'application/ports/inbound/notification-delivery-admin.port',
         // Work 22: the queue health port (admin-delivery-health.e2e-spec.ts).
         'application/ports/inbound/notification-delivery-health.port',
+        // Work 23: the lease-release port (admin-delivery-lease.e2e-spec.ts).
+        'application/ports/inbound/notification-delivery-lease-release.port',
         // Work 21: the delivery retry port (admin-delivery-retry.e2e-spec.ts).
         'application/ports/inbound/notification-delivery-retry.port',
         'application/ports/inbound/notification-suppression-admin.port',

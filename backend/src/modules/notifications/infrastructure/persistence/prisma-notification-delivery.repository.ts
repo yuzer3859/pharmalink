@@ -14,6 +14,11 @@ import {
   RequeueOutcome,
   requeuedJobState,
 } from '../../domain/repositories/delivery-requeue.repository';
+import {
+  IDeliveryLeaseReleaseRepository,
+  LeaseReleaseOutcome,
+  releasedLeaseJobState,
+} from '../../domain/repositories/delivery-lease-release.repository';
 import { lapsedLeaseWhere } from './delivery-lease';
 import { toDeliveryJobRecord } from './prisma-delivery-admin.repository';
 
@@ -28,11 +33,13 @@ class LeaseLost extends Error {}
  * `INotificationDeliveryRepository` over Prisma, on Module 13's own tables: `notifications` is
  * read (a fixed column selection — no payload, dedupe key or event type) and never updated;
  * `notification_delivery_jobs` is claimed and settled with conditional updates; `delivery_attempts`
- * is only inserted into. Also the operator's manual requeue (module-16 Work 21), so every
- * transition of a job's status lives in this one adapter.
+ * is only inserted into. Also the operator's manual requeue (module-16 Work 21) and lease release
+ * (Work 23), so every transition of a job's status lives in this one adapter.
  */
 @Injectable()
-export class PrismaNotificationDeliveryRepository implements INotificationDeliveryRepository, IDeliveryRequeueRepository {
+export class PrismaNotificationDeliveryRepository
+  implements INotificationDeliveryRepository, IDeliveryRequeueRepository, IDeliveryLeaseReleaseRepository
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async findDeliverable(notificationId: string): Promise<DeliverableNotification | null> {
@@ -139,6 +146,26 @@ export class PrismaNotificationDeliveryRepository implements INotificationDelive
       if (!row) return { kind: 'NOT_FOUND' };
       if (count === 1) return { kind: 'REQUEUED', job: toDeliveryJobRecord(row) };
       return { kind: 'NOT_REQUEUEABLE', status: row.status as unknown as DeliveryJobStatus };
+    });
+  }
+
+  async releaseLapsedLease(jobId: string, now: Date): Promise<LeaseReleaseOutcome> {
+    return this.prisma.$transaction(async (tx) => {
+      const seen = await tx.notificationDeliveryJob.findUnique({ where: { id: jobId }, select: { leaseExpiresAt: true } });
+      if (!seen) return { kind: 'NOT_FOUND' };
+      const next = releasedLeaseJobState(now);
+      // The decision is this UPDATE's predicate, not the read above: still PROCESSING, lease lapsed
+      // at `now` (the dispatcher's own rule), and still the lease that was read — the same fencing
+      // `settle` uses. A dispatcher re-claim (new lease), a worker's settle (no longer PROCESSING)
+      // or another release (PENDING) committed first leaves nothing to match; one committing after
+      // finds this row PENDING and fails its own predicate.
+      const { count } = await tx.notificationDeliveryJob.updateMany({
+        where: { id: jobId, AND: [lapsedLeaseWhere(now), { leaseExpiresAt: seen.leaseExpiresAt }] },
+        data: { status: next.status as unknown as PrismaJob['status'], nextAttemptAt: next.nextAttemptAt, leaseExpiresAt: next.leaseExpiresAt, completedAt: next.completedAt },
+      });
+      const row = await tx.notificationDeliveryJob.findUniqueOrThrow({ where: { id: jobId } });
+      if (count === 1) return { kind: 'RELEASED', job: toDeliveryJobRecord(row), previousLeaseExpiresAt: seen.leaseExpiresAt! };
+      return { kind: 'NOT_RELEASABLE', status: row.status as unknown as DeliveryJobStatus };
     });
   }
 }

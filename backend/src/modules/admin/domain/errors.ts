@@ -43,6 +43,14 @@ export const AdminErrors = {
     new ApiException(ErrorCode.CONFLICT, 'Only an exhausted delivery job can be retried.', { status }),
 
   /**
+   * Only a `PROCESSING` job whose lease has lapsed may be released (module-16 Work 23) — the shared
+   * `CONFLICT`, as for a retry: any other status, a lease still running, or a concurrent release /
+   * dispatcher claim that changed the job first.
+   */
+  deliveryLeaseNotReleasable: (status: string) =>
+    new ApiException(ErrorCode.CONFLICT, 'Only a processing delivery job whose lease has expired can be released.', { status }),
+
+  /**
    * The key is not in `ConfigCatalogue` — it is not a setting an administrator may govern.
    *
    * This is the security refusal §18 depends on, and it is deliberately indistinguishable from

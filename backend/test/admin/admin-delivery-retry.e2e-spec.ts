@@ -287,6 +287,8 @@ describe('Admin notification delivery retry (e2e)', () => {
         'application/ports/inbound/notification-delivery-admin.port',
         // Work 22: the queue health port (admin-delivery-health.e2e-spec.ts).
         'application/ports/inbound/notification-delivery-health.port',
+        // Work 23: the lease-release port (admin-delivery-lease.e2e-spec.ts).
+        'application/ports/inbound/notification-delivery-lease-release.port',
         'application/ports/inbound/notification-delivery-retry.port',
         'application/ports/inbound/notification-suppression-admin.port',
         'notifications.module',
@@ -298,6 +300,8 @@ describe('Admin notification delivery retry (e2e)', () => {
         expect({ file: rel(file), found: /PrismaService|@prisma\/client|infrastructure\/persistence/.test(readFileSync(file, 'utf8')) }).toEqual({ file: rel(file), found: false });
       }
       expect(sources(join(root, 'notifications')).filter((f) => /requeuedJobState\(/.test(readFileSync(f, 'utf8'))).map(rel).sort()).toEqual([
+        // Work 23: a lease release writes the same "back in the queue" state (admin-delivery-lease.e2e-spec.ts).
+        'notifications/domain/repositories/delivery-lease-release.repository.ts',
         'notifications/domain/repositories/delivery-requeue.repository.ts',
         'notifications/infrastructure/persistence/prisma-notification-delivery.repository.ts',
       ]);

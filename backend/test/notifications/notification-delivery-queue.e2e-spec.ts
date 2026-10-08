@@ -380,6 +380,8 @@ describe('Notification delivery queue (e2e)', () => {
         'application/ports/inbound/notification-delivery-admin.port.ts',
         // Work 22: Module 13's inbound queue-health port (no Prisma; over the aggregate repository port).
         'application/ports/inbound/notification-delivery-health.port.ts',
+        // Work 23: Module 13's inbound lease-release port (no Prisma; over the release repository port).
+        'application/ports/inbound/notification-delivery-lease-release.port.ts',
         // Work 21: Module 13's inbound delivery-retry port (no Prisma; over the requeue repository port).
         'application/ports/inbound/notification-delivery-retry.port.ts',
         // Work 19: Module 13's inbound suppression-admin port (no Prisma; over the repository port).

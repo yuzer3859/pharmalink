@@ -7,12 +7,14 @@ import { OrdersModule } from '../orders/orders.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RemoveSuppressionCommand } from './application/commands/remove-suppression.command';
 import { RetryDeliveryJobCommand } from './application/commands/retry-delivery-job.command';
+import { ReleaseDeliveryLeaseCommand } from './application/commands/release-delivery-lease.command';
 import { GetSuppressionQuery } from './application/queries/get-suppression.query';
 import { ListSuppressionsQuery } from './application/queries/list-suppressions.query';
 import { AdminSuppressionsController } from './interface/controllers/admin-suppressions.controller';
 import { AdminDeliveryQueueController } from './interface/controllers/admin-delivery-queue.controller';
 import { GetDeliveryQueueHealthQuery } from './application/queries/delivery-queue-health.query';
 import { AdminDeliveryRetryController } from './interface/controllers/admin-delivery-retry.controller';
+import { AdminDeliveryLeaseController } from './interface/controllers/admin-delivery-lease.controller';
 import {
   GetDeliveryJobQuery,
   GetDeliveryQueueSummaryQuery,
@@ -144,7 +146,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     PharmacyInventoryModule,
     OrdersModule,
     // Module 13: NOTIFICATION_SUPPRESSION_ADMIN_PORT (Work 19), NOTIFICATION_DELIVERY_ADMIN_PORT (Work 20),
-    // NOTIFICATION_DELIVERY_RETRY_PORT (Work 21) and NOTIFICATION_DELIVERY_HEALTH_PORT (Work 22).
+    // NOTIFICATION_DELIVERY_RETRY_PORT (Work 21), NOTIFICATION_DELIVERY_HEALTH_PORT (Work 22) and
+    // NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT (Work 23).
     NotificationsModule,
     ScheduleModule.forRoot(),
   ],
@@ -199,6 +202,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     RetryDeliveryJobCommand,
     // Work 22 — queue health aggregates, over Module 13's health port.
     GetDeliveryQueueHealthQuery,
+    // Work 23 — releasing a lapsed delivery lease, over Module 13's lease-release port.
+    ReleaseDeliveryLeaseCommand,
 
     // Work 07 — finance oversight, read-only, through Module 07's and Module 08's read ports.
     GetFinanceOverviewQuery,
@@ -226,6 +231,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminSuppressionsController,
     AdminDeliveryQueueController,
     AdminDeliveryRetryController,
+    AdminDeliveryLeaseController,
   ],
   // Nothing is exported. No other module calls into Admin — they read configuration through
   // `IConfigPort`, which is `SharedModule`'s, and an exported port here would be a coupling that

@@ -48,6 +48,11 @@ import { SUPPRESSION_ADMIN_REPOSITORY } from './domain/repositories/suppression-
 import { DELIVERY_ADMIN_REPOSITORY } from './domain/repositories/delivery-admin.repository';
 import { DELIVERY_REQUEUE_REPOSITORY } from './domain/repositories/delivery-requeue.repository';
 import { DELIVERY_HEALTH_REPOSITORY } from './domain/repositories/delivery-health.repository';
+import { DELIVERY_LEASE_RELEASE_REPOSITORY } from './domain/repositories/delivery-lease-release.repository';
+import {
+  NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT,
+  NotificationDeliveryLeaseReleasePortAdapter,
+} from './application/ports/inbound/notification-delivery-lease-release.port';
 import {
   NOTIFICATION_DELIVERY_HEALTH_PORT,
   NotificationDeliveryHealthPortAdapter,
@@ -100,7 +105,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * `NOTIFICATION_DELIVERY_RETRY_PORT` — an operator's requeue of an `EXHAUSTED` job, the only
  * mutation; the transition itself is the delivery adapter's. Work 22:
  * `NOTIFICATION_DELIVERY_HEALTH_PORT` — read-only queue health aggregates (backlog, stale leases).
- * These four ports are the exports.
+ * Work 23: `NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT` — an operator's release of a lapsed lease,
+ * again a transition of the delivery adapter's. These five ports are the exports.
  *
  * ## What it owns
  *
@@ -240,6 +246,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     { provide: NOTIFICATION_DELIVERY_REPOSITORY, useExisting: PrismaNotificationDeliveryRepository },
     // Work 21: the manual requeue — the same adapter that claims and settles jobs.
     { provide: DELIVERY_REQUEUE_REPOSITORY, useExisting: PrismaNotificationDeliveryRepository },
+    // Work 23: releasing a lapsed lease — the same adapter, the dispatcher's lapsed-lease rule.
+    { provide: DELIVERY_LEASE_RELEASE_REPOSITORY, useExisting: PrismaNotificationDeliveryRepository },
     { provide: DEVICE_TOKEN_REPOSITORY, useClass: PrismaDeviceTokenRepository },
     FcmConfig,
     { provide: PUSH_TRANSPORT, useClass: FcmHttpV1Transport },
@@ -261,6 +269,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     { provide: NOTIFICATION_DELIVERY_ADMIN_PORT, useClass: NotificationDeliveryAdminPortAdapter },
     { provide: NOTIFICATION_DELIVERY_RETRY_PORT, useClass: NotificationDeliveryRetryPortAdapter },
     { provide: NOTIFICATION_DELIVERY_HEALTH_PORT, useClass: NotificationDeliveryHealthPortAdapter },
+    { provide: NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT, useClass: NotificationDeliveryLeaseReleasePortAdapter },
     DestinationSuppressionService,
     ProcessEmailDeliveryReportCommand,
     { provide: EMAIL_WEBHOOK_READER, useClass: ResendWebhookReader },
@@ -309,6 +318,7 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     NOTIFICATION_DELIVERY_ADMIN_PORT,
     NOTIFICATION_DELIVERY_RETRY_PORT,
     NOTIFICATION_DELIVERY_HEALTH_PORT,
+    NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT,
   ],
 })
 export class NotificationsModule {}
