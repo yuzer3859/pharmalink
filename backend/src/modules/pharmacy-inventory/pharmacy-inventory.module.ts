@@ -41,6 +41,8 @@ import {
   PharmacyRecipientReadPortAdapter,
 } from './application/ports/inbound/pharmacy-recipient-read.port';
 import { PrismaPharmacyAnalyticsReadAdapter } from './infrastructure/persistence/prisma-pharmacy-analytics-read.adapter';
+import { PHARMACY_STOCK_AVAILABILITY_READ_PORT } from './application/ports/inbound/pharmacy-stock-availability-read.port';
+import { PrismaPharmacyStockAvailabilityReadAdapter } from './infrastructure/persistence/prisma-pharmacy-stock-availability-read.adapter';
 import { PrismaReservationRepository } from './infrastructure/persistence/prisma-reservation.repository';
 import { PrismaStockLedgerRepository } from './infrastructure/persistence/prisma-stock-ledger.repository';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
@@ -107,6 +109,9 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     // Inbound read contract for Module 16's operational dashboard (module-16 Work 08): provider,
     // branch and listing counts, aggregated in PostgreSQL. It can move no stock.
     { provide: PHARMACY_ANALYTICS_READ_PORT, useClass: PrismaPharmacyAnalyticsReadAdapter },
+    // Inbound read contract for Module 16's inventory operations view (module-16 Work 25): eligible
+    // providers with and without anything `findAvailability` would offer, counted. Moves no stock.
+    { provide: PHARMACY_STOCK_AVAILABILITY_READ_PORT, useClass: PrismaPharmacyStockAvailabilityReadAdapter },
     // Inbound read contract for Module 13's pharmacy notifications (module-13 Work 07): a
     // pharmacy's organization owner `userId`, via the existing `IIdentityPort` owner read.
     { provide: PHARMACY_RECIPIENT_READ_PORT, useClass: PharmacyRecipientReadPortAdapter },
@@ -115,6 +120,12 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     LicenseExpirySweeper,
     ReservationTtlSweeper,
   ],
-  exports: [INVENTORY_PORT, GetAvailabilityQuery, PHARMACY_ANALYTICS_READ_PORT, PHARMACY_RECIPIENT_READ_PORT],
+  exports: [
+    INVENTORY_PORT,
+    GetAvailabilityQuery,
+    PHARMACY_ANALYTICS_READ_PORT,
+    PHARMACY_RECIPIENT_READ_PORT,
+    PHARMACY_STOCK_AVAILABILITY_READ_PORT,
+  ],
 })
 export class PharmacyInventoryModule {}

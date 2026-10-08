@@ -35,6 +35,7 @@ import { SuspendUserCommand } from './application/commands/suspend-user.command'
 import { ToggleFeatureFlagCommand } from './application/commands/toggle-feature-flag.command';
 import { UpdateConfigCommand } from './application/commands/update-config.command';
 import { GetAnalyticsOverviewQuery } from './application/queries/get-analytics-overview.query';
+import { GetInventoryOperationsOverviewQuery } from './application/queries/get-inventory-operations-overview.query';
 import { GetConfigQuery } from './application/queries/get-config.query';
 import { GetFeatureFlagsQuery } from './application/queries/get-feature-flags.query';
 import { GetFinanceOverviewQuery } from './application/queries/get-finance-overview.query';
@@ -59,6 +60,7 @@ import { PrismaFeatureFlagRepository } from './infrastructure/persistence/prisma
 import { PrismaPlatformConfigRepository } from './infrastructure/persistence/prisma-platform-config.repository';
 import { AdminAccountsController } from './interface/controllers/admin-accounts.controller';
 import { AdminAnalyticsController } from './interface/controllers/admin-analytics.controller';
+import { AdminOperationsController } from './interface/controllers/admin-operations.controller';
 import { AdminAuditController } from './interface/controllers/admin-audit.controller';
 import { AdminCatalogReviewController } from './interface/controllers/admin-catalog-review.controller';
 import { AdminCodDisputesController } from './interface/controllers/admin-cod-disputes.controller';
@@ -136,7 +138,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
   // for `COD_DISPUTE_ADMIN_PORT` (Work 06) and `COD_FINANCE_READ_PORT` (Work 07), and nothing
   // else of it. `PaymentModule` for `FINANCE_OVERSIGHT_PORT` (Work 07) alone. `CatalogModule`,
   // `PharmacyInventoryModule` and `OrdersModule` each for their `*_ANALYTICS_READ_PORT` (Work 08)
-  // and nothing else — `CatalogModule` also for `CATALOG_ADMIN_READ_PORT` (Work 09).
+  // and nothing else — `CatalogModule` also for `CATALOG_ADMIN_READ_PORT` (Work 09),
+  // `PharmacyInventoryModule` also for `PHARMACY_STOCK_AVAILABILITY_READ_PORT` (Work 25).
   // `ScheduleModule.forRoot()` activates the loader's refresh tick; registered here rather than
   // relied upon from another module's registration, for the reason `DeliveryModule` gives.
   imports: [
@@ -216,6 +219,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
 
     // Work 08 — operational analytics, read-only, over six owner read ports.
     GetAnalyticsOverviewQuery,
+    // Work 25 — inventory operations view, over Module 04's and Module 03's read ports.
+    GetInventoryOperationsOverviewQuery,
 
     // Work 09 — catalogue review list, read-only, through Module 03's admin read port.
     ListCatalogReviewQuery,
@@ -230,6 +235,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminCodDisputesController,
     AdminFinanceController,
     AdminAnalyticsController,
+    AdminOperationsController,
     AdminCatalogReviewController,
     AdminSuppressionsController,
     AdminDeliveryQueueController,

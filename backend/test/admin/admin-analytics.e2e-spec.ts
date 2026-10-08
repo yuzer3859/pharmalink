@@ -629,6 +629,8 @@ describe('Admin operational analytics (e2e)', () => {
         'payment/application/ports/inbound/finance-oversight.port',
         'payment/payment.module',
         'pharmacy-inventory/application/ports/inbound/pharmacy-analytics-read.port',
+        // Work 25: eligible providers with / without anything to sell (admin-inventory-operations.e2e-spec.ts).
+        'pharmacy-inventory/application/ports/inbound/pharmacy-stock-availability-read.port',
         'pharmacy-inventory/pharmacy-inventory.module',
       ]);
     });
