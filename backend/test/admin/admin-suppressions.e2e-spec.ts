@@ -212,7 +212,12 @@ describe('Admin notification suppressions (e2e)', () => {
         expect({ file: rel(file), found: /suppressionEntry|suppression_list/.test(source) }).toEqual({ file: rel(file), found: false });
         for (const m of source.matchAll(/from '(?:\.\.\/)+notifications\/([^']+)'/g)) imports.add(m[1]);
       }
-      expect([...imports].sort()).toEqual(['application/ports/inbound/notification-suppression-admin.port', 'notifications.module']);
+      expect([...imports].sort()).toEqual([
+        // Work 20: the delivery-queue admin port (admin-delivery-queue.e2e-spec.ts).
+        'application/ports/inbound/notification-delivery-admin.port',
+        'application/ports/inbound/notification-suppression-admin.port',
+        'notifications.module',
+      ]);
     });
 
     it('only Module 13’s persistence adapter touches suppression_list; controllers never touch Prisma', () => {

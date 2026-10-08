@@ -376,6 +376,8 @@ describe('Notification delivery queue (e2e)', () => {
     it('the dispatcher, the scheduler and the providers never touch Prisma', () => {
       const checked = sources().filter((f) => /^(application\/services|application\/ports|infrastructure\/providers|infrastructure\/scheduling)\//.test(rel(f)));
       expect(checked.map(rel).sort()).toEqual([
+        // Work 20: Module 13's inbound delivery-admin port (no Prisma; over the repository port).
+        'application/ports/inbound/notification-delivery-admin.port.ts',
         // Work 19: Module 13's inbound suppression-admin port (no Prisma; over the repository port).
         'application/ports/inbound/notification-suppression-admin.port.ts',
         // Work 16
@@ -406,11 +408,15 @@ describe('Notification delivery queue (e2e)', () => {
 
     it('jobs and attempts are reached only through the persistence adapters; no controller reaches delivery', () => {
       expect(sources().filter((f) => /prisma\.deliveryAttempt\b|tx\.deliveryAttempt\b/.test(readFileSync(f, 'utf8'))).map(rel).sort()).toEqual([
+        // Work 20: the read-only admin adapter (attempt history, no errorDetail).
+        'infrastructure/persistence/prisma-delivery-admin.repository.ts',
         // Work 18: webhook receipts append delivery history (DELIVERED / BOUNCED).
         'infrastructure/persistence/prisma-email-webhook.repository.ts',
         'infrastructure/persistence/prisma-notification-delivery.repository.ts',
       ]);
       expect(sources().filter((f) => /\.notificationDeliveryJob\b/.test(readFileSync(f, 'utf8'))).map(rel).sort()).toEqual([
+        // Work 20: the read-only admin adapter (list / detail / counts).
+        'infrastructure/persistence/prisma-delivery-admin.repository.ts',
         'infrastructure/persistence/prisma-notification-delivery.repository.ts',
         'infrastructure/persistence/prisma-notification.repository.ts',
       ]);

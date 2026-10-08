@@ -45,6 +45,12 @@ import { ResendWebhookController } from './interface/controllers/resend-webhook.
 import { EMAIL_WEBHOOK_READER } from './application/ports/outbound/email-webhook-reader.port';
 import { ResendWebhookReader } from './infrastructure/webhooks/resend-webhook.reader';
 import { SUPPRESSION_ADMIN_REPOSITORY } from './domain/repositories/suppression-admin.repository';
+import { DELIVERY_ADMIN_REPOSITORY } from './domain/repositories/delivery-admin.repository';
+import { PrismaDeliveryAdminRepository } from './infrastructure/persistence/prisma-delivery-admin.repository';
+import {
+  NOTIFICATION_DELIVERY_ADMIN_PORT,
+  NotificationDeliveryAdminPortAdapter,
+} from './application/ports/inbound/notification-delivery-admin.port';
 import {
   NOTIFICATION_SUPPRESSION_ADMIN_PORT,
   NotificationSuppressionAdminPortAdapter,
@@ -79,7 +85,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * Work 16: e-mail — the same shape. Work 17: the e-mail provider is Resend, over its REST API.
  * Work 18: Resend webhooks — delivery receipts, bounces and complaints — and destination suppression.
  * Work 19: `NOTIFICATION_SUPPRESSION_ADMIN_PORT` — list / read / remove suppressions, exported for
- * Module 16's admin control plane (the module's only export).
+ * Module 16's admin control plane. Work 20: `NOTIFICATION_DELIVERY_ADMIN_PORT` — read-only queue
+ * visibility (jobs, history, counts) for the same control plane. These two ports are the exports.
  *
  * ## What it owns
  *
@@ -230,6 +237,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     { provide: DESTINATION_SUPPRESSION_REPOSITORY, useExisting: PrismaDestinationSuppressionRepository },
     { provide: SUPPRESSION_ADMIN_REPOSITORY, useExisting: PrismaDestinationSuppressionRepository },
     { provide: NOTIFICATION_SUPPRESSION_ADMIN_PORT, useClass: NotificationSuppressionAdminPortAdapter },
+    { provide: DELIVERY_ADMIN_REPOSITORY, useClass: PrismaDeliveryAdminRepository },
+    { provide: NOTIFICATION_DELIVERY_ADMIN_PORT, useClass: NotificationDeliveryAdminPortAdapter },
     DestinationSuppressionService,
     ProcessEmailDeliveryReportCommand,
     { provide: EMAIL_WEBHOOK_READER, useClass: ResendWebhookReader },
@@ -273,6 +282,6 @@ import { NotificationEventsHandler } from './interface/events/notification-event
 
     NotificationEventsHandler,
   ],
-  exports: [NOTIFICATION_SUPPRESSION_ADMIN_PORT],
+  exports: [NOTIFICATION_SUPPRESSION_ADMIN_PORT, NOTIFICATION_DELIVERY_ADMIN_PORT],
 })
 export class NotificationsModule {}

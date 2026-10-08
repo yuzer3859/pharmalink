@@ -401,6 +401,8 @@ describe('In-app notification center (e2e)', () => {
       // Work 11 added the second, `notification:manage:own` (notification-preferences.e2e-spec.ts).
       expect(await ctx.prisma.permission.findMany({ where: { resource: 'notification' }, select: { key: true }, orderBy: { key: 'asc' } })).toEqual([
         { key: 'notification:manage:own' },
+        // Work 20: the ADMIN-only delivery-queue read (test/admin/admin-delivery-queue.e2e-spec.ts).
+        { key: 'notification:queue:read' },
         { key: 'notification:read:own' },
       ]);
     });

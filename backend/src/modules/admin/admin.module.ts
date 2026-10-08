@@ -9,6 +9,13 @@ import { RemoveSuppressionCommand } from './application/commands/remove-suppress
 import { GetSuppressionQuery } from './application/queries/get-suppression.query';
 import { ListSuppressionsQuery } from './application/queries/list-suppressions.query';
 import { AdminSuppressionsController } from './interface/controllers/admin-suppressions.controller';
+import { AdminDeliveryQueueController } from './interface/controllers/admin-delivery-queue.controller';
+import {
+  GetDeliveryJobQuery,
+  GetDeliveryQueueSummaryQuery,
+  ListDeliveryAttemptsQuery,
+  ListDeliveryJobsQuery,
+} from './application/queries/delivery-queue.queries';
 import { PaymentModule } from '../payment/payment.module';
 import { PharmacyInventoryModule } from '../pharmacy-inventory/pharmacy-inventory.module';
 import { ApproveVerificationCommand } from './application/commands/approve-verification.command';
@@ -133,7 +140,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     CatalogModule,
     PharmacyInventoryModule,
     OrdersModule,
-    // Module 13 Work 19: NOTIFICATION_SUPPRESSION_ADMIN_PORT, the module's only export.
+    // Module 13: NOTIFICATION_SUPPRESSION_ADMIN_PORT (Work 19) and NOTIFICATION_DELIVERY_ADMIN_PORT (Work 20).
     NotificationsModule,
     ScheduleModule.forRoot(),
   ],
@@ -180,6 +187,10 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     ListSuppressionsQuery,
     GetSuppressionQuery,
     RemoveSuppressionCommand,
+    ListDeliveryJobsQuery,
+    GetDeliveryJobQuery,
+    ListDeliveryAttemptsQuery,
+    GetDeliveryQueueSummaryQuery,
 
     // Work 07 — finance oversight, read-only, through Module 07's and Module 08's read ports.
     GetFinanceOverviewQuery,
@@ -205,6 +216,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminAnalyticsController,
     AdminCatalogReviewController,
     AdminSuppressionsController,
+    AdminDeliveryQueueController,
   ],
   // Nothing is exported. No other module calls into Admin — they read configuration through
   // `IConfigPort`, which is `SharedModule`'s, and an exported port here would be a coupling that

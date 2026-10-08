@@ -31,6 +31,9 @@ export const AdminErrors = {
   /** No notification suppression with that id — unknown, or already removed (module-13 Work 19). */
   suppressionNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Suppression not found.'),
 
+  /** No notification delivery job with that id (module-16 Work 20). */
+  deliveryJobNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Delivery job not found.'),
+
   /**
    * The key is not in `ConfigCatalogue` — it is not a setting an administrator may govern.
    *
