@@ -9,6 +9,8 @@ import {
   DeliveryJobSearchCriteria,
   IDeliveryAdminRepository,
 } from '../../domain/repositories/delivery-admin.repository';
+import { DeliveryHealthAggregates, IDeliveryHealthRepository } from '../../domain/repositories/delivery-health.repository';
+import { lapsedLeaseWhere } from './delivery-lease';
 
 type Channel = PrismaJob['channel'];
 type JobStatus = PrismaJob['status'];
@@ -36,9 +38,14 @@ const range = (from?: Date, to?: Date) =>
  * `GROUP BY` in the database. Served by the existing indexes: `(status, nextAttemptAt)` for the
  * status filters, the unique `(notificationId, channel)` for a notification's jobs and its
  * attempts' lookup by notification id.
+ *
+ * Also the queue health aggregates (module-16 Work 22): four aggregate statements in one
+ * `REPEATABLE READ` transaction — one PostgreSQL snapshot, so the counts and timestamps agree with
+ * each other. No row is loaded; the status-prefixed `(status, nextAttemptAt)` index narrows each to
+ * its status.
  */
 @Injectable()
-export class PrismaDeliveryAdminRepository implements IDeliveryAdminRepository {
+export class PrismaDeliveryAdminRepository implements IDeliveryAdminRepository, IDeliveryHealthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async listJobs(c: DeliveryJobSearchCriteria, page: number, size: number): Promise<{ items: DeliveryJobRecord[]; total: number }> {
@@ -90,6 +97,26 @@ export class PrismaDeliveryAdminRepository implements IDeliveryAdminRepository {
       total: statusCounts.reduce((n, s) => n + s.count, 0),
       byStatus: statusCounts,
       byChannel: byChannel.map((g) => ({ channel: g.channel as unknown as NotificationChannel, count: (g._count as { _all: number })._all })),
+    };
+  }
+
+  async aggregatesAt(now: Date): Promise<DeliveryHealthAggregates> {
+    const PENDING = DeliveryJobStatus.PENDING as unknown as JobStatus;
+    const PROCESSING = DeliveryJobStatus.PROCESSING as unknown as JobStatus;
+    const [byStatus, pending, processing, stale] = await this.prisma.$transaction(
+      [
+        this.prisma.notificationDeliveryJob.groupBy({ by: ['status'], _count: { _all: true }, orderBy: { status: 'asc' } }),
+        this.prisma.notificationDeliveryJob.aggregate({ where: { status: PENDING }, _min: { createdAt: true } }),
+        this.prisma.notificationDeliveryJob.aggregate({ where: { status: PROCESSING }, _min: { leaseExpiresAt: true } }),
+        this.prisma.notificationDeliveryJob.count({ where: lapsedLeaseWhere(now) }),
+      ],
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    return {
+      byStatus: byStatus.map((g) => ({ status: g.status as unknown as DeliveryJobStatus, count: (g._count as { _all: number })._all })),
+      oldestPendingCreatedAt: pending._min.createdAt,
+      staleProcessingCount: stale,
+      oldestProcessingLeaseExpiresAt: processing._min.leaseExpiresAt,
     };
   }
 }

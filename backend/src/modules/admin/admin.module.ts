@@ -11,6 +11,7 @@ import { GetSuppressionQuery } from './application/queries/get-suppression.query
 import { ListSuppressionsQuery } from './application/queries/list-suppressions.query';
 import { AdminSuppressionsController } from './interface/controllers/admin-suppressions.controller';
 import { AdminDeliveryQueueController } from './interface/controllers/admin-delivery-queue.controller';
+import { GetDeliveryQueueHealthQuery } from './application/queries/delivery-queue-health.query';
 import { AdminDeliveryRetryController } from './interface/controllers/admin-delivery-retry.controller';
 import {
   GetDeliveryJobQuery,
@@ -142,8 +143,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     CatalogModule,
     PharmacyInventoryModule,
     OrdersModule,
-    // Module 13: NOTIFICATION_SUPPRESSION_ADMIN_PORT (Work 19), NOTIFICATION_DELIVERY_ADMIN_PORT (Work 20)
-    // and NOTIFICATION_DELIVERY_RETRY_PORT (Work 21).
+    // Module 13: NOTIFICATION_SUPPRESSION_ADMIN_PORT (Work 19), NOTIFICATION_DELIVERY_ADMIN_PORT (Work 20),
+    // NOTIFICATION_DELIVERY_RETRY_PORT (Work 21) and NOTIFICATION_DELIVERY_HEALTH_PORT (Work 22).
     NotificationsModule,
     ScheduleModule.forRoot(),
   ],
@@ -196,6 +197,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     GetDeliveryQueueSummaryQuery,
     // Work 21 — manual retry of an EXHAUSTED delivery job, over Module 13's retry port.
     RetryDeliveryJobCommand,
+    // Work 22 — queue health aggregates, over Module 13's health port.
+    GetDeliveryQueueHealthQuery,
 
     // Work 07 — finance oversight, read-only, through Module 07's and Module 08's read ports.
     GetFinanceOverviewQuery,

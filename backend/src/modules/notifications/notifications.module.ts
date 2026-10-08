@@ -47,6 +47,11 @@ import { ResendWebhookReader } from './infrastructure/webhooks/resend-webhook.re
 import { SUPPRESSION_ADMIN_REPOSITORY } from './domain/repositories/suppression-admin.repository';
 import { DELIVERY_ADMIN_REPOSITORY } from './domain/repositories/delivery-admin.repository';
 import { DELIVERY_REQUEUE_REPOSITORY } from './domain/repositories/delivery-requeue.repository';
+import { DELIVERY_HEALTH_REPOSITORY } from './domain/repositories/delivery-health.repository';
+import {
+  NOTIFICATION_DELIVERY_HEALTH_PORT,
+  NotificationDeliveryHealthPortAdapter,
+} from './application/ports/inbound/notification-delivery-health.port';
 import {
   NOTIFICATION_DELIVERY_RETRY_PORT,
   NotificationDeliveryRetryPortAdapter,
@@ -93,7 +98,9 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  * Module 16's admin control plane. Work 20: `NOTIFICATION_DELIVERY_ADMIN_PORT` — read-only queue
  * visibility (jobs, history, counts) for the same control plane. Work 21:
  * `NOTIFICATION_DELIVERY_RETRY_PORT` — an operator's requeue of an `EXHAUSTED` job, the only
- * mutation; the transition itself is the delivery adapter's. These three ports are the exports.
+ * mutation; the transition itself is the delivery adapter's. Work 22:
+ * `NOTIFICATION_DELIVERY_HEALTH_PORT` — read-only queue health aggregates (backlog, stale leases).
+ * These four ports are the exports.
  *
  * ## What it owns
  *
@@ -247,9 +254,13 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     { provide: DESTINATION_SUPPRESSION_REPOSITORY, useExisting: PrismaDestinationSuppressionRepository },
     { provide: SUPPRESSION_ADMIN_REPOSITORY, useExisting: PrismaDestinationSuppressionRepository },
     { provide: NOTIFICATION_SUPPRESSION_ADMIN_PORT, useClass: NotificationSuppressionAdminPortAdapter },
-    { provide: DELIVERY_ADMIN_REPOSITORY, useClass: PrismaDeliveryAdminRepository },
+    PrismaDeliveryAdminRepository,
+    { provide: DELIVERY_ADMIN_REPOSITORY, useExisting: PrismaDeliveryAdminRepository },
+    // Work 22: queue health aggregates — the same read-only adapter.
+    { provide: DELIVERY_HEALTH_REPOSITORY, useExisting: PrismaDeliveryAdminRepository },
     { provide: NOTIFICATION_DELIVERY_ADMIN_PORT, useClass: NotificationDeliveryAdminPortAdapter },
     { provide: NOTIFICATION_DELIVERY_RETRY_PORT, useClass: NotificationDeliveryRetryPortAdapter },
+    { provide: NOTIFICATION_DELIVERY_HEALTH_PORT, useClass: NotificationDeliveryHealthPortAdapter },
     DestinationSuppressionService,
     ProcessEmailDeliveryReportCommand,
     { provide: EMAIL_WEBHOOK_READER, useClass: ResendWebhookReader },
@@ -293,6 +304,11 @@ import { NotificationEventsHandler } from './interface/events/notification-event
 
     NotificationEventsHandler,
   ],
-  exports: [NOTIFICATION_SUPPRESSION_ADMIN_PORT, NOTIFICATION_DELIVERY_ADMIN_PORT, NOTIFICATION_DELIVERY_RETRY_PORT],
+  exports: [
+    NOTIFICATION_SUPPRESSION_ADMIN_PORT,
+    NOTIFICATION_DELIVERY_ADMIN_PORT,
+    NOTIFICATION_DELIVERY_RETRY_PORT,
+    NOTIFICATION_DELIVERY_HEALTH_PORT,
+  ],
 })
 export class NotificationsModule {}

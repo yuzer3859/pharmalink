@@ -6,6 +6,7 @@ import {
   ListDeliveryAttemptsQuery,
   ListDeliveryJobsQuery,
 } from '../../application/queries/delivery-queue.queries';
+import { GetDeliveryQueueHealthQuery } from '../../application/queries/delivery-queue-health.query';
 import { ListDeliveryJobsQueryDto } from '../dtos/delivery-queue.dto';
 import {
   DeliveryAttemptResponse,
@@ -17,6 +18,7 @@ import {
   toDeliveryJobResponse,
   toDeliveryQueueSummaryResponse,
 } from '../dtos/delivery-queue.response';
+import { DeliveryQueueHealthResponse, toDeliveryQueueHealthResponse } from '../dtos/delivery-queue-health.response';
 
 /**
  * Read-only visibility into Module 13's notification delivery queue (module-16 Work 20), over
@@ -25,11 +27,12 @@ import {
  *     GET /admin/notifications/delivery                ?channel &status &notificationId &createdFrom
  *                                                      &createdTo &nextAttemptFrom &nextAttemptTo &page &size
  *     GET /admin/notifications/delivery/summary        exact job counts, total / by status / by channel
+ *     GET /admin/notifications/delivery/health         backlog and stale-lease aggregates (Work 22)
  *     GET /admin/notifications/delivery/:id            one job
  *     GET /admin/notifications/delivery/:id/attempts   its history, oldest first
  *
  * All take `notification:queue:read` — ADMIN only, named after `verification:queue:read`. There
- * is no mutation route: no retry, replay, cancel, delete or send. Not audited.
+ * is no mutation route here (Work 21's retry has its own controller and permission). Not audited.
  */
 @Controller('admin/notifications/delivery')
 @RequirePermissions('notification:queue:read')
@@ -39,6 +42,7 @@ export class AdminDeliveryQueueController {
     private readonly getOne: GetDeliveryJobQuery,
     private readonly attempts: ListDeliveryAttemptsQuery,
     private readonly summaryQuery: GetDeliveryQueueSummaryQuery,
+    private readonly healthQuery: GetDeliveryQueueHealthQuery,
   ) {}
 
   @Get()
@@ -63,6 +67,12 @@ export class AdminDeliveryQueueController {
   @Get('summary')
   async summary(): Promise<DeliveryQueueSummaryResponse> {
     return toDeliveryQueueSummaryResponse(await this.summaryQuery.execute());
+  }
+
+  // Also before `:id`. Work 22.
+  @Get('health')
+  async health(): Promise<DeliveryQueueHealthResponse> {
+    return toDeliveryQueueHealthResponse(await this.healthQuery.execute());
   }
 
   @Get(':id')

@@ -285,6 +285,8 @@ describe('Admin notification delivery retry (e2e)', () => {
       }
       expect([...imports].sort()).toEqual([
         'application/ports/inbound/notification-delivery-admin.port',
+        // Work 22: the queue health port (admin-delivery-health.e2e-spec.ts).
+        'application/ports/inbound/notification-delivery-health.port',
         'application/ports/inbound/notification-delivery-retry.port',
         'application/ports/inbound/notification-suppression-admin.port',
         'notifications.module',

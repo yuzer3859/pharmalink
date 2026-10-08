@@ -14,6 +14,7 @@ import {
   RequeueOutcome,
   requeuedJobState,
 } from '../../domain/repositories/delivery-requeue.repository';
+import { lapsedLeaseWhere } from './delivery-lease';
 import { toDeliveryJobRecord } from './prisma-delivery-admin.repository';
 
 const PENDING = DeliveryJobStatus.PENDING as unknown as PrismaJob['status'];
@@ -53,7 +54,7 @@ export class PrismaNotificationDeliveryRepository implements INotificationDelive
   private due(now: Date) {
     return [
       { status: PENDING, nextAttemptAt: { lte: now } },
-      { status: PROCESSING, leaseExpiresAt: { lte: now } },
+      lapsedLeaseWhere(now),
     ];
   }
 
