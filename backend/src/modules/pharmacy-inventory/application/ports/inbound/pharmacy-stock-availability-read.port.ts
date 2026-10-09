@@ -37,7 +37,8 @@ export interface PharmacyStockAvailabilityView {
  *         offered by (1) and refused by (2); such a listing is not purchasable.
  *  - `unpurchasable` — `tracked − purchasable`: every other live listing.
  *
- * All three from one snapshot: `purchasable + unpurchasable = tracked`, always.
+ * All three from one snapshot: `purchasable + unpurchasable = tracked`, always. Module 16 reports
+ * `tracked` as its `totalTrackedItems` (module-16 Work 27) so the three figures it shows agree.
  */
 export interface ListingPurchasabilityView {
   tracked: number;
