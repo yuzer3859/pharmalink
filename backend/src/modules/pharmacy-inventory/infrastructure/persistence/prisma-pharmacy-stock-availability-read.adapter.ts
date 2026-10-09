@@ -3,15 +3,17 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
 import {
   IPharmacyStockAvailabilityReadPort,
+  ListingPurchasabilityView,
   PharmacyStockAvailabilityView,
 } from '../../application/ports/inbound/pharmacy-stock-availability-read.port';
 import { LicenseStatus, TransactingStatus } from '../../domain/enums';
+import { AVAILABLE_LISTING_FROM, availableListingWhere, unexpiredSellablePositive } from './listing-availability.sql';
 
 /**
- * `IPharmacyStockAvailabilityReadPort` over Prisma — two `COUNT`s in one `REPEATABLE READ`
- * transaction. The pharmacy predicate is `TransactingEligibilityPolicy`, as in
- * `PrismaPharmacyAnalyticsReadAdapter`; the listing predicate is `findAvailability`'s listing and
- * branch conditions, as a relation filter (`EXISTS`), so no row is loaded.
+ * `IPharmacyStockAvailabilityReadPort` over Prisma — `COUNT`s in one `REPEATABLE READ` transaction
+ * each. The pharmacy predicate is `TransactingEligibilityPolicy`, as in
+ * `PrismaPharmacyAnalyticsReadAdapter`; the availability predicate is `findAvailability`'s own SQL
+ * (`listing-availability.sql`), so no row is loaded and no rule is written a second time.
  */
 @Injectable()
 export class PrismaPharmacyStockAvailabilityReadAdapter implements IPharmacyStockAvailabilityReadPort {
@@ -24,18 +26,33 @@ export class PrismaPharmacyStockAvailabilityReadAdapter implements IPharmacyStoc
       licenseStatus: LicenseStatus.VALID,
       OR: [{ licenseExpiresAt: null }, { licenseExpiresAt: { gt: now } }],
     };
-    const [eligibleCount, withAvailableStock] = await this.prisma.$transaction(
+    const [eligibleCount, [{ count }]] = await this.prisma.$transaction(
       [
         this.prisma.pharmacy.count({ where: eligible }),
-        this.prisma.pharmacy.count({
-          where: {
-            ...eligible,
-            listings: { some: { isEnabled: true, deletedAt: null, sellable: { gt: 0 }, branch: { isActive: true } } },
-          },
-        }),
+        // Pharmacies `findAvailability` would return for some product (its predicate includes eligibility).
+        this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(DISTINCT il."pharmacyId") AS "count" ${AVAILABLE_LISTING_FROM}
+          WHERE ${availableListingWhere(now)}`,
       ],
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
+    const withAvailableStock = Number(count);
     return { eligible: eligibleCount, withAvailableStock, withoutAvailableStock: eligibleCount - withAvailableStock };
+  }
+
+  async summarizeListingPurchasability(now: Date = new Date()): Promise<ListingPurchasabilityView> {
+    const [tracked, [{ count }]] = await this.prisma.$transaction(
+      [
+        // The `listings.total` population of `PrismaPharmacyAnalyticsReadAdapter`.
+        this.prisma.inventoryListing.count({ where: { deletedAt: null } }),
+        this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*) AS "count" ${AVAILABLE_LISTING_FROM}
+          WHERE ${availableListingWhere(now)}
+            AND ${unexpiredSellablePositive(now)}`,
+      ],
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    const purchasable = Number(count);
+    return { tracked, purchasable, unpurchasable: tracked - purchasable };
   }
 }

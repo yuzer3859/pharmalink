@@ -29,11 +29,18 @@ import {
  *    outOfStockItems`, by `sellable > 0` (`sellable` is Module 04's unexpired on-hand minus reserved).
  *    There is **no low-stock figure**: no listing carries a reorder level or threshold, and this
  *    view does not invent one.
+ *  - `inventory.customerPurchasableListings` / `customerUnpurchasableListings` (Work 26) — the same
+ *    live listings split by whether a customer can buy from them now: Module 04's discovery rule
+ *    (`findAvailability`) **and** its reservation stock rule (BRULE-15 sellable at now > 0). Counts of
+ *    listing records, not quantities. They sum to `totalTrackedItems` — exactly within Module 04's
+ *    one snapshot; against Work 08's separately-read total whenever no listing is created or
+ *    soft-deleted between the two reads of one request. Not a redefinition of `inStockItems`:
+ *    that is stored `sellable > 0` on any enabled listing, wherever it is.
  *  - `products.total` / `byStatus` — live catalogue products by Module 03's `ProductStatus`
  *    (`DRAFT`, `PENDING_REVIEW`, `ACTIVE`, `DEPRECATED`, `DELISTED`), every value, zero-filled.
  *    There is no "inactive" status; each is reported as itself.
  *
- * The three reads are separate (each is consistent with itself), as in Work 08's overview.
+ * The four reads are separate (each is consistent with itself), as in Work 08's overview.
  */
 export interface InventoryOperationsOverview {
   generatedAt: Date;
@@ -50,6 +57,8 @@ export interface InventoryOperationsOverview {
     disabledItems: number;
     inStockItems: number;
     outOfStockItems: number;
+    customerPurchasableListings: number;
+    customerUnpurchasableListings: number;
   };
   products: {
     total: number;
@@ -72,9 +81,10 @@ export class GetInventoryOperationsOverviewQuery {
 
   async execute(): Promise<InventoryOperationsOverview> {
     const generatedAt = new Date();
-    const [providers, available, catalog] = await Promise.all([
+    const [providers, available, purchasability, catalog] = await Promise.all([
       this.providers.summarizeProviders(generatedAt),
       this.availability.summarizeStockAvailability(generatedAt),
+      this.availability.summarizeListingPurchasability(generatedAt),
       this.catalog.summarizeCatalog(),
     ]);
     return {
@@ -92,6 +102,8 @@ export class GetInventoryOperationsOverviewQuery {
         disabledItems: providers.listings.disabled,
         inStockItems: providers.listings.inStock,
         outOfStockItems: providers.listings.outOfStock,
+        customerPurchasableListings: purchasability.purchasable,
+        customerUnpurchasableListings: purchasability.unpurchasable,
       },
       products: { total: catalog.products.total, byStatus: catalog.products.byStatus },
     };

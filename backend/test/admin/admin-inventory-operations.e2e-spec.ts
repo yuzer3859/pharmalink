@@ -11,7 +11,7 @@ type Bucket = { status: string; count: number };
 type Overview = {
   generatedAt: string;
   pharmacies: { total: number; byTransactingStatus: Bucket[]; eligible: number; eligibleWithAvailableStock: number; eligibleWithoutAvailableStock: number };
-  inventory: { totalTrackedItems: number; enabledItems: number; disabledItems: number; inStockItems: number; outOfStockItems: number };
+  inventory: { totalTrackedItems: number; enabledItems: number; disabledItems: number; inStockItems: number; outOfStockItems: number; customerPurchasableListings: number; customerUnpurchasableListings: number };
   products: { total: number; byStatus: Bucket[] };
 };
 
@@ -102,7 +102,8 @@ describe('Admin inventory operations overview (e2e)', () => {
         eligibleWithAvailableStock: 0,
         eligibleWithoutAvailableStock: 0,
       },
-      inventory: { totalTrackedItems: 0, enabledItems: 0, disabledItems: 0, inStockItems: 0, outOfStockItems: 0 },
+      // Work 26 added the last two (admin-inventory-purchasability.e2e-spec.ts).
+      inventory: { totalTrackedItems: 0, enabledItems: 0, disabledItems: 0, inStockItems: 0, outOfStockItems: 0, customerPurchasableListings: 0, customerUnpurchasableListings: 0 },
       products: { total: 0, byStatus: ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED'].map((status) => ({ status, count: 0 })) },
     });
   });
@@ -122,7 +123,9 @@ describe('Admin inventory operations overview (e2e)', () => {
   it('inventory counts: live listings; enabled split by sellable > 0; disabled is neither', async () => {
     await seed();
     const o = await overview();
-    expect(o.inventory).toEqual({ totalTrackedItems: 6, enabledItems: 5, disabledItems: 1, inStockItems: 4, outOfStockItems: 1 });
+    // Work 26 added the last two (admin-inventory-purchasability.e2e-spec.ts). These listings carry a stored
+    // `sellable` but no stock batch, so BRULE-15 stock at now is 0 and none is purchasable.
+    expect(o.inventory).toEqual({ totalTrackedItems: 6, enabledItems: 5, disabledItems: 1, inStockItems: 4, outOfStockItems: 1, customerPurchasableListings: 0, customerUnpurchasableListings: 6 });
     expect(await ctx.prisma.inventoryListing.count({ where: { deletedAt: null } })).toBe(6);
   });
 
@@ -151,7 +154,10 @@ describe('Admin inventory operations overview (e2e)', () => {
     expect(o.pharmacies.total).toBe(a.providers.pharmacies.total);
     expect(o.pharmacies.byTransactingStatus).toEqual(a.providers.pharmacies.byTransactingStatus);
     expect(o.pharmacies.eligible).toBe(a.providers.pharmacies.eligible);
-    expect(o.inventory).toEqual({
+    // Work 26's two fields have no Work 08 counterpart; every shared field still matches exactly.
+    const { customerPurchasableListings, customerUnpurchasableListings, ...shared } = o.inventory;
+    expect(customerPurchasableListings + customerUnpurchasableListings).toBe(a.providers.listings.total);
+    expect(shared).toEqual({
       totalTrackedItems: a.providers.listings.total,
       enabledItems: a.providers.listings.enabled,
       disabledItems: a.providers.listings.disabled,

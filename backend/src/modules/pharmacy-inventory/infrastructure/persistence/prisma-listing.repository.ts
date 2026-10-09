@@ -7,6 +7,7 @@ import {
   IListingRepository,
   ListingFilter,
 } from '../../domain/repositories/listing.repository';
+import { AVAILABLE_LISTING_FROM, availableListingWhere } from './listing-availability.sql';
 
 type Client = PrismaService | Prisma.TransactionClient;
 
@@ -145,18 +146,9 @@ export class PrismaListingRepository implements IListingRepository {
         il."storageRequirement" AS "storageRequirement",
         b."lat" AS "lat",
         b."lng" AS "lng"
-      FROM "inventory_listings" il
-      JOIN "pharmacies" p ON p."id" = il."pharmacyId"
-      JOIN "branches" b ON b."id" = il."branchId"
+      ${AVAILABLE_LISTING_FROM}
       WHERE il."catalogProductId" = ${catalogProductId}
-        AND il."isEnabled" = true
-        AND il."deletedAt" IS NULL
-        AND il."sellable" > 0
-        AND b."isActive" = true
-        AND p."deletedAt" IS NULL
-        AND p."transactingStatus" = 'ACTIVE'
-        AND p."licenseStatus" = 'VALID'
-        AND (p."licenseExpiresAt" IS NULL OR p."licenseExpiresAt" > ${now})
+        AND ${availableListingWhere(now)}
       LIMIT ${limit}
     `;
     return rows;

@@ -39,7 +39,11 @@ describe('Admin inventory operations overview (application)', () => {
   const overview = async () => {
     nows = [];
     const p: IPharmacyAnalyticsReadPort = { summarizeProviders: async (now) => (nows.push(now), providers) };
-    const a: IPharmacyStockAvailabilityReadPort = { summarizeStockAvailability: async (now) => (nows.push(now), availability) };
+    const a: IPharmacyStockAvailabilityReadPort = {
+      summarizeStockAvailability: async (now) => (nows.push(now), availability),
+      // Work 26: listing purchasability (admin-inventory-purchasability.spec.ts).
+      summarizeListingPurchasability: async () => ({ tracked: providers.listings.total, purchasable: 0, unpurchasable: providers.listings.total }),
+    };
     const c: ICatalogAnalyticsReadPort = { summarizeCatalog: async () => catalog };
     return toInventoryOperationsOverviewResponse(await new GetInventoryOperationsOverviewQuery(p, a, c).execute());
   };
@@ -61,7 +65,8 @@ describe('Admin inventory operations overview (application)', () => {
         eligibleWithAvailableStock: 0,
         eligibleWithoutAvailableStock: 0,
       },
-      inventory: { totalTrackedItems: 0, enabledItems: 0, disabledItems: 0, inStockItems: 0, outOfStockItems: 0 },
+      // Work 26 added the last two (admin-inventory-purchasability.spec.ts).
+      inventory: { totalTrackedItems: 0, enabledItems: 0, disabledItems: 0, inStockItems: 0, outOfStockItems: 0, customerPurchasableListings: 0, customerUnpurchasableListings: 0 },
       products: {
         total: 0,
         byStatus: ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED'].map((status) => ({ status, count: 0 })),
@@ -95,7 +100,8 @@ describe('Admin inventory operations overview (application)', () => {
   it('inventory counts follow Module 04’s listing semantics: enabled split by sellable > 0; disabled is neither', async () => {
     providers.listings = { total: 12, enabled: 10, disabled: 2, inStock: 7, outOfStock: 3 };
     const o = await overview();
-    expect(o.inventory).toEqual({ totalTrackedItems: 12, enabledItems: 10, disabledItems: 2, inStockItems: 7, outOfStockItems: 3 });
+    // Work 26 added the last two (admin-inventory-purchasability.spec.ts); this fake reports none purchasable.
+    expect(o.inventory).toEqual({ totalTrackedItems: 12, enabledItems: 10, disabledItems: 2, inStockItems: 7, outOfStockItems: 3, customerPurchasableListings: 0, customerUnpurchasableListings: 12 });
     expect(o.inventory.enabledItems + o.inventory.disabledItems).toBe(o.inventory.totalTrackedItems);
     expect(o.inventory.inStockItems + o.inventory.outOfStockItems).toBe(o.inventory.enabledItems);
   });
@@ -136,7 +142,8 @@ describe('Admin inventory operations overview (application)', () => {
     const o = await overview();
     expect(Object.keys(o)).toEqual(['generatedAt', 'pharmacies', 'inventory', 'products']);
     expect(Object.keys(o.pharmacies)).toEqual(['total', 'byTransactingStatus', 'eligible', 'eligibleWithAvailableStock', 'eligibleWithoutAvailableStock']);
-    expect(Object.keys(o.inventory)).toEqual(['totalTrackedItems', 'enabledItems', 'disabledItems', 'inStockItems', 'outOfStockItems']);
+    // Work 26 added the last two.
+    expect(Object.keys(o.inventory)).toEqual(['totalTrackedItems', 'enabledItems', 'disabledItems', 'inStockItems', 'outOfStockItems', 'customerPurchasableListings', 'customerUnpurchasableListings']);
     expect(Object.keys(o.products)).toEqual(['total', 'byStatus']);
     // Work 08's other sections (licence breakdown, branches) are not repeated here.
     expect(JSON.stringify(o)).not.toMatch(/license|branch|"id"|name|phone|email|address|price|onHand|reserved/i);

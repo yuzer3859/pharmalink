@@ -17,6 +17,8 @@ export interface InventoryOperationsOverviewResponse {
     disabledItems: number;
     inStockItems: number;
     outOfStockItems: number;
+    customerPurchasableListings: number;
+    customerUnpurchasableListings: number;
   };
   products: { total: number; byStatus: StatusCountResponse[] };
 }
@@ -40,6 +42,8 @@ export function toInventoryOperationsOverviewResponse(v: InventoryOperationsOver
       disabledItems: v.inventory.disabledItems,
       inStockItems: v.inventory.inStockItems,
       outOfStockItems: v.inventory.outOfStockItems,
+      customerPurchasableListings: v.inventory.customerPurchasableListings,
+      customerUnpurchasableListings: v.inventory.customerUnpurchasableListings,
     },
     products: { total: v.products.total, byStatus: buckets(v.products.byStatus) },
   };
