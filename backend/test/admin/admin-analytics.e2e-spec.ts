@@ -615,6 +615,8 @@ describe('Admin operational analytics (e2e)', () => {
       expect([...imports].sort()).toEqual([
         'catalog/application/ports/inbound/catalog-admin-read.port',
         'catalog/application/ports/inbound/catalog-analytics-read.port',
+        // Work 28: catalogue review approval (admin-catalog-approval.e2e-spec.ts).
+        'catalog/application/ports/inbound/catalog-review-approval.port',
         'catalog/catalog.module',
         'delivery/application/ports/inbound/cod-dispute-admin.port',
         'delivery/application/ports/inbound/cod-finance-read.port',

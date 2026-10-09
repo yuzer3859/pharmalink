@@ -15,6 +15,12 @@ export interface ChangeProductStatusInput {
   productId: string;
   status: string;
   reason?: string;
+  /**
+   * When set, the change applies only to a product in exactly this status — checked in the
+   * transaction and enforced again by the UPDATE itself (module-16 Work 28: approval requires
+   * `PENDING_REVIEW`). Anything else is `productNotInExpectedStatus` (409), nothing written.
+   */
+  expectedFrom?: ProductStatus;
 }
 
 /**
@@ -42,9 +48,12 @@ export class ChangeProductStatusCommand {
       }
 
       const from = found.status;
+      if (input.expectedFrom && from !== input.expectedFrom) {
+        throw CatalogErrors.productNotInExpectedStatus(input.expectedFrom, from);
+      }
       found.transitionStatus(input.status as ProductStatus);
 
-      await this.products.save(found, tx);
+      await this.products.save(found, tx, input.expectedFrom);
 
       await this.audit.record(
         {

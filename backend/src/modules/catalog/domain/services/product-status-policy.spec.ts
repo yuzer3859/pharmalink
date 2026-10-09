@@ -12,6 +12,8 @@ describe('ProductStatusPolicy', () => {
     [ProductStatus.DELISTED, ProductStatus.ACTIVE, false], // never direct
     [ProductStatus.DRAFT, ProductStatus.DELISTED, false],
     [ProductStatus.DRAFT, ProductStatus.PENDING_REVIEW, false],
+    [ProductStatus.PENDING_REVIEW, ProductStatus.ACTIVE, true], // module-16 Work 28: review approval
+    [ProductStatus.PENDING_REVIEW, ProductStatus.DELISTED, false],
     [ProductStatus.ACTIVE, ProductStatus.DRAFT, false],
   ])('%s -> %s is legal: %s', (from, to, expected) => {
     expect(ProductStatusPolicy.isLegalTransition(from, to)).toBe(expected);

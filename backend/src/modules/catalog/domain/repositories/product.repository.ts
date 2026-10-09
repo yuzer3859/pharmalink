@@ -1,5 +1,5 @@
 import { Product } from '../entities/product.entity';
-import { ProductType } from '../enums';
+import { ProductStatus, ProductType } from '../enums';
 
 export const PRODUCT_REPOSITORY = Symbol('PRODUCT_REPOSITORY');
 
@@ -48,7 +48,11 @@ export interface SearchProductsCriteria {
 export interface IProductRepository {
   findById(id: string, tx?: unknown): Promise<Product | null>;
   create(product: Product, tx?: unknown): Promise<void>;
-  save(product: Product, tx?: unknown): Promise<void>;
+  /**
+   * With `expectedStatus`, the write applies only while the stored row still has that status
+   * (module-16 Work 28); otherwise it throws `productNotInExpectedStatus` and writes nothing.
+   */
+  save(product: Product, tx?: unknown, expectedStatus?: ProductStatus): Promise<void>;
   /** Replaces this product's category assignments wholesale (§8.2 create/update flow). */
   setCategories(productId: string, categoryIds: string[], tx?: unknown): Promise<void>;
   /** Category ids currently assigned to a product (§8.1 detail view `categories[]`). */

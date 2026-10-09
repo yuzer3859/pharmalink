@@ -360,12 +360,12 @@ describe('Admin catalogue review (e2e)', () => {
   });
 
   describe('routes', () => {
-    it('adds nothing but GET /admin/catalog/review — no detail, approve, reject or write route', async () => {
+    // Work 28 added POST review/:productId/approve (PENDING_REVIEW only; admin-catalog-approval.e2e-spec.ts).
+    it('adds nothing but GET /admin/catalog/review (and Work 28’s approve) — no detail, reject or write route', async () => {
       const id = await createProduct();
       for (const [method, path] of [
         ['get', `/admin/catalog/review/${id}`],
         ['post', '/admin/catalog/review'],
-        ['post', `/admin/catalog/review/${id}/approve`],
         ['post', `/admin/catalog/review/${id}/reject`],
         ['patch', `/admin/catalog/review/${id}`],
         ['delete', `/admin/catalog/review/${id}`],

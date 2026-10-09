@@ -24,6 +24,10 @@ import { CATALOG_ANALYTICS_READ_PORT } from './application/ports/inbound/catalog
 import { PrismaCatalogAnalyticsReadAdapter } from './infrastructure/persistence/prisma-catalog-analytics-read.adapter';
 import { CATALOG_ADMIN_READ_PORT } from './application/ports/inbound/catalog-admin-read.port';
 import { PrismaCatalogAdminReadAdapter } from './infrastructure/persistence/prisma-catalog-admin-read.adapter';
+import {
+  CATALOG_REVIEW_APPROVAL_PORT,
+  CatalogReviewApprovalPortAdapter,
+} from './application/ports/inbound/catalog-review-approval.port';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { AdminCatalogController } from './interface/controllers/admin-catalog.controller';
 import { CatalogController } from './interface/controllers/catalog.controller';
@@ -47,8 +51,11 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     // Inbound read contract for Module 16's catalogue review list (module-16 Work 09): products
     // in one lifecycle status, paged, each with the transitions `ProductStatusPolicy` allows.
     // Read-only — the status writer stays `ChangeProductStatusCommand` behind this module's route.
-    // These two ports are the only things this module exports.
     { provide: CATALOG_ADMIN_READ_PORT, useClass: PrismaCatalogAdminReadAdapter },
+    // Inbound approval contract for Module 16's catalogue review (module-16 Work 28): PENDING_REVIEW
+    // -> ACTIVE only, through `ChangeProductStatusCommand` itself — not a second status writer.
+    // These three ports are the only things this module exports.
+    { provide: CATALOG_REVIEW_APPROVAL_PORT, useClass: CatalogReviewApprovalPortAdapter },
 
     // Application use cases — products
     CreateProductCommand,
@@ -70,6 +77,6 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     UpdateManufacturerCommand,
     ListManufacturersQuery,
   ],
-  exports: [CATALOG_ANALYTICS_READ_PORT, CATALOG_ADMIN_READ_PORT],
+  exports: [CATALOG_ANALYTICS_READ_PORT, CATALOG_ADMIN_READ_PORT, CATALOG_REVIEW_APPROVAL_PORT],
 })
 export class CatalogModule {}

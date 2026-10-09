@@ -27,6 +27,15 @@ export const CatalogErrors = {
       { from, to },
     ),
 
+  /**
+   * The product is not in the status the operation requires (module-16 Work 28: only a
+   * `PENDING_REVIEW` product can be approved). `CONFLICT`, not `INVALID_PRODUCT_STATUS_TRANSITION`:
+   * the target may well be a legal transition from the current status (`DRAFT -> ACTIVE` is) —
+   * this operation simply does not apply to it, or another request changed it first.
+   */
+  productNotInExpectedStatus: (expected: string, actual: string) =>
+    new ApiException(ErrorCode.CONFLICT, `Product is not ${expected}.`, { expected, status: actual }),
+
   manufacturerNotFound: () =>
     new ApiException(ErrorCode.MANUFACTURER_NOT_FOUND, 'Manufacturer not found.'),
 

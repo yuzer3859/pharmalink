@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Product as PrismaProduct } from '@prisma/client';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
+import { CatalogErrors } from '../../domain/errors';
 import { Product } from '../../domain/entities/product.entity';
 import {
   ControlledSchedule,
@@ -118,33 +119,44 @@ export class PrismaProductRepository implements IProductRepository {
     });
   }
 
-  async save(product: Product, tx?: unknown): Promise<void> {
+  async save(product: Product, tx?: unknown, expectedStatus?: ProductStatus): Promise<void> {
     const client = (tx as Client) ?? this.prisma;
     const props = product.toProps();
-    await client.product.update({
-      where: { id: props.id },
-      data: {
-        genericName: props.genericName,
-        brandName: props.brandName,
-        manufacturerId: props.manufacturerId,
-        dosageForm: props.dosageForm,
-        strengthValue: props.strengthValue,
-        strengthUnit: props.strengthUnit,
-        packSize: props.packSize,
-        atcCode: props.atcCode,
-        rxClassification: props.rxClassification as unknown as PrismaProduct['rxClassification'],
-        controlledSchedule: props.controlledSchedule as unknown as PrismaProduct['controlledSchedule'],
-        onlineSaleProhibited: props.onlineSaleProhibited,
-        storageRequirement: props.storageRequirement as unknown as PrismaProduct['storageRequirement'],
-        nameAm: props.nameAm,
-        nameEn: props.nameEn,
-        descriptionAm: props.descriptionAm,
-        descriptionEn: props.descriptionEn,
-        warnings: props.warnings,
-        price: props.price,
-        status: props.status as unknown as PrismaProduct['status'],
-      },
+    const data = {
+      genericName: props.genericName,
+      brandName: props.brandName,
+      manufacturerId: props.manufacturerId,
+      dosageForm: props.dosageForm,
+      strengthValue: props.strengthValue,
+      strengthUnit: props.strengthUnit,
+      packSize: props.packSize,
+      atcCode: props.atcCode,
+      rxClassification: props.rxClassification as unknown as PrismaProduct['rxClassification'],
+      controlledSchedule: props.controlledSchedule as unknown as PrismaProduct['controlledSchedule'],
+      onlineSaleProhibited: props.onlineSaleProhibited,
+      storageRequirement: props.storageRequirement as unknown as PrismaProduct['storageRequirement'],
+      nameAm: props.nameAm,
+      nameEn: props.nameEn,
+      descriptionAm: props.descriptionAm,
+      descriptionEn: props.descriptionEn,
+      warnings: props.warnings,
+      price: props.price,
+      status: props.status as unknown as PrismaProduct['status'],
+    };
+    if (!expectedStatus) {
+      await client.product.update({ where: { id: props.id }, data });
+      return;
+    }
+    // Guarded write (module-16 Work 28): the row changes only while it still holds `expectedStatus`
+    // — the precondition enforced by the UPDATE itself, not just by the read before it.
+    const { count } = await client.product.updateMany({
+      where: { id: props.id, status: expectedStatus as unknown as PrismaProduct['status'] },
+      data,
     });
+    if (count !== 1) {
+      const current = await client.product.findUnique({ where: { id: props.id }, select: { status: true } });
+      throw CatalogErrors.productNotInExpectedStatus(expectedStatus, String(current?.status ?? 'UNKNOWN'));
+    }
   }
 
   async setCategories(productId: string, categoryIds: string[], tx?: unknown): Promise<void> {

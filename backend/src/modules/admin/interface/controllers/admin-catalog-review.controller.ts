@@ -22,7 +22,9 @@ import { CatalogReviewListResponse, toCatalogReviewListResponse } from '../dtos/
  *   transition, and `POST /admin/catalog/products/:id/status` performs it with its own state
  *   machine, audit entry and outbox event in one transaction. Wrapping it here would write a
  *   second audit row for one decision and offer two routes for one command. Each row's
- *   `allowedTransitions` tells the caller what that route will accept.
+ *   `allowedTransitions` tells the caller what that route will accept. (Work 28 later added
+ *   `POST review/:productId/approve` in `AdminCatalogApprovalController` — the `PENDING_REVIEW ->
+ *   ACTIVE` decision only, delegated to that same command, with Module 03's one audit row.)
  *
  * ## Authorization — `catalog:manage:any`
  *
