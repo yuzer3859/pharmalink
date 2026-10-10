@@ -215,11 +215,9 @@ describe('Catalog — Product CRUD, classification and status (e2e)', () => {
     const row = await ctx.prisma.product.findUniqueOrThrow({ where: { id: created.id as string } });
     expect(row.price).toBe(2500);
 
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${created.id as string}/status`)
-      .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${created.id as string}/submit`).set(...auth(a.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${created.id as string}/approve`).set(...auth(a.accessToken)).expect(200);
 
     const publicRead = body(
       await request(ctx.server).get(`/catalog/products/${created.id as string}`).expect(200),
@@ -340,11 +338,9 @@ describe('Catalog — Product CRUD, classification and status (e2e)', () => {
     const draftRead = await request(ctx.server).get(`/catalog/products/${id}`);
     expect(draftRead.status).toBe(404);
 
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${id}/status`)
-      .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${id}/submit`).set(...auth(a.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${id}/approve`).set(...auth(a.accessToken)).expect(200);
 
     const activeRead = await request(ctx.server).get(`/catalog/products/${id}`).expect(200);
     expect(body(activeRead).id).toBe(id);
@@ -360,11 +356,9 @@ describe('Catalog — Product CRUD, classification and status (e2e)', () => {
       .expect(201);
     const id = body(created).id as string;
 
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${id}/status`)
-      .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${id}/submit`).set(...auth(a.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${id}/approve`).set(...auth(a.accessToken)).expect(200);
     await request(ctx.server)
       .post(`/admin/catalog/products/${id}/status`)
       .set(...auth(a.accessToken))
@@ -385,11 +379,18 @@ describe('Catalog — Product CRUD, classification and status (e2e)', () => {
       .expect(200);
     expect(body(recovered).status).toBe('DRAFT');
 
-    // Fully re-activatable only via the normal DRAFT -> ACTIVE transition.
-    const reactivated = await request(ctx.server)
+    // Fully re-activatable only via review (module-16 Work 30): DRAFT -> ACTIVE is refused,
+    // submit (DRAFT -> PENDING_REVIEW) then approve (-> ACTIVE) succeeds.
+    const direct = await request(ctx.server)
       .post(`/admin/catalog/products/${id}/status`)
       .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
+      .send({ status: 'ACTIVE' });
+    expect(direct.status).toBe(422);
+    expect(errorOf(direct).code).toBe('INVALID_PRODUCT_STATUS_TRANSITION');
+    await request(ctx.server).post(`/admin/catalog/review/${id}/submit`).set(...auth(a.accessToken)).expect(200);
+    const reactivated = await request(ctx.server)
+      .post(`/admin/catalog/review/${id}/approve`)
+      .set(...auth(a.accessToken))
       .expect(200);
     expect(body(reactivated).status).toBe('ACTIVE');
   });
@@ -404,11 +405,9 @@ describe('Catalog — Product CRUD, classification and status (e2e)', () => {
       .expect(201);
     const id = body(created).id as string;
 
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${id}/status`)
-      .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${id}/submit`).set(...auth(a.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${id}/approve`).set(...auth(a.accessToken)).expect(200);
     await request(ctx.server)
       .post(`/admin/catalog/products/${id}/status`)
       .set(...auth(a.accessToken))
@@ -432,11 +431,9 @@ describe('Catalog — Product CRUD, classification and status (e2e)', () => {
       .set(...auth(a.accessToken))
       .send(medicineDto({ manufacturerId: mfrId }))
       .expect(201);
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${body(created).id}/status`)
-      .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${body(created).id}/submit`).set(...auth(a.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${body(created).id}/approve`).set(...auth(a.accessToken)).expect(200);
 
     const res = await request(ctx.server).get('/catalog/products?q=amox').expect(200);
     const data = body(res) as { items: Array<{ id: string }>; meta: { total: number } };

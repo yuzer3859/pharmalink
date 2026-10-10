@@ -138,14 +138,24 @@ describe('Product entity', () => {
   });
 
   describe('transitionStatus', () => {
-    it('allows DRAFT -> ACTIVE', () => {
+    it('rejects DRAFT -> ACTIVE directly (module-16 Work 30), leaving the product a DRAFT', () => {
       const product = Product.create('p-1', validMedicineInput());
+      expect(() => product.transitionStatus(ProductStatus.ACTIVE)).toThrow(
+        expect.objectContaining({ code: 'INVALID_PRODUCT_STATUS_TRANSITION' }),
+      );
+      expect(product.status).toBe(ProductStatus.DRAFT);
+    });
+
+    it('publishes only through review: DRAFT -> PENDING_REVIEW -> ACTIVE', () => {
+      const product = Product.create('p-1', validMedicineInput());
+      product.transitionStatus(ProductStatus.PENDING_REVIEW);
       product.transitionStatus(ProductStatus.ACTIVE);
       expect(product.status).toBe(ProductStatus.ACTIVE);
     });
 
     it('rejects DELISTED -> ACTIVE directly, but allows DELISTED -> DRAFT (§14.3)', () => {
       const product = Product.create('p-1', validMedicineInput());
+      product.transitionStatus(ProductStatus.PENDING_REVIEW);
       product.transitionStatus(ProductStatus.ACTIVE);
       product.transitionStatus(ProductStatus.DELISTED);
 

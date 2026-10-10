@@ -57,8 +57,12 @@ describe('Admin catalogue review approval (e2e)', () => {
       await ctx.prisma.product.update({ where: { id }, data: { status: 'PENDING_REVIEW' } });
       return id;
     }
-    const path: Record<string, string[]> = { DRAFT: [], ACTIVE: ['ACTIVE'], DEPRECATED: ['ACTIVE', 'DEPRECATED'], DELISTED: ['ACTIVE', 'DELISTED'] };
-    for (const step of path[status]) await changeStatus(id, step).expect(200);
+    if (status === 'DRAFT') return id;
+    // Published only through review (Work 30): submit and approve, then the generic route.
+    await request(ctx.server).post(`/admin/catalog/review/${id}/submit`).set(...auth(admin.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${id}/approve`).set(...auth(admin.accessToken)).expect(200);
+    const rest: Record<string, string[]> = { ACTIVE: [], DEPRECATED: ['DEPRECATED'], DELISTED: ['DELISTED'] };
+    for (const step of rest[status]) await changeStatus(id, step).expect(200);
     return id;
   }
   const approvals = (id: string) => ctx.prisma.auditLog.findMany({ where: { action: 'PRODUCT_STATUS_CHANGED', resourceId: id } });

@@ -50,11 +50,12 @@ describe('Admin catalogue review submission (e2e)', () => {
   }
   async function productIn(status: string): Promise<string> {
     const id = await createProduct();
-    const path: Record<string, string[]> = { DRAFT: [], ACTIVE: ['ACTIVE'], DEPRECATED: ['ACTIVE', 'DEPRECATED'], DELISTED: ['ACTIVE', 'DELISTED'] };
-    if (status === 'PENDING_REVIEW') {
-      await post(submitPath(id)).expect(200);
-      return id;
-    }
+    if (status === 'DRAFT') return id;
+    await post(submitPath(id)).expect(200);
+    if (status === 'PENDING_REVIEW') return id;
+    // Published only through review (Work 30): approve, then the generic route.
+    await post(approvePath(id)).expect(200);
+    const path: Record<string, string[]> = { ACTIVE: [], DEPRECATED: ['DEPRECATED'], DELISTED: ['DELISTED'] };
     for (const step of path[status]) {
       await request(ctx.server).post(`/admin/catalog/products/${id}/status`).set(...auth(admin.accessToken)).send({ status: step }).expect(200);
     }
@@ -72,7 +73,8 @@ describe('Admin catalogue review submission (e2e)', () => {
     const inventoryBefore = await inventoryCounts();
     // 1. Created through the established application path.
     const id = await createProduct();
-    expect((await review('DRAFT')).map((i) => [i.id, i.allowedTransitions])).toEqual([[id, ['PENDING_REVIEW', 'ACTIVE']]]);
+    // Work 30 closed DRAFT → ACTIVE: review is a draft's only way out.
+    expect((await review('DRAFT')).map((i) => [i.id, i.allowedTransitions])).toEqual([[id, ['PENDING_REVIEW']]]);
 
     // 2–3. Submitted: PENDING_REVIEW.
     const submitted = body(await post(submitPath(id)).expect(200)) as Record<string, unknown>;

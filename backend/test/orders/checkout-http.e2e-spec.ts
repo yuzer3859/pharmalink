@@ -112,11 +112,9 @@ describe('Orders — POST /checkout HTTP interface (e2e)', () => {
     );
     const productId = product.id as string;
 
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${productId}/status`)
-      .set(...auth(admin.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${productId}/submit`).set(...auth(admin.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${productId}/approve`).set(...auth(admin.accessToken)).expect(200);
 
     return productId;
   }
@@ -1166,11 +1164,9 @@ describe('Orders — POST /checkout insufficient-stock propagation (e2e)', () =>
         .send({ type: 'HEALTH_PRODUCT', nameEn: 'Vitamin C 500mg', price: 2500 })
         .expect(201),
     );
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${product.id as string}/status`)
-      .set(...auth(admin.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${product.id as string}/submit`).set(...auth(admin.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${product.id as string}/approve`).set(...auth(admin.accessToken)).expect(200);
 
     const address = body(
       await request(ctx.server)

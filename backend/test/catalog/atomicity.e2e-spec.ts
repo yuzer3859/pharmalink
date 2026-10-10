@@ -177,29 +177,36 @@ describe('Catalog mutation atomicity — state + audit + outbox (e2e, AC-7)', ()
         .expect(201),
     );
 
+    // A draft is published only through review (module-16 Work 30) — two committed status changes —
+    // so the transition under test is the next one this route performs: ACTIVE -> DEPRECATED.
+    await request(ctx.server).post(`/admin/catalog/review/${created.id}/submit`).set(...auth(a.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${created.id}/approve`).set(...auth(a.accessToken)).expect(200);
+    const committed = await ctx.prisma.auditLog.count({ where: { action: 'PRODUCT_STATUS_CHANGED', resourceId: created.id as string } });
+    expect(committed).toBe(2);
+
     poisonedOutbox.armed = true;
     const failed = await request(ctx.server)
       .post(`/admin/catalog/products/${created.id}/status`)
       .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' });
+      .send({ status: 'DEPRECATED' });
     expect(failed.status).toBe(500);
 
     const afterFailure = await ctx.prisma.product.findUniqueOrThrow({ where: { id: created.id as string } });
-    expect(afterFailure.status).toBe('DRAFT');
+    expect(afterFailure.status).toBe('ACTIVE');
     expect(
       await ctx.prisma.auditLog.count({ where: { action: 'PRODUCT_STATUS_CHANGED', resourceId: created.id as string } }),
-    ).toBe(0);
+    ).toBe(committed);
 
     await request(ctx.server)
       .post(`/admin/catalog/products/${created.id}/status`)
       .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
+      .send({ status: 'DEPRECATED' })
       .expect(200);
 
     const afterSuccess = await ctx.prisma.product.findUniqueOrThrow({ where: { id: created.id as string } });
-    expect(afterSuccess.status).toBe('ACTIVE');
+    expect(afterSuccess.status).toBe('DEPRECATED');
     expect(
       await ctx.prisma.auditLog.count({ where: { action: 'PRODUCT_STATUS_CHANGED', resourceId: created.id as string } }),
-    ).toBe(1);
+    ).toBe(committed + 1);
   });
 });

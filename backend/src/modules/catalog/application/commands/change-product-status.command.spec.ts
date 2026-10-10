@@ -46,20 +46,35 @@ function newProduct(status: ProductStatus = ProductStatus.DRAFT): Product {
     nameEn: 'Amoxicillin 500mg',
   });
   if (status !== ProductStatus.DRAFT) {
-    product.transitionStatus(ProductStatus.ACTIVE);
-    if (status !== ProductStatus.ACTIVE) {
-      product.transitionStatus(status);
+    // Published only through review (module-16 Work 30).
+    product.transitionStatus(ProductStatus.PENDING_REVIEW);
+    if (status !== ProductStatus.PENDING_REVIEW) {
+      product.transitionStatus(ProductStatus.ACTIVE);
+      if (status !== ProductStatus.ACTIVE) {
+        product.transitionStatus(status);
+      }
     }
   }
   return product;
 }
 
 describe('ChangeProductStatusCommand', () => {
-  it('allows DRAFT -> ACTIVE', async () => {
+  it('rejects DRAFT -> ACTIVE directly (422; module-16 Work 30) — nothing saved, audited or published', async () => {
     const product = newProduct(ProductStatus.DRAFT);
-    const { command } = build(product);
-    const result = await command.execute({ actorUserId: 'admin-1', productId: 'p-1', status: 'ACTIVE' });
-    expect(result.status).toBe('ACTIVE');
+    const { command, products, audit, outbox } = build(product);
+    await expect(
+      command.execute({ actorUserId: 'admin-1', productId: 'p-1', status: 'ACTIVE' }),
+    ).rejects.toMatchObject({ code: 'INVALID_PRODUCT_STATUS_TRANSITION' });
+    expect(products.save).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(outbox.write).not.toHaveBeenCalled();
+  });
+
+  it('allows DRAFT -> PENDING_REVIEW and PENDING_REVIEW -> ACTIVE', async () => {
+    const submitted = await build(newProduct(ProductStatus.DRAFT)).command.execute({ actorUserId: 'admin-1', productId: 'p-1', status: 'PENDING_REVIEW' });
+    expect(submitted.status).toBe('PENDING_REVIEW');
+    const approved = await build(newProduct(ProductStatus.PENDING_REVIEW)).command.execute({ actorUserId: 'admin-1', productId: 'p-1', status: 'ACTIVE' });
+    expect(approved.status).toBe('ACTIVE');
   });
 
   it('rejects DELISTED -> ACTIVE directly (422)', async () => {
@@ -86,13 +101,13 @@ describe('ChangeProductStatusCommand', () => {
   });
 
   it('writes an audit entry and a ProductStatusChanged event with from/to/reason', async () => {
-    const product = newProduct(ProductStatus.DRAFT);
+    const product = newProduct(ProductStatus.PENDING_REVIEW);
     const { command, audit, outbox } = build(product);
     await command.execute({ actorUserId: 'admin-1', productId: 'p-1', status: 'ACTIVE', reason: 'Reviewed' });
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'PRODUCT_STATUS_CHANGED',
-        context: { from: 'DRAFT', to: 'ACTIVE', reason: 'Reviewed' },
+        context: { from: 'PENDING_REVIEW', to: 'ACTIVE', reason: 'Reviewed' },
       }),
       undefined,
     );

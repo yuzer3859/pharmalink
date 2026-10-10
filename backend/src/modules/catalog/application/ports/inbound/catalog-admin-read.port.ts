@@ -42,9 +42,11 @@ export interface CatalogAdminProductRow {
   price: number | null;
   status: ProductStatus;
   /**
-   * The statuses `POST /admin/catalog/products/:id/status` will accept from this one, as
-   * `ProductStatusPolicy` defines them, in `ProductStatus` declaration order. Computed by Module
-   * 03 so that no consumer keeps a copy of the state machine.
+   * The statuses `ProductStatusPolicy` allows from this one, in `ProductStatus` declaration order.
+   * `POST /admin/catalog/products/:id/status` accepts each of them except `PENDING_REVIEW`, which
+   * is entered only through `POST /admin/catalog/review/:productId/submit` (module-16 Work 29) — so a
+   * DRAFT, whose only allowed transition it is since Work 30, leaves only through review. Computed
+   * by Module 03 so that no consumer keeps a copy of the state machine.
    */
   allowedTransitions: ProductStatus[];
   createdAt: Date;

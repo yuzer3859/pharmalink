@@ -116,7 +116,8 @@ describe('Admin catalogue review approval (application)', () => {
     for (const from of Object.values(ProductStatus)) {
       expect({ from, legal: ProductStatusPolicy.isLegalTransition(from, ProductStatus.PENDING_REVIEW) }).toEqual({ from, legal: from === ProductStatus.DRAFT });
     }
-    expect(ProductStatusPolicy.isLegalTransition(ProductStatus.DRAFT, ProductStatus.ACTIVE)).toBe(true); // unchanged
+    // Work 30: a draft is published only through review.
+    expect(ProductStatusPolicy.isLegalTransition(ProductStatus.DRAFT, ProductStatus.ACTIVE)).toBe(false);
   });
 
   it('approves a pending product: exactly PENDING_REVIEW → ACTIVE, every other field untouched', async () => {

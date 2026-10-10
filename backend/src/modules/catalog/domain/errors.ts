@@ -30,7 +30,7 @@ export const CatalogErrors = {
   /**
    * The product is not in the status the operation requires (module-16 Work 28: only a
    * `PENDING_REVIEW` product can be approved). `CONFLICT`, not `INVALID_PRODUCT_STATUS_TRANSITION`:
-   * the target may well be a legal transition from the current status (`DRAFT -> ACTIVE` is) —
+   * the target may well be a legal transition from the current status (`DEPRECATED -> ACTIVE` is) —
    * this operation simply does not apply to it, or another request changed it first.
    */
   productNotInExpectedStatus: (expected: string, actual: string) =>

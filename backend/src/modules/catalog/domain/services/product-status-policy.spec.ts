@@ -3,7 +3,7 @@ import { ProductStatusPolicy } from './product-status-policy';
 
 describe('ProductStatusPolicy', () => {
   it.each([
-    [ProductStatus.DRAFT, ProductStatus.ACTIVE, true],
+    [ProductStatus.DRAFT, ProductStatus.ACTIVE, false], // module-16 Work 30: only through review
     [ProductStatus.ACTIVE, ProductStatus.DEPRECATED, true],
     [ProductStatus.ACTIVE, ProductStatus.DELISTED, true],
     [ProductStatus.DEPRECATED, ProductStatus.ACTIVE, true],

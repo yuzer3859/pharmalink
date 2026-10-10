@@ -88,11 +88,9 @@ export async function createPricedProduct(
   );
   const productId = product.id as string;
 
-  await request(ctx.server)
-    .post(`/admin/catalog/products/${productId}/status`)
-    .set(...auth(admin.accessToken))
-    .send({ status: 'ACTIVE' })
-    .expect(200);
+  // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+  await request(ctx.server).post(`/admin/catalog/review/${productId}/submit`).set(...auth(admin.accessToken)).expect(200);
+  await request(ctx.server).post(`/admin/catalog/review/${productId}/approve`).set(...auth(admin.accessToken)).expect(200);
 
   return productId;
 }

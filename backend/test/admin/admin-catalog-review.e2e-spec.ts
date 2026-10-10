@@ -103,16 +103,18 @@ describe('Admin catalogue review (e2e)', () => {
       .set(...auth(admin.accessToken))
       .send({ status, reason: 'e2e' });
 
-  /** The shortest legal path from DRAFT to `status` through Module 03's route. */
+  /**
+   * The shortest legal path from DRAFT to `status`. A draft is published only through review
+   * (Work 30): submit and approve (Works 29/28) — the generic route takes no DRAFT out — then
+   * Module 03's generic route for the rest.
+   */
   async function productIn(status: string, overrides: Record<string, unknown> = {}): Promise<string> {
     const id = await createProduct(overrides);
-    const path: Record<string, string[]> = {
-      DRAFT: [],
-      ACTIVE: ['ACTIVE'],
-      DEPRECATED: ['ACTIVE', 'DEPRECATED'],
-      DELISTED: ['ACTIVE', 'DELISTED'],
-    };
-    for (const step of path[status]) {
+    if (status === 'DRAFT') return id;
+    await request(ctx.server).post(`/admin/catalog/review/${id}/submit`).set(...auth(admin.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${id}/approve`).set(...auth(admin.accessToken)).expect(200);
+    const rest: Record<string, string[]> = { ACTIVE: [], DEPRECATED: ['DEPRECATED'], DELISTED: ['DELISTED'] };
+    for (const step of rest[status]) {
       await changeStatus(id, step).expect(200);
     }
     return id;
@@ -149,8 +151,8 @@ describe('Admin catalogue review (e2e)', () => {
         manufacturerName: 'Acme Pharma',
         price: null,
         status: 'DRAFT',
-        // Work 29 added DRAFT → PENDING_REVIEW (declaration order: PENDING_REVIEW before ACTIVE).
-        allowedTransitions: ['PENDING_REVIEW', 'ACTIVE'],
+        // Work 29 added DRAFT → PENDING_REVIEW; Work 30 closed DRAFT → ACTIVE.
+        allowedTransitions: ['PENDING_REVIEW'],
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
       });
@@ -162,8 +164,8 @@ describe('Admin catalogue review (e2e)', () => {
         ids[status] = await productIn(status);
       }
       const expected: Record<string, string[]> = {
-        // Work 29 added DRAFT → PENDING_REVIEW; Work 28 added PENDING_REVIEW → ACTIVE.
-        DRAFT: ['PENDING_REVIEW', 'ACTIVE'],
+        // Work 29 added DRAFT → PENDING_REVIEW, Work 30 closed DRAFT → ACTIVE; Work 28 added PENDING_REVIEW → ACTIVE.
+        DRAFT: ['PENDING_REVIEW'],
         PENDING_REVIEW: ['ACTIVE'],
         ACTIVE: ['DEPRECATED', 'DELISTED'],
         DEPRECATED: ['ACTIVE', 'DELISTED'],
@@ -247,13 +249,15 @@ describe('Admin catalogue review (e2e)', () => {
     });
 
     it('a decision moves the product between lists, with exactly one audit entry — Module 03’s', async () => {
-      const id = await createProduct();
+      // A DRAFT has no decision on this route since Work 30 (it leaves only through review), so the
+      // decision here is an ACTIVE product's: deprecation.
+      const id = await productIn('ACTIVE');
       const before = new Set((await ctx.prisma.auditLog.findMany({ select: { id: true } })).map((a) => a.id));
 
-      await changeStatus(id, 'ACTIVE').expect(200);
+      await changeStatus(id, 'DEPRECATED').expect(200);
 
-      expect((await read()).items.map((i) => i.id)).toEqual([]);
-      expect((await read({ status: 'ACTIVE' })).items.map((i) => i.id)).toEqual([id]);
+      expect((await read({ status: 'ACTIVE' })).items.map((i) => i.id)).toEqual([]);
+      expect((await read({ status: 'DEPRECATED' })).items.map((i) => i.id)).toEqual([id]);
       const written = (await ctx.prisma.auditLog.findMany()).filter((a) => !before.has(a.id));
       expect(written.map((a) => [a.action, a.resourceType, a.resourceId, a.actorUserId])).toEqual([
         ['PRODUCT_STATUS_CHANGED', 'Product', id, admin.userId],
@@ -269,10 +273,10 @@ describe('Admin catalogue review (e2e)', () => {
     });
 
     it('a replayed decision is refused by Module 03 the second time, and audited once', async () => {
-      const id = await createProduct();
+      const id = await productIn('ACTIVE');
       const before = await ctx.prisma.auditLog.count();
-      await changeStatus(id, 'ACTIVE').expect(200);
-      const replay = await changeStatus(id, 'ACTIVE').expect(422);
+      await changeStatus(id, 'DEPRECATED').expect(200);
+      const replay = await changeStatus(id, 'DEPRECATED').expect(422);
       expect(errorOf(replay).code).toBe(ErrorCode.INVALID_PRODUCT_STATUS_TRANSITION);
       expect(await ctx.prisma.auditLog.count()).toBe(before + 1);
     });

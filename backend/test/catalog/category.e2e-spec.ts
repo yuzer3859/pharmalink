@@ -99,11 +99,9 @@ describe('Catalog — Category tree, cycle guard and disable (e2e)', () => {
         })
         .expect(201),
     );
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${product.id}/status`)
-      .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${product.id}/submit`).set(...auth(a.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${product.id}/approve`).set(...auth(a.accessToken)).expect(200);
 
     const blocked = await request(ctx.server)
       .delete(`/admin/catalog/categories/${category.id}`)
@@ -170,11 +168,9 @@ describe('Catalog — Category tree, cycle guard and disable (e2e)', () => {
         })
         .expect(201),
     );
-    await request(ctx.server)
-      .post(`/admin/catalog/products/${product.id}/status`)
-      .set(...auth(a.accessToken))
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+    // Published only through catalogue review (module-16 Work 30): submit (DRAFT -> PENDING_REVIEW), then approve (-> ACTIVE).
+    await request(ctx.server).post(`/admin/catalog/review/${product.id}/submit`).set(...auth(a.accessToken)).expect(200);
+    await request(ctx.server).post(`/admin/catalog/review/${product.id}/approve`).set(...auth(a.accessToken)).expect(200);
 
     const inA = body(await request(ctx.server).get(`/catalog/categories/${catA.id}/products`).expect(200)) as {
       items: Array<{ id: string }>;

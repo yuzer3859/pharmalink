@@ -110,9 +110,9 @@ describe('Admin catalogue review submission (application)', () => {
     }
   };
 
-  it('the lifecycle gains exactly DRAFT → PENDING_REVIEW; DRAFT → ACTIVE and PENDING_REVIEW → ACTIVE are unchanged', () => {
+  it('the lifecycle has DRAFT → PENDING_REVIEW and PENDING_REVIEW → ACTIVE; DRAFT → ACTIVE is closed (Work 30)', () => {
     expect(ProductStatusPolicy.isLegalTransition(ProductStatus.DRAFT, ProductStatus.PENDING_REVIEW)).toBe(true);
-    expect(ProductStatusPolicy.isLegalTransition(ProductStatus.DRAFT, ProductStatus.ACTIVE)).toBe(true);
+    expect(ProductStatusPolicy.isLegalTransition(ProductStatus.DRAFT, ProductStatus.ACTIVE)).toBe(false);
     expect(ProductStatusPolicy.isLegalTransition(ProductStatus.PENDING_REVIEW, ProductStatus.ACTIVE)).toBe(true);
     for (const from of [ProductStatus.ACTIVE, ProductStatus.DEPRECATED, ProductStatus.DELISTED, ProductStatus.PENDING_REVIEW]) {
       expect({ from, legal: ProductStatusPolicy.isLegalTransition(from, ProductStatus.PENDING_REVIEW) }).toEqual({ from, legal: false });
