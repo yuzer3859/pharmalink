@@ -10,10 +10,10 @@ const approvePath = (id: string) => `/admin/catalog/review/${id}/approve`;
  * Module 16 Work 28 against real PostgreSQL: approving a product under catalogue review through
  * Module 03's own status command.
  *
- * Limitation, by design: no Module 03 transition or route leads into `PENDING_REVIEW` yet (the
- * submission workflow is a future, separately scoped work). Products are therefore created through
- * Module 03's route (as `DRAFT`) and placed in `PENDING_REVIEW` directly in the database — the one
- * thing an application path cannot do today.
+ * Products are created through Module 03's route (as `DRAFT`) and placed in `PENDING_REVIEW` directly
+ * in the database, so each test's audit and outbox counts are the approval's alone. The application
+ * path into `PENDING_REVIEW` — Work 29's submission — and the whole create → submit → approve
+ * workflow are covered in admin-catalog-submission.e2e-spec.ts.
  */
 describe('Admin catalogue review approval (e2e)', () => {
   let ctx: TestContext;

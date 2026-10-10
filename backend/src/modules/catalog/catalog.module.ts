@@ -28,6 +28,10 @@ import {
   CATALOG_REVIEW_APPROVAL_PORT,
   CatalogReviewApprovalPortAdapter,
 } from './application/ports/inbound/catalog-review-approval.port';
+import {
+  CATALOG_REVIEW_SUBMISSION_PORT,
+  CatalogReviewSubmissionPortAdapter,
+} from './application/ports/inbound/catalog-review-submission.port';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { AdminCatalogController } from './interface/controllers/admin-catalog.controller';
 import { CatalogController } from './interface/controllers/catalog.controller';
@@ -54,8 +58,11 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     { provide: CATALOG_ADMIN_READ_PORT, useClass: PrismaCatalogAdminReadAdapter },
     // Inbound approval contract for Module 16's catalogue review (module-16 Work 28): PENDING_REVIEW
     // -> ACTIVE only, through `ChangeProductStatusCommand` itself — not a second status writer.
-    // These three ports are the only things this module exports.
     { provide: CATALOG_REVIEW_APPROVAL_PORT, useClass: CatalogReviewApprovalPortAdapter },
+    // Inbound submission contract for Module 16's catalogue review (module-16 Work 29): DRAFT ->
+    // PENDING_REVIEW only, through `ChangeProductStatusCommand` itself — not a second status writer.
+    // These four ports are the only things this module exports.
+    { provide: CATALOG_REVIEW_SUBMISSION_PORT, useClass: CatalogReviewSubmissionPortAdapter },
 
     // Application use cases — products
     CreateProductCommand,
@@ -77,6 +84,6 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     UpdateManufacturerCommand,
     ListManufacturersQuery,
   ],
-  exports: [CATALOG_ANALYTICS_READ_PORT, CATALOG_ADMIN_READ_PORT, CATALOG_REVIEW_APPROVAL_PORT],
+  exports: [CATALOG_ANALYTICS_READ_PORT, CATALOG_ADMIN_READ_PORT, CATALOG_REVIEW_APPROVAL_PORT, CATALOG_REVIEW_SUBMISSION_PORT],
 })
 export class CatalogModule {}

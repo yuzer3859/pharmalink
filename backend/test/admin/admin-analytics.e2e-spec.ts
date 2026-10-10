@@ -617,6 +617,8 @@ describe('Admin operational analytics (e2e)', () => {
         'catalog/application/ports/inbound/catalog-analytics-read.port',
         // Work 28: catalogue review approval (admin-catalog-approval.e2e-spec.ts).
         'catalog/application/ports/inbound/catalog-review-approval.port',
+        // Work 29: catalogue review submission (admin-catalog-submission.e2e-spec.ts).
+        'catalog/application/ports/inbound/catalog-review-submission.port',
         'catalog/catalog.module',
         'delivery/application/ports/inbound/cod-dispute-admin.port',
         'delivery/application/ports/inbound/cod-finance-read.port',

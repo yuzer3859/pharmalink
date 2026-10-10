@@ -25,8 +25,7 @@ export interface ApproveCatalogProductInput {
  * decision is exactly what Work 09 declined to write. Module 03's errors pass through unchanged:
  * unknown → 404, not `PENDING_REVIEW` (or approved concurrently) → 409.
  *
- * Limitation: nothing puts a product into `PENDING_REVIEW` yet (the submission workflow is a future
- * work), so through the normal lifecycle this has no product to approve.
+ * Products reach `PENDING_REVIEW` through `POST /admin/catalog/review/:productId/submit` (Work 29).
  */
 @Injectable()
 export class ApproveCatalogProductCommand {

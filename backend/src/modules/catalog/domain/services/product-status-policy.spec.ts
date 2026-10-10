@@ -11,7 +11,9 @@ describe('ProductStatusPolicy', () => {
     [ProductStatus.DELISTED, ProductStatus.DRAFT, true], // §14.3 resolved recovery transition
     [ProductStatus.DELISTED, ProductStatus.ACTIVE, false], // never direct
     [ProductStatus.DRAFT, ProductStatus.DELISTED, false],
-    [ProductStatus.DRAFT, ProductStatus.PENDING_REVIEW, false],
+    [ProductStatus.DRAFT, ProductStatus.PENDING_REVIEW, true], // module-16 Work 29: submission for review
+    [ProductStatus.ACTIVE, ProductStatus.PENDING_REVIEW, false],
+    [ProductStatus.DELISTED, ProductStatus.PENDING_REVIEW, false],
     [ProductStatus.PENDING_REVIEW, ProductStatus.ACTIVE, true], // module-16 Work 28: review approval
     [ProductStatus.PENDING_REVIEW, ProductStatus.DELISTED, false],
     [ProductStatus.ACTIVE, ProductStatus.DRAFT, false],

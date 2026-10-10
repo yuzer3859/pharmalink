@@ -149,7 +149,8 @@ describe('Admin catalogue review (e2e)', () => {
         manufacturerName: 'Acme Pharma',
         price: null,
         status: 'DRAFT',
-        allowedTransitions: ['ACTIVE'],
+        // Work 29 added DRAFT → PENDING_REVIEW (declaration order: PENDING_REVIEW before ACTIVE).
+        allowedTransitions: ['PENDING_REVIEW', 'ACTIVE'],
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
       });
@@ -161,8 +162,9 @@ describe('Admin catalogue review (e2e)', () => {
         ids[status] = await productIn(status);
       }
       const expected: Record<string, string[]> = {
-        DRAFT: ['ACTIVE'],
-        PENDING_REVIEW: [],
+        // Work 29 added DRAFT → PENDING_REVIEW; Work 28 added PENDING_REVIEW → ACTIVE.
+        DRAFT: ['PENDING_REVIEW', 'ACTIVE'],
+        PENDING_REVIEW: ['ACTIVE'],
         ACTIVE: ['DEPRECATED', 'DELISTED'],
         DEPRECATED: ['ACTIVE', 'DELISTED'],
         DELISTED: ['DRAFT'],
@@ -170,7 +172,7 @@ describe('Admin catalogue review (e2e)', () => {
       for (const status of STATUSES) {
         const view = await read({ status });
         if (status === 'PENDING_REVIEW') {
-          // Reserved and unreachable in Module 03 — accepted as a filter, and empty.
+          // Nothing was submitted for review in this test (Work 29's route) — accepted as a filter, and empty.
           expect(view).toEqual({ items: [], total: 0, page: 1, size: 20 });
           continue;
         }

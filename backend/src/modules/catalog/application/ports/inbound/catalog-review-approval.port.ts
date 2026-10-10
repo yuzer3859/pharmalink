@@ -29,8 +29,8 @@ export interface ApproveProductInput {
  * the UPDATE itself. Errors are Module 03's: unknown or deleted → `NOT_FOUND`; not `PENDING_REVIEW`
  * (or changed by a concurrent request) → `CONFLICT`.
  *
- * Limitation: no transition leads into `PENDING_REVIEW` yet, so until a separately scoped
- * submission workflow exists, no product reaches this operation through the normal lifecycle.
+ * A product reaches `PENDING_REVIEW` through the submission port (`ICatalogReviewSubmissionPort`,
+ * module-16 Work 29): create (DRAFT) → submit → approve.
  */
 export interface ICatalogReviewApprovalPort {
   approvePendingProduct(input: ApproveProductInput): Promise<ApprovedProductView>;
