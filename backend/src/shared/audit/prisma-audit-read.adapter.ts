@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   AuditPage,
   AuditRecordView,
+  AuditResourceTrailFilter,
   AuditSearchFilter,
   IAuditReadPort,
 } from './audit-read.port';
@@ -23,7 +24,7 @@ function toView(row: PrismaAuditLog): AuditRecordView {
   };
 }
 
-/** `IAuditReadPort` over `audit_logs`. Two `SELECT`s; no other statement exists in this file. */
+/** `IAuditReadPort` over `audit_logs`. `SELECT`s only; no other statement exists in this file. */
 @Injectable()
 export class PrismaAuditReadAdapter implements IAuditReadPort {
   constructor(private readonly prisma: PrismaService) {}
@@ -56,5 +57,13 @@ export class PrismaAuditReadAdapter implements IAuditReadPort {
   async findById(id: string): Promise<AuditRecordView | null> {
     const row = await this.prisma.auditLog.findUnique({ where: { id } });
     return row ? toView(row) : null;
+  }
+
+  async trailOf(filter: AuditResourceTrailFilter): Promise<AuditRecordView[]> {
+    const rows = await this.prisma.auditLog.findMany({
+      where: { action: filter.action, resourceType: filter.resourceType, resourceId: filter.resourceId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toView);
   }
 }

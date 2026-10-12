@@ -40,6 +40,10 @@ import {
   CATALOG_REVIEW_RESUBMISSION_PORT,
   CatalogReviewResubmissionPortAdapter,
 } from './application/ports/inbound/catalog-review-resubmission.port';
+import {
+  CATALOG_REVIEW_HISTORY_PORT,
+  CatalogReviewHistoryPortAdapter,
+} from './application/ports/inbound/catalog-review-history.port';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { AdminCatalogController } from './interface/controllers/admin-catalog.controller';
 import { CatalogController } from './interface/controllers/catalog.controller';
@@ -75,8 +79,11 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     { provide: CATALOG_REVIEW_REJECTION_PORT, useClass: CatalogReviewRejectionPortAdapter },
     // Inbound resubmission contract for Module 16's catalogue review (module-16 Work 32): REJECTED ->
     // PENDING_REVIEW only, through `ChangeProductStatusCommand` itself.
-    // These six ports are the only things this module exports.
     { provide: CATALOG_REVIEW_RESUBMISSION_PORT, useClass: CatalogReviewResubmissionPortAdapter },
+    // Inbound read contract for Module 16's catalogue review history (module-16 Work 33): a product's
+    // PRODUCT_STATUS_CHANGED trail, read through the shared AUDIT_READ_PORT. Read-only.
+    // These seven ports are the only things this module exports.
+    { provide: CATALOG_REVIEW_HISTORY_PORT, useClass: CatalogReviewHistoryPortAdapter },
 
     // Application use cases — products
     CreateProductCommand,
@@ -105,6 +112,7 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     CATALOG_REVIEW_SUBMISSION_PORT,
     CATALOG_REVIEW_REJECTION_PORT,
     CATALOG_REVIEW_RESUBMISSION_PORT,
+    CATALOG_REVIEW_HISTORY_PORT,
   ],
 })
 export class CatalogModule {}

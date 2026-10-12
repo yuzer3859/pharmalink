@@ -3,6 +3,7 @@ import { AuditService } from '../../../../shared/audit/audit.service';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
 import { ProductStatus } from '../../domain/enums';
 import { CatalogErrors } from '../../domain/errors';
+import { PRODUCT_AUDIT_RESOURCE_TYPE, PRODUCT_STATUS_CHANGED_ACTION } from '../../domain/audit-actions';
 import { productStatusChangedEvent } from '../../domain/events';
 import { ProductStatusPolicy } from '../../domain/services/product-status-policy';
 import { PRODUCT_REPOSITORY, IProductRepository } from '../../domain/repositories/product.repository';
@@ -72,8 +73,8 @@ export class ChangeProductStatusCommand {
       await this.audit.record(
         {
           actorUserId: input.actorUserId,
-          action: 'PRODUCT_STATUS_CHANGED',
-          resourceType: 'Product',
+          action: PRODUCT_STATUS_CHANGED_ACTION,
+          resourceType: PRODUCT_AUDIT_RESOURCE_TYPE,
           resourceId: found.id,
           context: { from, to: found.status, reason },
         },

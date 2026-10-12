@@ -41,7 +41,8 @@ describe('Admin audit explorer (application)', () => {
   let port: jest.Mocked<IAuditReadPort>;
 
   beforeEach(() => {
-    port = { search: jest.fn(), findById: jest.fn() };
+    // Work 33 added `trailOf` (one resource's trail); Work 05's queries never call it.
+    port = { search: jest.fn(), findById: jest.fn(), trailOf: jest.fn() };
   });
 
   describe('ListAuditQuery', () => {
