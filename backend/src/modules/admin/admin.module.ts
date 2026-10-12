@@ -50,6 +50,7 @@ import { ListCatalogReviewQuery } from './application/queries/list-catalog-revie
 import { ApproveCatalogProductCommand } from './application/commands/approve-catalog-product.command';
 import { SubmitCatalogProductCommand } from './application/commands/submit-catalog-product.command';
 import { RejectCatalogProductCommand } from './application/commands/reject-catalog-product.command';
+import { ResubmitCatalogProductCommand } from './application/commands/resubmit-catalog-product.command';
 import { ListCodDisputesQuery } from './application/queries/list-cod-disputes.query';
 import { ListFinancePaymentsQuery } from './application/queries/list-finance-payments.query';
 import { ListFinanceRefundsQuery } from './application/queries/list-finance-refunds.query';
@@ -69,6 +70,7 @@ import { AdminCatalogReviewController } from './interface/controllers/admin-cata
 import { AdminCatalogApprovalController } from './interface/controllers/admin-catalog-approval.controller';
 import { AdminCatalogSubmissionController } from './interface/controllers/admin-catalog-submission.controller';
 import { AdminCatalogRejectionController } from './interface/controllers/admin-catalog-rejection.controller';
+import { AdminCatalogResubmissionController } from './interface/controllers/admin-catalog-resubmission.controller';
 import { AdminCodDisputesController } from './interface/controllers/admin-cod-disputes.controller';
 import { AdminConfigController } from './interface/controllers/admin-config.controller';
 import { AdminFeatureFlagController } from './interface/controllers/admin-feature-flag.controller';
@@ -146,7 +148,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
   // `PharmacyInventoryModule` and `OrdersModule` each for their `*_ANALYTICS_READ_PORT` (Work 08)
   // and nothing else — `CatalogModule` also for `CATALOG_ADMIN_READ_PORT` (Work 09) and
   // `CATALOG_REVIEW_APPROVAL_PORT` (Work 28), `CATALOG_REVIEW_SUBMISSION_PORT` (Work 29) and
-  // `CATALOG_REVIEW_REJECTION_PORT` (Work 31),
+  // `CATALOG_REVIEW_REJECTION_PORT` (Work 31) and `CATALOG_REVIEW_RESUBMISSION_PORT` (Work 32),
   // `PharmacyInventoryModule` also for `PHARMACY_STOCK_AVAILABILITY_READ_PORT` (Work 25).
   // `ScheduleModule.forRoot()` activates the loader's refresh tick; registered here rather than
   // relied upon from another module's registration, for the reason `DeliveryModule` gives.
@@ -238,6 +240,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     SubmitCatalogProductCommand,
     // Work 31 — catalogue review rejection, over Module 03's rejection port.
     RejectCatalogProductCommand,
+    // Work 32 — resubmission of a rejected product, over Module 03's resubmission port.
+    ResubmitCatalogProductCommand,
   ],
   controllers: [
     AdminConfigController,
@@ -254,6 +258,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminCatalogApprovalController,
     AdminCatalogSubmissionController,
     AdminCatalogRejectionController,
+    AdminCatalogResubmissionController,
     AdminSuppressionsController,
     AdminDeliveryQueueController,
     AdminDeliveryRetryController,

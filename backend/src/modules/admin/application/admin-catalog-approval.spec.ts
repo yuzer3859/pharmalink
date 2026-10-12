@@ -112,9 +112,9 @@ describe('Admin catalogue review approval (application)', () => {
     for (const to of [ProductStatus.DRAFT, ProductStatus.DEPRECATED, ProductStatus.DELISTED, ProductStatus.PENDING_REVIEW]) {
       expect({ to, legal: ProductStatusPolicy.isLegalTransition(ProductStatus.PENDING_REVIEW, to) }).toEqual({ to, legal: false });
     }
-    // Only DRAFT leads into PENDING_REVIEW — Work 29's submission (admin-catalog-submission.spec.ts).
+    // Only DRAFT (Work 29's submission) and REJECTED (Work 32's resubmission) lead into PENDING_REVIEW.
     for (const from of Object.values(ProductStatus)) {
-      expect({ from, legal: ProductStatusPolicy.isLegalTransition(from, ProductStatus.PENDING_REVIEW) }).toEqual({ from, legal: from === ProductStatus.DRAFT });
+      expect({ from, legal: ProductStatusPolicy.isLegalTransition(from, ProductStatus.PENDING_REVIEW) }).toEqual({ from, legal: from === ProductStatus.DRAFT || from === ProductStatus.REJECTED });
     }
     // Work 30: a draft is published only through review.
     expect(ProductStatusPolicy.isLegalTransition(ProductStatus.DRAFT, ProductStatus.ACTIVE)).toBe(false);

@@ -20,7 +20,7 @@ describe('ProductStatusPolicy', () => {
     [ProductStatus.DRAFT, ProductStatus.REJECTED, false],
     [ProductStatus.ACTIVE, ProductStatus.REJECTED, false],
     [ProductStatus.REJECTED, ProductStatus.DRAFT, false], // no resubmission in Work 31
-    [ProductStatus.REJECTED, ProductStatus.PENDING_REVIEW, false],
+    [ProductStatus.REJECTED, ProductStatus.PENDING_REVIEW, true], // module-16 Work 32: resubmission
     [ProductStatus.REJECTED, ProductStatus.ACTIVE, false],
     [ProductStatus.ACTIVE, ProductStatus.DRAFT, false],
   ])('%s -> %s is legal: %s', (from, to, expected) => {

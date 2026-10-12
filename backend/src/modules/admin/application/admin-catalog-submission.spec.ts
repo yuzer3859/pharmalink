@@ -204,7 +204,8 @@ describe('Admin catalogue review submission (application)', () => {
       const files: string[] = [];
       const walk = (d: string) => readdirSync(d).forEach((n) => (statSync(join(d, n)).isDirectory() ? walk(join(d, n)) : n.endsWith('.ts') && !n.endsWith('.spec.ts') && files.push(join(d, n))));
       walk(root);
-      const mine = files.filter((x) => /catalog-submission|submit-catalog-product/.test(x));
+      // Anchored on the file name, so Work 32's `resubmit-catalog-product` is not taken for this work's.
+      const mine = files.filter((x) => /[\\/](admin-catalog-submission\.controller|submit-catalog-product\.command)\.ts$/.test(x));
       expect(mine).toHaveLength(2);
       for (const f of mine) {
         const src = readFileSync(f, 'utf8');

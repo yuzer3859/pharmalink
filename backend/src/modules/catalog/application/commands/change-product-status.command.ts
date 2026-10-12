@@ -23,12 +23,13 @@ export interface ChangeProductStatusInput {
    */
   expectedFrom?: ProductStatus;
   /**
-   * The UPDATE applies only while the stored status is still this one — the guarded write alone,
-   * with no in-transaction pre-check, so a product in any other status gets the state machine's own
-   * answer (`INVALID_PRODUCT_STATUS_TRANSITION`, 422). Used by catalogue-review rejection (module-16
-   * Work 31), whose only legal source is `PENDING_REVIEW`.
+   * The change applies only from exactly this status, answered the state machine's way: any other
+   * status is `INVALID_PRODUCT_STATUS_TRANSITION` (422) in the transaction, and the UPDATE itself
+   * requires the status to still be this one. Used by catalogue-review rejection (module-16 Work 31,
+   * from `PENDING_REVIEW`) and resubmission (Work 32, from `REJECTED` — where the policy alone would
+   * also let a `DRAFT` move to `PENDING_REVIEW`).
    */
-  requireFromAtWrite?: ProductStatus;
+  requireFrom?: ProductStatus;
 }
 
 /**
@@ -59,11 +60,14 @@ export class ChangeProductStatusCommand {
       if (input.expectedFrom && from !== input.expectedFrom) {
         throw CatalogErrors.productNotInExpectedStatus(input.expectedFrom, from);
       }
+      if (input.requireFrom && from !== input.requireFrom) {
+        throw CatalogErrors.invalidStatusTransition(from, input.status);
+      }
       found.transitionStatus(input.status as ProductStatus);
       // A rejection must carry a valid reason (Work 31) — checked here, on every path.
       const reason = ProductStatusPolicy.reasonFor(found.status, input.reason);
 
-      await this.products.save(found, tx, input.expectedFrom ?? input.requireFromAtWrite);
+      await this.products.save(found, tx, input.expectedFrom ?? input.requireFrom);
 
       await this.audit.record(
         {

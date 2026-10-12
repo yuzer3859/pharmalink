@@ -114,10 +114,10 @@ describe('Admin catalogue review rejection (application)', () => {
     }
   };
 
-  it('the lifecycle gains exactly PENDING_REVIEW → REJECTED; REJECTED is terminal; Works 28–30 unchanged', () => {
+  it('the lifecycle gains exactly PENDING_REVIEW → REJECTED; REJECTED leads only back to review (Work 32); Works 28–30 unchanged', () => {
     const all = Object.values(ProductStatus);
     expect(all.filter((from) => ProductStatusPolicy.isLegalTransition(from, ProductStatus.REJECTED))).toEqual([ProductStatus.PENDING_REVIEW]);
-    expect(all.filter((to) => ProductStatusPolicy.isLegalTransition(ProductStatus.REJECTED, to))).toEqual([]);
+    expect(all.filter((to) => ProductStatusPolicy.isLegalTransition(ProductStatus.REJECTED, to))).toEqual([ProductStatus.PENDING_REVIEW]);
     expect(ProductStatusPolicy.isLegalTransition(ProductStatus.DRAFT, ProductStatus.PENDING_REVIEW)).toBe(true);
     expect(ProductStatusPolicy.isLegalTransition(ProductStatus.PENDING_REVIEW, ProductStatus.ACTIVE)).toBe(true);
     expect(ProductStatusPolicy.isLegalTransition(ProductStatus.DRAFT, ProductStatus.ACTIVE)).toBe(false);

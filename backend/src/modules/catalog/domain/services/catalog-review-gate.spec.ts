@@ -13,7 +13,8 @@ describe('Catalogue review gate', () => {
   it('DRAFT has exactly one way out: PENDING_REVIEW; PENDING_REVIEW leads only to ACTIVE or (Work 31) REJECTED', () => {
     expect(next(ProductStatus.DRAFT)).toEqual([ProductStatus.PENDING_REVIEW]);
     expect(next(ProductStatus.PENDING_REVIEW)).toEqual([ProductStatus.ACTIVE, ProductStatus.REJECTED]);
-    expect(next(ProductStatus.REJECTED)).toEqual([]);
+    // Work 32: a rejected product goes back under review — never straight to ACTIVE.
+    expect(next(ProductStatus.REJECTED)).toEqual([ProductStatus.PENDING_REVIEW]);
   });
 
   it('every route from DRAFT to ACTIVE passes through PENDING_REVIEW', () => {

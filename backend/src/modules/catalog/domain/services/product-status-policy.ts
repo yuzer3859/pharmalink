@@ -9,8 +9,9 @@ import { ProductStatus } from '../enums';
  * (submission, module-16 Work 29) then `PENDING_REVIEW -> ACTIVE` (approval, Work 28). `DRAFT ->
  * ACTIVE` is not legal (Work 30), on any route: every product status change goes through
  * `Product.transitionStatus`, i.e. through this policy. A product under review can instead be
- * rejected (Work 31): `PENDING_REVIEW -> REJECTED`, which requires a reason; `REJECTED` is
- * terminal for now (no resubmission yet).
+ * rejected (Work 31): `PENDING_REVIEW -> REJECTED`, which requires a reason. A rejected product,
+ * once corrected, can be resubmitted (Work 32): `REJECTED -> PENDING_REVIEW` — back under review, never
+ * straight to `ACTIVE`.
  */
 const LEGAL_TRANSITIONS: Record<ProductStatus, ReadonlySet<ProductStatus>> = {
   [ProductStatus.DRAFT]: new Set([ProductStatus.PENDING_REVIEW]),
@@ -18,7 +19,7 @@ const LEGAL_TRANSITIONS: Record<ProductStatus, ReadonlySet<ProductStatus>> = {
   [ProductStatus.DEPRECATED]: new Set([ProductStatus.ACTIVE, ProductStatus.DELISTED]),
   [ProductStatus.DELISTED]: new Set([ProductStatus.DRAFT]),
   [ProductStatus.PENDING_REVIEW]: new Set([ProductStatus.ACTIVE, ProductStatus.REJECTED]),
-  [ProductStatus.REJECTED]: new Set(),
+  [ProductStatus.REJECTED]: new Set([ProductStatus.PENDING_REVIEW]),
 };
 
 /** A rejection reason, trimmed: at least 3 characters (the admin rejection convention), at most 300 (Module 03's status-reason limit). */

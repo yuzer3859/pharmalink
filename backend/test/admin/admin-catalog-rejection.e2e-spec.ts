@@ -96,7 +96,8 @@ describe('Admin catalogue review rejection (e2e)', () => {
     expect(await ctx.prisma.auditLog.count({ where: { action: { startsWith: 'ADMIN_CATALOG' } } })).toBe(0);
 
     expect(await review('PENDING_REVIEW')).toEqual([]);
-    expect((await review('REJECTED')).map((i) => [i.id, i.allowedTransitions])).toEqual([[id, []]]);
+    // Work 32 added REJECTED → PENDING_REVIEW (resubmission).
+    expect((await review('REJECTED')).map((i) => [i.id, i.allowedTransitions])).toEqual([[id, ['PENDING_REVIEW']]]);
     expect(await inventory()).toEqual(inventoryBefore);
   });
 

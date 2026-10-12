@@ -49,7 +49,7 @@ export class CatalogReviewRejectionPortAdapter implements ICatalogReviewRejectio
       productId: input.productId,
       status: ProductStatus.REJECTED,
       reason: input.reason,
-      requireFromAtWrite: ProductStatus.PENDING_REVIEW,
+      requireFrom: ProductStatus.PENDING_REVIEW,
     });
   }
 }
