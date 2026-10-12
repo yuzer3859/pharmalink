@@ -10,9 +10,10 @@ describe('Catalogue review gate', () => {
   const all = Object.values(ProductStatus);
   const next = (from: ProductStatus) => all.filter((to) => ProductStatusPolicy.isLegalTransition(from, to));
 
-  it('DRAFT has exactly one way out: PENDING_REVIEW; PENDING_REVIEW has exactly one: ACTIVE', () => {
+  it('DRAFT has exactly one way out: PENDING_REVIEW; PENDING_REVIEW leads only to ACTIVE or (Work 31) REJECTED', () => {
     expect(next(ProductStatus.DRAFT)).toEqual([ProductStatus.PENDING_REVIEW]);
-    expect(next(ProductStatus.PENDING_REVIEW)).toEqual([ProductStatus.ACTIVE]);
+    expect(next(ProductStatus.PENDING_REVIEW)).toEqual([ProductStatus.ACTIVE, ProductStatus.REJECTED]);
+    expect(next(ProductStatus.REJECTED)).toEqual([]);
   });
 
   it('every route from DRAFT to ACTIVE passes through PENDING_REVIEW', () => {

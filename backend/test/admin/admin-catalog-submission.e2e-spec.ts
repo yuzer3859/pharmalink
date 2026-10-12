@@ -82,7 +82,8 @@ describe('Admin catalogue review submission (e2e)', () => {
     expect((await ctx.prisma.product.findUniqueOrThrow({ where: { id } })).status).toBe('PENDING_REVIEW');
 
     // 4. Work 09's review list shows it.
-    expect((await review('PENDING_REVIEW')).map((i) => [i.id, i.status, i.allowedTransitions])).toEqual([[id, 'PENDING_REVIEW', ['ACTIVE']]]);
+    // Work 31 added PENDING_REVIEW → REJECTED.
+    expect((await review('PENDING_REVIEW')).map((i) => [i.id, i.status, i.allowedTransitions])).toEqual([[id, 'PENDING_REVIEW', ['ACTIVE', 'REJECTED']]]);
     expect(await review('DRAFT')).toEqual([]);
 
     // 5–6. Approved through Work 28: ACTIVE.

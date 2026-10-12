@@ -104,7 +104,8 @@ describe('Admin inventory operations overview (e2e)', () => {
       },
       // Work 26 added the last two (admin-inventory-purchasability.e2e-spec.ts).
       inventory: { totalTrackedItems: 0, enabledItems: 0, disabledItems: 0, inStockItems: 0, outOfStockItems: 0, customerPurchasableListings: 0, customerUnpurchasableListings: 0 },
-      products: { total: 0, byStatus: ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED'].map((status) => ({ status, count: 0 })) },
+      // Work 31 added REJECTED.
+      products: { total: 0, byStatus: ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED', 'REJECTED'].map((status) => ({ status, count: 0 })) },
     });
   });
 
@@ -139,6 +140,7 @@ describe('Admin inventory operations overview (e2e)', () => {
         { status: 'ACTIVE', count: 2 },
         { status: 'DEPRECATED', count: 1 },
         { status: 'DELISTED', count: 1 },
+        { status: 'REJECTED', count: 0 }, // Work 31
       ],
     });
   });

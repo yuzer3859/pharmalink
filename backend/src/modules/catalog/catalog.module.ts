@@ -32,6 +32,10 @@ import {
   CATALOG_REVIEW_SUBMISSION_PORT,
   CatalogReviewSubmissionPortAdapter,
 } from './application/ports/inbound/catalog-review-submission.port';
+import {
+  CATALOG_REVIEW_REJECTION_PORT,
+  CatalogReviewRejectionPortAdapter,
+} from './application/ports/inbound/catalog-review-rejection.port';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { AdminCatalogController } from './interface/controllers/admin-catalog.controller';
 import { CatalogController } from './interface/controllers/catalog.controller';
@@ -61,8 +65,11 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     { provide: CATALOG_REVIEW_APPROVAL_PORT, useClass: CatalogReviewApprovalPortAdapter },
     // Inbound submission contract for Module 16's catalogue review (module-16 Work 29): DRAFT ->
     // PENDING_REVIEW only, through `ChangeProductStatusCommand` itself — not a second status writer.
-    // These four ports are the only things this module exports.
     { provide: CATALOG_REVIEW_SUBMISSION_PORT, useClass: CatalogReviewSubmissionPortAdapter },
+    // Inbound rejection contract for Module 16's catalogue review (module-16 Work 31): PENDING_REVIEW
+    // -> REJECTED with a required reason, through `ChangeProductStatusCommand` itself.
+    // These five ports are the only things this module exports.
+    { provide: CATALOG_REVIEW_REJECTION_PORT, useClass: CatalogReviewRejectionPortAdapter },
 
     // Application use cases — products
     CreateProductCommand,
@@ -84,6 +91,12 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     UpdateManufacturerCommand,
     ListManufacturersQuery,
   ],
-  exports: [CATALOG_ANALYTICS_READ_PORT, CATALOG_ADMIN_READ_PORT, CATALOG_REVIEW_APPROVAL_PORT, CATALOG_REVIEW_SUBMISSION_PORT],
+  exports: [
+    CATALOG_ANALYTICS_READ_PORT,
+    CATALOG_ADMIN_READ_PORT,
+    CATALOG_REVIEW_APPROVAL_PORT,
+    CATALOG_REVIEW_SUBMISSION_PORT,
+    CATALOG_REVIEW_REJECTION_PORT,
+  ],
 })
 export class CatalogModule {}

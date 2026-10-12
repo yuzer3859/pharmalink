@@ -38,6 +38,8 @@ export enum ProductStatus {
   ACTIVE = 'ACTIVE',
   DEPRECATED = 'DEPRECATED',
   DELISTED = 'DELISTED',
+  /** Refused in catalogue review (module-16 Work 31). Terminal for now: no transition leads out. */
+  REJECTED = 'REJECTED',
 }
 
 export enum CategoryAppliesTo {

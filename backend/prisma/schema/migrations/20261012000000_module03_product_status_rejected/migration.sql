@@ -1,0 +1,11 @@
+-- Module 03 — Catalog: explicit catalogue-review rejection (module-16 Work 31).
+--
+-- A product under review (`PENDING_REVIEW`) can now be rejected by a catalogue curator, as well as
+-- approved (Work 28). The outcome is a real, named lifecycle state, so it is a genuine Postgres enum
+-- value — not a reuse of `DELISTED` or `DRAFT`, which mean something else. The only transition into it
+-- is `PENDING_REVIEW -> REJECTED` (`ProductStatusPolicy`); none leads out of it in this work.
+--
+-- Purely additive (ADR-003, "additive evolution only"): existing rows are untouched and no column is
+-- added — the rejection reason is recorded in the status change's audit entry and outbox event, as
+-- every status-change reason already is.
+ALTER TYPE "ProductStatus" ADD VALUE 'REJECTED';

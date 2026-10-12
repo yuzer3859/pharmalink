@@ -148,7 +148,8 @@ describe('Admin catalogue review approval (e2e)', () => {
     const id = await productIn('PENDING_REVIEW');
     const list = async (status: string) =>
       (body(await request(ctx.server).get('/admin/catalog/review').query({ status }).set(...auth(admin.accessToken)).expect(200)) as unknown as { items: Array<{ id: string; status: string; allowedTransitions: string[] }> }).items;
-    expect((await list('PENDING_REVIEW')).map((i) => [i.id, i.status, i.allowedTransitions])).toEqual([[id, 'PENDING_REVIEW', ['ACTIVE']]]);
+    // Work 31 added PENDING_REVIEW → REJECTED.
+    expect((await list('PENDING_REVIEW')).map((i) => [i.id, i.status, i.allowedTransitions])).toEqual([[id, 'PENDING_REVIEW', ['ACTIVE', 'REJECTED']]]);
     await approve(id).expect(200);
     expect(await list('PENDING_REVIEW')).toEqual([]);
     expect((await list('ACTIVE')).map((i) => i.id)).toEqual([id]);

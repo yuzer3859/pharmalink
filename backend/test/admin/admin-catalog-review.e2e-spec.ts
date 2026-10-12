@@ -166,7 +166,7 @@ describe('Admin catalogue review (e2e)', () => {
       const expected: Record<string, string[]> = {
         // Work 29 added DRAFT → PENDING_REVIEW, Work 30 closed DRAFT → ACTIVE; Work 28 added PENDING_REVIEW → ACTIVE.
         DRAFT: ['PENDING_REVIEW'],
-        PENDING_REVIEW: ['ACTIVE'],
+        PENDING_REVIEW: ['ACTIVE', 'REJECTED'], // Work 31
         ACTIVE: ['DEPRECATED', 'DELISTED'],
         DEPRECATED: ['ACTIVE', 'DELISTED'],
         DELISTED: ['DRAFT'],
@@ -366,13 +366,12 @@ describe('Admin catalogue review (e2e)', () => {
   });
 
   describe('routes', () => {
-    // Work 28 added POST review/:productId/approve (PENDING_REVIEW only; admin-catalog-approval.e2e-spec.ts).
-    it('adds nothing but GET /admin/catalog/review (and Work 28’s approve) — no detail, reject or write route', async () => {
+    // Work 28 added POST review/:productId/approve, Work 29 …/submit and Work 31 …/reject (admin-catalog-*.e2e-spec.ts).
+    it('adds nothing but GET /admin/catalog/review (and the review decisions) — no detail or write route', async () => {
       const id = await createProduct();
       for (const [method, path] of [
         ['get', `/admin/catalog/review/${id}`],
         ['post', '/admin/catalog/review'],
-        ['post', `/admin/catalog/review/${id}/reject`],
         ['patch', `/admin/catalog/review/${id}`],
         ['delete', `/admin/catalog/review/${id}`],
         ['get', '/admin/catalog/products'],

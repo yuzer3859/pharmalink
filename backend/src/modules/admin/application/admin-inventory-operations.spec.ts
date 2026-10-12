@@ -69,7 +69,8 @@ describe('Admin inventory operations overview (application)', () => {
       inventory: { totalTrackedItems: 0, enabledItems: 0, disabledItems: 0, inStockItems: 0, outOfStockItems: 0, customerPurchasableListings: 0, customerUnpurchasableListings: 0 },
       products: {
         total: 0,
-        byStatus: ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED'].map((status) => ({ status, count: 0 })),
+        // Work 31 added REJECTED.
+        byStatus: ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED', 'REJECTED'].map((status) => ({ status, count: 0 })),
       },
     });
     // Both clock-dependent reads (licence expiry) are given the response's own stamp.
@@ -125,7 +126,8 @@ describe('Admin inventory operations overview (application)', () => {
         { status: 'DELISTED', count: 2 },
       ],
     });
-    expect(Object.values(ProductStatus)).toEqual(['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED']);
+    // Work 31 added REJECTED.
+    expect(Object.values(ProductStatus)).toEqual(['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED', 'REJECTED']);
     expect(o.products).not.toHaveProperty('active');
     expect(o.products).not.toHaveProperty('inactive');
   });

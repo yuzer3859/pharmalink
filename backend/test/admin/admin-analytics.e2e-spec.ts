@@ -51,7 +51,8 @@ const PRIMARY_ROLES = [
   'CUSTOMER', 'PHARMACY_OWNER', 'PHARMACY_MANAGER', 'PHARMACIST', 'CASHIER', 'INVENTORY_STAFF', 'DOCTOR', 'DRIVER',
   'HOSPITAL_ADMIN', 'DIAGNOSTIC_CENTER_ADMIN', 'LAB_STAFF', 'CUSTOMER_SUPPORT', 'FINANCE_OFFICER', 'ADMIN', 'SUPER_ADMIN',
 ];
-const PRODUCT_STATUSES = ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED'];
+// Work 31 added REJECTED.
+const PRODUCT_STATUSES = ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'DEPRECATED', 'DELISTED', 'REJECTED'];
 const TRANSACTING = ['ACTIVE', 'SUSPENDED', 'PENDING'];
 const LICENSE = ['VALID', 'EXPIRED', 'SUSPENDED'];
 const ORDER_STATUSES = ['DRAFT', 'PENDING_PAYMENT', 'PAID', 'ACCEPTED', 'READY', 'DISPATCHED', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
@@ -617,6 +618,8 @@ describe('Admin operational analytics (e2e)', () => {
         'catalog/application/ports/inbound/catalog-analytics-read.port',
         // Work 28: catalogue review approval (admin-catalog-approval.e2e-spec.ts).
         'catalog/application/ports/inbound/catalog-review-approval.port',
+        // Work 31: catalogue review rejection (admin-catalog-rejection.e2e-spec.ts).
+        'catalog/application/ports/inbound/catalog-review-rejection.port',
         // Work 29: catalogue review submission (admin-catalog-submission.e2e-spec.ts).
         'catalog/application/ports/inbound/catalog-review-submission.port',
         'catalog/catalog.module',

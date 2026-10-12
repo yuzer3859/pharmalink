@@ -4,6 +4,7 @@ import { OutboxService } from '../../../../shared/outbox/outbox.service';
 import { ProductStatus } from '../../domain/enums';
 import { CatalogErrors } from '../../domain/errors';
 import { productStatusChangedEvent } from '../../domain/events';
+import { ProductStatusPolicy } from '../../domain/services/product-status-policy';
 import { PRODUCT_REPOSITORY, IProductRepository } from '../../domain/repositories/product.repository';
 import { UNIT_OF_WORK, IUnitOfWork } from '../ports/unit-of-work.port';
 import { ProductDetailView, toProductDetailView } from '../queries/product-view';
@@ -21,6 +22,13 @@ export interface ChangeProductStatusInput {
    * `PENDING_REVIEW`). Anything else is `productNotInExpectedStatus` (409), nothing written.
    */
   expectedFrom?: ProductStatus;
+  /**
+   * The UPDATE applies only while the stored status is still this one — the guarded write alone,
+   * with no in-transaction pre-check, so a product in any other status gets the state machine's own
+   * answer (`INVALID_PRODUCT_STATUS_TRANSITION`, 422). Used by catalogue-review rejection (module-16
+   * Work 31), whose only legal source is `PENDING_REVIEW`.
+   */
+  requireFromAtWrite?: ProductStatus;
 }
 
 /**
@@ -52,8 +60,10 @@ export class ChangeProductStatusCommand {
         throw CatalogErrors.productNotInExpectedStatus(input.expectedFrom, from);
       }
       found.transitionStatus(input.status as ProductStatus);
+      // A rejection must carry a valid reason (Work 31) — checked here, on every path.
+      const reason = ProductStatusPolicy.reasonFor(found.status, input.reason);
 
-      await this.products.save(found, tx, input.expectedFrom);
+      await this.products.save(found, tx, input.expectedFrom ?? input.requireFromAtWrite);
 
       await this.audit.record(
         {
@@ -61,7 +71,7 @@ export class ChangeProductStatusCommand {
           action: 'PRODUCT_STATUS_CHANGED',
           resourceType: 'Product',
           resourceId: found.id,
-          context: { from, to: found.status, reason: input.reason ?? null },
+          context: { from, to: found.status, reason },
         },
         tx,
       );
@@ -71,7 +81,7 @@ export class ChangeProductStatusCommand {
           productId: found.id,
           from,
           to: found.status,
-          reason: input.reason ?? null,
+          reason,
         }),
         tx as never,
       );
