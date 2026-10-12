@@ -147,6 +147,11 @@ export const PERMISSIONS: Array<{
   // Module 16 Work 21 — requeueing an EXHAUSTED delivery job, the queue's only mutation. A separate
   // key from `notification:queue:read`, so seeing the queue never implies changing it. ADMIN only.
   { key: 'notification:queue:manage', resource: 'notification', action: 'queue_manage' },
+  // Module 16 Work 35 — reading any order's operational record (status, totals, fulfillments, payment
+  // status) for investigation. The platform-wide counterpart of `order:read:own` (a customer's) and
+  // `order:read:org` (a pharmacy's); not `analytics:read`, which is for aggregate counts. Read only —
+  // it grants no order, payment or delivery action. ADMIN only.
+  { key: 'order:read:any', resource: 'order', action: 'read', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -318,6 +323,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'notification:queue:read',
     // Module 16 Work 21 — manual retry of an exhausted delivery job.
     'notification:queue:manage',
+    // Module 16 Work 35 — order operations visibility.
+    'order:read:any',
   ],
   SUPER_ADMIN: ['*'],
 };

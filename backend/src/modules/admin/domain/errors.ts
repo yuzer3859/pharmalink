@@ -31,6 +31,9 @@ export const AdminErrors = {
   /** No notification suppression with that id — unknown, or already removed (module-13 Work 19). */
   suppressionNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Suppression not found.'),
 
+  /** No order with that id (module-16 Work 35's order operations). */
+  orderNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Order not found.'),
+
   /** No catalogue product with that id, or it was deleted (module-16 Work 33's review history). */
   catalogProductNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Product not found.'),
 
