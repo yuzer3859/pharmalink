@@ -38,6 +38,8 @@ import { PrismaOrderRepository } from './infrastructure/persistence/prisma-order
 import { ORDER_ANALYTICS_READ_PORT } from './application/ports/inbound/order-analytics-read.port';
 import { ORDER_OPERATIONS_READ_PORT } from './application/ports/inbound/order-operations-read.port';
 import { PrismaOrderOperationsReadAdapter } from './infrastructure/persistence/prisma-order-operations-read.adapter';
+import { ORDER_BACKLOG_SUMMARY_READ_PORT } from './application/ports/inbound/order-backlog-summary-read.port';
+import { PrismaOrderBacklogSummaryReadAdapter } from './infrastructure/persistence/prisma-order-backlog-summary-read.adapter';
 import { ORDER_RECIPIENT_READ_PORT } from './application/ports/inbound/order-recipient-read.port';
 import { PrismaOrderAnalyticsReadAdapter } from './infrastructure/persistence/prisma-order-analytics-read.adapter';
 import { PrismaOrderRecipientReadAdapter } from './infrastructure/persistence/prisma-order-recipient-read.adapter';
@@ -86,8 +88,11 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     { provide: ORDER_RECIPIENT_READ_PORT, useClass: PrismaOrderRecipientReadAdapter },
     // Inbound read contract for Module 16's order operations view (module-16 Work 35): orders,
     // paged and filtered, and one order with its fulfillments — no customer data, no write. These
-    // three ports are the only things this module exports.
+    // read ports (with Work 41's below) are the only things this module exports.
     { provide: ORDER_OPERATIONS_READ_PORT, useClass: PrismaOrderOperationsReadAdapter },
+    // Module 16 Work 41 — order backlog summary: counts and timestamps from one SQL statement, terminal
+    // set from `OrderStatusPolicy.isTerminal`. No order, customer or amount crosses it.
+    { provide: ORDER_BACKLOG_SUMMARY_READ_PORT, useClass: PrismaOrderBacklogSummaryReadAdapter },
     { provide: FULFILLMENT_REPOSITORY, useClass: PrismaFulfillmentRepository },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
 
@@ -122,6 +127,6 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PrepareFulfillmentCommand,
     MarkReadyCommand,
   ],
-  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT, ORDER_OPERATIONS_READ_PORT],
+  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT, ORDER_OPERATIONS_READ_PORT, ORDER_BACKLOG_SUMMARY_READ_PORT],
 })
 export class OrdersModule {}

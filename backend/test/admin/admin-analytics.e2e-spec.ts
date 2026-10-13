@@ -648,6 +648,8 @@ describe('Admin operational analytics (e2e)', () => {
         'identity/identity.module',
         'identity/interface/decorators/current-user.decorator',
         'orders/application/ports/inbound/order-analytics-read.port',
+        // Work 41: order backlog summary (admin-order-summary.e2e-spec.ts).
+        'orders/application/ports/inbound/order-backlog-summary-read.port',
         // Work 35: order operations visibility (admin-order-operations.e2e-spec.ts).
         'orders/application/ports/inbound/order-operations-read.port',
         'orders/orders.module',
