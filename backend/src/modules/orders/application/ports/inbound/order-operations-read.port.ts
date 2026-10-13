@@ -15,6 +15,13 @@ export interface OrderOperationsFilter {
   createdFrom?: Date;
   /** Exclusive upper bound on `createdAt`. */
   createdTo?: Date;
+  /**
+   * Work 43: `true` — at least one of the order's fulfillments records a delivery-job reference
+   * (`fulfillments.deliveryJobId IS NOT NULL`); `false` — none does, including an order with no
+   * fulfillment. The same definition as Work 42's `readyHandoff`. A missing reference is not proof
+   * that Module 08 has no job: it may simply not have been recorded yet (see Work 42A's repair).
+   */
+  hasDeliveryJobReference?: boolean;
 }
 
 /**
@@ -63,8 +70,14 @@ export interface OrderOperationsDetail extends OrderOperationsSummary {
   fulfillments: OrderOperationsFulfillment[];
 }
 
+/** One row of the list: the summary plus Work 43's order-level reference flag (list only, not on the detail). */
+export interface OrderOperationsListItem extends OrderOperationsSummary {
+  /** At least one fulfillment records a delivery-job reference — the `hasDeliveryJobReference` filter's definition. */
+  hasDeliveryJobReference: boolean;
+}
+
 export interface OrderOperationsPage {
-  items: OrderOperationsSummary[];
+  items: OrderOperationsListItem[];
   total: number;
   page: number;
   size: number;

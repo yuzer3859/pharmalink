@@ -5,6 +5,7 @@ import {
   IOrderOperationsReadPort,
   OrderOperationsDetail,
   OrderOperationsFilter,
+  OrderOperationsListItem,
   OrderOperationsPage,
   OrderOperationsSummary,
 } from '../../application/ports/inbound/order-operations-read.port';
@@ -25,6 +26,14 @@ const SUMMARY_SELECT = {
 
 type SummaryRow = Prisma.OrderGetPayload<{ select: typeof SUMMARY_SELECT }>;
 
+/**
+ * Work 43's one definition of "has a delivery-job reference": some fulfillment with a non-null
+ * `deliveryJobId`. Used as the filter (`some` / `none`) and for the per-row flag, so the two cannot
+ * disagree. Prisma renders relation filters as `EXISTS` / `NOT EXISTS`, so an order with several
+ * fulfillments is still one row.
+ */
+const REFERENCED_FULFILLMENT = { deliveryJobId: { not: null } } satisfies Prisma.FulfillmentWhereInput;
+
 const toSummary = (r: SummaryRow): OrderOperationsSummary => ({
   orderId: r.id,
   orderNumber: r.orderNumber,
@@ -43,7 +52,9 @@ const toSummary = (r: SummaryRow): OrderOperationsSummary => ({
  * `IOrderOperationsReadPort` over Prisma — `SELECT`s only, with explicit column selections (no
  * customer, beneficiary, address or note column is ever read). The list is one paged `findMany`
  * with its line and fulfillment counts as correlated sub-counts (no N+1) plus one `count`, both in
- * one transaction so the page and its total agree.
+ * one transaction so the page and its total agree. Work 43 adds, in the same REPEATABLE READ
+ * transaction, one more query over just the page's order ids for the reference flag — never one
+ * per order, and never a fulfillment row.
  */
 @Injectable()
 export class PrismaOrderOperationsReadAdapter implements IOrderOperationsReadPort {
@@ -57,18 +68,35 @@ export class PrismaOrderOperationsReadAdapter implements IOrderOperationsReadPor
       ...(f.createdFrom || f.createdTo
         ? { createdAt: { ...(f.createdFrom ? { gte: f.createdFrom } : {}), ...(f.createdTo ? { lt: f.createdTo } : {}) } }
         : {}),
+      ...(f.hasDeliveryJobReference === undefined
+        ? {}
+        : { fulfillments: f.hasDeliveryJobReference ? { some: REFERENCED_FULFILLMENT } : { none: REFERENCED_FULFILLMENT } }),
     };
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.order.findMany({
-        where,
-        select: SUMMARY_SELECT,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        skip: (page - 1) * size,
-        take: size,
-      }),
-      this.prisma.order.count({ where }),
-    ]);
-    return { items: rows.map(toSummary), total, page, size };
+    return this.prisma.$transaction(
+      async (tx) => {
+        const [rows, total] = await Promise.all([
+          tx.order.findMany({
+            where,
+            select: SUMMARY_SELECT,
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            skip: (page - 1) * size,
+            take: size,
+          }),
+          tx.order.count({ where }),
+        ]);
+        const referenced =
+          rows.length === 0
+            ? []
+            : await tx.order.findMany({
+                where: { id: { in: rows.map((r) => r.id) }, fulfillments: { some: REFERENCED_FULFILLMENT } },
+                select: { id: true },
+              });
+        const withReference = new Set(referenced.map((r) => r.id));
+        const items: OrderOperationsListItem[] = rows.map((r) => ({ ...toSummary(r), hasDeliveryJobReference: withReference.has(r.id) }));
+        return { items, total, page, size };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   async getOrder(orderId: string): Promise<OrderOperationsDetail | null> {

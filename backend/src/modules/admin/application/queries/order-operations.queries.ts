@@ -44,6 +44,7 @@ export class ListOrderOperationsQuery {
       orderNumber: input.orderNumber,
       createdFrom: input.createdFrom,
       createdTo: input.createdTo,
+      hasDeliveryJobReference: input.hasDeliveryJobReference,
     };
     return this.orders.listOrders(filter, page, size);
   }

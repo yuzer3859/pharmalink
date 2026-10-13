@@ -72,7 +72,7 @@ describe('Admin order operations (application)', () => {
       refunds: { refunds: [], remainingRefundable: 12_500 },
     };
     const orders: IOrderOperationsReadPort = {
-      listOrders: async (f, page, size) => (filters.push({ f, page, size }), { items: [summary()], total: 1, page, size }),
+      listOrders: async (f, page, size) => (filters.push({ f, page, size }), { items: [{ ...summary(), hasDeliveryJobReference: false }], total: 1, page, size }),
       getOrder: async () => order,
     };
     const finance = { getPayment: async (id: string) => (paymentCalls.push(id), paymentResult) } as unknown as IFinanceOversightPort;
@@ -106,7 +106,8 @@ describe('Admin order operations (application)', () => {
 
     it('a summary carries exactly the approved fields', async () => {
       const res = toOrderOperationsListResponse(await list.execute({}));
-      expect(Object.keys(res.items[0])).toEqual(['orderId', 'orderNumber', 'status', 'isCod', 'grandTotal', 'currency', 'lineCount', 'fulfillmentCount', 'placedAt', 'createdAt', 'updatedAt']);
+      // Work 43 appends `hasDeliveryJobReference` to list rows only.
+      expect(Object.keys(res.items[0])).toEqual(['orderId', 'orderNumber', 'status', 'isCod', 'grandTotal', 'currency', 'lineCount', 'fulfillmentCount', 'placedAt', 'createdAt', 'updatedAt', 'hasDeliveryJobReference']);
     });
 
     it('request validation: real OrderStatus values only; isCod as "true"/"false" (never coerced); bounded page/size; exact order-number shape', () => {
@@ -164,12 +165,17 @@ describe('Admin order operations (application)', () => {
   describe('Module 06 adapter', () => {
     it('lists with an explicit column selection (no customer, beneficiary, address or note), newest first with an id tiebreaker, page and total in one transaction', async () => {
       const calls: Array<{ op: string; args: unknown }> = [];
-      const prisma = {
+      // Page and total are read through the transaction client only (Work 43 made it an interactive
+      // REPEATABLE READ transaction); the outer client is never queried directly.
+      const tx = {
         order: {
-          findMany: (args: unknown) => (calls.push({ op: 'findMany', args }), 'rows'),
-          count: (args: unknown) => (calls.push({ op: 'count', args }), 'total'),
+          findMany: async (args: unknown) => (calls.push({ op: 'findMany', args }), []),
+          count: async (args: unknown) => (calls.push({ op: 'count', args }), 0),
         },
-        $transaction: async (ops: unknown[]) => (expect(ops).toEqual(['rows', 'total']), [[], 0]),
+      };
+      const prisma = {
+        order: { findMany: () => { throw new Error('read outside the transaction'); }, count: () => { throw new Error('read outside the transaction'); } },
+        $transaction: async (fn: (t: unknown) => unknown, o: unknown) => (expect(o).toEqual({ isolationLevel: 'RepeatableRead' }), fn(tx)),
       } as unknown as PrismaService;
       await new PrismaOrderOperationsReadAdapter(prisma).listOrders({ status: OrderStatus.PAID, isCod: false }, 2, 10);
       const find = calls[0].args as { where: unknown; select: Record<string, unknown>; orderBy: unknown; skip: number; take: number };

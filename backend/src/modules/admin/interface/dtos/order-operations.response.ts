@@ -1,4 +1,4 @@
-import { OrderOperationsPage, OrderOperationsSummary } from '../../../orders/application/ports/inbound/order-operations-read.port';
+import { OrderOperationsListItem, OrderOperationsPage, OrderOperationsSummary } from '../../../orders/application/ports/inbound/order-operations-read.port';
 import { OrderOperationsDetailView } from '../../application/queries/order-operations.queries';
 
 /** One order in a list — Module 06's columns, no customer data. Money in integer minor units. */
@@ -16,8 +16,13 @@ export interface OrderOperationsSummaryResponse {
   updatedAt: string;
 }
 
+/** A list row: the summary plus whether any fulfillment records a delivery-job reference (Work 43). */
+export interface OrderOperationsListItemResponse extends OrderOperationsSummaryResponse {
+  hasDeliveryJobReference: boolean;
+}
+
 export interface OrderOperationsListResponse {
-  items: OrderOperationsSummaryResponse[];
+  items: OrderOperationsListItemResponse[];
   total: number;
   page: number;
   size: number;
@@ -63,8 +68,12 @@ export function toOrderOperationsSummaryResponse(o: OrderOperationsSummary): Ord
   };
 }
 
+function toOrderOperationsListItemResponse(o: OrderOperationsListItem): OrderOperationsListItemResponse {
+  return { ...toOrderOperationsSummaryResponse(o), hasDeliveryJobReference: o.hasDeliveryJobReference };
+}
+
 export function toOrderOperationsListResponse(p: OrderOperationsPage): OrderOperationsListResponse {
-  return { items: p.items.map(toOrderOperationsSummaryResponse), total: p.total, page: p.page, size: p.size };
+  return { items: p.items.map(toOrderOperationsListItemResponse), total: p.total, page: p.page, size: p.size };
 }
 
 export function toOrderOperationsDetailResponse(v: OrderOperationsDetailView): OrderOperationsDetailResponse {

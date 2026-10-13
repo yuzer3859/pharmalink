@@ -121,6 +121,8 @@ describe('Admin order operations (e2e)', () => {
       placedAt: s.paid.placedAt!.toISOString(),
       createdAt: s.paid.createdAt.toISOString(),
       updatedAt: (await ctx.prisma.order.findUniqueOrThrow({ where: { id: s.paid.id } })).updatedAt.toISOString(),
+      // Work 43: neither of its fulfillments records a delivery-job reference.
+      hasDeliveryJobReference: false,
     });
     expect(res.items.find((i) => i.orderId === s.draft.id)).toMatchObject({ lineCount: 0, fulfillmentCount: 0, placedAt: null });
   });
