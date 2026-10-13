@@ -99,20 +99,7 @@ export class GetDeliveryJobStatusQuery {
       fulfillmentId: job.fulfillmentId,
       status: job.status,
       driverId: job.assignedDriverId,
-      timeline: {
-        assignedAt: firstEntryInto(history, DeliveryJobStatus.ASSIGNED),
-        arrivedPickupAt: firstEntryInto(history, DeliveryJobStatus.ARRIVED_PICKUP),
-        // The two that *are* columns are read from the job, not from history: they are the
-        // authoritative values other modules key off, and reading them from anywhere else would
-        // let the two answers diverge.
-        pickedUpAt: job.pickedUpAt,
-        enRouteAt: firstEntryInto(history, DeliveryJobStatus.EN_ROUTE),
-        arrivedDropoffAt: firstEntryInto(history, DeliveryJobStatus.ARRIVED_DROPOFF),
-        deliveredAt: job.deliveredAt,
-        completedAt: firstEntryInto(history, DeliveryJobStatus.COMPLETED),
-        failedAt: firstEntryInto(history, DeliveryJobStatus.FAILED),
-        cancelledAt: firstEntryInto(history, DeliveryJobStatus.CANCELLED),
-      },
+      timeline: deliveryTimelineOf(job, history),
       history: history.map((entry) => ({
         from: entry.fromStatus,
         to: entry.toStatus,
@@ -122,6 +109,31 @@ export class GetDeliveryJobStatusQuery {
       })),
     };
   }
+}
+
+/**
+ * A job's timeline from its two timestamp columns and its status history — the one place this
+ * derivation lives, shared with the admin operations read (module-16 Work 36) so the two can never
+ * report a different answer for the same job.
+ */
+export function deliveryTimelineOf(
+  job: { pickedUpAt: Date | null; deliveredAt: Date | null },
+  history: readonly { toStatus: DeliveryJobStatus; createdAt: Date }[],
+): DeliveryTimelineView {
+  return {
+    assignedAt: firstEntryInto(history, DeliveryJobStatus.ASSIGNED),
+    arrivedPickupAt: firstEntryInto(history, DeliveryJobStatus.ARRIVED_PICKUP),
+    // The two that *are* columns are read from the job, not from history: they are the
+    // authoritative values other modules key off, and reading them from anywhere else would
+    // let the two answers diverge.
+    pickedUpAt: job.pickedUpAt,
+    enRouteAt: firstEntryInto(history, DeliveryJobStatus.EN_ROUTE),
+    arrivedDropoffAt: firstEntryInto(history, DeliveryJobStatus.ARRIVED_DROPOFF),
+    deliveredAt: job.deliveredAt,
+    completedAt: firstEntryInto(history, DeliveryJobStatus.COMPLETED),
+    failedAt: firstEntryInto(history, DeliveryJobStatus.FAILED),
+    cancelledAt: firstEntryInto(history, DeliveryJobStatus.CANCELLED),
+  };
 }
 
 /**

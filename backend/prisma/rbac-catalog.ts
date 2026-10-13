@@ -152,6 +152,11 @@ export const PERMISSIONS: Array<{
   // `order:read:org` (a pharmacy's); not `analytics:read`, which is for aggregate counts. Read only —
   // it grants no order, payment or delivery action. ADMIN only.
   { key: 'order:read:any', resource: 'order', action: 'read', scope: 'any' },
+  // Module 16 Work 36 — reading any delivery job's operational record (Module 08 status, timeline,
+  // COD collection state) for investigation. The platform-wide counterpart of `delivery:read:own` (a
+  // driver's); not `analytics:read`, which is for aggregate counts. Read only — it grants no
+  // assignment, status, tracking, proof, COD or earnings action. ADMIN only.
+  { key: 'delivery:read:any', resource: 'delivery', action: 'read', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -325,6 +330,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'notification:queue:manage',
     // Module 16 Work 35 — order operations visibility.
     'order:read:any',
+    // Module 16 Work 36 — delivery operations visibility.
+    'delivery:read:any',
   ],
   SUPER_ADMIN: ['*'],
 };

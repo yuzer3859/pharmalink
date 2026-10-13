@@ -34,6 +34,9 @@ export const AdminErrors = {
   /** No order with that id (module-16 Work 35's order operations). */
   orderNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Order not found.'),
 
+  /** No Module 08 delivery job (courier job) with that id (module-16 Work 36's delivery operations). */
+  deliveryOperationsJobNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Delivery job not found.'),
+
   /** No catalogue product with that id, or it was deleted (module-16 Work 33's review history). */
   catalogProductNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Product not found.'),
 
