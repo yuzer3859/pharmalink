@@ -56,6 +56,7 @@ import { GetCatalogReviewSummaryQuery } from './application/queries/get-catalog-
 import { GetOrderOperationsQuery, ListOrderOperationsQuery } from './application/queries/order-operations.queries';
 import { GetDeliveryOperationsQuery, ListDeliveryOperationsQuery } from './application/queries/delivery-operations.queries';
 import { GetDriverOperationsQuery, ListDriverOperationsQuery } from './application/queries/driver-operations.queries';
+import { GetCodOperationsQuery, ListCodOperationsQuery } from './application/queries/cod-operations.queries';
 import { ListCodDisputesQuery } from './application/queries/list-cod-disputes.query';
 import { ListFinancePaymentsQuery } from './application/queries/list-finance-payments.query';
 import { ListFinanceRefundsQuery } from './application/queries/list-finance-refunds.query';
@@ -81,6 +82,7 @@ import { AdminCatalogSummaryController } from './interface/controllers/admin-cat
 import { AdminOrderOperationsController } from './interface/controllers/admin-order-operations.controller';
 import { AdminDeliveryOperationsController } from './interface/controllers/admin-delivery-operations.controller';
 import { AdminDriverOperationsController } from './interface/controllers/admin-driver-operations.controller';
+import { AdminCodOperationsController } from './interface/controllers/admin-cod-operations.controller';
 import { AdminCodDisputesController } from './interface/controllers/admin-cod-disputes.controller';
 import { AdminConfigController } from './interface/controllers/admin-config.controller';
 import { AdminFeatureFlagController } from './interface/controllers/admin-feature-flag.controller';
@@ -162,7 +164,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
   // `CATALOG_REVIEW_HISTORY_PORT` (Work 33) and `CATALOG_REVIEW_SUMMARY_READ_PORT` (Work 34);
   // `PharmacyInventoryModule` also for `PHARMACY_STOCK_AVAILABILITY_READ_PORT` (Work 25), and
   // `OrdersModule` also for `ORDER_OPERATIONS_READ_PORT` (Work 35). `DeliveryModule` also for
-  // `DELIVERY_OPERATIONS_READ_PORT` (Work 36) and `DRIVER_OPERATIONS_READ_PORT` (Work 37).
+  // `DELIVERY_OPERATIONS_READ_PORT` (Work 36), `DRIVER_OPERATIONS_READ_PORT` (Work 37) and
+  // `COD_OPERATIONS_READ_PORT` (Work 38).
   // `ScheduleModule.forRoot()` activates the loader's refresh tick; registered here rather than
   // relied upon from another module's registration, for the reason `DeliveryModule` gives.
   imports: [
@@ -269,6 +272,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     // Work 37 — driver operations visibility, over Module 08's driver operations read port.
     ListDriverOperationsQuery,
     GetDriverOperationsQuery,
+    // Work 38 — COD operations visibility, over Module 08's COD operations read port.
+    ListCodOperationsQuery,
+    GetCodOperationsQuery,
   ],
   controllers: [
     AdminConfigController,
@@ -291,6 +297,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminOrderOperationsController,
     AdminDeliveryOperationsController,
     AdminDriverOperationsController,
+    AdminCodOperationsController,
     AdminSuppressionsController,
     AdminDeliveryQueueController,
     AdminDeliveryRetryController,

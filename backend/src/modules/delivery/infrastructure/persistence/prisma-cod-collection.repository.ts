@@ -460,6 +460,9 @@ export class PrismaCodCollectionRepository implements ICodCollectionRepository {
     if (criteria.orderId) {
       filters.push(Prisma.sql`c."orderId" = ${criteria.orderId}`);
     }
+    if (criteria.jobId) {
+      filters.push(Prisma.sql`c."jobId" = ${criteria.jobId}`);
+    }
     if (criteria.remittanceReference) {
       filters.push(Prisma.sql`r."reference" = ${criteria.remittanceReference}`);
     }
@@ -669,6 +672,9 @@ function codCollectionWhere(
   }
   if (criteria.orderId) {
     where.orderId = criteria.orderId;
+  }
+  if (criteria.jobId) {
+    where.jobId = criteria.jobId;
   }
   if (criteria.remittanceReference) {
     where.remittance = { is: { reference: criteria.remittanceReference } };

@@ -51,6 +51,8 @@ export interface CodCollectionSearchCriteria {
   /** Exact match on `cod_remittances.reference`: every collection in one handover. */
   remittanceReference?: string;
   orderId?: string;
+  /** The delivery job the collection was taken on — at most one collection (`jobId` is unique). */
+  jobId?: string;
   /** Collections whose money changed hands at or after this instant. */
   from?: Date;
   /** ...and at or before this one. */

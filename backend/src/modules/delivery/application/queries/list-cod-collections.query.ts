@@ -44,6 +44,7 @@ export interface ListCodCollectionsInput {
   /** Exact match on a handover handle: every collection remitted under one reference. */
   remittanceReference?: string;
   orderId?: string;
+  jobId?: string;
   from?: Date;
   to?: Date;
   page?: number;
@@ -119,6 +120,7 @@ export class ListCodCollectionsQuery {
       currency: normalize(input.currency)?.toUpperCase(),
       remittanceReference: normalize(input.remittanceReference),
       orderId: normalize(input.orderId),
+      jobId: normalize(input.jobId),
       from: input.from,
       to: input.to,
       page,
@@ -126,7 +128,7 @@ export class ListCodCollectionsQuery {
     });
 
     return {
-      items: result.items.map(toView),
+      items: result.items.map(toCodReconciliationView),
       total: result.total,
       page: result.page,
       size: result.size,
@@ -158,6 +160,7 @@ export class ListCodCollectionsQuery {
       currency: normalize(input.currency)?.toUpperCase(),
       remittanceReference: normalize(input.remittanceReference),
       orderId: normalize(input.orderId),
+      jobId: normalize(input.jobId),
       from: input.from,
       to: input.to,
     });
@@ -173,7 +176,7 @@ export class ListCodCollectionsQuery {
     if (!record) {
       throw DeliveryErrors.codCollectionNotFound(id);
     }
-    return toView(record);
+    return toCodReconciliationView(record);
   }
 }
 
@@ -188,8 +191,11 @@ export class ListCodCollectionsQuery {
  * records it until PharmaLink has checked it, whatever the finding was. A `DISCREPANCY` is
  * therefore **not** outstanding: somebody looked, and what happens next is a commercial decision
  * this module does not make. `hasDiscrepancy` is the field a follow-up queue filters on.
+ *
+ * Exported so the admin COD operations read (module-16 Work 38) applies this
+ * projection rather than a copy of it.
  */
-function toView(record: CodCollectionRecord): CodReconciliationView {
+export function toCodReconciliationView(record: CodCollectionRecord): CodReconciliationView {
   const collectionVariance = varianceOf(record.collection);
   const remittanceVariance = record.remittance
     ? record.remittance.remittedAmount - record.collection.collectedAmount

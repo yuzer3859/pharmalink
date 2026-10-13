@@ -836,6 +836,8 @@ describe('Admin finance oversight (e2e)', () => {
       expect([...imports].sort()).toEqual([
         'delivery/application/ports/inbound/cod-dispute-admin.port',
         'delivery/application/ports/inbound/cod-finance-read.port',
+        // Work 38's COD operations: collections and their legs, read-only.
+        'delivery/application/ports/inbound/cod-operations-read.port',
         // Work 08's operational dashboard: job and driver counts, read-only.
         'delivery/application/ports/inbound/delivery-analytics-read.port',
         // Work 36's delivery operations: delivery jobs listed and read, read-only.
