@@ -72,7 +72,7 @@ describe('Admin order operations (application)', () => {
       refunds: { refunds: [], remainingRefundable: 12_500 },
     };
     const orders: IOrderOperationsReadPort = {
-      listOrders: async (f, page, size) => (filters.push({ f, page, size }), { items: [{ ...summary(), hasDeliveryJobReference: false }], total: 1, page, size }),
+      listOrders: async (f, page, size) => (filters.push({ f, page, size }), { items: [{ ...summary(), hasDeliveryJobReference: false, unreferencedFulfillmentCount: 1 }], total: 1, page, size }),
       getOrder: async () => order,
     };
     const finance = { getPayment: async (id: string) => (paymentCalls.push(id), paymentResult) } as unknown as IFinanceOversightPort;
@@ -106,8 +106,8 @@ describe('Admin order operations (application)', () => {
 
     it('a summary carries exactly the approved fields', async () => {
       const res = toOrderOperationsListResponse(await list.execute({}));
-      // Work 43 appends `hasDeliveryJobReference` to list rows only.
-      expect(Object.keys(res.items[0])).toEqual(['orderId', 'orderNumber', 'status', 'isCod', 'grandTotal', 'currency', 'lineCount', 'fulfillmentCount', 'placedAt', 'createdAt', 'updatedAt', 'hasDeliveryJobReference']);
+      // Work 43 appends `hasDeliveryJobReference`, Work 44 `unreferencedFulfillmentCount`, to list rows only.
+      expect(Object.keys(res.items[0])).toEqual(['orderId', 'orderNumber', 'status', 'isCod', 'grandTotal', 'currency', 'lineCount', 'fulfillmentCount', 'placedAt', 'createdAt', 'updatedAt', 'hasDeliveryJobReference', 'unreferencedFulfillmentCount']);
     });
 
     it('request validation: real OrderStatus values only; isCod as "true"/"false" (never coerced); bounded page/size; exact order-number shape', () => {

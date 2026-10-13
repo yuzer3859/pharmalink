@@ -45,6 +45,7 @@ export class ListOrderOperationsQuery {
       createdFrom: input.createdFrom,
       createdTo: input.createdTo,
       hasDeliveryJobReference: input.hasDeliveryJobReference,
+      hasUnreferencedFulfillment: input.hasUnreferencedFulfillment,
     };
     return this.orders.listOrders(filter, page, size);
   }

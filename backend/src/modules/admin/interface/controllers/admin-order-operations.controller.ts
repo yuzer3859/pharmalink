@@ -12,7 +12,8 @@ import {
 /**
  * Order operations visibility (module-16 Work 35) — read-only:
  *
- *     GET /admin/operations/orders            ?status &isCod &orderNumber &createdFrom &createdTo &hasDeliveryJobReference &page &size
+ *     GET /admin/operations/orders            ?status &isCod &orderNumber &createdFrom &createdTo &hasDeliveryJobReference
+ *                                             &hasUnreferencedFulfillment &page &size
  *     GET /admin/operations/orders/:orderId   one order, its fulfillments, its payment's status
  *
  * `order:read:any` — added by this work; ADMIN only, SUPER_ADMIN by wildcard. It grants no order,
@@ -36,6 +37,7 @@ export class AdminOrderOperationsController {
         createdFrom: q.createdFrom ? new Date(q.createdFrom) : undefined,
         createdTo: q.createdTo ? new Date(q.createdTo) : undefined,
         hasDeliveryJobReference: q.hasDeliveryJobReference === undefined ? undefined : q.hasDeliveryJobReference === 'true',
+        hasUnreferencedFulfillment: q.hasUnreferencedFulfillment === undefined ? undefined : q.hasUnreferencedFulfillment === 'true',
         page: q.page,
         size: q.size,
       }),

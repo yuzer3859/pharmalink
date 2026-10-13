@@ -34,6 +34,9 @@ type SummaryRow = Prisma.OrderGetPayload<{ select: typeof SUMMARY_SELECT }>;
  */
 const REFERENCED_FULFILLMENT = { deliveryJobId: { not: null } } satisfies Prisma.FulfillmentWhereInput;
 
+/** Work 44's complement: a fulfillment with no recorded reference. Says nothing about Module 08's jobs. */
+const UNREFERENCED_FULFILLMENT = { deliveryJobId: null } satisfies Prisma.FulfillmentWhereInput;
+
 const toSummary = (r: SummaryRow): OrderOperationsSummary => ({
   orderId: r.id,
   orderNumber: r.orderNumber,
@@ -54,7 +57,8 @@ const toSummary = (r: SummaryRow): OrderOperationsSummary => ({
  * with its line and fulfillment counts as correlated sub-counts (no N+1) plus one `count`, both in
  * one transaction so the page and its total agree. Work 43 adds, in the same REPEATABLE READ
  * transaction, one more query over just the page's order ids for the reference flag — never one
- * per order, and never a fulfillment row.
+ * per order, and never a fulfillment row. Work 44 adds one `GROUP BY orderId` count of the page's
+ * unreferenced fulfillments, in the same transaction — counts, not rows.
  */
 @Injectable()
 export class PrismaOrderOperationsReadAdapter implements IOrderOperationsReadPort {
@@ -71,6 +75,10 @@ export class PrismaOrderOperationsReadAdapter implements IOrderOperationsReadPor
       ...(f.hasDeliveryJobReference === undefined
         ? {}
         : { fulfillments: f.hasDeliveryJobReference ? { some: REFERENCED_FULFILLMENT } : { none: REFERENCED_FULFILLMENT } }),
+      // A second predicate on the same relation cannot share the `fulfillments` key; AND keeps both.
+      ...(f.hasUnreferencedFulfillment === undefined
+        ? {}
+        : { AND: [{ fulfillments: f.hasUnreferencedFulfillment ? { some: UNREFERENCED_FULFILLMENT } : { none: UNREFERENCED_FULFILLMENT } }] }),
     };
     return this.prisma.$transaction(
       async (tx) => {
@@ -92,7 +100,21 @@ export class PrismaOrderOperationsReadAdapter implements IOrderOperationsReadPor
                 select: { id: true },
               });
         const withReference = new Set(referenced.map((r) => r.id));
-        const items: OrderOperationsListItem[] = rows.map((r) => ({ ...toSummary(r), hasDeliveryJobReference: withReference.has(r.id) }));
+        const unreferenced =
+          rows.length === 0
+            ? []
+            : await tx.fulfillment.groupBy({
+                by: ['orderId'],
+                where: { orderId: { in: rows.map((r) => r.id) }, ...UNREFERENCED_FULFILLMENT },
+                orderBy: { orderId: 'asc' },
+                _count: { _all: true },
+              });
+        const unreferencedCount = new Map(unreferenced.map((g) => [g.orderId, (g._count as { _all: number })._all]));
+        const items: OrderOperationsListItem[] = rows.map((r) => ({
+          ...toSummary(r),
+          hasDeliveryJobReference: withReference.has(r.id),
+          unreferencedFulfillmentCount: unreferencedCount.get(r.id) ?? 0,
+        }));
         return { items, total, page, size };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },

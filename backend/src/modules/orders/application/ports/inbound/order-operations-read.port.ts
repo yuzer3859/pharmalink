@@ -22,6 +22,13 @@ export interface OrderOperationsFilter {
    * that Module 08 has no job: it may simply not have been recorded yet (see Work 42A's repair).
    */
   hasDeliveryJobReference?: boolean;
+  /**
+   * Work 44: `true` — at least one fulfillment has no recorded delivery-job reference
+   * (`deliveryJobId IS NULL`); `false` — none does, so an order with no fulfillment matches `false`.
+   * Combined with `hasDeliveryJobReference: true` it finds partially referenced orders. Recorded
+   * references only: an unreferenced fulfillment may still have a Module 08 job.
+   */
+  hasUnreferencedFulfillment?: boolean;
 }
 
 /**
@@ -74,6 +81,8 @@ export interface OrderOperationsDetail extends OrderOperationsSummary {
 export interface OrderOperationsListItem extends OrderOperationsSummary {
   /** At least one fulfillment records a delivery-job reference — the `hasDeliveryJobReference` filter's definition. */
   hasDeliveryJobReference: boolean;
+  /** Work 44: how many of the order's fulfillments have `deliveryJobId IS NULL` (0 when it has none). */
+  unreferencedFulfillmentCount: number;
 }
 
 export interface OrderOperationsPage {

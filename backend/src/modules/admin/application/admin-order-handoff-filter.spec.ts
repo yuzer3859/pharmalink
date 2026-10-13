@@ -33,6 +33,8 @@ function fakePrisma(rows: ReturnType<typeof row>[], referenced: string[]) {
       },
       count: async (args: Record<string, unknown>) => (calls.push({ op: 'count', args }), rows.length),
     },
+    // Work 44's per-page count of unreferenced fulfillments.
+    fulfillment: { groupBy: async (args: Record<string, unknown>) => (calls.push({ op: 'groupBy', args }), []) },
   };
   const prisma = { $transaction: async (fn: (t: unknown) => unknown, o: unknown) => ((options = o), fn(tx)) } as unknown as PrismaService;
   return { prisma, calls, options: () => options };
@@ -113,7 +115,7 @@ describe('Admin order handoff exception filtering (Work 43)', () => {
   describe('Module 16 surface', () => {
     it('list rows carry the boolean; the detail response is unchanged (no such field)', () => {
       const res = toOrderOperationsListResponse({
-        items: [{ orderId: 'a', orderNumber: 'ORD-a', status: OrderStatus.READY, isCod: true, grandTotal: 1, currency: 'ETB', lineCount: 1, fulfillmentCount: 2, placedAt: null, createdAt: new Date(), updatedAt: new Date(), hasDeliveryJobReference: true }],
+        items: [{ orderId: 'a', orderNumber: 'ORD-a', status: OrderStatus.READY, isCod: true, grandTotal: 1, currency: 'ETB', lineCount: 1, fulfillmentCount: 2, placedAt: null, createdAt: new Date(), updatedAt: new Date(), hasDeliveryJobReference: true, unreferencedFulfillmentCount: 1 }],
         total: 1, page: 1, size: 20,
       });
       expect(res.items[0].hasDeliveryJobReference).toBe(true);

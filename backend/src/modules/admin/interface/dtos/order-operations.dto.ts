@@ -44,6 +44,15 @@ export class ListOrderOperationsQueryDto {
   @IsOptional()
   hasDeliveryJobReference?: 'true' | 'false';
 
+  /**
+   * Work 44: `true` / `false` — whether any fulfillment lacks a recorded delivery-job reference. Raw
+   * string, as `isCod`. A recorded reference only; `true` does not prove Module 08 has no job.
+   */
+  @Transform(({ obj }) => (obj as Record<string, unknown>).hasUnreferencedFulfillment)
+  @IsIn(['true', 'false'])
+  @IsOptional()
+  hasUnreferencedFulfillment?: 'true' | 'false';
+
   @IsInt()
   @Min(1)
   @IsOptional()

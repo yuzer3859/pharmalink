@@ -16,9 +16,13 @@ export interface OrderOperationsSummaryResponse {
   updatedAt: string;
 }
 
-/** A list row: the summary plus whether any fulfillment records a delivery-job reference (Work 43). */
+/**
+ * A list row: the summary plus whether any fulfillment records a delivery-job reference (Work 43) and
+ * how many fulfillments record none (Work 44). Recorded references only — not Module 08 job status.
+ */
 export interface OrderOperationsListItemResponse extends OrderOperationsSummaryResponse {
   hasDeliveryJobReference: boolean;
+  unreferencedFulfillmentCount: number;
 }
 
 export interface OrderOperationsListResponse {
@@ -69,7 +73,11 @@ export function toOrderOperationsSummaryResponse(o: OrderOperationsSummary): Ord
 }
 
 function toOrderOperationsListItemResponse(o: OrderOperationsListItem): OrderOperationsListItemResponse {
-  return { ...toOrderOperationsSummaryResponse(o), hasDeliveryJobReference: o.hasDeliveryJobReference };
+  return {
+    ...toOrderOperationsSummaryResponse(o),
+    hasDeliveryJobReference: o.hasDeliveryJobReference,
+    unreferencedFulfillmentCount: o.unreferencedFulfillmentCount,
+  };
 }
 
 export function toOrderOperationsListResponse(p: OrderOperationsPage): OrderOperationsListResponse {
