@@ -157,6 +157,12 @@ export const PERMISSIONS: Array<{
   // driver's); not `analytics:read`, which is for aggregate counts. Read only — it grants no
   // assignment, status, tracking, proof, COD or earnings action. ADMIN only.
   { key: 'delivery:read:any', resource: 'delivery', action: 'read', scope: 'any' },
+  // Module 16 Work 37 — reading any driver profile's operational state (availability, shift, job
+  // counts by status) for investigation. Separate from `delivery:read:any` because it describes
+  // people's working state rather than individual deliveries; not `analytics:read`, which is for
+  // aggregate counts. Read only — it grants no activation, suspension, availability or assignment
+  // action. ADMIN only.
+  { key: 'driver:read:any', resource: 'driver', action: 'read', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -332,6 +338,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'order:read:any',
     // Module 16 Work 36 — delivery operations visibility.
     'delivery:read:any',
+    // Module 16 Work 37 — driver operations visibility.
+    'driver:read:any',
   ],
   SUPER_ADMIN: ['*'],
 };

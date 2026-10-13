@@ -840,6 +840,8 @@ describe('Admin finance oversight (e2e)', () => {
         'delivery/application/ports/inbound/delivery-analytics-read.port',
         // Work 36's delivery operations: delivery jobs listed and read, read-only.
         'delivery/application/ports/inbound/delivery-operations-read.port',
+        // Work 37's driver operations: driver profiles' state and job counts, read-only.
+        'delivery/application/ports/inbound/driver-operations-read.port',
         'delivery/delivery.module',
         'payment/application/ports/inbound/finance-oversight.port',
         'payment/payment.module',

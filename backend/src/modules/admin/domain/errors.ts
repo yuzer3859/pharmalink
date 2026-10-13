@@ -37,6 +37,9 @@ export const AdminErrors = {
   /** No Module 08 delivery job (courier job) with that id (module-16 Work 36's delivery operations). */
   deliveryOperationsJobNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Delivery job not found.'),
 
+  /** No Module 08 driver profile with that id (module-16 Work 37's driver operations). */
+  driverProfileNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Driver profile not found.'),
+
   /** No catalogue product with that id, or it was deleted (module-16 Work 33's review history). */
   catalogProductNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Product not found.'),
 

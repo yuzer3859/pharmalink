@@ -70,8 +70,9 @@ export interface OrderOperationsDetailView {
 /**
  * `GET /admin/operations/orders/:orderId` (module-16 Work 35): one order through Module 06, and — when
  * the order links one — its payment's status through Module 07's existing `FINANCE_OVERSIGHT_PORT`.
- * Unknown order → 404. No delivery-job status: Module 08 exports no per-job read, so a fulfillment's
- * `deliveryJobId` is shown by reference only. Read-only; not audited.
+ * Unknown order → 404. No delivery-job status here: a fulfillment's `deliveryJobId` is shown by
+ * reference only, and the job's own Module 08 status is read at `GET /admin/operations/deliveries/:id`
+ * (Work 36's `DELIVERY_OPERATIONS_READ_PORT`). Read-only; not audited.
  */
 @Injectable()
 export class GetOrderOperationsQuery {

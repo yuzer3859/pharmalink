@@ -37,6 +37,7 @@ import {
 import { DELIVERY_ANALYTICS_READ_PORT } from './application/ports/inbound/delivery-analytics-read.port';
 import { DRIVER_RECIPIENT_READ_PORT } from './application/ports/inbound/driver-recipient-read.port';
 import { DELIVERY_OPERATIONS_READ_PORT } from './application/ports/inbound/delivery-operations-read.port';
+import { DRIVER_OPERATIONS_READ_PORT } from './application/ports/inbound/driver-operations-read.port';
 import { DELIVERY_PRICING_PORT } from './application/ports/inbound/delivery-pricing.port';
 import { AccrueDriverEarningCommand } from './application/commands/accrue-driver-earning.command';
 import { RecordCodCollectionCommand } from './application/commands/record-cod-collection.command';
@@ -85,6 +86,7 @@ import { PrismaDeliveryJobRepository } from './infrastructure/persistence/prisma
 import { PrismaDeliveryAnalyticsReadAdapter } from './infrastructure/persistence/prisma-delivery-analytics-read.adapter';
 import { PrismaDriverRecipientReadAdapter } from './infrastructure/persistence/prisma-driver-recipient-read.adapter';
 import { PrismaDeliveryOperationsReadAdapter } from './infrastructure/persistence/prisma-delivery-operations-read.adapter';
+import { PrismaDriverOperationsReadAdapter } from './infrastructure/persistence/prisma-driver-operations-read.adapter';
 import { PrismaDriverProfileRepository } from './infrastructure/persistence/prisma-driver-profile.repository';
 import { PrismaJobOfferRepository } from './infrastructure/persistence/prisma-job-offer.repository';
 import { PrismaProofOfDeliveryRepository } from './infrastructure/persistence/prisma-proof-of-delivery.repository';
@@ -334,6 +336,9 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     // Inbound read contract for Module 16's delivery operations (module-16 Work 36): delivery jobs
     // listed and read with explicit fields. No address, position, proof or driver person crosses it.
     { provide: DELIVERY_OPERATIONS_READ_PORT, useClass: PrismaDeliveryOperationsReadAdapter },
+    // Inbound read contract for Module 16's driver operations (module-16 Work 37): driver profiles'
+    // availability, shift and job counts. No user id, plate, service area or position crosses it.
+    { provide: DRIVER_OPERATIONS_READ_PORT, useClass: PrismaDriverOperationsReadAdapter },
 
     // Driver earnings (§3.5 F-ERN-01/F-ERN-02, BR-DEL-10, §6's
     // `CompleteDelivery → AccrueEarning → DriverEarning(ACCRUED)`).
@@ -453,6 +458,7 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     DELIVERY_ANALYTICS_READ_PORT,
     DRIVER_RECIPIENT_READ_PORT,
     DELIVERY_OPERATIONS_READ_PORT,
+    DRIVER_OPERATIONS_READ_PORT,
   ],
 })
 export class DeliveryModule {}
