@@ -8,6 +8,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
+import { COD_DISCREPANCY_SQL, COD_OUTSTANDING_SQL } from './cod-collection.sql';
 import { CodCollectionProps } from '../../domain/entities/cod-collection.entity';
 import { CodCorrectionProps } from '../../domain/entities/cod-correction.entity';
 import { CodDisputeProps } from '../../domain/entities/cod-dispute.entity';
@@ -493,16 +494,9 @@ export class PrismaCodCollectionRepository implements ICodCollectionRepository {
         COALESCE(SUM(c."expectedAmount"), 0)::bigint AS "expected",
         COALESCE(SUM(c."collectedAmount"), 0)::bigint AS "collected",
         COALESCE(SUM(r."remittedAmount"), 0)::bigint AS "remitted",
-        COUNT(*) FILTER (
-          WHERE c."status" <> 'RECONCILED'::"CodCollectionStatus"
-        )::bigint AS "outstandingCount",
-        COALESCE(SUM(c."collectedAmount") FILTER (
-          WHERE c."status" <> 'RECONCILED'::"CodCollectionStatus"
-        ), 0)::bigint AS "outstandingAmount",
-        COUNT(*) FILTER (
-          WHERE c."collectedAmount" <> c."expectedAmount"
-             OR (r."id" IS NOT NULL AND r."remittedAmount" <> c."collectedAmount")
-        )::bigint AS "discrepancyCount"
+        COUNT(*) FILTER (WHERE ${COD_OUTSTANDING_SQL})::bigint AS "outstandingCount",
+        COALESCE(SUM(c."collectedAmount") FILTER (WHERE ${COD_OUTSTANDING_SQL}), 0)::bigint AS "outstandingAmount",
+        COUNT(*) FILTER (WHERE ${COD_DISCREPANCY_SQL})::bigint AS "discrepancyCount"
       FROM "cod_collections" c
       LEFT JOIN "cod_remittances" r ON r."collectionId" = c."id"
       ${where}

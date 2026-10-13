@@ -835,6 +835,8 @@ describe('Admin finance oversight (e2e)', () => {
       walk(root);
       expect([...imports].sort()).toEqual([
         'delivery/application/ports/inbound/cod-dispute-admin.port',
+        // Work 39's COD exception summary: counts and timestamps only.
+        'delivery/application/ports/inbound/cod-exception-summary-read.port',
         'delivery/application/ports/inbound/cod-finance-read.port',
         // Work 38's COD operations: collections and their legs, read-only.
         'delivery/application/ports/inbound/cod-operations-read.port',

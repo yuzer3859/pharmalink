@@ -630,6 +630,8 @@ describe('Admin operational analytics (e2e)', () => {
         'catalog/application/ports/inbound/catalog-review-summary-read.port',
         'catalog/catalog.module',
         'delivery/application/ports/inbound/cod-dispute-admin.port',
+        // Work 39: COD exception summary (admin-cod-summary.e2e-spec.ts).
+        'delivery/application/ports/inbound/cod-exception-summary-read.port',
         'delivery/application/ports/inbound/cod-finance-read.port',
         // Work 38: COD operations visibility (admin-cod-operations.e2e-spec.ts).
         'delivery/application/ports/inbound/cod-operations-read.port',

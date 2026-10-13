@@ -39,6 +39,7 @@ import { DRIVER_RECIPIENT_READ_PORT } from './application/ports/inbound/driver-r
 import { DELIVERY_OPERATIONS_READ_PORT } from './application/ports/inbound/delivery-operations-read.port';
 import { DRIVER_OPERATIONS_READ_PORT } from './application/ports/inbound/driver-operations-read.port';
 import { COD_OPERATIONS_READ_PORT } from './application/ports/inbound/cod-operations-read.port';
+import { COD_EXCEPTION_SUMMARY_READ_PORT } from './application/ports/inbound/cod-exception-summary-read.port';
 import { DELIVERY_PRICING_PORT } from './application/ports/inbound/delivery-pricing.port';
 import { AccrueDriverEarningCommand } from './application/commands/accrue-driver-earning.command';
 import { RecordCodCollectionCommand } from './application/commands/record-cod-collection.command';
@@ -89,6 +90,7 @@ import { PrismaDriverRecipientReadAdapter } from './infrastructure/persistence/p
 import { PrismaDeliveryOperationsReadAdapter } from './infrastructure/persistence/prisma-delivery-operations-read.adapter';
 import { PrismaDriverOperationsReadAdapter } from './infrastructure/persistence/prisma-driver-operations-read.adapter';
 import { PrismaCodOperationsReadAdapter } from './infrastructure/persistence/prisma-cod-operations-read.adapter';
+import { PrismaCodExceptionSummaryReadAdapter } from './infrastructure/persistence/prisma-cod-exception-summary-read.adapter';
 import { PrismaDriverProfileRepository } from './infrastructure/persistence/prisma-driver-profile.repository';
 import { PrismaJobOfferRepository } from './infrastructure/persistence/prisma-job-offer.repository';
 import { PrismaProofOfDeliveryRepository } from './infrastructure/persistence/prisma-proof-of-delivery.repository';
@@ -344,6 +346,9 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     // Inbound read contract for Module 16's COD operations (module-16 Work 38): `ListCodCollectionsQuery`'s
     // projection reduced to ids, statuses, amounts and times. No note, reason, reference or user id.
     { provide: COD_OPERATIONS_READ_PORT, useClass: PrismaCodOperationsReadAdapter },
+    // Inbound read contract for Module 16's COD exception summary (module-16 Work 39): counts and
+    // timestamps from one SQL statement, using the same flag predicates as `summarize`.
+    { provide: COD_EXCEPTION_SUMMARY_READ_PORT, useClass: PrismaCodExceptionSummaryReadAdapter },
 
     // Driver earnings (§3.5 F-ERN-01/F-ERN-02, BR-DEL-10, §6's
     // `CompleteDelivery → AccrueEarning → DriverEarning(ACCRUED)`).
@@ -465,6 +470,7 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     DELIVERY_OPERATIONS_READ_PORT,
     DRIVER_OPERATIONS_READ_PORT,
     COD_OPERATIONS_READ_PORT,
+    COD_EXCEPTION_SUMMARY_READ_PORT,
   ],
 })
 export class DeliveryModule {}
