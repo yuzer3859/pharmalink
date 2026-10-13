@@ -10,6 +10,12 @@ export interface OrderBacklogSummaryResponse {
     oldestNonTerminalPlacedAt: string | null;
     oldestNonTerminalAgeSeconds: number | null;
   };
+  /** Work 42: READY orders split by whether a delivery-job reference is recorded — not a delivery status. */
+  readyHandoff: {
+    readyOrderCount: number;
+    readyOrdersWithDeliveryJob: number;
+    readyOrdersWithoutDeliveryJob: number;
+  };
 }
 
 // Explicit allow-list, never a spread of the port object.
@@ -23,6 +29,11 @@ export function toOrderBacklogSummaryResponse(s: OrderBacklogSummary): OrderBack
       nonTerminalCount: o.nonTerminalCount,
       oldestNonTerminalPlacedAt: o.oldestNonTerminalPlacedAt ? o.oldestNonTerminalPlacedAt.toISOString() : null,
       oldestNonTerminalAgeSeconds: o.oldestNonTerminalAgeSeconds,
+    },
+    readyHandoff: {
+      readyOrderCount: s.readyHandoff.readyOrderCount,
+      readyOrdersWithDeliveryJob: s.readyHandoff.readyOrdersWithDeliveryJob,
+      readyOrdersWithoutDeliveryJob: s.readyHandoff.readyOrdersWithoutDeliveryJob,
     },
   };
 }

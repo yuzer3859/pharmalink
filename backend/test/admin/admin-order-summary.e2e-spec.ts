@@ -164,7 +164,7 @@ describe('Admin order backlog summary (e2e)', () => {
   it('summary is not taken for an order id; Work 35 list/detail, Work 39 COD and Work 40 delivery summaries still answer', async () => {
     const orders = await seedSet();
     const authed = (path: string) => request(ctx.server).get(path).set(...auth(admin.accessToken));
-    expect(Object.keys(await summary())).toEqual(['generatedAt', 'orders']);
+    expect(Object.keys(await summary())).toEqual(['generatedAt', 'orders', 'readyHandoff']);
     expect((body(await authed('/admin/operations/orders').query({ size: 100 }).expect(200)) as unknown as { total: number }).total).toBe(12);
     const detail = body(await authed(`/admin/operations/orders/${orders.PAID.id}`).expect(200)) as { orderId: string; status: string };
     expect([detail.orderId, detail.status]).toEqual([orders.PAID.id, 'PAID']);

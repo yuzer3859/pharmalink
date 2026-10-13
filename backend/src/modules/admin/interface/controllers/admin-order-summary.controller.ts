@@ -10,7 +10,8 @@ import { OrderBacklogSummaryResponse, toOrderBacklogSummaryResponse } from '../d
  *
  * A controller of its own, registered in `AdminModule` **before** `AdminOrderOperationsController`,
  * so `summary` reaches this route rather than Work 35's `:orderId` (whose UUID pipe would refuse it).
- * `order:read:any`, as Work 35. Counts and timestamps only. Not audited.
+ * `order:read:any`, as Work 35. Counts and timestamps only. Not audited. Work 42 adds `readyHandoff`:
+ * READY orders split by whether a delivery-job reference is recorded on any fulfillment.
  */
 @Controller('admin/operations/orders/summary')
 @RequirePermissions('order:read:any')

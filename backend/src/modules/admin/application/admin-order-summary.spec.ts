@@ -22,7 +22,8 @@ const NOW = new Date('2026-10-13T12:00:00Z');
 const STATUSES = Object.values(OrderStatus);
 type Row = Record<string, unknown>;
 const row = (over: Row = {}): Row => ({
-  generatedAt: NOW, byStatus: null, total: 0n, nonTerminalCount: 0n, oldestNonTerminalPlacedAt: null, oldestNonTerminalAgeSeconds: null, ...over,
+  generatedAt: NOW, byStatus: null, total: 0n, nonTerminalCount: 0n, oldestNonTerminalPlacedAt: null, oldestNonTerminalAgeSeconds: null,
+  readyOrderCount: 0n, readyOrdersWithDeliveryJob: 0n, readyOrdersWithoutDeliveryJob: 0n, ...over,
 });
 
 function fakePrisma(result: Row) {
@@ -56,6 +57,7 @@ describe('Admin order backlog summary (application)', () => {
       expect(s).toEqual({
         generatedAt: NOW,
         orders: { total: 0, byStatus: Object.fromEntries(STATUSES.map((k) => [k, 0])), nonTerminalCount: 0, oldestNonTerminalPlacedAt: null, oldestNonTerminalAgeSeconds: null },
+        readyHandoff: { readyOrderCount: 0, readyOrdersWithDeliveryJob: 0, readyOrdersWithoutDeliveryJob: 0 },
       });
       expect(Object.keys(s.orders.byStatus)).toEqual(STATUSES);
     });
@@ -84,10 +86,13 @@ describe('Admin order backlog summary (application)', () => {
       sql = statement.text.replace(/\s+/g, ' ');
     });
 
-    it('reads orders alone — no join to lines, fulfillments, payments or deliveries — and generatedAt from now()', () => {
+    it('reads orders with no join — nothing of payments or deliveries; fulfillments only inside an EXISTS — and generatedAt from now()', () => {
       expect(sql).toContain('now() AS "generatedAt"');
       expect(sql).toMatch(/FROM "orders" o\s*$/);
-      expect(sql).not.toMatch(/JOIN|fulfillment|payment|delivery|cod_/i);
+      expect(sql).not.toMatch(/JOIN|payment|delivery_jobs|cod_/i);
+      // Work 42: Module 06's own fulfillments are reached only inside the READY handoff's EXISTS, never as a row source.
+      expect(sql.match(/"fulfillments"/g)).toHaveLength(2);
+      expect(sql.match(/EXISTS \(SELECT 1 FROM "fulfillments" f WHERE f\."orderId" = o\."id" AND f\."deliveryJobId" IS NOT NULL\)/g)).toHaveLength(2);
     });
 
     it('non-terminal is "status not in the policy’s terminal set", bound as parameters; the oldest also requires a placedAt', () => {
@@ -110,12 +115,13 @@ describe('Admin order backlog summary (application)', () => {
       const summary: OrderBacklogSummary = {
         generatedAt: NOW,
         orders: { total: 1, byStatus: Object.fromEntries(STATUSES.map((k) => [k, k === 'PAID' ? 1 : 0])) as Record<OrderStatus, number>, nonTerminalCount: 1, oldestNonTerminalPlacedAt: new Date('2026-10-13T11:00:00Z'), oldestNonTerminalAgeSeconds: 3600 },
+        readyHandoff: { readyOrderCount: 0, readyOrdersWithDeliveryJob: 0, readyOrdersWithoutDeliveryJob: 0 },
       };
       Object.assign(summary.orders, { oldestOrderId: 'ord-secret', oldestOrderNumber: 'ORD-SECRET' });
       Object.assign(summary, { grandTotalSum: 999_999, customerUserId: 'cust-secret' });
       const port: IOrderBacklogSummaryReadPort = { summarizeBacklog: async () => summary };
       const res = toOrderBacklogSummaryResponse(await new GetOrderBacklogSummaryQuery(port).execute());
-      expect(Object.keys(res)).toEqual(['generatedAt', 'orders']);
+      expect(Object.keys(res)).toEqual(['generatedAt', 'orders', 'readyHandoff']);
       expect(Object.keys(res.orders)).toEqual(['total', 'byStatus', 'nonTerminalCount', 'oldestNonTerminalPlacedAt', 'oldestNonTerminalAgeSeconds']);
       expect(res.orders.oldestNonTerminalPlacedAt).toBe('2026-10-13T11:00:00.000Z');
       expect(JSON.stringify(res)).not.toMatch(/secret|SECRET|999999|Id"|Number"|Total"/);
