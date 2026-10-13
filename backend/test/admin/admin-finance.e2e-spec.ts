@@ -842,6 +842,8 @@ describe('Admin finance oversight (e2e)', () => {
         'delivery/application/ports/inbound/cod-operations-read.port',
         // Work 08's operational dashboard: job and driver counts, read-only.
         'delivery/application/ports/inbound/delivery-analytics-read.port',
+        // Work 40's delivery backlog summary: counts and timestamps only.
+        'delivery/application/ports/inbound/delivery-backlog-summary-read.port',
         // Work 36's delivery operations: delivery jobs listed and read, read-only.
         'delivery/application/ports/inbound/delivery-operations-read.port',
         // Work 37's driver operations: driver profiles' state and job counts, read-only.
