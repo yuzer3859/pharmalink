@@ -40,6 +40,9 @@ import { ORDER_OPERATIONS_READ_PORT } from './application/ports/inbound/order-op
 import { PrismaOrderOperationsReadAdapter } from './infrastructure/persistence/prisma-order-operations-read.adapter';
 import { ORDER_BACKLOG_SUMMARY_READ_PORT } from './application/ports/inbound/order-backlog-summary-read.port';
 import { PrismaOrderBacklogSummaryReadAdapter } from './infrastructure/persistence/prisma-order-backlog-summary-read.adapter';
+import { FULFILLMENT_DELIVERY_JOB_LINK_REPOSITORY } from './domain/repositories/fulfillment-delivery-job-link.repository';
+import { PrismaFulfillmentDeliveryJobLinkRepository } from './infrastructure/persistence/prisma-fulfillment-delivery-job-link.repository';
+import { DeliveryJobCreatedHandler } from './interface/events/delivery-job-created.handler';
 import { ORDER_RECIPIENT_READ_PORT } from './application/ports/inbound/order-recipient-read.port';
 import { PrismaOrderAnalyticsReadAdapter } from './infrastructure/persistence/prisma-order-analytics-read.adapter';
 import { PrismaOrderRecipientReadAdapter } from './infrastructure/persistence/prisma-order-recipient-read.adapter';
@@ -93,6 +96,10 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     // Module 16 Work 41 — order backlog summary: counts and timestamps from one SQL statement, terminal
     // set from `OrderStatusPolicy.isTerminal`. No order, customer or amount crosses it.
     { provide: ORDER_BACKLOG_SUMMARY_READ_PORT, useClass: PrismaOrderBacklogSummaryReadAdapter },
+    // Module 08's `delivery.job.created` -> `fulfillments.deliveryJobId` (Work 42A). A guarded write
+    // of the reference column only; failures are recovered by `npm run maintenance:backfill-delivery-job-refs`.
+    { provide: FULFILLMENT_DELIVERY_JOB_LINK_REPOSITORY, useClass: PrismaFulfillmentDeliveryJobLinkRepository },
+    DeliveryJobCreatedHandler,
     { provide: FULFILLMENT_REPOSITORY, useClass: PrismaFulfillmentRepository },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
 

@@ -20,7 +20,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "maintenance:backfill-delivery-job-refs": "ts-node prisma/maintenance/backfill-fulfillment-delivery-job-ids.ts"
   },
   "prisma": {
     "schema": "prisma/schema",
