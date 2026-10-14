@@ -51,3 +51,18 @@ export const eligiblePharmacyWhere = (alias: 'p' | 'ph', now: Date) => {
   AND ${a}."licenseStatus" = 'VALID'
   AND (${a}."licenseExpiresAt" IS NULL OR ${a}."licenseExpiresAt" > ${now})`;
 };
+
+/**
+ * The listing's unexpired batch quantity at `now` (`expiryDate > now`; a batch expiring exactly at
+ * `now` is expired) — `SellableStockCalculator`'s `onHandUnexpired` as SQL over alias `il`
+ * (module-16 Work 49).
+ */
+export const unexpiredBatchQuantity = (now: Date) => Prisma.sql`(SELECT COALESCE(SUM(sb."quantity"), 0) FROM "stock_batches" sb
+     WHERE sb."listingId" = il."id" AND sb."expiryDate" > ${now})`;
+
+/**
+ * `SellableStockCalculator.computeSellable` at `now` as SQL over alias `il` (module-16 Work 49):
+ * `max(0, unexpired batch quantity − il.reserved)`. Positive exactly when `unexpiredSellablePositive`
+ * holds, since `GREATEST(0, x) > 0 ⇔ x > 0`.
+ */
+export const computedSellableQuantity = (now: Date) => Prisma.sql`GREATEST(0, ${unexpiredBatchQuantity(now)} - il."reserved")`;

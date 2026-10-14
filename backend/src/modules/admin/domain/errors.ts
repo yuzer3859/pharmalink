@@ -52,6 +52,9 @@ export const AdminErrors = {
   /** No live branch of a live Module 04 pharmacy with that id (module-16 Work 48's branch operations). */
   branchNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Branch not found.'),
 
+  /** No live Module 04 inventory listing with that id (module-16 Work 49's listing operations). */
+  inventoryListingNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Inventory listing not found.'),
+
   /** No catalogue product with that id, or it was deleted (module-16 Work 33's review history). */
   catalogProductNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Product not found.'),
 

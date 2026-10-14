@@ -46,6 +46,8 @@ import { PHARMACY_OPERATIONS_READ_PORT } from './application/ports/inbound/pharm
 import { PrismaPharmacyOperationsReadAdapter } from './infrastructure/persistence/prisma-pharmacy-operations-read.adapter';
 import { BRANCH_OPERATIONS_READ_PORT } from './application/ports/inbound/branch-operations-read.port';
 import { PrismaBranchOperationsReadAdapter } from './infrastructure/persistence/prisma-branch-operations-read.adapter';
+import { INVENTORY_LISTING_OPERATIONS_READ_PORT } from './application/ports/inbound/inventory-listing-operations-read.port';
+import { PrismaInventoryListingOperationsReadAdapter } from './infrastructure/persistence/prisma-inventory-listing-operations-read.adapter';
 import { PrismaPharmacyStockAvailabilityReadAdapter } from './infrastructure/persistence/prisma-pharmacy-stock-availability-read.adapter';
 import { PrismaReservationRepository } from './infrastructure/persistence/prisma-reservation.repository';
 import { PrismaStockLedgerRepository } from './infrastructure/persistence/prisma-stock-ledger.repository';
@@ -121,6 +123,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     { provide: PHARMACY_OPERATIONS_READ_PORT, useClass: PrismaPharmacyOperationsReadAdapter },
     // Module 16 Work 48 — per-branch operations read, with the same listing-count definitions.
     { provide: BRANCH_OPERATIONS_READ_PORT, useClass: PrismaBranchOperationsReadAdapter },
+    // Module 16 Work 49 — per-listing operations read: stored vs computed sellable stock, Work 26's purchasability.
+    { provide: INVENTORY_LISTING_OPERATIONS_READ_PORT, useClass: PrismaInventoryListingOperationsReadAdapter },
     // Inbound read contract for Module 13's pharmacy notifications (module-13 Work 07): a
     // pharmacy's organization owner `userId`, via the existing `IIdentityPort` owner read.
     { provide: PHARMACY_RECIPIENT_READ_PORT, useClass: PharmacyRecipientReadPortAdapter },
@@ -137,6 +141,7 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     PHARMACY_STOCK_AVAILABILITY_READ_PORT,
     PHARMACY_OPERATIONS_READ_PORT,
     BRANCH_OPERATIONS_READ_PORT,
+    INVENTORY_LISTING_OPERATIONS_READ_PORT,
   ],
 })
 export class PharmacyInventoryModule {}
