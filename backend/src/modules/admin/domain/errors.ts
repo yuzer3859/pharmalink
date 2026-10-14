@@ -61,6 +61,9 @@ export const AdminErrors = {
   /** No Module 04 stock batch with that id on a live listing (module-16 Work 51's batch visibility). */
   stockBatchNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Stock batch not found.'),
 
+  /** No Module 04 stock reservation with that id (module-16 Work 52's reservation visibility). */
+  stockReservationNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Stock reservation not found.'),
+
   /** No catalogue product with that id, or it was deleted (module-16 Work 33's review history). */
   catalogProductNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Product not found.'),
 

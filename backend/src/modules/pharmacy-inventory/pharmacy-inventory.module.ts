@@ -52,6 +52,8 @@ import { STOCK_MOVEMENT_OPERATIONS_READ_PORT } from './application/ports/inbound
 import { PrismaStockMovementOperationsReadAdapter } from './infrastructure/persistence/prisma-stock-movement-operations-read.adapter';
 import { STOCK_BATCH_OPERATIONS_READ_PORT } from './application/ports/inbound/stock-batch-operations-read.port';
 import { PrismaStockBatchOperationsReadAdapter } from './infrastructure/persistence/prisma-stock-batch-operations-read.adapter';
+import { STOCK_RESERVATION_OPERATIONS_READ_PORT } from './application/ports/inbound/stock-reservation-operations-read.port';
+import { PrismaStockReservationOperationsReadAdapter } from './infrastructure/persistence/prisma-stock-reservation-operations-read.adapter';
 import { PrismaPharmacyStockAvailabilityReadAdapter } from './infrastructure/persistence/prisma-pharmacy-stock-availability-read.adapter';
 import { PrismaReservationRepository } from './infrastructure/persistence/prisma-reservation.repository';
 import { PrismaStockLedgerRepository } from './infrastructure/persistence/prisma-stock-ledger.repository';
@@ -133,6 +135,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     { provide: STOCK_MOVEMENT_OPERATIONS_READ_PORT, useClass: PrismaStockMovementOperationsReadAdapter },
     // Module 16 Work 51 — stock batches and expiry: explicit fields, the calculator's expiry rule.
     { provide: STOCK_BATCH_OPERATIONS_READ_PORT, useClass: PrismaStockBatchOperationsReadAdapter },
+    // Module 16 Work 52 — reservations: stored status, the sweeper's lapsed-hold rule, dispatch by movement. No order id.
+    { provide: STOCK_RESERVATION_OPERATIONS_READ_PORT, useClass: PrismaStockReservationOperationsReadAdapter },
     // Inbound read contract for Module 13's pharmacy notifications (module-13 Work 07): a
     // pharmacy's organization owner `userId`, via the existing `IIdentityPort` owner read.
     { provide: PHARMACY_RECIPIENT_READ_PORT, useClass: PharmacyRecipientReadPortAdapter },
@@ -152,6 +156,7 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     INVENTORY_LISTING_OPERATIONS_READ_PORT,
     STOCK_MOVEMENT_OPERATIONS_READ_PORT,
     STOCK_BATCH_OPERATIONS_READ_PORT,
+    STOCK_RESERVATION_OPERATIONS_READ_PORT,
   ],
 })
 export class PharmacyInventoryModule {}

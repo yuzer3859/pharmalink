@@ -670,6 +670,8 @@ describe('Admin operational analytics (e2e)', () => {
         'pharmacy-inventory/application/ports/inbound/stock-batch-operations-read.port',
         // Work 50: stock-movement history (admin-stock-movement-operations.e2e-spec.ts).
         'pharmacy-inventory/application/ports/inbound/stock-movement-operations-read.port',
+        // Work 52: inventory reservation visibility (admin-stock-reservation-operations.e2e-spec.ts).
+        'pharmacy-inventory/application/ports/inbound/stock-reservation-operations-read.port',
         'pharmacy-inventory/pharmacy-inventory.module',
       ]);
     });
