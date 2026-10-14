@@ -60,6 +60,7 @@ import { GetCodOperationsQuery, ListCodOperationsQuery } from './application/que
 import { GetCodExceptionSummaryQuery } from './application/queries/get-cod-exception-summary.query';
 import { GetDeliveryBacklogSummaryQuery } from './application/queries/get-delivery-backlog-summary.query';
 import { GetOrderBacklogSummaryQuery } from './application/queries/get-order-backlog-summary.query';
+import { GetFulfillmentOperationsQuery, ListFulfillmentOperationsQuery } from './application/queries/fulfillment-operations.queries';
 import { ListCodDisputesQuery } from './application/queries/list-cod-disputes.query';
 import { ListFinancePaymentsQuery } from './application/queries/list-finance-payments.query';
 import { ListFinanceRefundsQuery } from './application/queries/list-finance-refunds.query';
@@ -89,6 +90,7 @@ import { AdminCodOperationsController } from './interface/controllers/admin-cod-
 import { AdminCodSummaryController } from './interface/controllers/admin-cod-summary.controller';
 import { AdminDeliverySummaryController } from './interface/controllers/admin-delivery-summary.controller';
 import { AdminOrderSummaryController } from './interface/controllers/admin-order-summary.controller';
+import { AdminFulfillmentOperationsController } from './interface/controllers/admin-fulfillment-operations.controller';
 import { AdminCodDisputesController } from './interface/controllers/admin-cod-disputes.controller';
 import { AdminConfigController } from './interface/controllers/admin-config.controller';
 import { AdminFeatureFlagController } from './interface/controllers/admin-feature-flag.controller';
@@ -170,7 +172,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
   // `CATALOG_REVIEW_HISTORY_PORT` (Work 33) and `CATALOG_REVIEW_SUMMARY_READ_PORT` (Work 34);
   // `PharmacyInventoryModule` also for `PHARMACY_STOCK_AVAILABILITY_READ_PORT` (Work 25), and
   // `OrdersModule` also for `ORDER_OPERATIONS_READ_PORT` (Work 35) and
-  // `ORDER_BACKLOG_SUMMARY_READ_PORT` (Work 41). `DeliveryModule` also for
+  // `ORDER_BACKLOG_SUMMARY_READ_PORT` (Work 41) and `FULFILLMENT_OPERATIONS_READ_PORT` (Work 46). `DeliveryModule` also for
   // `DELIVERY_OPERATIONS_READ_PORT` (Work 36), `DRIVER_OPERATIONS_READ_PORT` (Work 37),
   // `COD_OPERATIONS_READ_PORT` (Work 38), `COD_EXCEPTION_SUMMARY_READ_PORT` (Work 39) and
   // `DELIVERY_BACKLOG_SUMMARY_READ_PORT` (Work 40).
@@ -289,6 +291,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     GetDeliveryBacklogSummaryQuery,
     // Work 41 — order backlog and aging summary, over Module 06's summary read port.
     GetOrderBacklogSummaryQuery,
+    // Work 46 — fulfillment operations visibility, over Module 06's fulfillment read port.
+    ListFulfillmentOperationsQuery,
+    GetFulfillmentOperationsQuery,
   ],
   controllers: [
     AdminConfigController,
@@ -312,6 +317,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     // `/admin/operations/orders/:orderId`, or `summary` would be taken for an order id.
     AdminOrderSummaryController,
     AdminOrderOperationsController,
+    AdminFulfillmentOperationsController,
     // Work 40's `/admin/operations/deliveries/summary` must be registered before Work 36's
     // `/admin/operations/deliveries/:deliveryJobId`, or `summary` would be taken for a job id.
     AdminDeliverySummaryController,

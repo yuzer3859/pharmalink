@@ -47,6 +47,8 @@ import { DeliveryJobCreatedHandler } from './interface/events/delivery-job-creat
 import { DELIVERY_JOB_REFERENCE_CANDIDATE_REPOSITORY } from './domain/repositories/delivery-job-reference-candidate.repository';
 import { PrismaDeliveryJobReferenceCandidateRepository } from './infrastructure/persistence/prisma-delivery-job-reference-candidate.repository';
 import { DeliveryJobReferenceReconciler } from './infrastructure/scheduling/delivery-job-reference.reconciler';
+import { FULFILLMENT_OPERATIONS_READ_PORT } from './application/ports/inbound/fulfillment-operations-read.port';
+import { PrismaFulfillmentOperationsReadAdapter } from './infrastructure/persistence/prisma-fulfillment-operations-read.adapter';
 import { ORDER_RECIPIENT_READ_PORT } from './application/ports/inbound/order-recipient-read.port';
 import { PrismaOrderAnalyticsReadAdapter } from './infrastructure/persistence/prisma-order-analytics-read.adapter';
 import { PrismaOrderRecipientReadAdapter } from './infrastructure/persistence/prisma-order-recipient-read.adapter';
@@ -102,6 +104,8 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     // Module 16 Work 41 — order backlog summary: counts and timestamps from one SQL statement, terminal
     // set from `OrderStatusPolicy.isTerminal`. No order, customer or amount crosses it.
     { provide: ORDER_BACKLOG_SUMMARY_READ_PORT, useClass: PrismaOrderBacklogSummaryReadAdapter },
+    // Module 16 Work 46 — fulfillment operations: fulfillments listed and read with explicit fields.
+    { provide: FULFILLMENT_OPERATIONS_READ_PORT, useClass: PrismaFulfillmentOperationsReadAdapter },
     // Module 08's `delivery.job.created` -> `fulfillments.deliveryJobId` (Work 42A). A guarded write
     // of the reference column only; failures are recovered by `npm run maintenance:backfill-delivery-job-refs`.
     { provide: FULFILLMENT_DELIVERY_JOB_LINK_REPOSITORY, useClass: PrismaFulfillmentDeliveryJobLinkRepository },
@@ -144,6 +148,6 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PrepareFulfillmentCommand,
     MarkReadyCommand,
   ],
-  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT, ORDER_OPERATIONS_READ_PORT, ORDER_BACKLOG_SUMMARY_READ_PORT],
+  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT, ORDER_OPERATIONS_READ_PORT, ORDER_BACKLOG_SUMMARY_READ_PORT, FULFILLMENT_OPERATIONS_READ_PORT],
 })
 export class OrdersModule {}

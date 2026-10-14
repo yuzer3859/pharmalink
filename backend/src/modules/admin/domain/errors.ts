@@ -43,6 +43,9 @@ export const AdminErrors = {
   /** No Module 08 COD collection with that id (module-16 Work 38's COD operations). */
   codCollectionNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'COD collection not found.'),
 
+  /** No Module 06 fulfillment with that id (module-16 Work 46's fulfillment operations). */
+  fulfillmentNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Fulfillment not found.'),
+
   /** No catalogue product with that id, or it was deleted (module-16 Work 33's review history). */
   catalogProductNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Product not found.'),
 
