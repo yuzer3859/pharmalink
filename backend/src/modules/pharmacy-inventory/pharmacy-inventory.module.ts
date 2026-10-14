@@ -48,6 +48,8 @@ import { BRANCH_OPERATIONS_READ_PORT } from './application/ports/inbound/branch-
 import { PrismaBranchOperationsReadAdapter } from './infrastructure/persistence/prisma-branch-operations-read.adapter';
 import { INVENTORY_LISTING_OPERATIONS_READ_PORT } from './application/ports/inbound/inventory-listing-operations-read.port';
 import { PrismaInventoryListingOperationsReadAdapter } from './infrastructure/persistence/prisma-inventory-listing-operations-read.adapter';
+import { STOCK_MOVEMENT_OPERATIONS_READ_PORT } from './application/ports/inbound/stock-movement-operations-read.port';
+import { PrismaStockMovementOperationsReadAdapter } from './infrastructure/persistence/prisma-stock-movement-operations-read.adapter';
 import { PrismaPharmacyStockAvailabilityReadAdapter } from './infrastructure/persistence/prisma-pharmacy-stock-availability-read.adapter';
 import { PrismaReservationRepository } from './infrastructure/persistence/prisma-reservation.repository';
 import { PrismaStockLedgerRepository } from './infrastructure/persistence/prisma-stock-ledger.repository';
@@ -125,6 +127,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     { provide: BRANCH_OPERATIONS_READ_PORT, useClass: PrismaBranchOperationsReadAdapter },
     // Module 16 Work 49 — per-listing operations read: stored vs computed sellable stock, Work 26's purchasability.
     { provide: INVENTORY_LISTING_OPERATIONS_READ_PORT, useClass: PrismaInventoryListingOperationsReadAdapter },
+    // Module 16 Work 50 — stock-movement history: recorded ledger rows, explicit fields, no balance.
+    { provide: STOCK_MOVEMENT_OPERATIONS_READ_PORT, useClass: PrismaStockMovementOperationsReadAdapter },
     // Inbound read contract for Module 13's pharmacy notifications (module-13 Work 07): a
     // pharmacy's organization owner `userId`, via the existing `IIdentityPort` owner read.
     { provide: PHARMACY_RECIPIENT_READ_PORT, useClass: PharmacyRecipientReadPortAdapter },
@@ -142,6 +146,7 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     PHARMACY_OPERATIONS_READ_PORT,
     BRANCH_OPERATIONS_READ_PORT,
     INVENTORY_LISTING_OPERATIONS_READ_PORT,
+    STOCK_MOVEMENT_OPERATIONS_READ_PORT,
   ],
 })
 export class PharmacyInventoryModule {}

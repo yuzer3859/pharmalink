@@ -55,6 +55,9 @@ export const AdminErrors = {
   /** No live Module 04 inventory listing with that id (module-16 Work 49's listing operations). */
   inventoryListingNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Inventory listing not found.'),
 
+  /** No recorded Module 04 stock movement with that id (module-16 Work 50's movement history). */
+  stockMovementNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Stock movement not found.'),
+
   /** No catalogue product with that id, or it was deleted (module-16 Work 33's review history). */
   catalogProductNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Product not found.'),
 
