@@ -42,6 +42,8 @@ import {
 } from './application/ports/inbound/pharmacy-recipient-read.port';
 import { PrismaPharmacyAnalyticsReadAdapter } from './infrastructure/persistence/prisma-pharmacy-analytics-read.adapter';
 import { PHARMACY_STOCK_AVAILABILITY_READ_PORT } from './application/ports/inbound/pharmacy-stock-availability-read.port';
+import { PHARMACY_OPERATIONS_READ_PORT } from './application/ports/inbound/pharmacy-operations-read.port';
+import { PrismaPharmacyOperationsReadAdapter } from './infrastructure/persistence/prisma-pharmacy-operations-read.adapter';
 import { PrismaPharmacyStockAvailabilityReadAdapter } from './infrastructure/persistence/prisma-pharmacy-stock-availability-read.adapter';
 import { PrismaReservationRepository } from './infrastructure/persistence/prisma-reservation.repository';
 import { PrismaStockLedgerRepository } from './infrastructure/persistence/prisma-stock-ledger.repository';
@@ -112,6 +114,9 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     // Inbound read contract for Module 16's inventory operations view (module-16 Work 25): eligible
     // providers with and without anything `findAvailability` would offer, counted. Moves no stock.
     { provide: PHARMACY_STOCK_AVAILABILITY_READ_PORT, useClass: PrismaPharmacyStockAvailabilityReadAdapter },
+    // Module 16 Work 47 — per-pharmacy operations read: eligibility and branch/listing counts by the
+    // existing rules. No name, owner, contact, address or licence document crosses it.
+    { provide: PHARMACY_OPERATIONS_READ_PORT, useClass: PrismaPharmacyOperationsReadAdapter },
     // Inbound read contract for Module 13's pharmacy notifications (module-13 Work 07): a
     // pharmacy's organization owner `userId`, via the existing `IIdentityPort` owner read.
     { provide: PHARMACY_RECIPIENT_READ_PORT, useClass: PharmacyRecipientReadPortAdapter },
@@ -126,6 +131,7 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     PHARMACY_ANALYTICS_READ_PORT,
     PHARMACY_RECIPIENT_READ_PORT,
     PHARMACY_STOCK_AVAILABILITY_READ_PORT,
+    PHARMACY_OPERATIONS_READ_PORT,
   ],
 })
 export class PharmacyInventoryModule {}

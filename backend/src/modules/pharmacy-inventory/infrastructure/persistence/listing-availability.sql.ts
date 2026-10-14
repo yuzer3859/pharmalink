@@ -37,3 +37,17 @@ export const availableListingWhere = (now: Date) => Prisma.sql`
 export const unexpiredSellablePositive = (now: Date) => Prisma.sql`
   (SELECT COALESCE(SUM(sb."quantity"), 0) FROM "stock_batches" sb
      WHERE sb."listingId" = il."id" AND sb."expiryDate" > ${now}) - il."reserved" > 0`;
+
+/**
+ * `TransactingEligibilityPolicy` as SQL over a pharmacies alias (module-16 Work 47): the same three
+ * conditions as the provider half of `availableListingWhere` — `ACTIVE`, licence `VALID`,
+ * `licenseExpiresAt` null or after `now` (expiring exactly at `now` is ineligible). Liveness
+ * (`deletedAt IS NULL`) is the caller's, as it is in `availableListingWhere`. `alias` is a fixed
+ * identifier chosen by the caller, never user input.
+ */
+export const eligiblePharmacyWhere = (alias: 'p' | 'ph', now: Date) => {
+  const a = Prisma.raw(alias);
+  return Prisma.sql`${a}."transactingStatus" = 'ACTIVE'
+  AND ${a}."licenseStatus" = 'VALID'
+  AND (${a}."licenseExpiresAt" IS NULL OR ${a}."licenseExpiresAt" > ${now})`;
+};

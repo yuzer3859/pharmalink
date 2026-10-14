@@ -163,6 +163,12 @@ export const PERMISSIONS: Array<{
   // aggregate counts. Read only — it grants no activation, suspension, availability or assignment
   // action. ADMIN only.
   { key: 'driver:read:any', resource: 'driver', action: 'read', scope: 'any' },
+  // Module 16 Work 47 — reading any pharmacy's operational record (stored statuses, eligibility,
+  // branch and listing counts) for investigation. The platform-wide counterpart of
+  // `pharmacy:manage:org` (an owner's); not `analytics:read`, which is for aggregates, and not
+  // `provider:verify:any`, which decides verification. Read only — it grants no pharmacy, licence,
+  // branch, listing or stock action. ADMIN only.
+  { key: 'pharmacy:read:any', resource: 'pharmacy', action: 'read', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -340,6 +346,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'delivery:read:any',
     // Module 16 Work 37 — driver operations visibility.
     'driver:read:any',
+    // Module 16 Work 47 — pharmacy operations visibility.
+    'pharmacy:read:any',
   ],
   SUPER_ADMIN: ['*'],
 };
