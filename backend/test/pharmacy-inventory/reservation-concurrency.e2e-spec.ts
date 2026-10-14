@@ -337,8 +337,8 @@ describe('Reservation lifecycle & concurrency (e2e, via IInventoryPort in-proces
     await reconcile(ctx, listingId);
   });
 
-  it('confirm racing TTL expiration: the loser sees the terminal state under its own lock and ' +
-    'throws INVALID_RESERVATION_STATE rather than confirming a reservation that no longer holds', async () => {
+  it('confirm racing TTL expiration: confirm never succeeds on a lapsed hold, and the hold is ' +
+    'expired exactly once — by this sweeper tick or, if confirm held the row lock, the next one', async () => {
     const { listingId } = await seedListing(ctx, 10);
     const reservation = await inventoryPort.reserve({
       listingId,
@@ -357,24 +357,41 @@ describe('Reservation lifecycle & concurrency (e2e, via IInventoryPort in-proces
       inventoryPort.confirm({ reservationId: reservation.reservationId }),
     ]);
 
+    // `expiresAt` is in the past, so confirm must reject whichever side locks the row first.
     const confirmResult = results[1];
-    const reservationRow = await ctx.prisma.stockReservation.findUniqueOrThrow({
-      where: { id: reservation.reservationId },
-    });
-    if (confirmResult.status === 'fulfilled') {
-      // Confirm won the race before the sweeper reached this row.
-      expect(reservationRow.status).toBe('CONFIRMED');
+    expect(confirmResult.status).toBe('rejected');
+    const confirmError = (confirmResult as PromiseRejectedResult).reason as { code: string };
+
+    const releaseCount = () =>
+      ctx.prisma.stockMovement.count({ where: { listingId, type: 'RELEASE' } });
+    const statusOf = async () =>
+      (await ctx.prisma.stockReservation.findUniqueOrThrow({ where: { id: reservation.reservationId } }))
+        .status;
+
+    if (confirmError.code === 'INVALID_RESERVATION_STATE') {
+      // Sweeper locked and committed first; confirm then saw EXPIRED under its own lock.
+      expect(await statusOf()).toBe('EXPIRED');
+      expect(await releaseCount()).toBe(1);
     } else {
-      // Sweeper won; confirm must fail deterministically, not silently succeed.
-      expect((confirmResult as PromiseRejectedResult).reason).toMatchObject({
-        code: expect.stringMatching(/INVALID_RESERVATION_STATE|RESERVATION_EXPIRED/),
-      });
-      expect(reservationRow.status).toBe('EXPIRED');
+      // Confirm locked first and rejected the lapsed hold without mutating it. A sweeper that
+      // reached the row while confirm still held the lock SKIP LOCKED-skipped it, leaving it
+      // HELD for a later tick; one that arrived after confirm's rollback expired it this tick.
+      expect(confirmError.code).toBe('RESERVATION_EXPIRED');
+      const status = await statusOf();
+      expect(['HELD', 'EXPIRED']).toContain(status);
+      expect(await releaseCount()).toBe(status === 'HELD' ? 0 : 1);
+      if (status === 'HELD') {
+        // The next tick must pick it up — a lapsed hold is never stranded.
+        expect(await sweeper.run()).toBe(1);
+        expect(await statusOf()).toBe('EXPIRED');
+        expect(await releaseCount()).toBe(1);
+      }
     }
-    const releaseMovements = await ctx.prisma.stockMovement.count({
-      where: { listingId, type: 'RELEASE' },
-    });
-    expect(releaseMovements).toBeLessThanOrEqual(1);
+
+    const listingRow = await ctx.prisma.inventoryListing.findUniqueOrThrow({ where: { id: listingId } });
+    expect(listingRow.reserved).toBe(0);
+    expect(listingRow.sellable).toBe(10);
+    await reconcile(ctx, listingId);
   });
 
   it('dispatch racing release: the loser sees the terminal state under its own lock and throws ' +
