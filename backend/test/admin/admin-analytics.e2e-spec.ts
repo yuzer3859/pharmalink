@@ -657,6 +657,8 @@ describe('Admin operational analytics (e2e)', () => {
         'orders/orders.module',
         'payment/application/ports/inbound/finance-oversight.port',
         'payment/payment.module',
+        // Work 48: branch operations visibility (admin-branch-operations.e2e-spec.ts).
+        'pharmacy-inventory/application/ports/inbound/branch-operations-read.port',
         'pharmacy-inventory/application/ports/inbound/pharmacy-analytics-read.port',
         // Work 47: pharmacy operations visibility (admin-pharmacy-operations.e2e-spec.ts).
         'pharmacy-inventory/application/ports/inbound/pharmacy-operations-read.port',

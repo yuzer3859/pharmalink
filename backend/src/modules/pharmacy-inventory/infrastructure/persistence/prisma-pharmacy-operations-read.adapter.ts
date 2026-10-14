@@ -10,6 +10,7 @@ import {
   TransactingStatus,
 } from '../../application/ports/inbound/pharmacy-operations-read.port';
 import { AVAILABLE_LISTING_FROM, availableListingWhere, eligiblePharmacyWhere, unexpiredSellablePositive } from './listing-availability.sql';
+import { ListingCountRow, listingCountColumns, toListingCounts } from './listing-counts.sql';
 
 interface PharmacyRow {
   id: string;
@@ -20,7 +21,7 @@ interface PharmacyRow {
   updatedAt: Date;
   eligible: boolean;
 }
-interface ListingCounts { pharmacyId: string; total: bigint; enabled: bigint; inStock: bigint; purchasable: bigint }
+interface ListingCounts extends ListingCountRow { pharmacyId: string }
 interface BranchCounts { pharmacyId: string; total: bigint; active: bigint }
 
 /**
@@ -79,10 +80,7 @@ export class PrismaPharmacyOperationsReadAdapter implements IPharmacyOperationsR
         const ids = Prisma.join(rows.map((r) => r.id));
         const listingCounts = await tx.$queryRaw<ListingCounts[]>`
           SELECT il."pharmacyId" AS "pharmacyId",
-                 COUNT(*) FILTER (WHERE il."deletedAt" IS NULL) AS "total",
-                 COUNT(*) FILTER (WHERE il."deletedAt" IS NULL AND il."isEnabled" = true) AS "enabled",
-                 COUNT(*) FILTER (WHERE il."deletedAt" IS NULL AND il."isEnabled" = true AND il."sellable" > 0) AS "inStock",
-                 COUNT(*) FILTER (WHERE ${availableListingWhere(now)} AND ${unexpiredSellablePositive(now)}) AS "purchasable"
+                 ${listingCountColumns(now)}
           ${AVAILABLE_LISTING_FROM}
            WHERE il."pharmacyId" IN (${ids})
            GROUP BY il."pharmacyId"`;
@@ -96,12 +94,7 @@ export class PrismaPharmacyOperationsReadAdapter implements IPharmacyOperationsR
         const listings = new Map(listingCounts.map((c) => [c.pharmacyId, c]));
         const branches = new Map(branchCounts.map((c) => [c.pharmacyId, c]));
         const items = rows.map((r): PharmacyOperationsView => {
-          const l = listings.get(r.id);
           const b = branches.get(r.id);
-          const total = Number(l?.total ?? 0);
-          const enabled = Number(l?.enabled ?? 0);
-          const inStock = Number(l?.inStock ?? 0);
-          const purchasable = Number(l?.purchasable ?? 0);
           return {
             pharmacyId: r.id,
             transactingStatus: r.transactingStatus,
@@ -111,15 +104,7 @@ export class PrismaPharmacyOperationsReadAdapter implements IPharmacyOperationsR
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
             branches: { total: Number(b?.total ?? 0), active: Number(b?.active ?? 0) },
-            listings: {
-              total,
-              enabled,
-              disabled: total - enabled,
-              inStock,
-              outOfStock: enabled - inStock,
-              customerPurchasable: purchasable,
-              customerUnpurchasable: total - purchasable,
-            },
+            listings: toListingCounts(listings.get(r.id)),
           };
         });
         return { items, total: Number(count) };
