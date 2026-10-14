@@ -3,9 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
-import { PharmacyInventoryErrors } from '../../domain/errors';
-import { ReservationStatus, StockMovementRefType, StockMovementType } from '../../domain/enums';
-import { stockReleasedEvent } from '../../domain/events';
+import { expireLapsedHold } from '../../application/services/lapsed-hold-expiry';
 import { IListingRepository, LISTING_REPOSITORY } from '../../domain/repositories/listing.repository';
 import {
   IReservationRepository,
@@ -15,9 +13,7 @@ import {
   IStockLedgerRepository,
   STOCK_LEDGER_REPOSITORY,
 } from '../../domain/repositories/stock-ledger.repository';
-import { SellableStockCalculator } from '../../domain/services/sellable-stock.calculator';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
-import { randomUUID } from 'crypto';
 
 /**
  * BR-PH-14/ADR-007 (module-04 §8, hardening pass). Every 1 minute: release each expired `HELD`
@@ -119,60 +115,13 @@ export class ReservationTtlSweeper {
           }
           lockedReservationId = reservation.id;
 
-          const listing = await this.listings.lockForUpdate(reservation.listingId, tx);
-          if (!listing) {
-            throw PharmacyInventoryErrors.listingNotFound();
-          }
-          const listingProps = listing.toProps();
-
-          // All invariants are computed and validated BEFORE the first write — see the class
-          // doc comment. No `Math.max(0, ...)` clamp: the reservation and listing are both
-          // locked above, so no concurrent release/confirm/dispatch of this same reservation
-          // can race this decrement. Underflow would indicate a real invariant violation, so it
-          // is thrown (rolling back this row's transaction only) rather than logged-and-skipped
-          // after partial writes.
-          const newReserved = listingProps.reserved - reservation.quantity;
-          if (newReserved < 0) {
-            throw PharmacyInventoryErrors.validation(
-              'Invariant violation: TTL-expiring this reservation would make listing reserved negative.',
-              { listingId: reservation.listingId, reservationId: reservation.id },
-            );
-          }
-          const batches = await this.ledger.findBatchesByListing(reservation.listingId, tx);
-          const sellable = SellableStockCalculator.computeSellable(
-            batches.map((b) => ({ quantity: b.quantity, expiryDate: b.expiryDate })),
-            newReserved,
-          );
-
-          // Only now, with every invariant already validated, do any writes happen — all of
-          // them commit or roll back together as this row's single atomic unit.
-          await this.reservations.updateStatus(reservation.id, ReservationStatus.EXPIRED, tx);
-          await this.ledger.recordMovement(
-            {
-              id: randomUUID(),
-              listingId: reservation.listingId,
-              type: StockMovementType.RELEASE,
-              quantityDelta: reservation.quantity,
-              refType: StockMovementRefType.SYSTEM,
-              refId: reservation.orderId,
-              reservationId: reservation.id,
-              reason: 'TTL expiry',
-            },
+          // Shared with `ConfirmReservationCommand`, which applies the same effect when it finds
+          // a lapsed hold under its own lock: invariants validated before any write, then status,
+          // RELEASE movement, listing cache and outbox commit or roll back together.
+          await expireLapsedHold(
+            { reservations: this.reservations, listings: this.listings, ledger: this.ledger, outbox: this.outbox },
+            reservation,
             tx,
-          );
-          await this.listings.updateCache(
-            reservation.listingId,
-            { reserved: newReserved, sellable },
-            tx,
-          );
-          await this.outbox.write(
-            stockReleasedEvent({
-              listingId: reservation.listingId,
-              reservationId: reservation.id,
-              quantity: reservation.quantity,
-              reason: 'TTL_EXPIRED',
-            }),
-            tx as never,
           );
 
           return true;
