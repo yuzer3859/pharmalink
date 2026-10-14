@@ -9,11 +9,17 @@ import { Prisma, PrismaClient } from '@prisma/client';
  * ## Why a maintenance script and not a migration
  *
  * It reads `delivery_jobs` (Module 08) to write `fulfillments` (Module 06). Inside a module that
- * would be a cross-context query; as a migration it would run once and never again — but it is
- * also the recovery path for `DeliveryJobCreatedHandler`, whose failures nothing retries
- * (`EventBusService` isolates a throwing handler and `OutboxRelay` marks the event published
- * anyway). So it lives beside `seed.ts`, outside every module, and is safe to run any number of
- * times.
+ * would be a cross-context query; as a migration it would run once and never again. So it lives
+ * beside `seed.ts`, outside every module, and is safe to run any number of times.
+ *
+ * ## Its role beside the runtime reconciler (Work 45)
+ *
+ * `DeliveryJobCreatedHandler`'s failures are not retried by the event bus, so missed references are
+ * now recovered automatically by Module 06's `DeliveryJobReferenceReconciler` — a bounded batch every
+ * five minutes, through Module 08's read port and the same rule (`linkDeliveryJobReference`). This
+ * script stays the operator's tool for doing the whole table at once (after a deploy, or to confirm
+ * the counts), applying the same rules set-based: fill only a NULL reference, only from the job cut
+ * for that fulfillment and order, never choose among several jobs, never overwrite.
  *
  * ## What it touches
  *
@@ -80,9 +86,12 @@ export async function backfillFulfillmentDeliveryJobIds(prisma: Db): Promise<Del
         ambiguous: Number(before.ambiguous),
       };
     },
-    // The counts and the guarded UPDATE see one snapshot; a concurrent link by the event handler
-    // makes the UPDATE skip that row (its `IS NULL` guard) rather than overwrite it.
-    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    // READ COMMITTED, deliberately (Work 45). The guarded UPDATE runs concurrently with the event
+    // handler and the runtime reconciler; when one of them fills a row first, Postgres re-checks
+    // `deliveryJobId IS NULL` against the committed row and skips it. Under REPEATABLE READ the same
+    // race aborts the whole run with a serialization failure (40001) instead. The counts are therefore
+    // statement-level, and `populated` is the UPDATE's own row count.
+    { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
   );
 }
 

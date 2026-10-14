@@ -3,12 +3,11 @@ import { DomainEvent } from '../../../../shared/events/domain-event';
 import { EVENT_BUS, IEventBus } from '../../../../shared/events/event-bus.service';
 import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { DeliveryEventType, JobCreatedPayload } from '../../../delivery/domain/events';
+import { linkDeliveryJobReference } from '../../application/services/delivery-job-reference-linker';
 import {
   FULFILLMENT_DELIVERY_JOB_LINK_REPOSITORY,
   IFulfillmentDeliveryJobLinkRepository,
 } from '../../domain/repositories/fulfillment-delivery-job-link.repository';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The maintenance script that recovers any reference this handler could not record. */
 export const DELIVERY_JOB_REFERENCE_REPAIR = 'npm run maintenance:backfill-delivery-job-refs';
@@ -30,9 +29,10 @@ export const DELIVERY_JOB_REFERENCE_REPAIR = 'npm run maintenance:backfill-deliv
  * second delivery of the same event is `ALREADY_LINKED`. But `EventBusService` isolates a throwing
  * handler and `OutboxRelay` marks the event published either way — **nothing retries this handler**.
  * So a failure here (an exception, or a fulfillment that is missing, mismatched or already linked
- * to another job) is logged as an error naming only ids, and the reference is recovered by
- * re-running the idempotent maintenance script `DELIVERY_JOB_REFERENCE_REPAIR`, which derives the
- * same association from `delivery_jobs.fulfillmentId` and never overwrites a different reference.
+ * to another job) is logged as an error naming only ids. A missed reference is then recovered
+ * automatically by `DeliveryJobReferenceReconciler` (Work 45), which applies this same rule —
+ * `linkDeliveryJobReference` — to Module 08's answer for unreferenced fulfillments; the idempotent
+ * maintenance script `DELIVERY_JOB_REFERENCE_REPAIR` remains the operator's one-shot repair.
  */
 @Injectable()
 export class DeliveryJobCreatedHandler implements OnModuleInit {
@@ -51,15 +51,15 @@ export class DeliveryJobCreatedHandler implements OnModuleInit {
   async handle(event: DomainEvent<JobCreatedPayload>): Promise<void> {
     const payload = (event?.payload ?? {}) as Partial<JobCreatedPayload>;
     const { jobId, orderId, fulfillmentId } = payload;
-    if (![jobId, orderId, fulfillmentId].every((v) => typeof v === 'string' && UUID.test(v))) {
-      this.logger.error({
-        message: 'Malformed delivery.job.created event; delivery job reference not recorded',
-        eventId: event?.id ?? null,
-      });
-      return;
-    }
     try {
-      const outcome = await this.links.link({ fulfillmentId: fulfillmentId!, orderId: orderId!, deliveryJobId: jobId! });
+      const outcome = await linkDeliveryJobReference(this.links, { fulfillmentId, orderId, deliveryJobId: jobId });
+      if (outcome === 'INVALID') {
+        this.logger.error({
+          message: 'Malformed delivery.job.created event; delivery job reference not recorded',
+          eventId: event?.id ?? null,
+        });
+        return;
+      }
       if (outcome === 'LINKED' || outcome === 'ALREADY_LINKED') {
         this.logger.log({
           message: outcome === 'LINKED' ? 'Delivery job reference recorded on fulfillment' : 'Delivery job reference already recorded',

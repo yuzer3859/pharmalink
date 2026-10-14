@@ -77,8 +77,8 @@ describe('backfillFulfillmentDeliveryJobIds (maintenance script)', () => {
   });
   const update = () => statements[1].text.replace(/\s+/g, ' ');
 
-  it('counts and update run in one REPEATABLE READ transaction, binding no values', () => {
-    expect(isolation).toEqual({ isolationLevel: 'RepeatableRead' });
+  it('counts and update run in one READ COMMITTED transaction (a concurrently filled row is skipped, not a 40001 abort), binding no values', () => {
+    expect(isolation).toEqual({ isolationLevel: 'ReadCommitted' });
     expect(statements).toHaveLength(2);
     expect(statements.every((s) => s.values.length === 0)).toBe(true);
   });

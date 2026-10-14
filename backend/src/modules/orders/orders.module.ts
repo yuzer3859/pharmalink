@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PharmacyInventoryModule } from '../pharmacy-inventory/pharmacy-inventory.module';
 import { PaymentModule } from '../payment/payment.module';
 import { DeliveryModule } from '../delivery/delivery.module';
@@ -43,6 +44,9 @@ import { PrismaOrderBacklogSummaryReadAdapter } from './infrastructure/persisten
 import { FULFILLMENT_DELIVERY_JOB_LINK_REPOSITORY } from './domain/repositories/fulfillment-delivery-job-link.repository';
 import { PrismaFulfillmentDeliveryJobLinkRepository } from './infrastructure/persistence/prisma-fulfillment-delivery-job-link.repository';
 import { DeliveryJobCreatedHandler } from './interface/events/delivery-job-created.handler';
+import { DELIVERY_JOB_REFERENCE_CANDIDATE_REPOSITORY } from './domain/repositories/delivery-job-reference-candidate.repository';
+import { PrismaDeliveryJobReferenceCandidateRepository } from './infrastructure/persistence/prisma-delivery-job-reference-candidate.repository';
+import { DeliveryJobReferenceReconciler } from './infrastructure/scheduling/delivery-job-reference.reconciler';
 import { ORDER_RECIPIENT_READ_PORT } from './application/ports/inbound/order-recipient-read.port';
 import { PrismaOrderAnalyticsReadAdapter } from './infrastructure/persistence/prisma-order-analytics-read.adapter';
 import { PrismaOrderRecipientReadAdapter } from './infrastructure/persistence/prisma-order-recipient-read.adapter';
@@ -77,7 +81,9 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
 @Module({
   // `PaymentModule` exports `COUPON_PORT` (ADR-002's inbound-port shape). It imports nothing from
   // here — its own `IOrderPort` adapter reads `orders` through Prisma — so there is no cycle.
-  imports: [PrescriptionMatchingModule, PharmacyInventoryModule, PaymentModule, DeliveryModule],
+  // `ScheduleModule.forRoot()` activates the reference reconciler's `@Cron` (Work 45), registered here
+  // rather than relied upon from another module's registration, as `DeliveryModule` does for its own.
+  imports: [PrescriptionMatchingModule, PharmacyInventoryModule, PaymentModule, DeliveryModule, ScheduleModule.forRoot()],
   controllers: [CartController, CheckoutController, OrdersController, PharmacyOrdersController],
   providers: [
     // Repositories
@@ -100,6 +106,10 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     // of the reference column only; failures are recovered by `npm run maintenance:backfill-delivery-job-refs`.
     { provide: FULFILLMENT_DELIVERY_JOB_LINK_REPOSITORY, useClass: PrismaFulfillmentDeliveryJobLinkRepository },
     DeliveryJobCreatedHandler,
+    // Work 45 — periodic recovery of references the handler missed, through Module 08's read-only
+    // `DELIVERY_JOB_REFERENCE_READ_PORT` and the same guarded link.
+    { provide: DELIVERY_JOB_REFERENCE_CANDIDATE_REPOSITORY, useClass: PrismaDeliveryJobReferenceCandidateRepository },
+    DeliveryJobReferenceReconciler,
     { provide: FULFILLMENT_REPOSITORY, useClass: PrismaFulfillmentRepository },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
 
