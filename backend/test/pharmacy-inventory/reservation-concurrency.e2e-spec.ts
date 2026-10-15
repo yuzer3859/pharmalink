@@ -426,7 +426,69 @@ describe('Reservation lifecycle & concurrency (e2e, via IInventoryPort in-proces
       });
       expect(reservationRow.status).toBe('RELEASED');
     }
+    // Exactly one side wins: when dispatch commits first, release sees its DISPATCH movements under
+    // the reservation lock and is rejected, so `reserved` is decremented exactly once either way.
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const [, releaseResult] = results;
+    if (dispatchResult.status === 'fulfilled') {
+      expect((releaseResult as PromiseRejectedResult).reason).toMatchObject({
+        code: 'INVALID_RESERVATION_STATE',
+      });
+      expect(await ctx.prisma.stockMovement.count({ where: { listingId, type: 'RELEASE' } })).toBe(0);
+    }
+    const listingRow = await ctx.prisma.inventoryListing.findUniqueOrThrow({ where: { id: listingId } });
+    expect(listingRow.reserved).toBe(0);
     await reconcile(ctx, listingId);
+  });
+
+  it('release after dispatch is rejected with INVALID_RESERVATION_STATE and leaves reserved intact, ' +
+    'even when a sibling reservation keeps reserved high enough to hide a double decrement', async () => {
+    const { listingId } = await seedListing(ctx, 10);
+    const dispatched = await inventoryPort.reserve({
+      listingId,
+      quantity: 2,
+      orderId: 'order-release-after-dispatch',
+      idempotencyKey: 'idem-release-after-dispatch',
+    });
+    // Sibling hold on the same listing: reserved stays >= 2 after dispatch, so the old code's
+    // underflow assertion would not have caught a second decrement.
+    const sibling = await inventoryPort.reserve({
+      listingId,
+      quantity: 3,
+      orderId: 'order-release-after-dispatch-sibling',
+      idempotencyKey: 'idem-release-after-dispatch-sibling',
+    });
+    await inventoryPort.confirm({ reservationId: dispatched.reservationId });
+    await inventoryPort.dispatch({ reservationId: dispatched.reservationId });
+
+    await expect(
+      inventoryPort.release({ reservationId: dispatched.reservationId, reason: 'customer-cancel' }),
+    ).rejects.toMatchObject({ code: 'INVALID_RESERVATION_STATE' });
+
+    expect(
+      await ctx.prisma.stockReservation.findUniqueOrThrow({ where: { id: dispatched.reservationId } }),
+    ).toMatchObject({ status: 'CONFIRMED' });
+    expect(
+      await ctx.prisma.stockMovement.count({ where: { reservationId: dispatched.reservationId, type: 'RELEASE' } }),
+    ).toBe(0);
+    const listingRow = await ctx.prisma.inventoryListing.findUniqueOrThrow({ where: { id: listingId } });
+    expect(listingRow.onHand).toBe(8);
+    expect(listingRow.reserved).toBe(3);
+    expect(listingRow.sellable).toBe(5);
+    // Same recount as Module 16's reservation-integrity view: only the undispatched sibling HOLD
+    // contributes, so stored and derived agree (difference 0).
+    const contributing = await ctx.prisma.stockReservation.aggregate({
+      where: { listingId, status: 'HELD' },
+      _sum: { quantity: true },
+    });
+    expect(contributing._sum.quantity).toBe(listingRow.reserved);
+    await reconcile(ctx, listingId);
+
+    // The sibling is unaffected and still releases normally.
+    await inventoryPort.release({ reservationId: sibling.reservationId, reason: 'customer-cancel' });
+    const afterSibling = await ctx.prisma.inventoryListing.findUniqueOrThrow({ where: { id: listingId } });
+    expect(afterSibling.reserved).toBe(0);
+    expect(afterSibling.sellable).toBe(8);
   });
 
   it('repeated release after expiration remains a true no-op (no second movement/outbox row)', async () => {
