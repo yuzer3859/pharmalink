@@ -152,6 +152,20 @@ describe('SelectMatchCommand', () => {
     await expect(command.execute(selectInput())).rejects.toMatchObject({ code: 'PRESCRIPTION_NOT_FOUND' });
   });
 
+  it('409s MATCH_REQUEST_ORDER_BOUND for an order-bound request without allowOrderBound, before reserving', async () => {
+    const { command, matches, inventory } = build();
+    matches.findById.mockResolvedValue(matchRequestSnapshot({ orderId: 'order-1' }));
+    await expect(command.execute(selectInput())).rejects.toMatchObject({ code: 'MATCH_REQUEST_ORDER_BOUND' });
+    expect(inventory.reserve).not.toHaveBeenCalled();
+  });
+
+  it('selects an order-bound request for the in-process caller (allowOrderBound), keying holds by the order id', async () => {
+    const { command, matches, inventory } = build();
+    matches.findById.mockResolvedValue(matchRequestSnapshot({ orderId: 'order-1' }));
+    await command.execute(selectInput({ allowOrderBound: true }));
+    expect(inventory.reserve).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'order-1' }));
+  });
+
   it('409s on an illegal match-status transition (e.g. already FAILED)', async () => {
     const { command, matches } = build();
     matches.findById.mockResolvedValue(matchRequestSnapshot({ status: 'FAILED' }));

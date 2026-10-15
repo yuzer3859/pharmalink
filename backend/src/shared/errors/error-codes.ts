@@ -92,6 +92,10 @@ export enum ErrorCode {
   NO_PHARMACY_MATCH = 'NO_PHARMACY_MATCH',
   MATCH_CANDIDATE_UNAVAILABLE = 'MATCH_CANDIDATE_UNAVAILABLE',
   MATCH_FAILED = 'MATCH_FAILED',
+  // A checkout-created match request belongs to its order: only Module 06's in-process calls
+  // (e.g. the pharmacy-decline rematch) may move it — a customer rematch/select would release or
+  // re-take the order's reservations behind the order's back.
+  MATCH_REQUEST_ORDER_BOUND = 'MATCH_REQUEST_ORDER_BOUND',
 
   // Module 06 — Cart, Checkout & Orders (see backend/docs/06-orders-spec.md §10). Appended per
   // the Phase-0 freeze exception, same rationale as the Module 01/02/03/04/05 codes above.
@@ -296,6 +300,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCode.NO_PHARMACY_MATCH]: 409,
   [ErrorCode.MATCH_CANDIDATE_UNAVAILABLE]: 409,
   [ErrorCode.MATCH_FAILED]: 409,
+  [ErrorCode.MATCH_REQUEST_ORDER_BOUND]: 409,
 
   // Module 06 — Cart, Checkout & Orders (HTTP mapping per 06-orders-spec.md §10).
   [ErrorCode.INVALID_ORDER_STATE_TRANSITION]: 409,

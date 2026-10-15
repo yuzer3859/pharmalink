@@ -77,6 +77,13 @@ export const PrescriptionMatchingErrors = {
       'This match request has failed and cannot be resumed.',
     ),
 
+  /** Customer `select`/`rematch` on a match request bound to a placed order (`orderId` set). */
+  matchRequestOrderBound: () =>
+    new ApiException(
+      ErrorCode.MATCH_REQUEST_ORDER_BOUND,
+      'This match request belongs to a placed order and cannot be changed directly.',
+    ),
+
   catalogProductNotFound: () =>
     new ApiException(
       ErrorCode.CATALOG_PRODUCT_NOT_FOUND,

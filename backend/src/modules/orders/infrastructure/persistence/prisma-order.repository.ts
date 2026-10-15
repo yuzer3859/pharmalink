@@ -192,6 +192,7 @@ export class PrismaOrderRepository implements IOrderRepository {
   ): Promise<OrderSnapshot> {
     const row = await this.client(tx).order.create({
       data: {
+        id: data.id,
         orderNumber: data.orderNumber,
         customerUserId: data.customerUserId,
         beneficiarySnapshot: jsonInput(data.beneficiarySnapshot),
