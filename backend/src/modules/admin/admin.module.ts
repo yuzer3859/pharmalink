@@ -67,6 +67,7 @@ import { GetInventoryListingOperationsQuery, ListInventoryListingOperationsQuery
 import { GetStockMovementOperationsQuery, ListStockMovementOperationsQuery } from './application/queries/stock-movement-operations.queries';
 import { GetStockBatchOperationsQuery, ListStockBatchOperationsQuery } from './application/queries/stock-batch-operations.queries';
 import { GetStockReservationOperationsQuery, ListStockReservationOperationsQuery } from './application/queries/stock-reservation-operations.queries';
+import { GetReservationIntegritySummaryQuery, ListReservationIntegrityQuery } from './application/queries/reservation-integrity.queries';
 import { ListCodDisputesQuery } from './application/queries/list-cod-disputes.query';
 import { ListFinancePaymentsQuery } from './application/queries/list-finance-payments.query';
 import { ListFinanceRefundsQuery } from './application/queries/list-finance-refunds.query';
@@ -103,6 +104,7 @@ import { AdminInventoryListingOperationsController } from './interface/controlle
 import { AdminStockMovementOperationsController } from './interface/controllers/admin-stock-movement-operations.controller';
 import { AdminStockBatchOperationsController } from './interface/controllers/admin-stock-batch-operations.controller';
 import { AdminStockReservationOperationsController } from './interface/controllers/admin-stock-reservation-operations.controller';
+import { AdminReservationIntegrityController } from './interface/controllers/admin-reservation-integrity.controller';
 import { AdminCodDisputesController } from './interface/controllers/admin-cod-disputes.controller';
 import { AdminConfigController } from './interface/controllers/admin-config.controller';
 import { AdminFeatureFlagController } from './interface/controllers/admin-feature-flag.controller';
@@ -185,7 +187,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
   // `PharmacyInventoryModule` also for `PHARMACY_STOCK_AVAILABILITY_READ_PORT` (Work 25) and
   // `PHARMACY_OPERATIONS_READ_PORT` (Work 47), `BRANCH_OPERATIONS_READ_PORT` (Work 48),
   // `INVENTORY_LISTING_OPERATIONS_READ_PORT` (Work 49), `STOCK_MOVEMENT_OPERATIONS_READ_PORT` (Work 50),
-  // `STOCK_BATCH_OPERATIONS_READ_PORT` (Work 51) and `STOCK_RESERVATION_OPERATIONS_READ_PORT` (Work 52), and
+  // `STOCK_BATCH_OPERATIONS_READ_PORT` (Work 51), `STOCK_RESERVATION_OPERATIONS_READ_PORT` (Work 52) and
+  // `RESERVATION_INTEGRITY_READ_PORT` (Work 54), and
   // `OrdersModule` also for `ORDER_OPERATIONS_READ_PORT` (Work 35) and
   // `ORDER_BACKLOG_SUMMARY_READ_PORT` (Work 41) and `FULFILLMENT_OPERATIONS_READ_PORT` (Work 46). `DeliveryModule` also for
   // `DELIVERY_OPERATIONS_READ_PORT` (Work 36), `DRIVER_OPERATIONS_READ_PORT` (Work 37),
@@ -327,6 +330,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     // Work 52 — inventory reservation visibility, over Module 04's reservation read port.
     ListStockReservationOperationsQuery,
     GetStockReservationOperationsQuery,
+    // Work 54 — reservation consistency diagnostics, over Module 04's integrity read port.
+    ListReservationIntegrityQuery,
+    GetReservationIntegritySummaryQuery,
   ],
   controllers: [
     AdminConfigController,
@@ -357,6 +363,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminStockMovementOperationsController,
     AdminStockBatchOperationsController,
     AdminStockReservationOperationsController,
+    AdminReservationIntegrityController,
     // Work 40's `/admin/operations/deliveries/summary` must be registered before Work 36's
     // `/admin/operations/deliveries/:deliveryJobId`, or `summary` would be taken for a job id.
     AdminDeliverySummaryController,
