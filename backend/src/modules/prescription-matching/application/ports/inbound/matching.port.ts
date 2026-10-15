@@ -10,8 +10,8 @@ export const MATCHING_PORT = Symbol('MATCHING_PORT');
  * `06-orders-spec.md` §13.1's "do not invent a new identifier solely for convenience"). */
 export type MatchingFindInput = FindMatchInput;
 export type MatchingFindResult = FindMatchResult;
-export type MatchingSelectInput = SelectMatchInput;
-export type MatchingRematchInput = RematchInput;
+export type MatchingSelectInput = Omit<SelectMatchInput, 'allowOrderBound'>;
+export type MatchingRematchInput = Omit<RematchInput, 'allowOrderBound'>;
 export type MatchingSelectResult = MatchRequestSnapshot;
 export type MatchingRematchResult = MatchRequestSnapshot;
 
