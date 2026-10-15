@@ -57,7 +57,9 @@ describe('Admin inventory reservation visibility (Work 52)', () => {
       expect(Object.values(ReservationStatus)).toEqual(['HELD', 'CONFIRMED', 'RELEASED', 'EXPIRED']);
       expect(src('infrastructure/persistence/prisma-reservation.repository.ts')).toMatch(/status: ReservationStatus\.HELD/);
       expect(src('application/commands/confirm-reservation.command.ts')).toMatch(/updateStatus\(input\.reservationId, ReservationStatus\.CONFIRMED/);
-      expect(src('infrastructure/scheduling/reservation-ttl.sweeper.ts')).toMatch(/updateStatus\(reservation\.id, ReservationStatus\.EXPIRED/);
+      // Since Module 04 Work 53 the sweeper's EXPIRED write lives in `expireLapsedHold`, which the sweeper calls.
+      expect(src('application/services/lapsed-hold-expiry.ts')).toMatch(/updateStatus\(reservation\.id, ReservationStatus\.EXPIRED/);
+      expect(src('infrastructure/scheduling/reservation-ttl.sweeper.ts')).toMatch(/await expireLapsedHold\(/);
       expect(src('application/commands/dispatch-stock.command.ts')).not.toMatch(/updateStatus\(/);
     });
 

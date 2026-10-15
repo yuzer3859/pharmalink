@@ -1,3 +1,4 @@
+import { SchedulerRegistry } from '@nestjs/schedule';
 import request from 'supertest';
 import { OutboxService } from '../../src/shared/outbox/outbox.service';
 import {
@@ -36,6 +37,10 @@ describe('Reservation expiry vs confirm race (e2e, Work 53)', () => {
     inventoryPort = ctx.app.get<IInventoryPort>(INVENTORY_PORT);
     sweeper = ctx.app.get(ReservationTtlSweeper);
     listings = ctx.app.get<IListingRepository>(LISTING_REPOSITORY);
+    // The app's own @Cron ticks (the minutely TTL sweep among them) would expire seeded holds behind the
+    // test's back; this suite drives the sweeper itself, so every scheduled job is stopped.
+    for (const job of ctx.app.get(SchedulerRegistry).getCronJobs().values()) void job.stop();
+    expect([...ctx.app.get(SchedulerRegistry).getCronJobs().values()].filter((job) => job.running)).toEqual([]);
   });
 
   afterAll(async () => {
