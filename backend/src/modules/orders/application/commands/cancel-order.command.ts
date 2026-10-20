@@ -1,17 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditService } from '../../../../shared/audit/audit.service';
-import { OutboxService } from '../../../../shared/outbox/outbox.service';
-import {
-  COUPON_PORT,
-  ICouponPort,
-} from '../../../payment/application/ports/inbound/coupon.port';
 import {
   IInventoryPort,
   INVENTORY_PORT,
 } from '../../../pharmacy-inventory/application/ports/inbound/inventory.port';
 import { OrdersErrors } from '../../domain/errors';
 import { OrderStatus } from '../../domain/enums';
-import { orderCancelledEvent } from '../../domain/events';
 import {
   IOrderRepository,
   ORDER_REPOSITORY,
@@ -19,8 +12,7 @@ import {
 } from '../../domain/repositories/order.repository';
 import { CancellationPolicy } from '../../domain/services/cancellation-policy';
 import { OrderStatusPolicy } from '../../domain/services/order-status-policy';
-import { IUnitOfWork, UNIT_OF_WORK } from '../ports/unit-of-work.port';
-import { runWithOrderRetry } from '../support/order-retry';
+import { OrderCancellationWorkflow } from '../services/order-cancellation.workflow';
 
 export interface CancelOrderInput {
   orderId: string;
@@ -34,30 +26,32 @@ export interface CancelOrderInput {
  * both "doesn't exist" and "belongs to another customer"). `CancellationPolicy` is the sole
  * authority on *whether* cancellation is allowed for the order's current status (§3.5);
  * `OrderStatusPolicy` then validates the resulting `-> CANCELLED` transition itself is legal
- * (§3.11 invariant 3) — the two policies are deliberately kept separate, per their own doc
- * comments.
+ * (§3.11 invariant 3).
  *
- * Reservation release (§3.11 invariant 5) happens via `IInventoryPort.release()` for every
- * `OrderLine.reservationId` on the order, called *before* this command's own `Serializable`
- * transaction — mirroring `RematchCommand`'s "release the declined holds first" ordering
- * (ADR-014): Module 04 owns its own release transaction, and a release failure does not block the
- * order from being cancelled (Module 04's reservation TTL sweeper self-heals any stragglers, same
- * accepted eventual-consistency seam ADR-014/ADR-007 already formalize elsewhere in this spec).
+ * The cancellation itself is `OrderCancellationWorkflow` (Work 55): the customer's intent is
+ * persisted before Module 04 is touched, the order's reservations are released all-or-nothing, the
+ * order is cancelled (status, history, audit, outbox — one Serializable transaction), and only then
+ * is the coupon reversed. Any step the request cannot finish is completed by
+ * `OrderCancellationReconciler`; a permanent failure is flagged for an operator.
  *
- * Single `Serializable` transaction (§11): re-read the order fresh inside the transaction (never
- * the pre-transaction read, §11's concurrent-cancel-vs-accept race discipline), re-validate both
- * policies, persist the `CANCELLED` status + `OrderStatusHistory` row, audit entry, outbox
- * `OrderCancelled` (§8).
+ * Responses:
+ *  - the order (200) once it is `CANCELLED` — even if the coupon reversal is still pending, since
+ *    the cancellation itself has happened;
+ *  - `CANCELLATION_NOT_ALLOWED` (422) for a non-cancellable status, or when any reservation has
+ *    already been dispatched (`MarkReadyCommand` dispatches before moving the order to `READY`).
+ *    A read-only pre-check answers the plain case without any write; Module 04's batch release is
+ *    the authority under a race, and its rejection leaves the order and its stock unchanged;
+ *  - `DEPENDENCY_UNAVAILABLE` (503, `cancellation: PENDING`) when the intent is recorded but a
+ *    transient failure (or a concurrent executor) left it unfinished — it completes automatically;
+ *  - `CONFLICT` (409, `cancellation: NEEDS_ATTENTION`) when a permanent failure stopped it before the
+ *    order was cancelled — the order and its stock are unchanged and the request awaits an operator.
  */
 @Injectable()
 export class CancelOrderCommand {
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orders: IOrderRepository,
     @Inject(INVENTORY_PORT) private readonly inventory: IInventoryPort,
-    @Inject(COUPON_PORT) private readonly coupons: ICouponPort,
-    @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
-    private readonly audit: AuditService,
-    private readonly outbox: OutboxService,
+    private readonly workflow: OrderCancellationWorkflow,
   ) {}
 
   async execute(input: CancelOrderInput): Promise<OrderSnapshot> {
@@ -68,102 +62,38 @@ export class CancelOrderCommand {
     CancellationPolicy.assertCanCancel(order.status);
     OrderStatusPolicy.assertValidTransition(order.status, OrderStatus.CANCELLED);
 
-    const lines = await this.orders.findLinesByOrderId(order.id);
-    const reservationIds = [...new Set(lines.map((line) => line.reservationId).filter(
-      (id): id is string => id !== null,
-    ))];
-    await Promise.allSettled(
-      reservationIds.map((reservationId) =>
-        this.inventory.release({ reservationId, reason: 'customer-cancel' }),
-      ),
-    );
+    if (await this.anyReservationDispatched(order.id)) {
+      throw OrdersErrors.cancellationNotAllowed(order.status);
+    }
 
-    // Coupon reversal (F-CPN-03), alongside the reservation release and for the same reasons:
-    // Module 07 owns its own transaction (ADR-014), so this cannot join the one below, and a
-    // failure must not block a cancellation the customer is entitled to.
-    //
-    // `reverse` only ever touches a redemption that is actually `APPLIED` — it is a no-op replay
-    // for one already `REVERSED`, and raises nothing to swallow when the order carries no coupon
-    // at all. Flipping it back frees the usage purely because the limits count `APPLIED` rows, so
-    // the customer can spend the code again.
-    //
-    // It moves **no money**, deliberately. A cancelled order's *money* is Module 07's refund flow
-    // against the payment (§11.4), driven by ADR-017's eligibility rules — not by this command and
-    // not by a coupon reversal. A reversal that also moved money would double-count every
-    // cancellation. Slice 1 is COD, so no payment has been captured here at all.
-    await this.reverseCouponBestEffort(order.id, input.customerUserId);
-
-    return runWithOrderRetry(this.uow, async (tx) => {
-      const fresh = await this.orders.findById(order.id, tx);
-      if (!fresh || fresh.customerUserId !== input.customerUserId) {
-        throw OrdersErrors.orderNotFound();
-      }
-      CancellationPolicy.assertCanCancel(fresh.status);
-      OrderStatusPolicy.assertValidTransition(fresh.status, OrderStatus.CANCELLED);
-
-      await this.orders.updateStatus(
-        fresh.id,
-        {
-          status: OrderStatus.CANCELLED,
-          cancelledAt: new Date(),
-          cancelReason: input.reason,
-        },
-        {
-          fromStatus: fresh.status,
-          toStatus: OrderStatus.CANCELLED,
-          event: 'ORDER_CANCELLED',
-          actorUserId: input.customerUserId,
-          actorRole: 'CUSTOMER',
-          reason: input.reason,
-        },
-        tx,
-      );
-
-      await this.audit.record(
-        {
-          actorUserId: input.customerUserId,
-          action: 'ORDER_CANCELLED',
-          resourceType: 'Order',
-          resourceId: fresh.id,
-          context: { reason: input.reason },
-        },
-        tx,
-      );
-
-      await this.outbox.write(
-        orderCancelledEvent({ orderId: fresh.id, reason: input.reason }),
-        tx as never,
-      );
-
-      return (await this.orders.findById(fresh.id, tx)) as OrderSnapshot;
+    const outcome = await this.workflow.start({
+      orderId: order.id,
+      customerUserId: input.customerUserId,
+      reason: input.reason,
     });
+    if (outcome === 'REJECTED') {
+      throw OrdersErrors.cancellationNotAllowed(order.status);
+    }
+    const after = (await this.orders.findById(order.id)) as OrderSnapshot;
+    if (after.status === OrderStatus.CANCELLED) {
+      return after;
+    }
+    throw outcome === 'ATTENTION' ? OrdersErrors.cancellationNeedsAttention() : OrdersErrors.cancellationPending();
   }
 
   /**
-   * Gives the coupon's usage back, if this order had one.
-   *
-   * Best-effort in exactly the sense the reservation release above is (ADR-014): Module 07 commits
-   * it in its own transaction, and a failure here must not prevent a cancellation the customer is
-   * entitled to. The asymmetry with stock is worth naming — Module 04's TTL sweeper self-heals a
-   * stranded reservation, while a stranded `APPLIED` redemption has no sweeper, so the cost of a
-   * failure is one usage the customer cannot immediately re-spend. That is strictly better than
-   * refusing to cancel their order over it, and it is recoverable by an operator through the
-   * redemption record.
-   *
-   * `ICouponPort.reverse` is idempotent, so a retried cancellation is safe.
+   * Read-only early answer: is any of the order's reservations already dispatched? Not a safeguard —
+   * a dispatch can commit right after it — only a way to refuse the common case without persisting
+   * anything. Any read failure just defers to the workflow, whose Module 04 batch is authoritative.
    */
-  private async reverseCouponBestEffort(orderId: string, actorUserId: string): Promise<void> {
+  private async anyReservationDispatched(orderId: string): Promise<boolean> {
+    const lines = await this.orders.findLinesByOrderId(orderId);
+    const reservationIds = [...new Set(lines.map((l) => l.reservationId).filter((id): id is string => id !== null))];
     try {
-      await this.coupons.reverse({
-        orderId,
-        // No code and no redemption id: Module 07 finds this order's own `APPLIED` redemption. A
-        // caller-supplied code here would let a request aim a reversal at a different coupon.
-        actorUserId,
-        reason: 'order-cancelled',
-      });
+      const views = await Promise.all(reservationIds.map((id) => this.inventory.getReservationFulfillment(id)));
+      return views.some((v) => v.dispatched);
     } catch {
-      // Includes the ordinary "this order has no coupon" case, which is not an error worth
-      // distinguishing — there is nothing to reverse either way.
+      return false;
     }
   }
 }

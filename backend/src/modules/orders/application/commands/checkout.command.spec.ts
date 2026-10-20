@@ -192,6 +192,7 @@ function build() {
     release: jest.fn().mockResolvedValue(undefined),
     dispatch: jest.fn(),
     getReservationFulfillment: jest.fn(),
+    releaseAllUnlessDispatched: jest.fn(),
   };
 
   const config: jest.Mocked<IConfigPort> = {
@@ -479,6 +480,15 @@ describe('CheckoutCommand', () => {
   });
 
   describe('matching', () => {
+    it('binds the match request to the order: find() gets the pre-allocated id the order is created with', async () => {
+      const { command, matching, orders } = build();
+      await command.execute(input());
+
+      const orderId = (matching.find.mock.calls[0][0] as { orderId?: string }).orderId;
+      expect(orderId).toEqual(expect.any(String));
+      expect(orders.create).toHaveBeenCalledWith(expect.objectContaining({ id: orderId }), expect.anything(), undefined);
+    });
+
     it('propagates NO_PHARMACY_MATCH without creating an order or reserving anything', async () => {
       const { command, matching, orders, inventory } = build();
       matching.find.mockRejectedValue(Object.assign(new Error('no match'), { code: 'NO_PHARMACY_MATCH' }));

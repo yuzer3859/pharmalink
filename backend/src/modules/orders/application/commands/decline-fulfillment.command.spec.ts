@@ -1,6 +1,9 @@
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
 import { IMatchingPort } from '../../../prescription-matching/application/ports/inbound/matching.port';
+import { IInventoryPort } from '../../../pharmacy-inventory/application/ports/inbound/inventory.port';
+import { ApiException } from '../../../../shared/errors/api-exception';
+import { ErrorCode } from '../../../../shared/errors/error-codes';
 import { IFulfillmentRepository } from '../../domain/repositories/fulfillment.repository';
 import { IOrderRepository } from '../../domain/repositories/order.repository';
 import { IIdentityPort } from '../ports/outbound/identity.port';
@@ -59,6 +62,17 @@ function build() {
       },
     }),
   };
+  const calls: string[] = [];
+  const inventory: jest.Mocked<IInventoryPort> = {
+    reserve: jest.fn(),
+    confirm: jest.fn<Promise<void>, [{ reservationId: string }]>(async () => { calls.push('confirm'); }),
+    release: jest.fn(),
+    dispatch: jest.fn(),
+    getReservationFulfillment: jest.fn(),
+    releaseAllUnlessDispatched: jest.fn<Promise<void>, [{ reservationIds: string[]; reason?: string }]>(async () => { calls.push('release-replacements'); }),
+  };
+  const cancellations = { findByOrderId: jest.fn().mockResolvedValue(null) };
+  orders.updateLineFulfillment.mockImplementation(async () => { calls.push('repoint'); });
   const uow: IUnitOfWork = { run: (work) => work(undefined) };
   const audit = { record: jest.fn().mockResolvedValue({ id: 'a', hash: 'h' }) } as unknown as AuditService;
   const outbox = { write: jest.fn().mockResolvedValue(undefined) } as unknown as OutboxService;
@@ -68,11 +82,13 @@ function build() {
     orders,
     identity, pharmacies,
     matching,
+    inventory,
+    cancellations as never,
     uow,
     audit,
     outbox,
   );
-  return { command, fulfillments, orders, identity, pharmacies, matching, audit, outbox, declinedFulfillment, order, line };
+  return { command, fulfillments, orders, identity, pharmacies, matching, inventory, cancellations, calls, audit, outbox, declinedFulfillment, order, line };
 }
 
 function input(overrides: Record<string, unknown> = {}) {
@@ -165,5 +181,74 @@ describe('DeclineFulfillmentCommand', () => {
     orders.findById.mockResolvedValue({ ...order, matchRequestId: null });
 
     await expect(command.execute(input())).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  describe('Work 55 — replacement reservations after a successful re-match', () => {
+    it('confirms exactly the replacement reservation the order now references, after the lines are re-pointed', async () => {
+      const { command, inventory, calls } = build();
+      const result = await command.execute(input());
+      expect(result.orderCancelled).toBe(false);
+      expect(inventory.confirm).toHaveBeenCalledTimes(1);
+      expect(inventory.confirm).toHaveBeenCalledWith({ reservationId: 'reservation-2' });
+      expect(calls).toEqual(['repoint', 'confirm']);
+      expect(inventory.releaseAllUnlessDispatched).not.toHaveBeenCalled();
+    });
+
+    it('an order cancelled before Phase 3: nothing re-pointed or confirmed; the replacement holds are released', async () => {
+      const { command, orders, fulfillments, inventory, order } = build();
+      orders.findById.mockReset().mockResolvedValueOnce(order).mockResolvedValue({ ...order, status: 'CANCELLED' });
+      const result = await command.execute(input());
+      expect(result).toMatchObject({ newFulfillment: null, orderCancelled: true });
+      expect(fulfillments.create).not.toHaveBeenCalled();
+      expect(orders.updateLineFulfillment).not.toHaveBeenCalled();
+      expect(inventory.confirm).not.toHaveBeenCalled();
+      expect(inventory.releaseAllUnlessDispatched).toHaveBeenCalledWith({ reservationIds: ['reservation-2'], reason: 'decline-order-cancelled' });
+    });
+
+    it('an open customer cancellation request (read in the same transaction) also stops Phase 3', async () => {
+      const { command, cancellations, orders, inventory } = build();
+      cancellations.findByOrderId.mockResolvedValue({ phase: 'STOCK_RELEASED' });
+      const result = await command.execute(input());
+      expect(result.orderCancelled).toBe(true);
+      expect(orders.updateLineFulfillment).not.toHaveBeenCalled();
+      expect(inventory.confirm).not.toHaveBeenCalled();
+      expect(cancellations.findByOrderId).toHaveBeenCalledWith('order-1', undefined);
+    });
+
+    it('a REJECTED cancellation request (dispatch won) does not block the re-match', async () => {
+      const { command, cancellations, inventory } = build();
+      cancellations.findByOrderId.mockResolvedValue({ phase: 'REJECTED' });
+      expect((await command.execute(input())).orderCancelled).toBe(false);
+      expect(inventory.confirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('a replacement already released by a concurrent cancellation (order now CANCELLED) is not an error', async () => {
+      const { command, inventory, orders, order } = build();
+      inventory.confirm.mockRejectedValueOnce(new ApiException(ErrorCode.INVALID_RESERVATION_STATE, 'released'));
+      orders.findById.mockResolvedValueOnce(order).mockResolvedValueOnce(order).mockResolvedValue({ ...order, status: 'CANCELLED' });
+      await expect(command.execute(input())).resolves.toMatchObject({ orderCancelled: false });
+    });
+
+    it('transient confirm failures are retried; a permanent one is surfaced, never swallowed', async () => {
+      const retried = build();
+      retried.inventory.confirm
+        .mockRejectedValueOnce(Object.assign(new Error('pool timeout'), { code: 'P2024' }))
+        .mockResolvedValueOnce(undefined);
+      await retried.command.execute(input());
+      expect(retried.inventory.confirm).toHaveBeenCalledTimes(2);
+
+      const failing = build();
+      failing.inventory.confirm.mockRejectedValue(new ApiException(ErrorCode.RESERVATION_EXPIRED, 'expired'));
+      await expect(failing.command.execute(input())).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+      expect(failing.inventory.confirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('an exhausted re-match (FAILED) neither confirms nor releases anything here (unchanged)', async () => {
+      const { command, matching, inventory } = build();
+      matching.rematch.mockResolvedValue({ id: 'match-1', status: 'FAILED', chosenResult: null } as never);
+      expect((await command.execute(input())).orderCancelled).toBe(true);
+      expect(inventory.confirm).not.toHaveBeenCalled();
+      expect(inventory.releaseAllUnlessDispatched).not.toHaveBeenCalled();
+    });
   });
 });

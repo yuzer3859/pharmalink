@@ -10,6 +10,7 @@ import { DeleteListingCommand } from './application/commands/delete-listing.comm
 import { DispatchStockCommand } from './application/commands/dispatch-stock.command';
 import { RegisterPharmacyCommand } from './application/commands/register-pharmacy.command';
 import { ReleaseReservationCommand } from './application/commands/release-reservation.command';
+import { ReleaseReservationsUnlessDispatchedCommand } from './application/commands/release-reservations-unless-dispatched.command';
 import { ReserveStockCommand } from './application/commands/reserve-stock.command';
 import { SetOperatingHoursCommand } from './application/commands/set-operating-hours.command';
 import { UpdateBranchCommand } from './application/commands/update-branch.command';
@@ -55,6 +56,8 @@ import { PrismaStockBatchOperationsReadAdapter } from './infrastructure/persiste
 import { STOCK_RESERVATION_OPERATIONS_READ_PORT } from './application/ports/inbound/stock-reservation-operations-read.port';
 import { PrismaStockReservationOperationsReadAdapter } from './infrastructure/persistence/prisma-stock-reservation-operations-read.adapter';
 import { RESERVATION_INTEGRITY_READ_PORT } from './application/ports/inbound/reservation-integrity-read.port';
+import { RESERVATION_STATUS_READ_PORT } from './application/ports/inbound/reservation-status-read.port';
+import { PrismaReservationStatusReadAdapter } from './infrastructure/persistence/prisma-reservation-status-read.adapter';
 import { PrismaReservationIntegrityReadAdapter } from './infrastructure/persistence/prisma-reservation-integrity-read.adapter';
 import { PrismaPharmacyStockAvailabilityReadAdapter } from './infrastructure/persistence/prisma-pharmacy-stock-availability-read.adapter';
 import { PrismaReservationRepository } from './infrastructure/persistence/prisma-reservation.repository';
@@ -114,6 +117,7 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     ReserveStockCommand,
     ConfirmReservationCommand,
     ReleaseReservationCommand,
+    ReleaseReservationsUnlessDispatchedCommand,
     DispatchStockCommand,
     GetReservationFulfillmentQuery,
     GetAvailabilityQuery,
@@ -141,6 +145,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     { provide: STOCK_RESERVATION_OPERATIONS_READ_PORT, useClass: PrismaStockReservationOperationsReadAdapter },
     // Module 16 Work 54 — `reserved` vs the reservation-derived counter: detection only, database-side.
     { provide: RESERVATION_INTEGRITY_READ_PORT, useClass: PrismaReservationIntegrityReadAdapter },
+    // Work 55 — batch reservation status for Module 06's decline-recovery reconciler and its view.
+    { provide: RESERVATION_STATUS_READ_PORT, useClass: PrismaReservationStatusReadAdapter },
     // Inbound read contract for Module 13's pharmacy notifications (module-13 Work 07): a
     // pharmacy's organization owner `userId`, via the existing `IIdentityPort` owner read.
     { provide: PHARMACY_RECIPIENT_READ_PORT, useClass: PharmacyRecipientReadPortAdapter },
@@ -162,6 +168,7 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     STOCK_BATCH_OPERATIONS_READ_PORT,
     STOCK_RESERVATION_OPERATIONS_READ_PORT,
     RESERVATION_INTEGRITY_READ_PORT,
+    RESERVATION_STATUS_READ_PORT,
   ],
 })
 export class PharmacyInventoryModule {}

@@ -1,3 +1,6 @@
+import { ApiException } from '../../../../../shared/errors/api-exception';
+import { ErrorCode } from '../../../../../shared/errors/error-codes';
+
 export const INVENTORY_PORT = Symbol('INVENTORY_PORT');
 
 export interface ReserveStockInput {
@@ -30,4 +33,19 @@ export interface IInventoryPort {
   release(input: { reservationId: string; reason?: string }): Promise<void>;
   dispatch(input: { reservationId: string; actorUserId?: string }): Promise<void>;
   getReservationFulfillment(reservationId: string): Promise<ReservationFulfillmentView>;
+  /**
+   * All-or-nothing release of a set of reservations in ONE transaction (Work 55, customer
+   * cancellation): every reservation is locked (sorted id order) and checked before any write.
+   * If any `CONFIRMED` reservation has already been dispatched the whole call rejects —
+   * {@link isDispatchedReservationRejection} — and nothing is released. `RELEASED`/`EXPIRED`
+   * reservations are no-ops, as for `release()`.
+   */
+  releaseAllUnlessDispatched(input: { reservationIds: string[]; reason?: string }): Promise<void>;
+}
+
+/** True for `releaseAllUnlessDispatched`'s (and `release()`'s) already-dispatched rejection. */
+export function isDispatchedReservationRejection(err: unknown): boolean {
+  if (!(err instanceof ApiException) || err.code !== ErrorCode.INVALID_RESERVATION_STATE) return false;
+  const details = err.details as { from?: unknown } | undefined;
+  return details?.from === 'DISPATCHED';
 }

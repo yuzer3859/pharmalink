@@ -56,6 +56,22 @@ export const OrdersErrors = {
       { from, to, aggregate },
     ),
 
+  /** Work 55: the cancellation is durably recorded but not finished; it completes automatically. */
+  cancellationPending: () =>
+    new ApiException(
+      ErrorCode.DEPENDENCY_UNAVAILABLE,
+      'Your cancellation has been recorded and will be completed automatically.',
+      { cancellation: 'PENDING' },
+    ),
+
+  /** Work 55: the cancellation cannot finish without an operator (e.g. stock on a deleted listing). */
+  cancellationNeedsAttention: () =>
+    new ApiException(
+      ErrorCode.CONFLICT,
+      'Your cancellation could not be completed automatically and has been referred for review.',
+      { cancellation: 'NEEDS_ATTENTION' },
+    ),
+
   cancellationNotAllowed: (status: string) =>
     new ApiException(
       ErrorCode.CANCELLATION_NOT_ALLOWED,

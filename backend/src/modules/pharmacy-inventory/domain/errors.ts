@@ -60,6 +60,30 @@ export const PharmacyInventoryErrors = {
       { from, to },
     ),
 
+  /**
+   * A batch release (`ReleaseReservationsUnlessDispatchedCommand`) found already-dispatched
+   * reservations — the same `{ from: 'DISPATCHED' }` shape the single release uses, plus the ids.
+   * Recognised by callers through `isDispatchedReservationRejection` on the inbound port.
+   */
+  reservationsDispatched: (reservationIds: string[]) =>
+    new ApiException(
+      ErrorCode.INVALID_RESERVATION_STATE,
+      'One or more reservations have already been dispatched and cannot be released.',
+      { from: 'DISPATCHED', to: 'RELEASED', reservationIds },
+    ),
+
+  /**
+   * `DELETE /inventory/listings/:id` refused (Work 55, H1): reservations may still need this listing
+   * to be released or dispatched — every such flow locks it, and a soft-deleted listing cannot be
+   * locked. `CONFLICT` (409): the request is valid, the listing's current state forbids it.
+   */
+  listingHasLiveReservations: (liveReservations: number) =>
+    new ApiException(
+      ErrorCode.CONFLICT,
+      'This listing still has reservations that must be released or dispatched before it can be deleted.',
+      { reason: 'LISTING_HAS_LIVE_RESERVATIONS', liveReservations },
+    ),
+
   reservationExpired: () =>
     new ApiException(ErrorCode.RESERVATION_EXPIRED, 'This reservation has expired.'),
 

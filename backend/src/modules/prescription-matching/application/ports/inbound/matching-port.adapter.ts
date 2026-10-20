@@ -26,6 +26,11 @@ import {
  * `DispenseMedicineCommand` do for their single-method ports) is that `IMatchingPort` unifies
  * three previously-separate commands under one exported token; there is no single existing class
  * that could implement it without this facade.
+ *
+ * The one thing it adds is `allowOrderBound: true` on `select`/`rematch`: this seam is how Module
+ * 06 reaches matching in-process (checkout's own select, the pharmacy-decline rematch), and those
+ * are the only callers allowed to move a match request bound to a placed order. The HTTP
+ * controller calls the commands directly and never sets it.
  */
 @Injectable()
 export class MatchingPortAdapter implements IMatchingPort {
@@ -40,10 +45,10 @@ export class MatchingPortAdapter implements IMatchingPort {
   }
 
   select(input: MatchingSelectInput): Promise<MatchingSelectResult> {
-    return this.selectMatchCommand.execute(input);
+    return this.selectMatchCommand.execute({ ...input, allowOrderBound: true });
   }
 
   rematch(input: MatchingRematchInput): Promise<MatchingRematchResult> {
-    return this.rematchCommand.execute(input);
+    return this.rematchCommand.execute({ ...input, allowOrderBound: true });
   }
 }

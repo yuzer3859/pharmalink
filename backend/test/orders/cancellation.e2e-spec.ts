@@ -187,13 +187,15 @@ describe('Orders — cancellation lifecycle and reservation release (e2e)', () =
     });
     expect(listingBefore.reserved).toBe(1);
 
-    // The order-level cancel itself is still best-effort on the release (ADR-014); the dispatched
-    // reservation's release is rejected inside Module 04 and swallowed by `allSettled`.
-    await request(ctx.server)
+    // Work 55 policy: an order holding dispatched stock cannot be cancelled by the customer —
+    // Module 04's all-or-nothing batch release rejects it and cancellation answers 422.
+    const res = await request(ctx.server)
       .post(`/orders/${orderId}/cancel`)
       .set(...auth(customer.accessToken))
       .send({ reason: CANCEL_REASON })
-      .expect(200);
+      .expect(422);
+    expect(errorOf(res).code).toBe(ErrorCode.CANCELLATION_NOT_ALLOWED);
+    expect(await ctx.prisma.order.findUniqueOrThrow({ where: { id: orderId } })).toMatchObject({ status: 'ACCEPTED' });
 
     await expect(inventory.release({ reservationId, reason: 'direct' })).rejects.toMatchObject({
       code: ErrorCode.INVALID_RESERVATION_STATE,

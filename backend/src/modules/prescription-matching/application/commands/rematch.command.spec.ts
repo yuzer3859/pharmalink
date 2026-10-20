@@ -65,6 +65,7 @@ function build() {
     release: jest.fn().mockResolvedValue(undefined),
     dispatch: jest.fn(),
     getReservationFulfillment: jest.fn(),
+    releaseAllUnlessDispatched: jest.fn(),
   };
   const config: jest.Mocked<IConfigPort> = {
     get: jest.fn().mockReturnValue(undefined),
@@ -143,6 +144,22 @@ describe('RematchCommand', () => {
     const { command, matches } = build();
     matches.findById.mockResolvedValue(null);
     await expect(command.execute(rematchInput())).rejects.toMatchObject({ code: 'PRESCRIPTION_NOT_FOUND' });
+  });
+
+  it('409s MATCH_REQUEST_ORDER_BOUND for an order-bound request without allowOrderBound, before releasing anything', async () => {
+    const { command, matches, inventory } = build();
+    matches.findById.mockResolvedValue(matchRequestSnapshot({ orderId: 'order-1' }));
+    await expect(command.execute(rematchInput())).rejects.toMatchObject({ code: 'MATCH_REQUEST_ORDER_BOUND' });
+    expect(inventory.release).not.toHaveBeenCalled();
+    expect(inventory.reserve).not.toHaveBeenCalled();
+  });
+
+  it('rematches an order-bound request for the in-process caller (allowOrderBound), keying holds by the order id', async () => {
+    const { command, matches, inventory } = build();
+    matches.findById.mockResolvedValue(matchRequestSnapshot({ orderId: 'order-1' }));
+    await command.execute(rematchInput({ allowOrderBound: true }));
+    expect(inventory.release).toHaveBeenCalledWith(expect.objectContaining({ reservationId: 'reservation-declined' }));
+    expect(inventory.reserve).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'order-1' }));
   });
 
   it('409s when the match request is not currently MATCHED', async () => {

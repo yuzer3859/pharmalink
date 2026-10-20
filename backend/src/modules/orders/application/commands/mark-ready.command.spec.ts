@@ -51,6 +51,7 @@ function build() {
     release: jest.fn(),
     dispatch: jest.fn().mockResolvedValue(undefined),
     getReservationFulfillment: jest.fn(),
+    releaseAllUnlessDispatched: jest.fn(),
   };
   const uow: IUnitOfWork = { run: (work) => work(undefined) };
   const audit = { record: jest.fn().mockResolvedValue({ id: 'a', hash: 'h' }) } as unknown as AuditService;

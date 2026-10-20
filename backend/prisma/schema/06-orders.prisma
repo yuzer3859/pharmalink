@@ -106,6 +106,7 @@ model Order {
   fulfillments  Fulfillment[]
   statusHistory OrderStatusHistory[]
   invoice       Invoice?
+  cancellationRequest OrderCancellationRequest?
 
   @@map("orders")
 }
@@ -181,6 +182,53 @@ model Invoice {
 }
 
 // Shared reliable event-publishing table (outbox pattern) — used by all modules.
+/// Durable workflow phase of a customer cancellation (Work 55). `orders.status` remains the only
+/// source of truth for whether the order is cancelled; this records how far the cancellation saga
+/// (release stock in Module 04 -> cancel the order -> reverse the coupon in Module 07) has got.
+enum OrderCancellationPhase {
+  /// Intent recorded; Module 04's all-or-nothing release not yet confirmed.
+  REQUESTED
+  /// Every reservation of the order is released (or was already).
+  STOCK_RELEASED
+  /// `orders.status = CANCELLED` committed (with history, audit, outbox); coupon reversal pending.
+  ORDER_CANCELLED
+  /// Coupon reversal done (or nothing to reverse). Terminal.
+  COMPLETED
+  /// Module 04 refused: a reservation had already been dispatched. Nothing changed. Terminal.
+  REJECTED
+}
+
+/// Persisted customer-cancellation intent (Work 55). One per order: an order is cancelled at most
+/// once and a dispatch rejection is irreversible, so a repeat request resumes (or reports) this row.
+model OrderCancellationRequest {
+  id                  String                 @id @default(uuid())
+  orderId             String                 @unique
+  /// The customer who asked — kept as the initiator even when recovery finishes the work.
+  customerUserId      String
+  reason              String
+  phase               OrderCancellationPhase @default(REQUESTED)
+  attempts            Int                    @default(0)
+  /// Earliest time the reconciler may retry (exponential backoff after a transient failure).
+  nextAttemptAt       DateTime               @default(now())
+  /// Structured code of the last failure (an `ErrorCode`, a Prisma code, or `UNKNOWN`).
+  lastErrorCode       String?
+  lastErrorAt         DateTime?
+  /// Set when a permanent failure needs an operator; the reconciler then leaves the row alone.
+  attentionRequiredAt DateTime?
+  /// Lease: only the executor holding an unexpired lease may advance the phase.
+  leaseOwner          String?
+  leaseExpiresAt      DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  completedAt         DateTime?
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([phase, nextAttemptAt])
+  @@index([attentionRequiredAt])
+  @@map("order_cancellation_requests")
+}
+
 model Outbox {
   id            String    @id @default(uuid())
   aggregateType String
