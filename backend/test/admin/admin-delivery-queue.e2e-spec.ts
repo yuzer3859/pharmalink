@@ -183,11 +183,11 @@ describe('Admin notification delivery queue (e2e)', () => {
 
   it('no recipient phone, rendered text, errorDetail, raw provider id or secret in any response; GETs write no audit row', async () => {
     const auditBefore = await ctx.prisma.auditLog.count();
-    const responses = [
-      (await get(BASE).query({ size: 100 })).body,
-      (await get(`${BASE}/summary`)).body,
-      ...(await Promise.all(Object.values(seeded).filter((v) => v !== seeded.failingNotification).flatMap((id) => [get(`${BASE}/${id}`), get(`${BASE}/${id}/attempts`)]))).map((r) => r.body),
-    ];
+    const responses: unknown[] = [(await get(BASE).query({ size: 100 })).body, (await get(`${BASE}/summary`)).body];
+    // Sequential, not Promise.all: each supertest call against the unbound server opens its own ephemeral listener (ECONNRESET on CI).
+    for (const id of Object.values(seeded).filter((v) => v !== seeded.failingNotification)) {
+      responses.push((await get(`${BASE}/${id}`)).body, (await get(`${BASE}/${id}/attempts`)).body);
+    }
     expect(await ctx.prisma.auditLog.count()).toBe(auditBefore);
     const raw = JSON.stringify(responses);
     const notifications = await ctx.prisma.notification.findMany();

@@ -571,9 +571,10 @@ describe('Real-time location tracking', () => {
     // counting rows, because the claim is about what this path *cannot* do.
     expect(PublishJobLocationCommand.length).toBe(6);
 
-    await post({ recordedAt: seconds(3) });
-    await post({ recordedAt: seconds(3) });
-    await post({ recordedAt: seconds(3) });
+    const at = seconds(3);
+    await post({ recordedAt: at });
+    await post({ recordedAt: at });
+    await post({ recordedAt: at });
 
     expect(realtime.published).toHaveLength(1);
   });

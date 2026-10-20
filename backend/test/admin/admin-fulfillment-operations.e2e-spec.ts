@@ -149,7 +149,10 @@ describe('Admin fulfillment operations (e2e)', () => {
 
   it('privacy: fulfillment fields only — no customer, beneficiary, address, payment or driver data', async () => {
     await seedSet();
-    const raw = JSON.stringify([await list(), ...(await Promise.all((await ctx.prisma.fulfillment.findMany()).map((f) => get(`${BASE}/${f.id}`)))).map((r) => r.body)]);
+    const responses: unknown[] = [await list()];
+    // Sequential, not Promise.all: each supertest call against the unbound server opens its own ephemeral listener (ECONNRESET on CI).
+    for (const f of await ctx.prisma.fulfillment.findMany()) responses.push((await get(`${BASE}/${f.id}`)).body);
+    const raw = JSON.stringify(responses);
     for (const secret of [customer.userId, customer.phone, 'Abebe', '+251911555444', 'Bole', 'checkout-']) {
       expect({ secret: secret.slice(0, 10), found: raw.includes(secret) }).toEqual({ secret: secret.slice(0, 10), found: false });
     }
