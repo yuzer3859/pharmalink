@@ -10,17 +10,16 @@
 name: Backend CI
 
 on:
+  # Pull requests only: pushes to a PR's branch re-run CI through the PR update, without a second
+  # full run of the same commit.
   pull_request:
     branches: [main]
-  push:
-    branches: [claude/beautiful-moore-19cc3a]
 
 permissions:
   contents: read
 
 concurrency:
-  # One group per PR (pull_request runs) or per branch (push runs); a newer commit cancels the
-  # obsolete run in its group.
+  # One group per PR; a newer commit cancels the obsolete run for that PR.
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
