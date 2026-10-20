@@ -115,6 +115,9 @@ export interface NewInvoiceData {
  * `DRAFT -> PENDING_PAYMENT` transition (§3.4's first row), matching every other transition's
  * "no ad-hoc mutation without a history row" discipline (§3.11 invariant 3). */
 export interface NewOrderData {
+  /** Pre-allocated by checkout so the match request can be bound to the order before it exists;
+   * omitted = database-generated. */
+  id?: string;
   orderNumber: string;
   customerUserId: string;
   beneficiarySnapshot: Record<string, unknown> | null;
