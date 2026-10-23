@@ -2,7 +2,8 @@
 #
 # Security model:
 # - `pull_request` (never `pull_request_target`): PR code runs with a read-only token and no
-#   repository secrets, including PRs from forks.
+#   repository secrets, including PRs from forks. `push` (main only) and `workflow_dispatch` run
+#   repository code with the same read-only token; no job deploys or releases anything.
 # - The workflow uses no secrets at all. The e2e suite's own global setup (test/global-setup.ts)
 #   starts a throwaway Postgres + Redis with testcontainers on the runner, applies the Prisma
 #   migrations to that container only, and injects fake test-only credentials. DATABASE_URL is
@@ -10,16 +11,23 @@
 name: Backend CI
 
 on:
-  # Pull requests only: pushes to a PR's branch re-run CI through the PR update, without a second
-  # full run of the same commit.
+  # Pushes to a PR's branch re-run CI through the PR update, so feature branches have no push
+  # trigger of their own (that would run every commit twice).
   pull_request:
     branches: [main]
+  # Post-merge verification of main itself.
+  push:
+    branches: [main]
+  # Manual run of the same checks on a chosen branch, by anyone with write access.
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  # One group per PR; a newer commit cancels the obsolete run for that PR.
+  # One group per event kind and target: per PR number for pull_request, per branch (github.ref)
+  # for push and workflow_dispatch. A newer commit cancels the obsolete run in its own group only;
+  # PRs never cancel each other, and a manual run never cancels a push run on main (or vice versa).
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
