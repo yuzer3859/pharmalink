@@ -5,7 +5,7 @@ import { AuditService, RecordAuditParams } from '../../src/shared/audit/audit.se
 import { DomainEvent } from '../../src/shared/events/domain-event';
 import { OutboxCapableClient, OutboxService } from '../../src/shared/outbox/outbox.service';
 import { PrismaService } from '../../src/shared/prisma/prisma.service';
-import { auth } from '../support/fixtures';
+import { auth, errorOf } from '../support/fixtures';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 import { placeOrder, readyToCheckout } from './support';
 
@@ -305,7 +305,11 @@ describe('Orders — mutation atomicity: state + audit + outbox (e2e)', () => {
       .set(...auth(customer.accessToken))
       .send({ reason: 'Changed my mind about this order' });
 
-    expect(failed.status).toBe(500);
+    // Work 55: the cancellation intent is durable, so a failed order step answers 503 PENDING
+    // (it completes automatically) rather than a bare 500 — the order itself is untouched.
+    expect(failed.status).toBe(503);
+    expect(errorOf(failed).code).toBe('DEPENDENCY_UNAVAILABLE');
+    expect(await ctx.prisma.orderCancellationRequest.findUniqueOrThrow({ where: { orderId } })).toMatchObject({ phase: 'STOCK_RELEASED' });
 
     const order = await ctx.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
     expect(order.status).toBe('PAID');
@@ -330,7 +334,7 @@ describe('Orders — mutation atomicity: state + audit + outbox (e2e)', () => {
       .post(`/orders/${orderId}/cancel`)
       .set(...auth(customer.accessToken))
       .send({ reason: 'Changed my mind about this order' })
-      .expect(500);
+      .expect(503); // Work 55: recorded and pending, not a bare 500
 
     const released = await ctx.prisma.stockReservation.findUniqueOrThrow({
       where: { id: line.reservationId as string },

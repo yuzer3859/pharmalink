@@ -1,174 +1,93 @@
-import { AuditService } from '../../../../shared/audit/audit.service';
-import { OutboxService } from '../../../../shared/outbox/outbox.service';
 import { IInventoryPort } from '../../../pharmacy-inventory/application/ports/inbound/inventory.port';
-import {
-  ICouponPort,
-} from '../../../payment/application/ports/inbound/coupon.port';
 import { IOrderRepository } from '../../domain/repositories/order.repository';
-import { IUnitOfWork } from '../ports/unit-of-work.port';
+import { CancellationOutcome, OrderCancellationWorkflow } from '../services/order-cancellation.workflow';
 import { CancelOrderCommand } from './cancel-order.command';
 import { orderLineSnapshot, orderSnapshot } from './test-fixtures';
 
-function build() {
+/**
+ * The request path only (Work 55): ownership, the status policies, the read-only dispatch pre-check,
+ * and how a workflow outcome becomes the response. The saga itself is covered by
+ * `order-cancellation.workflow.spec.ts` and the e2e suites.
+ */
+function build(outcome: CancellationOutcome = 'COMPLETED', statusAfter = 'CANCELLED') {
   const order = orderSnapshot({ status: 'PAID' });
-  const orders: jest.Mocked<IOrderRepository> = {
-    findById: jest.fn().mockResolvedValue(order),
-    findByOrderNumber: jest.fn(),
-    findByIdempotencyKey: jest.fn(),
-    listByCustomer: jest.fn(),
-    create: jest.fn(),
-    updateStatus: jest.fn().mockResolvedValue(undefined),
-    findStatusHistory: jest.fn(),
-    createLines: jest.fn(),
-    findLinesByOrderId: jest.fn().mockResolvedValue([orderLineSnapshot({ reservationId: 'reservation-1' })]),
-    updateLineFulfillment: jest.fn(),
-    createInvoice: jest.fn(),
-    findInvoiceByOrderId: jest.fn(),
-  };
-  const inventory: jest.Mocked<IInventoryPort> = {
-    reserve: jest.fn(),
-    confirm: jest.fn(),
-    release: jest.fn().mockResolvedValue(undefined),
-    dispatch: jest.fn(),
-    getReservationFulfillment: jest.fn(),
-  };
-  const uow: IUnitOfWork = { run: (work) => work(undefined) };
-  const audit = { record: jest.fn().mockResolvedValue({ id: 'a', hash: 'h' }) } as unknown as AuditService;
-  const outbox = { write: jest.fn().mockResolvedValue(undefined) } as unknown as OutboxService;
-
-  /** Module 07's coupon seam. Defaults to "this order had no coupon" — `reverse` rejects with
-   * NOT_FOUND, which the command swallows, so pre-existing cancellation behaviour is unchanged. */
-  const coupons: jest.Mocked<ICouponPort> = {
-    validate: jest.fn(),
-    apply: jest.fn(),
-    reverse: jest.fn().mockRejectedValue(new Error('no redemption')),
-  };
-
-  const command = new CancelOrderCommand(orders, inventory, coupons, uow, audit, outbox);
-  return { command, orders, inventory, coupons, audit, outbox, order };
+  const orders = {
+    findById: jest.fn().mockResolvedValueOnce(order).mockResolvedValue({ ...order, status: statusAfter }),
+    findLinesByOrderId: jest.fn().mockResolvedValue([
+      orderLineSnapshot({ id: 'l1', reservationId: 'reservation-1' }),
+      orderLineSnapshot({ id: 'l2', reservationId: 'reservation-2' }),
+      orderLineSnapshot({ id: 'l3', reservationId: 'reservation-1' }),
+      orderLineSnapshot({ id: 'l4', reservationId: null }),
+    ]),
+  } as unknown as jest.Mocked<IOrderRepository>;
+  const inventory = {
+    getReservationFulfillment: jest.fn(async (reservationId: string) => ({ reservationId, status: 'CONFIRMED', dispatched: false, dispatchedQuantity: 0 })),
+  } as unknown as jest.Mocked<IInventoryPort>;
+  const workflow = { start: jest.fn().mockResolvedValue(outcome) } as unknown as jest.Mocked<OrderCancellationWorkflow>;
+  return { command: new CancelOrderCommand(orders, inventory, workflow), orders, inventory, workflow, order };
 }
 
-function input(overrides: Record<string, unknown> = {}) {
-  return { orderId: 'order-1', customerUserId: 'customer-1', reason: 'Changed my mind', ...overrides };
-}
+const input = (overrides: Record<string, unknown> = {}) => ({ orderId: 'order-1', customerUserId: 'customer-1', reason: 'Changed my mind', ...overrides });
 
 describe('CancelOrderCommand', () => {
-  it('cancels a cancellable order, releases its reservations, and writes audit/outbox', async () => {
-    const { command, orders, inventory, audit, outbox } = build();
+  it('starts the workflow with the original customer and reason, and returns the CANCELLED order', async () => {
+    const { command, workflow } = build();
+    const result = await command.execute(input());
+    expect(workflow.start).toHaveBeenCalledWith({ orderId: 'order-1', customerUserId: 'customer-1', reason: 'Changed my mind' });
+    expect(result.status).toBe('CANCELLED');
+  });
 
+  it('returns the order (200) when it is CANCELLED even though the coupon reversal is still pending', async () => {
+    const { command } = build('ORDER_CANCELLED');
+    expect((await command.execute(input())).status).toBe('CANCELLED');
+  });
+
+  it('404s (ORDER_NOT_FOUND) for a missing order or another customer’s, before anything else', async () => {
+    const missing = build();
+    missing.orders.findById.mockReset().mockResolvedValue(null);
+    await expect(missing.command.execute(input())).rejects.toMatchObject({ code: 'ORDER_NOT_FOUND' });
+    const other = build();
+    await expect(other.command.execute(input({ customerUserId: 'someone-else' }))).rejects.toMatchObject({ code: 'ORDER_NOT_FOUND' });
+    expect(other.workflow.start).not.toHaveBeenCalled();
+  });
+
+  it('422s (CANCELLATION_NOT_ALLOWED) once the order has reached READY — no pre-check, no workflow', async () => {
+    const { command, orders, inventory, workflow, order } = build();
+    orders.findById.mockReset().mockResolvedValue({ ...order, status: 'READY' });
+    await expect(command.execute(input())).rejects.toMatchObject({ code: 'CANCELLATION_NOT_ALLOWED' });
+    expect(inventory.getReservationFulfillment).not.toHaveBeenCalled();
+    expect(workflow.start).not.toHaveBeenCalled();
+  });
+
+  it('pre-check: a dispatched reservation answers 422 without persisting anything (each reservation read once)', async () => {
+    const { command, inventory, workflow } = build();
+    inventory.getReservationFulfillment.mockImplementation(async (id: string) => ({ reservationId: id, status: 'CONFIRMED', dispatched: id === 'reservation-2', dispatchedQuantity: 0 }));
+    await expect(command.execute(input())).rejects.toMatchObject({ code: 'CANCELLATION_NOT_ALLOWED', httpStatus: 422 });
+    expect(inventory.getReservationFulfillment.mock.calls.map((c) => c[0]).sort()).toEqual(['reservation-1', 'reservation-2']);
+    expect(workflow.start).not.toHaveBeenCalled();
+  });
+
+  it('pre-check is not a safeguard: a read failure defers to the workflow', async () => {
+    const { command, inventory, workflow } = build();
+    inventory.getReservationFulfillment.mockRejectedValue(new Error('read failed'));
     await command.execute(input());
-
-    expect(inventory.release).toHaveBeenCalledWith({
-      reservationId: 'reservation-1',
-      reason: 'customer-cancel',
-    });
-    expect(orders.updateStatus).toHaveBeenCalledWith(
-      'order-1',
-      expect.objectContaining({ status: 'CANCELLED', cancelReason: 'Changed my mind' }),
-      expect.objectContaining({ toStatus: 'CANCELLED' }),
-      undefined,
-    );
-    expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'ORDER_CANCELLED' }),
-      undefined,
-    );
-    expect(outbox.write).toHaveBeenCalledTimes(1);
+    expect(workflow.start).toHaveBeenCalledTimes(1);
   });
 
-  it('404s (ORDER_NOT_FOUND) when the order does not exist', async () => {
-    const { command, orders } = build();
-    orders.findById.mockResolvedValue(null);
-
-    await expect(command.execute(input())).rejects.toMatchObject({ code: 'ORDER_NOT_FOUND' });
+  it('a REJECTED workflow (dispatch won the race) is 422 CANCELLATION_NOT_ALLOWED', async () => {
+    const { command } = build('REJECTED', 'ACCEPTED');
+    await expect(command.execute(input())).rejects.toMatchObject({ code: 'CANCELLATION_NOT_ALLOWED', httpStatus: 422 });
   });
 
-  it('404s (ORDER_NOT_FOUND, no existence leakage) when the order belongs to another customer', async () => {
-    const { command, orders, order } = build();
-    orders.findById.mockResolvedValue({ ...order, customerUserId: 'someone-else' });
-
-    await expect(command.execute(input())).rejects.toMatchObject({ code: 'ORDER_NOT_FOUND' });
+  it('an unfinished workflow before the order is cancelled is 503 cancellation PENDING (it completes automatically)', async () => {
+    for (const outcome of ['PENDING', 'BUSY'] as const) {
+      const { command } = build(outcome, 'PAID');
+      await expect(command.execute(input())).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE', httpStatus: 503, details: { cancellation: 'PENDING' } });
+    }
   });
 
-  it('422s (CANCELLATION_NOT_ALLOWED) once the order has reached READY', async () => {
-    const { command, orders, order } = build();
-    orders.findById.mockResolvedValue({ ...order, status: 'READY' });
-
-    await expect(command.execute(input())).rejects.toMatchObject({
-      code: 'CANCELLATION_NOT_ALLOWED',
-    });
-  });
-
-  it('re-validates cancellation eligibility against the fresh in-transaction read (race defense)', async () => {
-    const { command, orders, order } = build();
-    orders.findById
-      .mockResolvedValueOnce({ ...order, status: 'PAID' })
-      .mockResolvedValueOnce({ ...order, status: 'READY' });
-
-    await expect(command.execute(input())).rejects.toMatchObject({
-      code: 'CANCELLATION_NOT_ALLOWED',
-    });
-  });
-
-  it('does not fail the cancellation if a reservation release fails (self-heals via TTL sweeper)', async () => {
-    const { command, inventory, orders } = build();
-    inventory.release.mockRejectedValue(new Error('Module 04 unavailable'));
-
-    await command.execute(input());
-
-    expect(orders.updateStatus).toHaveBeenCalled();
-  });
-
-  describe('coupon reversal (F-CPN-03)', () => {
-    it('gives the coupon usage back for the cancelled order, without moving money', async () => {
-      const { command, coupons } = build();
-      coupons.reverse.mockResolvedValue({ status: 'REVERSED', replay: false } as never);
-
-      await command.execute(input());
-
-      // Identified by order id alone — Module 06 does not store which promotion was used, and
-      // ADR-021 makes "this order's applied coupon" unambiguous. No code from the request could
-      // aim the reversal at a different coupon.
-      expect(coupons.reverse).toHaveBeenCalledWith({
-        orderId: 'order-1',
-        actorUserId: 'customer-1',
-        reason: 'order-cancelled',
-      });
-      // Reversing usage is not a refund: no payment, ledger or money call is made from here.
-      expect(coupons.apply).not.toHaveBeenCalled();
-      expect(coupons.validate).not.toHaveBeenCalled();
-    });
-
-    it('still cancels the order when the reversal fails', async () => {
-      const { command, orders, coupons } = build();
-      coupons.reverse.mockRejectedValue(new Error('coupon service unavailable'));
-
-      await command.execute(input());
-
-      // Best-effort, exactly like the reservation release above (ADR-014): a customer entitled to
-      // cancel must not be blocked by Module 07 being unavailable. The cost is one usage that is
-      // not immediately re-spendable, recoverable from the redemption record.
-      expect(orders.updateStatus).toHaveBeenCalledWith(
-        'order-1',
-        expect.objectContaining({ status: 'CANCELLED' }),
-        expect.objectContaining({ toStatus: 'CANCELLED' }),
-        undefined,
-      );
-    });
-
-    it('cancels normally for an order that never had a coupon', async () => {
-      const { command, orders, coupons } = build();
-      // Module 07 answers NOT_FOUND when there is no redemption; that is not an error worth
-      // distinguishing here, because there is nothing to reverse either way.
-      coupons.reverse.mockRejectedValue(new Error('No coupon redemption found for this order.'));
-
-      await command.execute(input());
-
-      expect(orders.updateStatus).toHaveBeenCalledWith(
-        'order-1',
-        expect.objectContaining({ status: 'CANCELLED' }),
-        expect.objectContaining({ toStatus: 'CANCELLED' }),
-        undefined,
-      );
-    });
+  it('a permanent failure before the order is cancelled is 409 NEEDS_ATTENTION — never reported as cancelled', async () => {
+    const { command } = build('ATTENTION', 'PAID');
+    await expect(command.execute(input())).rejects.toMatchObject({ code: 'CONFLICT', httpStatus: 409, details: { cancellation: 'NEEDS_ATTENTION' } });
   });
 });

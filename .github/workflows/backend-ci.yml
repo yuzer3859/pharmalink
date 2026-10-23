@@ -1,0 +1,91 @@
+# Backend CI: type-check, lint, unit tests and the full e2e suite for `backend/`.
+#
+# Security model:
+# - `pull_request` (never `pull_request_target`): PR code runs with a read-only token and no
+#   repository secrets, including PRs from forks.
+# - The workflow uses no secrets at all. The e2e suite's own global setup (test/global-setup.ts)
+#   starts a throwaway Postgres + Redis with testcontainers on the runner, applies the Prisma
+#   migrations to that container only, and injects fake test-only credentials. DATABASE_URL is
+#   deliberately never set here, so nothing can point the suite at a real database.
+name: Backend CI
+
+on:
+  # Pull requests only: pushes to a PR's branch re-run CI through the PR update, without a second
+  # full run of the same commit.
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # One group per PR; a newer commit cancels the obsolete run for that PR.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+env:
+  # Node 22 LTS: the version the suites are verified with locally (Node 20 is end-of-life).
+  NODE_VERSION: '22'
+
+jobs:
+  static:
+    name: Type-check and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - name: TypeScript (src and test)
+        run: npx tsc --noEmit -p tsconfig.json
+      # Same file set as `npm run lint`, but without `--fix`, so lint errors fail the job.
+      - name: ESLint
+        run: npx eslint "{src,test}/**/*.ts"
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test -- --ci
+
+  e2e:
+    name: E2E tests (disposable Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      # The repository's own procedure: global setup starts postgres:16 + redis:7-alpine containers
+      # via the runner's Docker, runs `prisma migrate deploy` against that container, and the
+      # harness refuses to truncate any database not named `pharmalink_e2e`.
+      - run: npm run test:e2e -- --ci

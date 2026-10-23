@@ -102,6 +102,7 @@ describe('Address validation & business rules — /addresses (e2e)', () => {
   it('16.2: missing recipientPhone -> 400 VALIDATION_ERROR', async () => {
     const user = await customer();
     const { recipientPhone, ...rest } = baseAddress();
+    expect(recipientPhone).toBeTruthy(); // the omission below is real: the base payload carries a phone
     const res = await request(ctx.server)
       .post('/addresses')
       .set(...auth(user.accessToken))

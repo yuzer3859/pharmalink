@@ -84,4 +84,12 @@ export interface IReservationRepository {
     reservationId: string,
     tx?: unknown,
   ): Promise<Array<{ batchId: string | null; qty: number }>>;
+  /**
+   * Reservations of a listing that may still need it (Work 55, H1 — listing deletion guard): `HELD`,
+   * or `CONFIRMED` with no `DISPATCH` movement naming it (`findDispatchMovements`'s rule). A
+   * `CONFIRMED` reservation whose dispatch predates `stock_movements.reservationId` cannot be told
+   * apart from an undispatched one, so it counts as live — the conservative answer. Called under the
+   * listing's row lock, inside the deleting transaction.
+   */
+  countLiveForListing(listingId: string, tx: unknown): Promise<number>;
 }

@@ -1,4 +1,8 @@
 import request from 'supertest';
+import {
+  IInventoryPort,
+  INVENTORY_PORT,
+} from '../../src/modules/pharmacy-inventory/application/ports/inbound/inventory.port';
 import { ErrorCode } from '../../src/shared/errors/error-codes';
 import { auth, errorOf } from '../support/fixtures';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
@@ -150,6 +154,64 @@ describe('Orders — cancellation lifecycle and reservation release (e2e)', () =
     expect(
       await ctx.prisma.stockMovement.count({ where: { reservationId, type: 'DISPATCH' } }),
     ).toBe(0);
+  });
+
+  it('does not release (or double-decrement) a reservation whose stock was already dispatched ' +
+    'while the order is still pre-READY', async () => {
+    // `MarkReadyCommand` dispatches every reservation BEFORE its own transaction moves the order
+    // to READY, so a dispatched reservation can sit under a still-cancellable order (in the window
+    // before that commit, or for good if that transaction or a later dispatch fails). Reproduce
+    // that state directly: PREPARING fulfillment, reservation dispatched, order not yet READY.
+    const { customer, pharmacy, fulfillmentId, orderId } = await placeOrder(ctx);
+    for (const action of ['accept', 'prepare']) {
+      await request(ctx.server)
+        .post(`/pharmacy/orders/${fulfillmentId}/${action}`)
+        .set(...auth(pharmacy.accessToken))
+        .expect(200);
+    }
+    const line = await ctx.prisma.orderLine.findFirstOrThrow({ where: { orderId } });
+    const reservationId = line.reservationId as string;
+    const reservation = await ctx.prisma.stockReservation.findUniqueOrThrow({ where: { id: reservationId } });
+    const inventory = ctx.app.get<IInventoryPort>(INVENTORY_PORT);
+    // A sibling hold on the same listing keeps `reserved` high enough that a second decrement
+    // would not trip `ReleaseReservationCommand`'s underflow assertion.
+    await inventory.reserve({
+      listingId: reservation.listingId,
+      quantity: 1,
+      orderId: 'sibling-order',
+      idempotencyKey: 'sibling-hold',
+    });
+    await inventory.dispatch({ reservationId });
+    const listingBefore = await ctx.prisma.inventoryListing.findUniqueOrThrow({
+      where: { id: reservation.listingId },
+    });
+    expect(listingBefore.reserved).toBe(1);
+
+    // Work 55 policy: an order holding dispatched stock cannot be cancelled by the customer —
+    // Module 04's all-or-nothing batch release rejects it and cancellation answers 422.
+    const res = await request(ctx.server)
+      .post(`/orders/${orderId}/cancel`)
+      .set(...auth(customer.accessToken))
+      .send({ reason: CANCEL_REASON })
+      .expect(422);
+    expect(errorOf(res).code).toBe(ErrorCode.CANCELLATION_NOT_ALLOWED);
+    expect(await ctx.prisma.order.findUniqueOrThrow({ where: { id: orderId } })).toMatchObject({ status: 'ACCEPTED' });
+
+    await expect(inventory.release({ reservationId, reason: 'direct' })).rejects.toMatchObject({
+      code: ErrorCode.INVALID_RESERVATION_STATE,
+    });
+    expect(
+      await ctx.prisma.stockReservation.findUniqueOrThrow({ where: { id: reservationId } }),
+    ).toMatchObject({ status: 'CONFIRMED' });
+    expect(
+      await ctx.prisma.stockMovement.count({ where: { reservationId, type: 'RELEASE' } }),
+    ).toBe(0);
+    const listingAfter = await ctx.prisma.inventoryListing.findUniqueOrThrow({
+      where: { id: reservation.listingId },
+    });
+    expect(listingAfter.reserved).toBe(listingBefore.reserved);
+    expect(listingAfter.onHand).toBe(listingBefore.onHand);
+    expect(listingAfter.sellable).toBe(listingBefore.sellable);
   });
 
   it('never leaves a CANCELLED order holding stock (§3.12 invariant 5)', async () => {

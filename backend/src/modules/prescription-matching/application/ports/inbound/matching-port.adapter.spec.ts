@@ -57,7 +57,7 @@ describe('MatchingPortAdapter', () => {
     expect(actual).toBe(result);
   });
 
-  it('select() delegates to SelectMatchCommand.execute() with the input unchanged and returns its result unchanged', async () => {
+  it('select() delegates to SelectMatchCommand.execute() as the in-process caller (allowOrderBound) and returns its result unchanged', async () => {
     const { adapter, selectMatchCommand } = build();
     const input = {
       matchRequestId: 'match-1',
@@ -71,11 +71,11 @@ describe('MatchingPortAdapter', () => {
     const actual = await adapter.select(input);
 
     expect(selectMatchCommand.execute).toHaveBeenCalledTimes(1);
-    expect(selectMatchCommand.execute).toHaveBeenCalledWith(input);
+    expect(selectMatchCommand.execute).toHaveBeenCalledWith({ ...input, allowOrderBound: true });
     expect(actual).toBe(result);
   });
 
-  it('rematch() delegates to RematchCommand.execute() with the input unchanged and returns its result unchanged', async () => {
+  it('rematch() delegates to RematchCommand.execute() as the in-process caller (allowOrderBound) and returns its result unchanged', async () => {
     const { adapter, rematchCommand } = build();
     const input = {
       matchRequestId: 'match-1',
@@ -88,7 +88,7 @@ describe('MatchingPortAdapter', () => {
     const actual = await adapter.rematch(input);
 
     expect(rematchCommand.execute).toHaveBeenCalledTimes(1);
-    expect(rematchCommand.execute).toHaveBeenCalledWith(input);
+    expect(rematchCommand.execute).toHaveBeenCalledWith({ ...input, allowOrderBound: true });
     expect(actual).toBe(result);
   });
 

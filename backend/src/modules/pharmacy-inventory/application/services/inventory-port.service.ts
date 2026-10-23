@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfirmReservationCommand } from '../commands/confirm-reservation.command';
 import { DispatchStockCommand } from '../commands/dispatch-stock.command';
 import { ReleaseReservationCommand } from '../commands/release-reservation.command';
+import { ReleaseReservationsUnlessDispatchedCommand } from '../commands/release-reservations-unless-dispatched.command';
 import { ReserveStockCommand } from '../commands/reserve-stock.command';
 import { GetReservationFulfillmentQuery } from '../queries/get-reservation-fulfillment.query';
 import {
@@ -24,6 +25,7 @@ export class InventoryPortService implements IInventoryPort {
     private readonly releaseReservation: ReleaseReservationCommand,
     private readonly dispatchStock: DispatchStockCommand,
     private readonly getReservationFulfillmentQuery: GetReservationFulfillmentQuery,
+    private readonly releaseReservationsUnlessDispatched: ReleaseReservationsUnlessDispatchedCommand,
   ) {}
 
   reserve(input: ReserveStockInput): Promise<ReserveStockResult> {
@@ -44,5 +46,9 @@ export class InventoryPortService implements IInventoryPort {
 
   getReservationFulfillment(reservationId: string): Promise<ReservationFulfillmentView> {
     return this.getReservationFulfillmentQuery.execute(reservationId);
+  }
+
+  releaseAllUnlessDispatched(input: { reservationIds: string[]; reason?: string }): Promise<void> {
+    return this.releaseReservationsUnlessDispatched.execute(input);
   }
 }

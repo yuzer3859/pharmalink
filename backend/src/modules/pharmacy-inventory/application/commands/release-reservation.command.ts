@@ -20,7 +20,9 @@ import { IUnitOfWork, UNIT_OF_WORK } from '../ports/outbound/unit-of-work.port';
 /**
  * Release flow (module-04 §8, §12). Idempotent — a repeat release of an already-
  * released/expired reservation is a no-op, not an error (§10.3, §15 — safe for saga
- * compensation retries).
+ * compensation retries). Releasing a `CONFIRMED` reservation that has already been dispatched
+ * (`DISPATCH` movements carry its `reservationId`) is NOT idempotent — it throws
+ * `INVALID_RESERVATION_STATE`, since dispatch already consumed its `reserved` share.
  *
  * The initial `findById` below is only a cheap existence pre-check for the 404 case — it is
  * NEVER trusted as authoritative for the mutation decision. The reservation row is re-locked
@@ -67,6 +69,19 @@ export class ReleaseReservationCommand {
         // Already terminal — another transaction (manual release or TTL sweep) won the race and
         // already committed. True no-op: no second movement/outbox/audit row.
         return;
+      }
+      if (reservation.status === ReservationStatus.CONFIRMED) {
+        // Dispatch leaves the reservation `CONFIRMED` (§14.7) but has already subtracted its
+        // quantity from `reserved` and `onHand`; releasing it would subtract `reserved` a second
+        // time and record a RELEASE for stock that has physically left. Unlike a repeat release,
+        // this is a real caller error (e.g. a cancel racing `MarkReadyCommand`'s dispatch), so it
+        // is rejected rather than silently skipped. Checked under the reservation lock (which
+        // `DispatchStockCommand` also holds while writing its `DISPATCH` movements) and before
+        // the listing lock, preserving the reservation → listing order.
+        const dispatched = await this.reservations.findDispatchMovements(input.reservationId, tx);
+        if (dispatched.length > 0) {
+          throw PharmacyInventoryErrors.invalidReservationState('DISPATCHED', targetStatus);
+        }
       }
 
       const listing = await this.listings.lockForUpdate(reservation.listingId, tx);

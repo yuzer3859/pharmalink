@@ -79,6 +79,18 @@ export class PrismaReservationRepository implements IReservationRepository {
     return rows[0] ?? null;
   }
 
+  async countLiveForListing(listingId: string, tx: unknown): Promise<number> {
+    return (tx as Prisma.TransactionClient).stockReservation.count({
+      where: {
+        listingId,
+        OR: [
+          { status: ReservationStatus.HELD },
+          { status: ReservationStatus.CONFIRMED, movements: { none: { type: StockMovementType.DISPATCH } } },
+        ],
+      },
+    });
+  }
+
   async findDispatchMovements(
     reservationId: string,
     tx?: unknown,

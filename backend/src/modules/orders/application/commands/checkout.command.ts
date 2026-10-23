@@ -107,7 +107,11 @@ function isUniqueConstraintViolation(err: unknown): boolean {
  *  5. Rx gate (§4 step 2) — see the per-product-call doc comment on {@link checkRxGateBlocking}
  *     for why this calls `ICheckRxGatePort.check()` once per Rx product rather than once for the
  *     whole cart.
- *  6. Matching + reservation (§4 step 3+4) via `IMatchingPort.find()`/`.select()` — both already
+ *  6. Matching + reservation (§4 step 3+4) via `IMatchingPort.find()`/`.select()`. The order id
+ *     is allocated here, before the order exists, and passed to `find()` so the match request is
+ *     bound to this order (`match_requests.orderId`) and every reservation is keyed by it. A bound
+ *     match request refuses customer `POST /matching/:id/select|rematch`; only Module 06's own
+ *     in-process calls (this select, the pharmacy-decline rematch) may move it. Both calls already
  *     throw the correctly-coded, reused errors (`NO_PHARMACY_MATCH`/`MATCH_CANDIDATE_UNAVAILABLE`/
  *     `INSUFFICIENT_STOCK`) on failure; nothing is reserved yet if `find()` fails, and `select()`
  *     already releases its own partial reservations internally on failure (§4's own
@@ -229,11 +233,16 @@ export class CheckoutCommand {
     );
 
     // Step 6 — matching + reservation (Module 05's already-atomic find + select, ADR-014).
+    // The order id is pre-allocated so the match request is bound to it from creation (see the
+    // class doc). If this attempt never commits an order, the bound request is simply orphaned —
+    // nobody can select or rematch it over HTTP, and its holds are released or TTL-swept as before.
+    const orderId = randomUUID();
     const matchLines = resolvedLines.map((line) => ({
       catalogProductId: line.catalogProductId,
       quantity: line.quantity,
     }));
     const findResult = await this.matching.find({
+      orderId,
       customerUserId: input.customerUserId,
       lines: matchLines,
       deliveryLat: address.lat ?? undefined,
@@ -348,6 +357,7 @@ export class CheckoutCommand {
       const placed = await runWithOrderRetry(this.uow, async (tx) => {
         const order = await this.orders.create(
           {
+            id: orderId,
             orderNumber: `ORD-${randomUUID()}`,
             customerUserId: input.customerUserId,
             beneficiarySnapshot: null,

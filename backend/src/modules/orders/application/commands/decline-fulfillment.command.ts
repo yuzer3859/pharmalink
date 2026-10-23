@@ -1,11 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../../../../shared/audit/audit.service';
+import { ApiException } from '../../../../shared/errors/api-exception';
+import { ErrorCode } from '../../../../shared/errors/error-codes';
+import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
 import { MatchStatus } from '../../../prescription-matching/domain/enums';
 import {
   IMatchingPort,
   MATCHING_PORT,
 } from '../../../prescription-matching/application/ports/inbound/matching.port';
+import { IInventoryPort, INVENTORY_PORT } from '../../../pharmacy-inventory/application/ports/inbound/inventory.port';
 import { OrdersErrors } from '../../domain/errors';
 import { FulfillmentStatus, OrderStatus } from '../../domain/enums';
 import { orderCancelledEvent } from '../../domain/events';
@@ -15,6 +19,11 @@ import {
   IFulfillmentRepository,
 } from '../../domain/repositories/fulfillment.repository';
 import { IOrderRepository, ORDER_REPOSITORY } from '../../domain/repositories/order.repository';
+import {
+  CancellationPhase,
+  IOrderCancellationRequestRepository,
+  ORDER_CANCELLATION_REQUEST_REPOSITORY,
+} from '../../domain/repositories/order-cancellation-request.repository';
 import { CancellationPolicy } from '../../domain/services/cancellation-policy';
 import { FulfillmentStatusPolicy } from '../../domain/services/fulfillment-status-policy';
 import { OrderStatusPolicy } from '../../domain/services/order-status-policy';
@@ -22,7 +31,11 @@ import { IIdentityPort, IDENTITY_PORT } from '../ports/outbound/identity.port';
 import { IPharmacyPort, PHARMACY_PORT } from '../ports/outbound/pharmacy.port';
 import { IUnitOfWork, UNIT_OF_WORK } from '../ports/unit-of-work.port';
 import { assertFulfillmentOrgScope } from '../support/assert-fulfillment-org-scope';
+import { classifyCancellationFailure } from '../support/cancellation-failure';
 import { runWithOrderRetry } from '../support/order-retry';
+
+/** Immediate attempts per replacement confirmation when Module 04 fails transiently. */
+const CONFIRM_ATTEMPTS = 3;
 
 export interface DeclineFulfillmentInput {
   fulfillmentId: string;
@@ -59,6 +72,17 @@ export interface DeclineFulfillmentResult {
  *       re-point every declined `OrderLine` at it (`IOrderRepository.updateLineFulfillment()`,
  *       matched by `catalogProductId`) — no outbox event (module-05's own `RematchTriggered`
  *       already covers the re-match signal, §8's "Module 06 does not duplicate them").
+ *       Work 55: only while the order is still live — re-read in this transaction, it must be
+ *       cancellable and carry no (non-rejected) customer cancellation request. That request read,
+ *       against `OrderCancellationWorkflow.start` reading these order lines, makes the two
+ *       Serializable transactions conflict, so one of them is retried: a cancellation either sees
+ *       the replacement reservations on the lines (and releases them) or is seen here (and nothing
+ *       is re-pointed). Refused, the replacement holds are released.
+ *  4. **Cross-module** (Work 55), after 3a commits: `IInventoryPort.confirm()` each replacement
+ *     reservation now on an order line, `HELD -> CONFIRMED` — as checkout confirms its own — so
+ *     the TTL sweeper cannot expire the stock the order now relies on. Confirmed only once the
+ *     order references it, so no CONFIRMED reservation is ever left unreferenced (CONFIRMED is
+ *     never swept). A reservation a concurrent cancellation already released is not an error.
  *     - otherwise (`FAILED`/no chosen result): `Order.status -> CANCELLED` (BRULE-19), audited,
  *       outbox `OrderCancelled` (§8).
  */
@@ -70,10 +94,16 @@ export class DeclineFulfillmentCommand {
     @Inject(IDENTITY_PORT) private readonly identity: IIdentityPort,
     @Inject(PHARMACY_PORT) private readonly pharmacies: IPharmacyPort,
     @Inject(MATCHING_PORT) private readonly matching: IMatchingPort,
+    @Inject(INVENTORY_PORT) private readonly inventory: IInventoryPort,
+    @Inject(ORDER_CANCELLATION_REQUEST_REPOSITORY) private readonly cancellations: IOrderCancellationRequestRepository,
     @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
-  ) {}
+  ) {
+    this.logger.setContext(DeclineFulfillmentCommand.name);
+  }
+
+  private readonly logger = new AppLogger();
 
   async execute(input: DeclineFulfillmentInput): Promise<DeclineFulfillmentResult> {
     const fulfillment = await this.fulfillments.findById(input.fulfillmentId);
@@ -137,7 +167,18 @@ export class DeclineFulfillmentCommand {
     // Phase 3a — re-match succeeded: create the new fulfillment and re-point the order lines.
     if (rematchResult.status === MatchStatus.MATCHED && rematchResult.chosenResult) {
       const chosenResult = rematchResult.chosenResult;
-      const newFulfillment = await runWithOrderRetry(this.uow, async (tx) => {
+      const phase3 = await runWithOrderRetry(this.uow, async (tx) => {
+        // Work 55: re-point only a still-live order (see the class doc for the conflict with a
+        // concurrent customer cancellation).
+        const liveOrder = await this.orders.findById(fulfillment.orderId, tx);
+        if (!liveOrder || !CancellationPolicy.canCancel(liveOrder.status)) {
+          return null;
+        }
+        const cancellation = await this.cancellations.findByOrderId(fulfillment.orderId, tx);
+        if (cancellation && cancellation.phase !== CancellationPhase.REJECTED) {
+          return null;
+        }
+        const repointed: string[] = [];
         const created = await this.fulfillments.create(
           {
             orderId: fulfillment.orderId,
@@ -164,6 +205,7 @@ export class DeclineFulfillmentCommand {
             },
             tx,
           );
+          repointed.push(chosenLine.reservationId);
         }
 
         await this.audit.record(
@@ -181,10 +223,20 @@ export class DeclineFulfillmentCommand {
           tx,
         );
 
-        return created;
+        return { created, repointed };
       });
 
-      return { declinedFulfillment, newFulfillment, orderCancelled: false };
+      const replacementIds = [...new Set(chosenResult.lines.map((l) => l.reservationId))];
+      if (!phase3) {
+        // The order was cancelled (or a customer cancellation is under way): nothing was re-pointed.
+        // Its replacement holds are released; they are HELD, so the TTL sweeper is the backstop.
+        await this.releaseReplacements(fulfillment.orderId, replacementIds);
+        return { declinedFulfillment, newFulfillment: null, orderCancelled: true };
+      }
+
+      // Phase 4 — confirm exactly the replacement reservations the order now references.
+      await this.confirmReplacements(fulfillment.orderId, [...new Set(phase3.repointed)]);
+      return { declinedFulfillment, newFulfillment: phase3.created, orderCancelled: false };
     }
 
     // Phase 3b — re-match exhausted every candidate: cancel the order (BRULE-19).
@@ -232,5 +284,50 @@ export class DeclineFulfillmentCommand {
     });
 
     return { declinedFulfillment, newFulfillment: null, orderCancelled: true };
+  }
+
+  /**
+   * Phase 4 (Work 55): `HELD -> CONFIRMED` for each replacement reservation on the order's lines,
+   * through Module 04's own confirm (its reservation → listing lock order; a lapsed hold is expired
+   * there, never confirmed). Transient failures are retried a few times; a reservation that a
+   * concurrent customer cancellation has already released (the order is now cancelled) is not an
+   * error. Anything else is surfaced, never swallowed.
+   */
+  private async confirmReplacements(orderId: string, reservationIds: string[]): Promise<void> {
+    for (const reservationId of reservationIds) {
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          await this.inventory.confirm({ reservationId });
+          break;
+        } catch (err) {
+          if (err instanceof ApiException && err.code === ErrorCode.INVALID_RESERVATION_STATE) {
+            const order = await this.orders.findById(orderId);
+            if (order?.status === OrderStatus.CANCELLED) return; // released by the cancellation
+          }
+          if (classifyCancellationFailure(err) === 'TRANSIENT' && attempt < CONFIRM_ATTEMPTS) continue;
+          this.logger.error({
+            message: 'Replacement reservation could not be confirmed after a pharmacy decline',
+            orderId,
+            reservationId,
+            errorCode: err instanceof ApiException ? err.code : 'UNKNOWN',
+          });
+          throw err;
+        }
+      }
+    }
+  }
+
+  /** Releases the replacement holds of a decline whose order was cancelled meanwhile (they are HELD). */
+  private async releaseReplacements(orderId: string, reservationIds: string[]): Promise<void> {
+    if (reservationIds.length === 0) return;
+    try {
+      await this.inventory.releaseAllUnlessDispatched({ reservationIds, reason: 'decline-order-cancelled' });
+    } catch (err) {
+      this.logger.warn({
+        message: 'Replacement holds of a decline on a cancelled order were not released; the TTL sweeper will expire them',
+        orderId,
+        errorCode: err instanceof ApiException ? err.code : 'UNKNOWN',
+      });
+    }
   }
 }

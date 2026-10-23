@@ -39,6 +39,13 @@ export interface SelectMatchInput {
    * narrow, documented application-layer decision, not a repository/domain contract change.
    */
   lines: Array<{ catalogProductId: string; quantity: number }>;
+  /**
+   * `false`/omitted (every HTTP call): refuse a match request bound to a placed order
+   * (`orderId` set) with `MATCH_REQUEST_ORDER_BOUND`. Only `MatchingPortAdapter` — the in-process
+   * seam Module 06's checkout and decline flows use — sets it `true`; it is not part of the
+   * exported port input.
+   */
+  allowOrderBound?: boolean;
 }
 
 /**
@@ -67,6 +74,9 @@ export class SelectMatchCommand {
     const matchRequest = await this.matches.findById(input.matchRequestId);
     if (!matchRequest || matchRequest.customerUserId !== input.customerUserId) {
       throw PrescriptionMatchingErrors.notFound('Match request not found');
+    }
+    if (matchRequest.orderId && !input.allowOrderBound) {
+      throw PrescriptionMatchingErrors.matchRequestOrderBound();
     }
     MatchStatusPolicy.assertValidTransition(matchRequest.status, MatchStatus.MATCHED);
 

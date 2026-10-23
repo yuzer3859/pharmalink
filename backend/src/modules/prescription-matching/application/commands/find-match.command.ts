@@ -26,6 +26,13 @@ export interface FindMatchInput {
   lines: FindMatchLineInput[];
   deliveryLat?: number;
   deliveryLng?: number;
+  /**
+   * The order this match request is being created for — set only by Module 06's checkout, which
+   * pre-allocates its order id so the match request (and every reservation `select()` takes,
+   * keyed `matchRequest.orderId ?? matchRequest.id`) is bound to the order from the start. A
+   * bound request refuses customer `select`/`rematch` (`allowOrderBound`). Never set over HTTP.
+   */
+  orderId?: string;
 }
 
 export interface FindMatchResult {
@@ -134,6 +141,7 @@ export class FindMatchCommand {
     return runWithMatchRetry(this.uow, async (tx) => {
       const { matchRequest, candidates } = await this.matches.createWithCandidates(
         {
+          orderId: input.orderId ?? null,
           customerUserId: input.customerUserId,
           deliveryLat: input.deliveryLat ?? null,
           deliveryLng: input.deliveryLng ?? null,

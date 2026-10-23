@@ -47,6 +47,17 @@ import { DeliveryJobCreatedHandler } from './interface/events/delivery-job-creat
 import { DELIVERY_JOB_REFERENCE_CANDIDATE_REPOSITORY } from './domain/repositories/delivery-job-reference-candidate.repository';
 import { PrismaDeliveryJobReferenceCandidateRepository } from './infrastructure/persistence/prisma-delivery-job-reference-candidate.repository';
 import { DeliveryJobReferenceReconciler } from './infrastructure/scheduling/delivery-job-reference.reconciler';
+import { OrderCancellationReconciler } from './infrastructure/scheduling/order-cancellation.reconciler';
+import { DeclineConfirmationReconciler } from './infrastructure/scheduling/decline-confirmation.reconciler';
+import { DECLINE_RECOVERY_REPOSITORY } from './domain/repositories/decline-recovery.repository';
+import { PrismaDeclineRecoveryRepository } from './infrastructure/persistence/prisma-decline-recovery.repository';
+import { DECLINE_RECOVERY_READ_PORT } from './application/ports/inbound/decline-recovery-read.port';
+import { DeclineRecoveryReadService } from './application/services/decline-recovery-read.service';
+import { ORDER_CANCELLATION_OPERATIONS_READ_PORT } from './application/ports/inbound/order-cancellation-operations-read.port';
+import { PrismaOrderCancellationOperationsReadAdapter } from './infrastructure/persistence/prisma-order-cancellation-operations-read.adapter';
+import { OrderCancellationWorkflow } from './application/services/order-cancellation.workflow';
+import { ORDER_CANCELLATION_REQUEST_REPOSITORY } from './domain/repositories/order-cancellation-request.repository';
+import { PrismaOrderCancellationRequestRepository } from './infrastructure/persistence/prisma-order-cancellation-request.repository';
 import { FULFILLMENT_OPERATIONS_READ_PORT } from './application/ports/inbound/fulfillment-operations-read.port';
 import { PrismaFulfillmentOperationsReadAdapter } from './infrastructure/persistence/prisma-fulfillment-operations-read.adapter';
 import { ORDER_RECIPIENT_READ_PORT } from './application/ports/inbound/order-recipient-read.port';
@@ -114,6 +125,16 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     // `DELIVERY_JOB_REFERENCE_READ_PORT` and the same guarded link.
     { provide: DELIVERY_JOB_REFERENCE_CANDIDATE_REPOSITORY, useClass: PrismaDeliveryJobReferenceCandidateRepository },
     DeliveryJobReferenceReconciler,
+    // Work 55 — durable customer cancellation: persisted intent, the saga, and its recovery worker.
+    { provide: ORDER_CANCELLATION_REQUEST_REPOSITORY, useClass: PrismaOrderCancellationRequestRepository },
+    OrderCancellationWorkflow,
+    OrderCancellationReconciler,
+    // Module 16 Work 55 — open cancellations (pending / needing attention), explicit columns only.
+    { provide: ORDER_CANCELLATION_OPERATIONS_READ_PORT, useClass: PrismaOrderCancellationOperationsReadAdapter },
+    // Work 55 — pharmacy-decline recovery: derived candidates, the confirmation reconciler, its view.
+    { provide: DECLINE_RECOVERY_REPOSITORY, useClass: PrismaDeclineRecoveryRepository },
+    DeclineConfirmationReconciler,
+    { provide: DECLINE_RECOVERY_READ_PORT, useClass: DeclineRecoveryReadService },
     { provide: FULFILLMENT_REPOSITORY, useClass: PrismaFulfillmentRepository },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
 
@@ -148,6 +169,6 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PrepareFulfillmentCommand,
     MarkReadyCommand,
   ],
-  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT, ORDER_OPERATIONS_READ_PORT, ORDER_BACKLOG_SUMMARY_READ_PORT, FULFILLMENT_OPERATIONS_READ_PORT],
+  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT, ORDER_OPERATIONS_READ_PORT, ORDER_BACKLOG_SUMMARY_READ_PORT, FULFILLMENT_OPERATIONS_READ_PORT, ORDER_CANCELLATION_OPERATIONS_READ_PORT, DECLINE_RECOVERY_READ_PORT],
 })
 export class OrdersModule {}

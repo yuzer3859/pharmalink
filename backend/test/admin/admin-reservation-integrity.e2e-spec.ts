@@ -169,7 +169,10 @@ describe('Admin inventory reservation consistency diagnostics (e2e)', () => {
       const deleted = await seedListing();
       await reserve(deleted.listingId, 2);
       await ctx.prisma.inventoryListing.update({ where: { id: deleted.listingId }, data: { reserved: 9 } });
-      await request(ctx.server).delete(`/inventory/listings/${deleted.listingId}`).set(...auth(deleted.pharmacy.accessToken)).expect((r) => expect([200, 204]).toContain(r.status));
+      // Since Work 55 (H1) the API refuses to delete a listing holding a reservation, so this is the
+      // pre-guard state, written directly: a listing soft-deleted while still holding one.
+      await request(ctx.server).delete(`/inventory/listings/${deleted.listingId}`).set(...auth(deleted.pharmacy.accessToken)).expect(409);
+      await ctx.prisma.inventoryListing.update({ where: { id: deleted.listingId }, data: { deletedAt: new Date() } });
 
       w = {
         empty: empty.listingId, dispatched: await listingOfOrder(a.orderId), released: await listingOfOrder(b.orderId), mixed: mixed.listingId, lapsed,

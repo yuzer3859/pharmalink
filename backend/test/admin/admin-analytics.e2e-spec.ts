@@ -647,11 +647,15 @@ describe('Admin operational analytics (e2e)', () => {
         'identity/application/ports/inbound/identity-analytics-read.port',
         'identity/identity.module',
         'identity/interface/decorators/current-user.decorator',
+        // Work 55: pharmacy-decline recovery view (decline-recovery.e2e-spec.ts).
+        'orders/application/ports/inbound/decline-recovery-read.port',
         // Work 46: fulfillment operations visibility (admin-fulfillment-operations.e2e-spec.ts).
         'orders/application/ports/inbound/fulfillment-operations-read.port',
         'orders/application/ports/inbound/order-analytics-read.port',
         // Work 41: order backlog summary (admin-order-summary.e2e-spec.ts).
         'orders/application/ports/inbound/order-backlog-summary-read.port',
+        // Work 55: open customer cancellations (cancellation-workflow.e2e-spec.ts).
+        'orders/application/ports/inbound/order-cancellation-operations-read.port',
         // Work 35: order operations visibility (admin-order-operations.e2e-spec.ts).
         'orders/application/ports/inbound/order-operations-read.port',
         'orders/orders.module',

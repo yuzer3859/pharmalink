@@ -302,4 +302,55 @@ describe('Reservation expiry vs confirm race (e2e, Work 53)', () => {
     expect((await lockedAt(new Date(expiresAt.getTime() + 1)))?.id).toBe(id);
     expect(await statusOf(id)).toBe('HELD');
   });
+
+  // Release vs dispatch (Work 55): both lock the reservation row and THEN the listing, so the same pause
+  // forces each ordering. A sibling hold keeps `reserved` high enough that a double decrement would not
+  // trip release's own underflow assertion — the rejection, not that assertion, must be what protects it.
+  it('dispatch locks first while release runs: release waits, then sees the DISPATCH movements and is ' +
+    'rejected with INVALID_RESERVATION_STATE — zero writes, reserved decremented exactly once', async () => {
+    const listingId = await seedListing(10);
+    const id = await hold(listingId, 2, false);
+    await inventoryPort.confirm({ reservationId: id });
+    await hold(listingId, 3, false); // sibling
+    const audits = await ctx.prisma.auditLog.count();
+    const outboxRows = await ctx.prisma.outbox.count();
+
+    const pause = pauseAtListingLock();
+    const dispatching = codeOf(inventoryPort.dispatch({ reservationId: id }));
+    await pause.atLock; // dispatch holds the reservation row lock; its DISPATCH movements are not written yet
+    const releasing = codeOf(inventoryPort.release({ reservationId: id, reason: 'customer-cancel' }));
+    await waitForLockWaiter(); // release is blocked on that row
+    pause.resume();
+
+    expect([await dispatching, await releasing]).toEqual(['OK', 'INVALID_RESERVATION_STATE']);
+    expect(await statusOf(id)).toBe('CONFIRMED');
+    expect(await releases(id)).toBe(0);
+    expect(await releasedEvents(id)).toHaveLength(0);
+    expect(await ctx.prisma.auditLog.count()).toBe(audits);
+    // Only dispatch's own outbox row (stock.dispatched) was added.
+    expect(await ctx.prisma.outbox.count()).toBe(outboxRows + 1);
+    expect(await listingCounts(listingId)).toEqual({ reserved: 3, sellable: 5, onHand: 8 });
+    await reconcile(listingId);
+  });
+
+  it('release locks first while dispatch runs: dispatch waits, then sees RELEASED and is rejected — ' +
+    'one release, no dispatch, stock back on the shelf', async () => {
+    const listingId = await seedListing(10);
+    const id = await hold(listingId, 2, false);
+    await inventoryPort.confirm({ reservationId: id });
+    await hold(listingId, 3, false); // sibling
+
+    const pause = pauseAtListingLock();
+    const releasing = codeOf(inventoryPort.release({ reservationId: id, reason: 'customer-cancel' }));
+    await pause.atLock; // release holds the reservation row lock and found no DISPATCH movement
+    const dispatching = codeOf(inventoryPort.dispatch({ reservationId: id }));
+    await waitForLockWaiter(); // dispatch is blocked on that row
+    pause.resume();
+
+    expect([await releasing, await dispatching]).toEqual(['OK', 'INVALID_RESERVATION_STATE']);
+    expect([await statusOf(id), await releases(id), (await releasedEvents(id)).length]).toEqual(['RELEASED', 1, 1]);
+    expect(await ctx.prisma.stockMovement.count({ where: { reservationId: id, type: 'DISPATCH' } })).toBe(0);
+    expect(await listingCounts(listingId)).toEqual({ reserved: 3, sellable: 7, onHand: 10 });
+    await reconcile(listingId);
+  });
 });

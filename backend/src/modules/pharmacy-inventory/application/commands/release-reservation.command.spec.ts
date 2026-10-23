@@ -28,7 +28,12 @@ describe('ReleaseReservationCommand', () => {
     createdAt: new Date(),
   };
 
-  let reservations: { findById: jest.Mock; lockForUpdate: jest.Mock; updateStatus: jest.Mock };
+  let reservations: {
+    findById: jest.Mock;
+    lockForUpdate: jest.Mock;
+    updateStatus: jest.Mock;
+    findDispatchMovements: jest.Mock;
+  };
   let listings: { lockForUpdate: jest.Mock; updateCache: jest.Mock };
   let ledger: { findBatchesByListing: jest.Mock; recordMovement: jest.Mock };
   let uow: { run: jest.Mock };
@@ -41,6 +46,7 @@ describe('ReleaseReservationCommand', () => {
       findById: jest.fn().mockResolvedValue(heldReservation),
       lockForUpdate: jest.fn().mockResolvedValue(heldReservation),
       updateStatus: jest.fn().mockResolvedValue(undefined),
+      findDispatchMovements: jest.fn().mockResolvedValue([]),
     };
     listings = {
       lockForUpdate: jest.fn().mockResolvedValue(buildListing()),
@@ -115,5 +121,62 @@ describe('ReleaseReservationCommand', () => {
     });
     expect(reservations.updateStatus).not.toHaveBeenCalled();
     expect(listings.updateCache).not.toHaveBeenCalled();
+  });
+
+  describe('CONFIRMED reservations', () => {
+    const confirmed = { ...heldReservation, status: ReservationStatus.CONFIRMED };
+
+    beforeEach(() => {
+      reservations.findById.mockResolvedValue(confirmed);
+      reservations.lockForUpdate.mockResolvedValue(confirmed);
+    });
+
+    it('releases an undispatched CONFIRMED reservation, checking dispatch movements under the tx', async () => {
+      await command.execute({ reservationId, reason: 'customer-cancel' });
+
+      expect(reservations.findDispatchMovements).toHaveBeenCalledWith(reservationId, {});
+      expect(reservations.updateStatus).toHaveBeenCalledWith(reservationId, ReservationStatus.RELEASED, {});
+      expect(listings.updateCache).toHaveBeenCalledWith(listingId, { reserved: 0, sellable: 10 }, {});
+    });
+
+    it('rejects an already-dispatched CONFIRMED reservation with INVALID_RESERVATION_STATE and writes nothing', async () => {
+      reservations.findDispatchMovements.mockResolvedValue([{ batchId: 'batch-1', qty: 4 }]);
+
+      await expect(command.execute({ reservationId, reason: 'customer-cancel' })).rejects.toMatchObject({
+        code: 'INVALID_RESERVATION_STATE',
+      });
+
+      expect(listings.lockForUpdate).not.toHaveBeenCalled();
+      expect(reservations.updateStatus).not.toHaveBeenCalled();
+      expect(ledger.recordMovement).not.toHaveBeenCalled();
+      expect(listings.updateCache).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+      expect(outbox.write).not.toHaveBeenCalled();
+    });
+
+    it('checks dispatch after the reservation lock and before the listing lock', async () => {
+      const order: string[] = [];
+      reservations.lockForUpdate.mockImplementation(async () => {
+        order.push('reservation');
+        return confirmed;
+      });
+      reservations.findDispatchMovements.mockImplementation(async () => {
+        order.push('dispatch-check');
+        return [];
+      });
+      listings.lockForUpdate.mockImplementation(async () => {
+        order.push('listing');
+        return buildListing();
+      });
+
+      await command.execute({ reservationId });
+
+      expect(order).toEqual(['reservation', 'dispatch-check', 'listing']);
+    });
+  });
+
+  it('does not query dispatch movements for a HELD reservation (only CONFIRMED can be dispatched)', async () => {
+    await command.execute({ reservationId });
+    expect(reservations.findDispatchMovements).not.toHaveBeenCalled();
   });
 });

@@ -54,6 +54,8 @@ import { ResubmitCatalogProductCommand } from './application/commands/resubmit-c
 import { GetCatalogReviewHistoryQuery } from './application/queries/get-catalog-review-history.query';
 import { GetCatalogReviewSummaryQuery } from './application/queries/get-catalog-review-summary.query';
 import { GetOrderOperationsQuery, ListOrderOperationsQuery } from './application/queries/order-operations.queries';
+import { ListOrderCancellationOperationsQuery } from './application/queries/order-cancellation-operations.queries';
+import { ListOrderDeclineRecoveryQuery } from './application/queries/order-decline-recovery.queries';
 import { GetDeliveryOperationsQuery, ListDeliveryOperationsQuery } from './application/queries/delivery-operations.queries';
 import { GetDriverOperationsQuery, ListDriverOperationsQuery } from './application/queries/driver-operations.queries';
 import { GetCodOperationsQuery, ListCodOperationsQuery } from './application/queries/cod-operations.queries';
@@ -91,6 +93,8 @@ import { AdminCatalogResubmissionController } from './interface/controllers/admi
 import { AdminCatalogHistoryController } from './interface/controllers/admin-catalog-history.controller';
 import { AdminCatalogSummaryController } from './interface/controllers/admin-catalog-summary.controller';
 import { AdminOrderOperationsController } from './interface/controllers/admin-order-operations.controller';
+import { AdminOrderCancellationOperationsController } from './interface/controllers/admin-order-cancellation-operations.controller';
+import { AdminOrderDeclineRecoveryController } from './interface/controllers/admin-order-decline-recovery.controller';
 import { AdminDeliveryOperationsController } from './interface/controllers/admin-delivery-operations.controller';
 import { AdminDriverOperationsController } from './interface/controllers/admin-driver-operations.controller';
 import { AdminCodOperationsController } from './interface/controllers/admin-cod-operations.controller';
@@ -189,7 +193,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
   // `INVENTORY_LISTING_OPERATIONS_READ_PORT` (Work 49), `STOCK_MOVEMENT_OPERATIONS_READ_PORT` (Work 50),
   // `STOCK_BATCH_OPERATIONS_READ_PORT` (Work 51), `STOCK_RESERVATION_OPERATIONS_READ_PORT` (Work 52) and
   // `RESERVATION_INTEGRITY_READ_PORT` (Work 54), and
-  // `OrdersModule` also for `ORDER_OPERATIONS_READ_PORT` (Work 35) and
+  // `OrdersModule` also for `ORDER_OPERATIONS_READ_PORT` (Work 35), `ORDER_CANCELLATION_OPERATIONS_READ_PORT` (Work 55) and
   // `ORDER_BACKLOG_SUMMARY_READ_PORT` (Work 41) and `FULFILLMENT_OPERATIONS_READ_PORT` (Work 46). `DeliveryModule` also for
   // `DELIVERY_OPERATIONS_READ_PORT` (Work 36), `DRIVER_OPERATIONS_READ_PORT` (Work 37),
   // `COD_OPERATIONS_READ_PORT` (Work 38), `COD_EXCEPTION_SUMMARY_READ_PORT` (Work 39) and
@@ -294,6 +298,10 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     // finance oversight port (payment status only).
     ListOrderOperationsQuery,
     GetOrderOperationsQuery,
+    // Work 55 — open customer cancellations, over Module 06's cancellation read port.
+    ListOrderCancellationOperationsQuery,
+    // Work 55 — pharmacy-decline recovery view, over Module 06's derived decline-recovery read port.
+    ListOrderDeclineRecoveryQuery,
     // Work 36 — delivery operations visibility, over Module 08's delivery operations read port.
     ListDeliveryOperationsQuery,
     GetDeliveryOperationsQuery,
@@ -356,6 +364,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     // `/admin/operations/orders/:orderId`, or `summary` would be taken for an order id.
     AdminOrderSummaryController,
     AdminOrderOperationsController,
+    AdminOrderCancellationOperationsController,
+    AdminOrderDeclineRecoveryController,
     AdminFulfillmentOperationsController,
     AdminPharmacyOperationsController,
     AdminBranchOperationsController,
