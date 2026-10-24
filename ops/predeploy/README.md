@@ -66,7 +66,7 @@ Every table, column and enum value used exists on `main` with these exact names 
 | `match_requests` | `id`, `orderId` (nullable) |
 | `_prisma_migrations` | `migration_name`, `finished_at`, `rolled_back_at` |
 
-The script does not reference `order_cancellation_requests`, so it should run both before and after the new migrations; that is not yet confirmed on a live database (§8).
+The script does not reference `order_cancellation_requests`; it was confirmed to run both before and after the new migrations on a disposable database (§8).
 
 ### 2.4 Query by query
 
@@ -109,7 +109,7 @@ The script does not reference `order_cancellation_requests`, so it should run bo
 - Checks 1–3 look only at reservations reachable through current data; they don't reconstruct historical stock balances.
 - Reservations not attached to an order line (e.g. holds abandoned mid-checkout) appear in checks 2 and 3 but not in check 1. Cancellation never releases them, so check 1 doesn't need them.
 - Check 3's single `array_agg` can produce a very long cell on large datasets.
-- The script header still says "UNEXECUTED … not run against any database". That remains true for production; the file was left byte-identical rather than edited, so its checksum stays traceable to the reviewed draft.
+- The script header still says "UNEXECUTED … not run against any database". That remains true for production (it has been run only on a disposable test database, §8); the file was left byte-identical rather than edited, so its checksum stays traceable to the reviewed draft.
 
 ---
 
@@ -168,17 +168,24 @@ Without that record, the hold stays in place. If more than a few days pass betwe
 
 ## 8. Validation on a disposable database
 
-**Status: not yet validated on a live database.** The script has not been executed anywhere: not in production, and not yet on a disposable database either.
+**Validated on 2026-10-24, on a throwaway database only.** The script has **not** been run against production or any replica.
 
-What has been checked:
-- **Static schema check:** every table, column and enum value in §2.3 was compared with the Prisma schema on `main` at `128e310`, and the three migration names with `backend/prisma/schema/migrations/`. All match.
-- **Read-only review:** see §2.1.
+**Setup:**
+- A new `postgres:16` container (PostgreSQL 16.13, the image the e2e suite uses), named `pharmalink-predeploy-validation`.
+- Database `pharmalink_predeploy_validation`, bound to `127.0.0.1` on a random port, with a random one-off password that was never printed or stored in the repository.
+- The target was checked before every connection. No existing developer database was used.
+- The container was destroyed afterwards.
 
-Still to do before handing this to an operator (on a disposable database only):
-1. Start a throwaway `postgres:16` container (the same image the e2e suite uses) with a database named `pharmalink_predeploy_validation`, bound to `127.0.0.1` on a random port.
-2. Apply the repository's migrations to that container only, first **without** `20261015000000` and `20261016000000` (the production pre-deployment state), then with all migrations.
-3. Run the script in both states with `ON_ERROR_STOP=1` and confirm every statement parses and runs. Empty results are expected and say nothing about production.
-4. Confirm a write attempted inside the same `READ ONLY` transaction is rejected.
-5. Destroy the container.
+| Step | Result |
+|---|---|
+| Checksum of the committed file | `d237af6d…07d8`, matches |
+| Applied the repository's migrations **except** `20261015000000` and `20261016000000` (31 migrations: the production pre-deployment state) | Applied |
+| Ran the script: `psql -X -v ON_ERROR_STOP=1`, with `PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5s'` | Exit 0; every statement parsed and ran; ended in `ROLLBACK`. Check 0 showed `read_only = on`, `is_replica = f`, and only `20260827000000_stock_movement_reservation_id` applied, as expected before deployment. |
+| Write probe: `UPDATE "match_requests" … WHERE false` inside the same kind of `READ ONLY` transaction | Rejected: `cannot execute UPDATE in a read-only transaction` |
+| Applied the two new migrations (all 33: the post-deployment state) | Applied |
+| Ran the script again, same options | Exit 0, no errors, all 11 result sets returned; check 0 listed all three migrations |
 
-Never reuse an existing developer database for this, and never point it at production.
+**Limits of this validation:**
+- It proves the script is syntactically valid and compatible with the schema in both migration states, and that writes are rejected.
+- The database was **empty**, so every count was zero. That says **nothing** about production.
+- No synthetic records were loaded, so the logic for non-zero results was checked by review only (§2.4), not exercised.
