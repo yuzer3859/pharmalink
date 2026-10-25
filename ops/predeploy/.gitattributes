@@ -1,0 +1,2 @@
+# Keep the check script byte-identical on every platform so its SHA-256 stays verifiable.
+*.sql -text
