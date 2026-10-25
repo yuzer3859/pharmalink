@@ -1,0 +1,83 @@
+# PharmaLink — LOCAL staging rehearsal stack. Not a deployment; see ops/staging/README.md.
+#
+#   docker compose -f compose.staging.yml --env-file backend/.env.staging up -d --build
+#
+# PostgreSQL and Redis are reachable only on the stack's private network; the backend is
+# published on 127.0.0.1 only. One backend instance (in-memory OTP, proof-of-delivery storage
+# and event bus make more than one unsafe).
+name: pharmalink-staging
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: pharmalink_staging
+      POSTGRES_USER: pharmalink
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in backend/.env.staging}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pharmalink -d pharmalink_staging"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    # Hot cache only, never a system of record: no persistence.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    env_file:
+      - path: ./backend/.env.staging
+        required: true
+    environment:
+      # Set here, after env_file, so they always win: the backend can only reach this stack.
+      DATABASE_URL: postgresql://pharmalink:${POSTGRES_PASSWORD}@postgres:5432/pharmalink_staging?schema=public
+      REDIS_URL: redis://redis:6379
+      # `development`, not `production`: MockFaydaProvider refuses to boot in production by design.
+      # This stack does NOT verify production-mode startup (ops/staging/README.md, "Fayda decision").
+      NODE_ENV: development
+      # PORT is deliberately NOT set: env.validation.ts currently rejects any PORT value given as an
+      # environment string (see ops/staging/README.md, "Known issue"), and the default is 3000.
+    ports:
+      - "127.0.0.1:${BACKEND_HOST_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # One-off tooling (migrations, seed). Never started by `up`; run explicitly:
+  #   docker compose -f compose.staging.yml --env-file backend/.env.staging run --rm tools npx prisma migrate deploy
+  #   docker compose -f compose.staging.yml --env-file backend/.env.staging run --rm tools npm run prisma:seed
+  tools:
+    profiles: ["tools"]
+    build:
+      context: ./backend
+      target: tools
+    environment:
+      DATABASE_URL: postgresql://pharmalink:${POSTGRES_PASSWORD}@postgres:5432/pharmalink_staging?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
