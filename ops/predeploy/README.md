@@ -1,9 +1,9 @@
 # Pre-deployment data checks — inventory, cancellation and rematch changes
 
-Read-only data review required **before** deploying the changes merged in #1 ("Harden inventory cancellation and decline recovery") and running its two migrations in production.
+Read-only data review required **before** deploying the changes merged in #1 ("Harden inventory cancellation and decline recovery") and running its two migrations against a database that already holds data. First decide which procedure applies ([§0](#0-which-procedure-applies-fresh-install-or-existing-data-upgrade)): a genuinely new, empty database follows the fresh-install path instead.
 
 > [!IMPORTANT]
-> **Deployment is on hold until this review is complete.** Passing CI does not clear these risks: CI runs on disposable test data only. The hold lifts only after an authorised operator has run `predeploy-readonly-checks.v2.1.sql` in the approved environment, the results have been reviewed, and the release owner has recorded a decision (see [Release decision](#7-release-decision)). Query results are evidence for that decision, **not** permission to deploy.
+> **For an existing-data upgrade, deployment is on hold until this review is complete.** Passing CI does not clear these risks: CI runs on disposable test data only. The hold lifts only after an authorised operator has run `predeploy-readonly-checks.v2.1.sql` in the approved environment, the results have been reviewed, and the release owner has recorded a decision (see [Release decision](#7-release-decision)). Query results are evidence for that decision, **not** permission to deploy.
 
 | File | Purpose |
 |---|---|
@@ -15,6 +15,37 @@ Verify the file before use:
 ```bash
 sha256sum ops/predeploy/predeploy-readonly-checks.v2.1.sql
 ```
+
+---
+
+## 0. Which procedure applies: fresh install or existing-data upgrade
+
+Decide this first and record the decision in the release ticket. If in doubt, treat the database as an existing-data upgrade.
+
+### 0.1 Fresh install
+
+**Applies only to** a newly created, empty database: no application tables, no `_prisma_migrations` table, and no previous business data (no users, pharmacies, listings, orders or match requests, imported or otherwise). A database restored from a backup, copied from another environment, or previously used for staging or testing is **not** a fresh install.
+
+1. **Before installing,** the operator confirms the database is empty, for example with a read-only query run as part of the install:
+   ```sql
+   SELECT count(*) AS tables FROM information_schema.tables WHERE table_schema = 'public';  -- must be 0
+   ```
+2. **Install:** apply every committed migration in order with `npx prisma migrate deploy` (from `backend/`), then run the idempotent role/permission seed (`npm run prisma:seed`). See `backend/README.md`.
+3. **Record the fresh-install evidence** in the release ticket:
+   - the target database, who created it and when, and the operator;
+   - the empty-database result from step 1, taken before `migrate deploy`;
+   - the `_prisma_migrations` rows after deployment, showing every migration (including `20261015000000_module05_bind_match_request_order` and `20261016000000_module06_order_cancellation_requests`) applied at install time;
+   - the release owner's decision: *"Fresh install; legacy-data checks not applicable."*
+4. **Why the checks don't apply:** they look for historical data that the new code and the Module 05 backfill could mishandle. A genuinely new database has none, so there is nothing to review. That is a statement about this database's history, established by the evidence above. It is **not** a result of running the script: zero counts from an arbitrary empty database are not evidence that any database holding real data is safe, and running the script on an empty database proves nothing (check 0 fails there anyway, because `_prisma_migrations` does not exist yet).
+
+### 0.2 Existing-data upgrade
+
+**Applies to** any database that contains previous application data **or** migration history, including restored backups and former staging or test databases.
+
+- Follow §3–7 unchanged: confirm the script's SHA-256, confirm the target, run the read-only checks, store the output securely, and have the release owner record a decision.
+- **Check 4b must return zero before `20261015000000_module05_bind_match_request_order` runs.** If it doesn't, the backfill would bind an arbitrary order; resolve each case first and re-run the whole script.
+- **Every non-zero finding** must be accepted with a documented reason, remediated (with an owner and a follow-up ticket), or placed on hold by the release owner.
+- Passing CI does not clear this requirement: CI runs on disposable test data only.
 
 ---
 

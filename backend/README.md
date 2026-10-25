@@ -1,8 +1,39 @@
-# PharmaLink Backend — Data Layer (Prisma)
+# PharmaLink Backend
 
-This package holds the **consolidated Prisma schema** for PharmaLink Ethiopia — the single source of truth for the database across all 16 modules described in `../architecture/`.
+The PharmaLink Ethiopia backend: a NestJS modular monolith (`src/`) with a Prisma data layer (`prisma/schema/`) covering all 16 modules described in `../architecture/`.
 
-> Scope: **data layer only** (schema, enums, relations). The NestJS application code is not part of this package yet.
+## What is implemented
+
+Ten feature modules are registered in `src/app.module.ts`, alongside the shared kit (`src/shared/`: config, logging, Prisma, crypto, events, outbox, audit, RBAC, errors, Redis) and health checks:
+
+| Module | Folder |
+|---|---|
+| 01 Identity & authentication | `src/modules/identity` |
+| 02 Profiles | `src/modules/profiles` |
+| 03 Catalog | `src/modules/catalog` |
+| 04 Pharmacy & inventory | `src/modules/pharmacy-inventory` |
+| 05 Prescription & matching | `src/modules/prescription-matching` |
+| 06 Orders | `src/modules/orders` |
+| 07 Payment | `src/modules/payment` |
+| 08 Delivery | `src/modules/delivery` |
+| 13 Notifications | `src/modules/notifications` |
+| 16 Admin | `src/modules/admin` |
+
+Modules **09 Providers, 10 Appointments, 11 Diagnostics, 12 Consultation, 14 Search and 15 Reviews have schema definitions only**: their tables exist, but there is no feature module, controller or workflow for them. A table in the schema is not evidence that a feature exists.
+
+Several implemented workflows still run on development stand-ins rather than real integrations:
+
+| Area | Current adapter |
+|---|---|
+| OTP | In-memory; the code is written to the log, not sent, and is lost on restart |
+| SMS | Not configured; SMS deliveries are never sent |
+| Fayda identity verification | Mock that approves any well-formed id; refuses to start when `NODE_ENV=production` |
+| Payments | Mock provider approves gateway methods in-process; the Telebirr adapter is deliberately unimplemented |
+| Proof-of-delivery artifacts | In-memory storage, lost on restart |
+| Routing / ETA | Straight-line (haversine) distance |
+| E-mail, push | Resend and FCM adapters, active only when their variables are set |
+
+Because OTP codes, proof-of-delivery artifacts and the in-process event bus live in memory, run **exactly one** backend instance until those adapters are replaced.
 
 ## Layout
 
@@ -31,29 +62,47 @@ prisma/schema/
 
 ## Requirements
 
-- **Prisma >= 6** (multi-file schema folder is GA). Node 18+.
-- PostgreSQL 14+ (PostGIS/pg_trgm recommended for Module 14 search, but the base schema models geo as `lat`/`lng` floats + `geohash` string so it runs on vanilla Postgres).
+- **Node.js 22** and **PostgreSQL 16**: the versions CI verifies (`.github/workflows/backend-ci.yml` and the e2e harness's `postgres:16` container). Prisma 6 (local dev dependency).
+- Redis 7 is optional: without `REDIS_URL` the app boots and serves every route, with live-tracking fan-out limited to a single process.
+- Vanilla Postgres is enough; geo is modelled as `lat`/`lng` floats plus a `geohash` string.
 
-## Setup
+## Configuration
 
-1. Install deps:
-   ```bash
-   npm install
-   ```
-2. Create a `.env` file in `backend/` (gitignored) with your database URL:
-   ```
-   DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/pharmalink?schema=public"
-   ```
-3. Validate & format the schema:
-   ```bash
-   npm run prisma:validate
-   npm run prisma:format
-   ```
-4. Generate the client / create the first migration:
-   ```bash
-   npm run prisma:generate
-   npm run prisma:migrate -- --name init
-   ```
+The application validates its environment at boot and refuses to start on a missing or invalid value. The source of truth is `src/shared/config/env.validation.ts` (plus `app-config.service.ts` for the optional token and OTP lifetimes, and each integration's `*.config.ts`). Required:
+
+| Variable | Requirement |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | At least 16 characters each |
+| `MASTER_ENCRYPTION_KEY` | Base64 of exactly 32 random bytes (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`) |
+
+Everything else is optional with validated defaults (`NODE_ENV`, `PORT`, `WEB_ORIGIN`, `ORDERS_PLATFORM_FEE_PERCENT`, `REDIS_*`, the `DELIVERY_*` families) or integration-specific (`RESEND_*`, `FCM_*`, `TELEBIRR_*`). Never commit `.env` or real credentials. `NODE_ENV=test` disables the background jobs and is for the test suites only.
+
+## Clean install (new, empty database)
+
+Migrations are **committed** in `prisma/schema/migrations/`. Apply them in order; never generate a new baseline migration (`prisma migrate dev --name init`) against a shared database.
+
+```bash
+npm ci
+npx prisma generate              # required before build or tests
+npx prisma migrate deploy        # applies every committed migration in order
+npm run prisma:seed              # 14 roles + the permission catalog; idempotent, creates no users
+npm run build                    # nest build -> dist/
+npm run start:prod               # node dist/main.js
+```
+
+Health checks: `GET /health/live` (no database access) and `GET /health/ready` (pings PostgreSQL). There is no global route prefix.
+
+Upgrading a database that **already holds data or migration history** is a different procedure: follow `../ops/predeploy/README.md` before running the newer migrations.
+
+## Tests
+
+```bash
+npm test             # unit tests
+npm run test:e2e     # e2e: starts disposable Postgres + Redis containers via testcontainers (Docker required)
+```
+
+CI runs both, plus type-checking and ESLint. Passing CI is not production readiness: it does not exercise real integrations, deployment packaging, backups or a production-mode boot.
 
 ## Design conventions
 
