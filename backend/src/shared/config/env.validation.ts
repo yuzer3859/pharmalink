@@ -124,10 +124,14 @@ export class EnvironmentVariables {
   @IsOptional()
   NODE_ENV: NodeEnv = NodeEnv.Development;
 
+  /**
+   * Explicitly typed: an initializer alone emits `Object` as the decorator metadata type, so
+   * implicit conversion would leave `PORT=3000` a string and `@IsInt` would reject it.
+   */
   @IsInt()
   @Min(0)
   @IsOptional()
-  PORT = 3000;
+  PORT: number = 3000;
 
   @IsString()
   @IsOptional()
