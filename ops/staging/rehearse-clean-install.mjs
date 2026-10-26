@@ -110,12 +110,9 @@ function checkEnv() {
   if (env.MASTER_ENCRYPTION_KEY && Buffer.from(env.MASTER_ENCRYPTION_KEY, 'base64').length !== 32) problems.push('MASTER_ENCRYPTION_KEY must be base64 of exactly 32 bytes');
   // The stack sets these itself; a value in the file would be overridden, so reject it to avoid
   // anyone believing the rehearsal ran against the database it names.
-  for (const key of ['DATABASE_URL', 'REDIS_URL', 'NODE_ENV']) {
-    if (key in env) problems.push(`${key} must not be set in ${ENV_FILE}; compose.staging.yml sets it to the disposable stack`);
+  for (const key of ['DATABASE_URL', 'REDIS_URL', 'NODE_ENV', 'PORT']) {
+    if (key in env) problems.push(`${key} must not be set in ${ENV_FILE}; compose.staging.yml sets it (use BACKEND_HOST_PORT for the host port)`);
   }
-  // Known issue: env.validation.ts rejects PORT given as an environment string; the container
-  // listens on the default 3000 (use BACKEND_HOST_PORT to change the host side).
-  if ('PORT' in env) problems.push(`PORT must not be set in ${ENV_FILE} (known issue, see ops/staging/README.md); use BACKEND_HOST_PORT for the host port`);
   if (problems.length) throw new Error(`invalid ${ENV_FILE}:\n  - ${problems.join('\n  - ')}`);
   const port = Number(env.BACKEND_HOST_PORT || 3000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('BACKEND_HOST_PORT must be a port number');
@@ -143,7 +140,7 @@ async function httpCheck(url, timeoutMs = 120_000) {
   for (;;) {
     let res;
     try {
-      res = await fetch(url);
+      res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     } catch (err) {
       if (Date.now() > deadline) throw new Error(`${url} unreachable: ${err.message}`);
       await sleep(2000);
@@ -154,8 +151,7 @@ async function httpCheck(url, timeoutMs = 120_000) {
     if (res.status === 401) {
       throw new Error(`${url} -> HTTP 401 ${body.slice(0, 200)}
 ` +
-        'The health endpoints require authentication: they are not marked @Public(), so the global JwtAuthGuard rejects ' +
-        'unauthenticated probes. This is an application defect (see ops/staging/README.md, "Known issues"), not a packaging fault.');
+        'The health endpoints must be public (fixed in #8); a 401 means the image predates that fix or the route lost @Public().');
     }
     if (Date.now() > deadline) throw new Error(`${url} -> HTTP ${res.status}: ${body.slice(0, 300)}`);
     await sleep(2000);
@@ -232,6 +228,9 @@ async function main() {
   log('\n=== REHEARSAL PASSED');
 }
 
+// Keeps the event loop alive for the whole run: fetch sockets and abort timers are unref'd, and a
+// request held open by Docker's port proxy before the app listens must not let Node exit mid-step.
+const keepAlive = setInterval(() => {}, 1000);
 try {
   await main();
   if (stackCreated) {
@@ -246,4 +245,6 @@ try {
     else cleanup('failure');
   }
   process.exitCode = 1;
+} finally {
+  clearInterval(keepAlive);
 }

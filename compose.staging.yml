@@ -48,8 +48,7 @@ services:
       # `development`, not `production`: MockFaydaProvider refuses to boot in production by design.
       # This stack does NOT verify production-mode startup (ops/staging/README.md, "Fayda decision").
       NODE_ENV: development
-      # PORT is deliberately NOT set: env.validation.ts currently rejects any PORT value given as an
-      # environment string (see ops/staging/README.md, "Known issue"), and the default is 3000.
+      PORT: "3000"
     ports:
       - "127.0.0.1:${BACKEND_HOST_PORT:-3000}:3000"
     depends_on:

@@ -40,7 +40,7 @@ node ops/staging/rehearse-clean-install.mjs --init-env
 
 This creates `backend/.env.staging` from `backend/.env.example` with random local-only values for `POSTGRES_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` and `MASTER_ENCRYPTION_KEY`, and never prints them. It refuses to overwrite an existing file. Alternatively, copy the example and fill in each `REPLACE_ME` with the command shown next to it.
 
-`backend/.env.staging` is gitignored (`backend/.gitignore`: `.env.*`, with only `.env.example` re-included). Never commit it, and never put production credentials or working provider keys in it. Do **not** set `DATABASE_URL`, `REDIS_URL` or `NODE_ENV` there: the rehearsal rejects them, because the stack sets them itself.
+`backend/.env.staging` is gitignored (`backend/.gitignore`: `.env.*`, with only `.env.example` re-included). Never commit it, and never put production credentials or working provider keys in it. Do **not** set `DATABASE_URL`, `REDIS_URL`, `NODE_ENV` or `PORT` there: the rehearsal rejects them, because the stack sets them itself (`BACKEND_HOST_PORT` changes the host-side port).
 
 ## Run the rehearsal
 
@@ -58,10 +58,10 @@ It uses the dedicated Compose project **`pharmalink-staging-rehearsal`** and the
 5. Runs `npx prisma migrate deploy` and reports applied/total migrations.
 6. Runs `npm run prisma:seed` and records the role, permission and grant counts.
 7. Runs the seed again and fails unless the counts are identical (and 14 roles exist).
-8. Starts the backend, calls `GET /health/live` and `GET /health/ready` from the host, then waits for the container health check. **Currently fails** because of [known issue 1](#known-issues-found-by-the-rehearsal-application-code-not-fixed-here).
+8. Starts the backend, calls `GET /health/live` and `GET /health/ready` from the host (no token), then waits for the container health check.
 9. Runs `npx prisma migrate deploy` again and fails unless it reports `No pending migrations to apply`.
 
-Its child processes get a sanitised environment: `DATABASE_URL`, `REDIS_URL`, `POSTGRES_PASSWORD` and `COMPOSE_*` from your shell are removed, so nothing outside the stack can be targeted.
+Each HTTP probe has a 5-second timeout, and the script keeps itself alive until it finishes, so a connection held open by Docker's port proxy before the app listens can't end the run early. Its child processes get a sanitised environment: `DATABASE_URL`, `REDIS_URL`, `POSTGRES_PASSWORD` and `COMPOSE_*` from your shell are removed, so nothing outside the stack can be targeted.
 
 It does **not** run `ops/predeploy/predeploy-readonly-checks.v2.1.sql`. That script reviews existing data before an upgrade; a clean install has no data to review (see below).
 
@@ -82,7 +82,7 @@ docker compose -f compose.staging.yml --env-file backend/.env.staging up -d post
 docker compose -f compose.staging.yml --env-file backend/.env.staging run --rm tools npx prisma migrate deploy
 docker compose -f compose.staging.yml --env-file backend/.env.staging run --rm tools npm run prisma:seed
 docker compose -f compose.staging.yml --env-file backend/.env.staging up -d --build backend
-curl http://127.0.0.1:3000/health/ready   # 401 until known issue 1 is fixed
+curl http://127.0.0.1:3000/health/ready
 ```
 
 This uses the project name `pharmalink-staging` from the Compose file, separate from the rehearsal's project. Stop it with `down`; add `--volumes` to delete its database.
@@ -94,8 +94,7 @@ This uses the project name `pharmalink-staging` from the Compose file, separate 
 - **`set POSTGRES_PASSWORD in backend/.env.staging`:** the env file is missing or not passed with `--env-file`.
 - **Port already allocated:** something else uses 127.0.0.1:3000; set `BACKEND_HOST_PORT`.
 - **`database is not empty`:** the rehearsal found tables in its fresh database; it never continues on a non-empty database.
-- **Backend unhealthy / `HTTP 401` from `/health/*`:** known issue 1 below. Otherwise read the logs; `/health/ready` fails when PostgreSQL is unreachable.
-- **`PORT must not be less than 0, PORT must be an integer number`:** `PORT` is set somewhere; remove it (known issue 2).
+- **Backend unhealthy:** read the logs; `/health/ready` fails when PostgreSQL is unreachable. A `401` from `/health/*` means the image predates #8.
 - **Image build fails at `npm ci`:** `backend/package-lock.json` and `package.json` disagree; fix the lockfile, never switch to `npm install` in the image.
 
 ## Fresh install versus existing-data upgrade
@@ -141,16 +140,16 @@ Fayda is not the only one. These development stand-ins have no production guard 
 - Front ends: `web/` and `app/` are not part of this stack.
 - Any existing-data upgrade.
 
-## Known issues found by the rehearsal (application code, not fixed here)
+## Defects found by the rehearsal (fixed in #8)
 
-Both are outside this packaging change and are reported for a separate fix.
+The first rehearsal runs exposed two application defects. Both were fixed in a separate PR (#8) and merged into this branch from `main`:
 
-1. **Health endpoints require authentication.** `GET /health/live` and `GET /health/ready` (`backend/src/shared/health/health.controller.ts`) are not marked `@Public()`, so the global `JwtAuthGuard` answers every unauthenticated probe with `401 UNAUTHENTICATED`. Container health checks, load balancers and uptime monitors can't use them. The e2e suite never calls these endpoints, so CI does not catch it. **Effect here:** the backend container never becomes `healthy`, and rehearsal step 8 fails with an explicit message. The health check in `compose.staging.yml` deliberately stays on `/health/ready`, which is correct once the endpoints are public.
-2. **`PORT` cannot be set from the environment.** In `backend/src/shared/config/env.validation.ts`, `PORT = 3000;` has no type annotation, so its reflected type is `Object`, implicit conversion leaves the string alone, and `@IsInt`/`@Min(0)` reject any value, even `PORT=3000` (`Invalid environment configuration: PORT must not be less than 0, PORT must be an integer number`). Every other numeric variable is annotated. **Workaround here:** `PORT` is not set; the app listens on its default 3000 inside the container, and the script rejects `PORT` in the env file.
+1. `GET /health/live` and `GET /health/ready` were not public, so the global `JwtAuthGuard` answered every probe with `401`. They are now `@Public()`.
+2. `PORT` from the environment always failed validation (untyped property). It is now typed, and `compose.staging.yml` sets `PORT: "3000"`.
 
-## Rehearsal results (2026-10-25, local Docker 29.7.2, Compose v5.3.1)
+## Rehearsal results (2026-10-26, local Docker 29.7.2, Compose v5.3.1, after merging #8)
 
-The full rehearsal **does not pass yet**: it stops at step 8 because of known issue 1.
+`node ops/staging/rehearse-clean-install.mjs` exited 0 with `REHEARSAL PASSED`.
 
 | Step | Result |
 |---|---|
@@ -161,12 +160,10 @@ The full rehearsal **does not pass yet**: it stops at step 8 because of known is
 | 5. `prisma migrate deploy` | passed: 33 migrations found, 33/33 applied, none rolled back |
 | 6. Seed | passed: `Seeded 14 roles and 65 permissions.`; 14 roles, 65 permissions, 130 grants |
 | 7. Seed again | passed: identical counts (14 / 65 / 130) |
-| 8. Backend health | **failed**: `/health/live` and `/health/ready` return `401 UNAUTHENTICATED` (known issue 1) |
-| 9. Second `prisma migrate deploy` | not reached by the script; run manually on the same kept stack: `No pending migrations to apply.` |
+| 8. Backend health, no token | passed: `/health/live` 200 `{"status":"ok"}`; `/health/ready` 200 with `database: up`; container health check `healthy` |
+| 9. Second `prisma migrate deploy` | passed: `No pending migrations to apply.` |
+| Cleanup | passed: no containers, volumes or images of the project remained; unrelated containers untouched |
 
-Manual evidence from the same stack (`--keep`), not a substitute for step 8:
-- The backend booted (`Nest application successfully started`, listening on 3000 in `development`), logged `Redis connected.`, and answered the public, database-backed `GET /catalog/categories` with `200` (empty list).
-- It ran as the unprivileged `node` user. Only the backend was published, on `127.0.0.1:3000`; PostgreSQL and Redis had no host ports. No container was privileged or had added capabilities.
-- The project was then removed with the scoped `down --volumes --remove-orphans --rmi local`: no containers, volumes or images of the project remained, and unrelated containers were untouched.
+From an earlier `--keep` run of the same stack: the backend runs as the unprivileged `node` user, logs `Redis connected.`, only the backend is published (on `127.0.0.1:3000`), and no container is privileged or has added capabilities.
 
-Not run: production-mode startup (blocked by design, see the Fayda decision), host-side `npm ci` (the image build ran it instead), front-end builds, and anything involving real integrations or hosting.
+Not run: production-mode startup (blocked by design, see the Fayda decision), host-side `npm ci` (the image build ran it instead), front-end builds, and anything involving real integrations or hosting. **A passing rehearsal shows the backend can be packaged and installed cleanly on your machine; it is not production readiness.**
