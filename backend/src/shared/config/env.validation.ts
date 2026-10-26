@@ -81,6 +81,11 @@ import {
   DEFAULT_DELIVERY_COD_REQUIRE_EXACT_AMOUNT,
 } from './delivery.config';
 import { DEFAULT_ORDERS_PLATFORM_FEE_PERCENT } from './orders.config';
+import {
+  IDENTITY_VERIFICATION_PROVIDERS,
+  IdentityVerificationProviderName,
+  resolveIdentityVerificationProvider,
+} from './identity-verification.config';
 import { DEFAULT_REDIS_KEY_PREFIX } from './redis.config';
 
 /**
@@ -173,6 +178,20 @@ export class EnvironmentVariables {
   @IsString()
   @MinLength(44)
   MASTER_ENCRYPTION_KEY!: string;
+
+  /**
+   * Which national-ID verification provider the identity module uses: `mock` or `fayda`
+   * (see `identity-verification.config.ts` and ADR-027).
+   *
+   * Optional outside production, where it defaults to `mock`. **Required in production**, where
+   * the only accepted value is `fayda`: `mock` is rejected because a stand-in that auto-approves
+   * must never pass for real verification, and an unset value is rejected rather than defaulted.
+   * `fayda` also fails at startup until a real adapter is registered at the identity module's
+   * composition boundary. Validated here so a wrong value stops the process at boot.
+   */
+  @IsIn(IDENTITY_VERIFICATION_PROVIDERS)
+  @IsOptional()
+  IDENTITY_VERIFICATION_PROVIDER?: IdentityVerificationProviderName;
 
   /**
    * The platform's commission rate, as a **fraction**: `0.05` is 5%. Backs the
@@ -552,6 +571,13 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       .map((e) => Object.values(e.constraints ?? {}).join(', '))
       .join('; ');
     throw new Error(`Invalid environment configuration: ${details}`);
+  }
+
+  // Cross-field rule: the provider allowed depends on NODE_ENV.
+  try {
+    resolveIdentityVerificationProvider(validated.NODE_ENV, validated.IDENTITY_VERIFICATION_PROVIDER);
+  } catch (err) {
+    throw new Error(`Invalid environment configuration: ${(err as Error).message}`);
   }
 
   return validated;

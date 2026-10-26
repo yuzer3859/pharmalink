@@ -27,7 +27,7 @@ Several implemented workflows still run on development stand-ins rather than rea
 |---|---|
 | OTP | In-memory; the code is written to the log, not sent, and is lost on restart |
 | SMS | Not configured; SMS deliveries are never sent |
-| Fayda identity verification | Mock that approves any well-formed id; refuses to start when `NODE_ENV=production` |
+| Fayda identity verification | Mock that approves any well-formed id, selected by `IDENTITY_VERIFICATION_PROVIDER` (default `mock` outside production). Production requires `fayda`, which fails at startup until a real adapter exists ([runtime-identity-verification.md](docs/runtime-identity-verification.md)) |
 | Payments | Mock provider approves gateway methods in-process; the Telebirr adapter is deliberately unimplemented |
 | Proof-of-delivery artifacts | In-memory storage, lost on restart |
 | Routing / ETA | Straight-line (haversine) distance |
@@ -75,6 +75,8 @@ The application validates its environment at boot and refuses to start on a miss
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | At least 16 characters each |
 | `MASTER_ENCRYPTION_KEY` | Base64 of exactly 32 random bytes (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`) |
+
+`IDENTITY_VERIFICATION_PROVIDER` (`mock` | `fayda`) is optional outside production (default `mock`) and **required in production**, where only `fayda` is accepted; see [docs/runtime-identity-verification.md](docs/runtime-identity-verification.md).
 
 Everything else is optional with validated defaults (`NODE_ENV`, `PORT`, `WEB_ORIGIN`, `ORDERS_PLATFORM_FEE_PERCENT`, `REDIS_*`, the `DELIVERY_*` families) or integration-specific (`RESEND_*`, `FCM_*`, `TELEBIRR_*`). Never commit `.env` or real credentials. `NODE_ENV=test` disables the background jobs and is for the test suites only.
 
