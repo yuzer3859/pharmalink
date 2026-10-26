@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
   HealthCheck,
   HealthCheckResult,
@@ -13,6 +14,9 @@ import { PrismaHealthIndicator } from './prisma.health';
  * not mean internet-facing: restrict who can reach them at the network/ingress layer.
  */
 @Public()
+// Probes are polled constantly by orchestrators and monitors and are not abusable for credentials,
+// so they are exempt from the per-client rate limit (Work 59); ingress should still restrict them.
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(

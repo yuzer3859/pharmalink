@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { Server } from 'http';
 import { AppModule } from '../../src/app.module';
+import { AppConfigService } from '../../src/shared/config/app-config.service';
+import { applyHttpSecurity } from '../../src/shared/http/http-security';
 import { NOTIFICATION_PORT } from '../../src/modules/identity/application/ports/notification.port';
 import { OutboxRelay } from '../../src/shared/outbox/outbox-relay.service';
 import { PrismaService } from '../../src/shared/prisma/prisma.service';
@@ -88,6 +90,8 @@ export async function createTestApp(
   // `rawBody: true` mirrors `main.ts`: webhook signatures are computed over the exact received
   // bytes, so the harness must preserve them the same way production does.
   const app = moduleRef.createNestApplication({ rawBody: true });
+  // Same trusted-proxy and security-header setup as `main.ts` (Work 59).
+  applyHttpSecurity(app, app.get(AppConfigService));
   await app.init();
 
   let url: string | null = null;

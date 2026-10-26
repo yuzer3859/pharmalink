@@ -35,6 +35,11 @@ module.exports = async function globalSetup(): Promise<void> {
   // platform-funded coupon and a commission charged on the *pre-discount* subtotal (ADR-019)
   // untestable. `??=` so a developer can still override it for a single run.
   process.env.ORDERS_PLATFORM_FEE_PERCENT ??= '0.05';
+  // Rate limits high enough that suites making many legitimate requests from one client
+  // (127.0.0.1) never hit them. The limits themselves are exercised by
+  // test/identity/http-security.e2e-spec.ts, which builds its own apps with low limits.
+  process.env.RATE_LIMIT_AUTH_LIMIT ??= '100000';
+  process.env.RATE_LIMIT_DEFAULT_LIMIT ??= '100000';
 
   execFileSync('npx', ['prisma', 'migrate', 'deploy'], {
     env: { ...process.env, DATABASE_URL: databaseUrl },
