@@ -34,7 +34,6 @@ import { IDENTITY_CONTACT_READ_PORT } from './application/ports/inbound/identity
 import { IDENTITY_LANGUAGE_READ_PORT } from './application/ports/inbound/identity-language-read.port';
 import { NOTIFICATION_PORT } from './application/ports/notification.port';
 import { OTP_SERVICE } from './application/ports/otp.service';
-import { IDENTITY_VERIFICATION_PROVIDER } from './application/ports/identity-verification.provider';
 import { PERM_VERSION_STORE } from './application/ports/perm-version.port';
 import { PERMISSION_CACHE_INVALIDATOR } from './application/ports/permission-cache.port';
 import { TOKEN_SERVICE } from './application/ports/token.service';
@@ -85,7 +84,7 @@ import {
   PrismaVerificationRepository,
 } from './infrastructure/persistence/prisma-verification.repository';
 import { LicenseExpiryJob } from './infrastructure/jobs/license-expiry.job';
-import { MockFaydaProvider } from './infrastructure/verification/mock-fayda.provider';
+import { identityVerificationProviders } from './infrastructure/verification/identity-verification.providers';
 import { PermissionCacheAdapter } from './infrastructure/rbac/permission-cache.adapter';
 import { PrismaPermissionResolver } from './infrastructure/rbac/prisma-permission-resolver';
 import { CachedPermVersionStore } from './infrastructure/security/cached-perm-version.store';
@@ -136,7 +135,10 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     { provide: PERMISSION_RESOLVER, useClass: PrismaPermissionResolver },
     { provide: PERMISSION_CACHE_INVALIDATOR, useClass: PermissionCacheAdapter },
     { provide: PERM_VERSION_STORE, useClass: CachedPermVersionStore },
-    { provide: IDENTITY_VERIFICATION_PROVIDER, useClass: MockFaydaProvider },
+    // The IDENTITY_VERIFICATION_PROVIDER token is bound at startup from the env var of the same name (ADR-027):
+    // `mock` outside production only, `fayda` only once a real adapter is bound to
+    // FAYDA_VERIFICATION_PROVIDER. No fallback between them.
+    ...identityVerificationProviders,
 
     // Application services / use cases
     AuthSessionIssuerService,

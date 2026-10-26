@@ -108,14 +108,12 @@ An **existing-data upgrade** is different and not rehearsed here: follow `ops/pr
 **Decision (Work 57):**
 
 - `MockFaydaProvider` throws at construction when `NODE_ENV=production`, so a mock identity check can never pass for real national-registry verification. **This guard is kept as is.**
-- `NodeEnv` accepts only `development`, `test` and `production`. `test` disables the background jobs, and `production` cannot boot while the mock is wired. The local stack therefore runs `NODE_ENV=development`, set in `compose.staging.yml`, with synthetic data only.
+- `NodeEnv` accepts only `development`, `test` and `production`. `test` disables the background jobs. The local stack therefore runs `NODE_ENV=development`, set in `compose.staging.yml`, with synthetic data only; `IDENTITY_VERIFICATION_PROVIDER` is left unset, which selects the mock outside production.
 - **This rehearsal does not verify production-mode startup.** Nothing here should be described as a production-mode boot.
 - **Production startup stays blocked** until a real `IIdentityVerificationProvider` is implemented, configured and wired, and verified.
-- **Future task:** decide the environment/configuration contract deliberately (for example, how a hosted staging environment gets production-style logging and settings without a production identity check), and test both:
-  - fail-closed startup when the real integration is missing or misconfigured; and
-  - successful startup when a valid real provider is configured.
+- **Update (Work 58, ADR-027):** provider selection is now its own setting, `IDENTITY_VERIFICATION_PROVIDER` (`mock` | `fayda`). Production must set `fayda`; `mock` or unset is rejected at boot, and `fayda` fails at startup until a real adapter is bound to `FAYDA_VERIFICATION_PROVIDER`. The fail-closed paths and the wiring of a supplied adapter (with a test-only fake) are covered by tests. **Successful production startup with a real provider has not been tested**, because no real provider exists. See `backend/docs/runtime-identity-verification.md`.
 
-  No `staging` value is added to `NodeEnv` here; adding one needs every `isProduction`/`isTest`/`NODE_ENV` use traced and tested first.
+  No `staging` value is added to `NodeEnv`; adding one needs every `isProduction`/`isTest`/`NODE_ENV` use traced and tested first.
 
 ### Other production blockers (not addressed here)
 
