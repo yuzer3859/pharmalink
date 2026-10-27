@@ -1,9 +1,11 @@
 import { AuditService } from '../../../../shared/audit/audit.service';
+import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { User } from '../../domain/entities/user.entity';
 import { AccountStatus, OtpPurpose, PreferredLanguage, PrimaryRole } from '../../domain/enums';
 import { IUserRepository } from '../../domain/repositories/user.repository';
 import { INotificationPort } from '../ports/notification.port';
 import { IOtpService } from '../ports/otp.service';
+import { IdentityErrors } from '../../domain/errors';
 import { ForgotPasswordCommand } from './forgot-password.command';
 
 function fakeUser(): User {
@@ -32,16 +34,19 @@ describe('ForgotPasswordCommand', () => {
   let otp: jest.Mocked<IOtpService>;
   let notifications: jest.Mocked<INotificationPort>;
   let audit: jest.Mocked<AuditService>;
+  let logger: AppLogger;
   let command: ForgotPasswordCommand;
 
   beforeEach(() => {
     users = { findByIdentifier: jest.fn().mockResolvedValue(fakeUser()) } as unknown as jest.Mocked<IUserRepository>;
     otp = {
-      issue: jest.fn().mockResolvedValue({ code: '123456', cooldownSeconds: 60 }),
+      issue: jest.fn().mockResolvedValue({ status: 'ISSUED', code: '123456', cooldownSeconds: 60 }),
     } as unknown as jest.Mocked<IOtpService>;
     notifications = { send: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<INotificationPort>;
     audit = { record: jest.fn().mockResolvedValue({ id: 'a', hash: 'h' }) } as unknown as jest.Mocked<AuditService>;
-    command = new ForgotPasswordCommand(users, otp, notifications, audit);
+    logger = new AppLogger();
+    jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    command = new ForgotPasswordCommand(users, otp, notifications, audit, logger);
   });
 
   it('issues a RESET otp to a known identifier', async () => {
@@ -75,6 +80,29 @@ describe('ForgotPasswordCommand', () => {
     expect(result).toEqual({ challengeSent: true });
     expect(users.findByIdentifier).not.toHaveBeenCalled();
     expect(otp.issue).not.toHaveBeenCalled();
+  });
+
+  // Work 60: a refused issue sends nothing, and the response stays the same as for any other
+  // identifier, so the cooldown cannot be used to learn whether an account exists.
+  it('sends nothing during the resend cooldown, but still reports the generic success', async () => {
+    otp.issue.mockResolvedValue({ status: 'COOLDOWN', retryAfterSeconds: 12 });
+
+    expect(await command.execute({ identifier: '0911234567' })).toEqual({ challengeSent: true });
+    expect(notifications.send).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the OTP store is unavailable: nothing sent, generic success, no identifier logged', async () => {
+    otp.issue.mockRejectedValue(IdentityErrors.otpUnavailable());
+
+    expect(await command.execute({ identifier: '0911234567' })).toEqual({ challengeSent: true });
+    expect(notifications.send).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify((logger.warn as jest.Mock).mock.calls)).not.toMatch(/2519|0911/);
+  });
+
+  it('does not swallow unrelated failures', async () => {
+    otp.issue.mockRejectedValue(new Error('boom'));
+    await expect(command.execute({ identifier: '0911234567' })).rejects.toThrow('boom');
   });
 
   it('audits the attempt with a masked identifier only', async () => {

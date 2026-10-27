@@ -89,7 +89,7 @@ This uses the project name `pharmalink-staging` from the Compose file, separate 
 
 ## Logs and troubleshooting
 
-- **Logs:** `docker compose -f compose.staging.yml --env-file backend/.env.staging logs -f backend` (add `-p pharmalink-staging-rehearsal` for a `--keep` rehearsal). In development mode OTP codes are written to these logs; treat them as sensitive even with synthetic users.
+- **Logs:** `docker compose -f compose.staging.yml --env-file backend/.env.staging logs -f backend` (add `-p pharmalink-staging-rehearsal` for a `--keep` rehearsal). OTP codes are not written to these logs (since Work 60), and no SMS is sent, so a synthetic user cannot complete OTP verification against this stack.
 - **`Invalid environment configuration`:** a required variable is missing or invalid; compare with `backend/.env.example` and `backend/src/shared/config/env.validation.ts`.
 - **`set POSTGRES_PASSWORD in backend/.env.staging`:** the env file is missing or not passed with `--env-file`.
 - **Port already allocated:** something else uses 127.0.0.1:3000; set `BACKEND_HOST_PORT`.
@@ -121,7 +121,7 @@ Fayda is not the only one. These development stand-ins have no production guard 
 
 | Area | Current state | Production implication |
 |---|---|---|
-| OTP | `InMemoryOtpService`: code logged, not delivered; lost on restart; per-process | Users can't receive codes; codes exposed in logs; single instance only |
+| OTP | `InMemoryOtpService` (`OTP_STORE` unset, `NODE_ENV=development`): hashed, never logged, not delivered; lost on restart; per-process. `RedisOtpService` is available with `OTP_STORE=redis` and an `OTP_HASH_SECRET` in the env file, but is not part of this rehearsal | Users can't receive codes; single instance only |
 | SMS | `UnconfiguredSmsTransport` | No SMS delivery |
 | Payments | `MockPaymentProvider` approves gateway methods in-process; Telebirr adapter deliberately unimplemented | No real payment collection; mock approvals must never reach real customers |
 | Proof of delivery | `InMemoryProofArtifactStorage` | Artifacts lost on restart; single instance only |

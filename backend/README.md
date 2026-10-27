@@ -25,7 +25,8 @@ Several implemented workflows still run on development stand-ins rather than rea
 
 | Area | Current adapter |
 |---|---|
-| OTP | In-memory; the code is written to the log, not sent, and is lost on restart |
+| OTP storage | `OTP_STORE`: Redis (hashed, TTL, single-use, shared across instances; required in production) or in-memory (local/tests only). Codes are never logged ([otp-storage.md](docs/otp-storage.md)) |
+| OTP delivery | None: the Identity module's notification port is log-only and SMS is not configured, so codes reach no user |
 | SMS | Not configured; SMS deliveries are never sent |
 | Fayda identity verification | Mock that approves any well-formed id, selected by `IDENTITY_VERIFICATION_PROVIDER` (default `mock` outside production). Production requires `fayda`, which fails at startup until a real adapter exists ([runtime-identity-verification.md](docs/runtime-identity-verification.md)) |
 | Payments | Mock provider approves gateway methods in-process; the Telebirr adapter is deliberately unimplemented |
@@ -33,7 +34,7 @@ Several implemented workflows still run on development stand-ins rather than rea
 | Routing / ETA | Straight-line (haversine) distance |
 | E-mail, push | Resend and FCM adapters, active only when their variables are set |
 
-Because OTP codes, proof-of-delivery artifacts and the in-process event bus live in memory, run **exactly one** backend instance until those adapters are replaced.
+Because proof-of-delivery artifacts and the in-process event bus live in memory (and OTPs do too unless `OTP_STORE=redis`), run **exactly one** backend instance until those adapters are replaced.
 
 ## Layout
 
@@ -68,7 +69,7 @@ prisma/schema/
 
 ## Configuration
 
-The application validates its environment at boot and refuses to start on a missing or invalid value. The source of truth is `src/shared/config/env.validation.ts` (plus `app-config.service.ts` for the optional token and OTP lifetimes, and each integration's `*.config.ts`). Required:
+The application validates its environment at boot and refuses to start on a missing or invalid value. The source of truth is `src/shared/config/env.validation.ts` (plus `app-config.service.ts` for the optional token lifetimes, and each integration's `*.config.ts`). Required:
 
 | Variable | Requirement |
 |---|---|
@@ -77,6 +78,8 @@ The application validates its environment at boot and refuses to start on a miss
 | `MASTER_ENCRYPTION_KEY` | Base64 of exactly 32 random bytes (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`) |
 
 `IDENTITY_VERIFICATION_PROVIDER` (`mock` | `fayda`) is optional outside production (default `mock`) and **required in production**, where only `fayda` is accepted; see [docs/runtime-identity-verification.md](docs/runtime-identity-verification.md).
+
+OTP storage: `OTP_STORE` (`redis` | `memory`) defaults to `memory` outside production and `redis` in production, where `memory` is rejected. `redis` requires `REDIS_URL` and a dedicated `OTP_HASH_SECRET` (at least 32 random characters), so **production refuses to start without both**. `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS` and `OTP_RESEND_COOLDOWN_SECONDS` are validated; see [docs/otp-storage.md](docs/otp-storage.md).
 
 HTTP security settings (`TRUST_PROXY`, `RATE_LIMIT_*`, `HTTP_HSTS_MAX_AGE_SECONDS`) have safe defaults (no trusted proxy, limits always on, no HSTS); see [docs/http-security.md](docs/http-security.md). Without `REDIS_URL`, rate-limit counters are per instance.
 

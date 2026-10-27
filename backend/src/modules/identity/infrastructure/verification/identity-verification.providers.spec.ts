@@ -30,6 +30,9 @@ const BASE_ENV = {
   JWT_ACCESS_SECRET: 'access-secret-0123456789',
   JWT_REFRESH_SECRET: 'refresh-secret-0123456789',
   MASTER_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+  // Production also requires the Redis OTP store's settings (Work 60). Never connected to here.
+  REDIS_URL: 'redis://localhost:6379',
+  OTP_HASH_SECRET: 'q7Vb2Lx9Rk4Tz1Wm8Np3Hs6Df0Gj5Ya2',
 };
 
 /**

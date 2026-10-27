@@ -3,7 +3,7 @@ import { OtpPurpose } from '../../domain/enums';
 import { IdentityErrors } from '../../domain/errors';
 import { normalizeIdentifier } from '../../domain/value-objects/identifier';
 import { INotificationPort, NOTIFICATION_PORT } from '../ports/notification.port';
-import { IOtpService, IssuedOtp, OTP_SERVICE } from '../ports/otp.service';
+import { IOtpService, OTP_SERVICE } from '../ports/otp.service';
 
 export interface ResendOtpInput {
   identifier: string;
@@ -12,10 +12,15 @@ export interface ResendOtpInput {
 
 export interface ResendOtpOutput {
   resent: true;
+  /** Seconds before another code may be requested for this identifier and purpose. */
   cooldownSeconds: number;
 }
 
-/** Resend OTP use case (module-01 §3.2 F-VER-05, §11.1). */
+/**
+ * Resend OTP use case (module-01 §3.2 F-VER-05, §11.1). The cooldown is enforced by the OTP store
+ * itself, atomically and across instances: while it runs, nothing is issued or sent and the
+ * request fails with 429 `RATE_LIMITED` (`details.retryAfterSeconds`).
+ */
 @Injectable()
 export class ResendOtpCommand {
   constructor(
@@ -32,7 +37,10 @@ export class ResendOtpCommand {
       });
     }
 
-    const issued: IssuedOtp = await this.otp.issue(identifier.value, input.purpose);
+    const issued = await this.otp.issue(identifier.value, input.purpose);
+    if (issued.status === 'COOLDOWN') {
+      throw IdentityErrors.otpCooldown(issued.retryAfterSeconds);
+    }
     await this.notifications.send({
       channel: identifier.channel,
       to: identifier.value,

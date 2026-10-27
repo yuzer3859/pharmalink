@@ -71,7 +71,9 @@ describe('identity verification provider selection', () => {
     });
 
     it('passes production + fayda through validation', () => {
-      expect(validateEnv({ ...base, NODE_ENV: 'production', IDENTITY_VERIFICATION_PROVIDER: 'fayda' }).IDENTITY_VERIFICATION_PROVIDER).toBe('fayda');
+      // Production also requires the Redis OTP store's settings (Work 60).
+      const otp = { REDIS_URL: 'redis://localhost:6379', OTP_HASH_SECRET: 'q7Vb2Lx9Rk4Tz1Wm8Np3Hs6Df0Gj5Ya2' };
+      expect(validateEnv({ ...base, ...otp, NODE_ENV: 'production', IDENTITY_VERIFICATION_PROVIDER: 'fayda' }).IDENTITY_VERIFICATION_PROVIDER).toBe('fayda');
     });
   });
 });

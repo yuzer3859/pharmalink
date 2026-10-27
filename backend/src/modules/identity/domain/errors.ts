@@ -35,6 +35,21 @@ export const IdentityErrors = {
       'Too many incorrect attempts. Please request a new code.',
     ),
 
+  /** A code was issued too recently for this identifier and purpose (module-01 §11.1: 429). */
+  otpCooldown: (retryAfterSeconds: number) =>
+    new ApiException(
+      ErrorCode.RATE_LIMITED,
+      'A code was sent recently. Please wait before requesting another.',
+      { retryAfterSeconds },
+    ),
+
+  /** The OTP store could not answer. Fails closed: nothing is issued and nothing is verified. */
+  otpUnavailable: () =>
+    new ApiException(
+      ErrorCode.DEPENDENCY_UNAVAILABLE,
+      'Verification codes are temporarily unavailable. Please try again shortly.',
+    ),
+
   weakPassword: (details?: unknown) =>
     new ApiException(
       ErrorCode.AUTH_WEAK_PASSWORD,

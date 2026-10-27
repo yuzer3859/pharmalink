@@ -33,7 +33,6 @@ import { IDENTITY_ANALYTICS_READ_PORT } from './application/ports/inbound/identi
 import { IDENTITY_CONTACT_READ_PORT } from './application/ports/inbound/identity-contact-read.port';
 import { IDENTITY_LANGUAGE_READ_PORT } from './application/ports/inbound/identity-language-read.port';
 import { NOTIFICATION_PORT } from './application/ports/notification.port';
-import { OTP_SERVICE } from './application/ports/otp.service';
 import { PERM_VERSION_STORE } from './application/ports/perm-version.port';
 import { PERMISSION_CACHE_INVALIDATOR } from './application/ports/permission-cache.port';
 import { TOKEN_SERVICE } from './application/ports/token.service';
@@ -65,7 +64,7 @@ import {
 } from './domain/repositories/verification.repository';
 import { ROLE_ASSIGNMENT_REPOSITORY } from './domain/repositories/role-assignment.repository';
 import { LogNotificationAdapter } from './infrastructure/messaging/log-notification.adapter';
-import { InMemoryOtpService } from './infrastructure/otp/in-memory-otp.service';
+import { otpProviders } from './infrastructure/otp/otp.providers';
 import {
   PrismaDeviceRepository,
   PrismaLoginHistoryRepository,
@@ -101,9 +100,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
 
 /**
  * Identity module composition root (module-01 §12). Wires every port to its Phase-0-slice
- * adapter (Prisma persistence, dependency-free scrypt/JWT security, in-memory OTP, log-only
- * notifications). Registers JwtAuthGuard + the shared PermissionsGuard globally — Phase 0
- * deliberately left this activation to Module 01 (see RbacModule).
+ * adapter (Prisma persistence, dependency-free scrypt/JWT security, Redis or in-memory OTP by
+ * `OTP_STORE`, log-only notifications). Registers JwtAuthGuard + the shared PermissionsGuard
+ * globally — Phase 0 deliberately left this activation to Module 01 (see RbacModule).
  */
 @Module({
   controllers: [
@@ -130,7 +129,6 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     // Security / infra adapters
     { provide: HASHER, useClass: ScryptHasher },
     { provide: TOKEN_SERVICE, useClass: JwtTokenService },
-    { provide: OTP_SERVICE, useClass: InMemoryOtpService },
     { provide: NOTIFICATION_PORT, useClass: LogNotificationAdapter },
     { provide: PERMISSION_RESOLVER, useClass: PrismaPermissionResolver },
     { provide: PERMISSION_CACHE_INVALIDATOR, useClass: PermissionCacheAdapter },
@@ -139,6 +137,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     // `mock` outside production only, `fayda` only once a real adapter is bound to
     // FAYDA_VERIFICATION_PROVIDER. No fallback between them.
     ...identityVerificationProviders,
+    // OTP_SERVICE is bound at startup from OTP_STORE (Work 60): RedisOtpService in production and
+    // whenever OTP_STORE=redis; InMemoryOtpService only outside production. No fallback between them.
+    ...otpProviders,
 
     // Application services / use cases
     AuthSessionIssuerService,

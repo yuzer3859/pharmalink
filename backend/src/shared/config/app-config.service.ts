@@ -76,4 +76,9 @@ export class AppConfigService implements IConfigPort {
   get otpMaxAttempts(): number {
     return Number(this.get('OTP_MAX_ATTEMPTS') ?? 5);
   }
+
+  /** Minimum seconds between two OTPs for the same identifier and purpose (default 30). */
+  get otpResendCooldownSeconds(): number {
+    return Number(this.get('OTP_RESEND_COOLDOWN_SECONDS') ?? 30);
+  }
 }
