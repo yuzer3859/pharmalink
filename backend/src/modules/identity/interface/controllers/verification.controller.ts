@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { SensitiveRateLimit } from '../../../../shared/http/rate-limit.decorator';
 import type { Request } from 'express';
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { SubmitFaydaVerificationCommand } from '../../application/commands/submit-fayda-verification.command';
@@ -16,6 +17,7 @@ export class VerificationController {
     private readonly getStatus: GetVerificationStatusQuery,
   ) {}
 
+  @SensitiveRateLimit()
   @Post('fayda')
   @HttpCode(HttpStatus.ACCEPTED)
   fayda(

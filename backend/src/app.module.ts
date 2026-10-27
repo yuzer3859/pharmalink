@@ -2,6 +2,7 @@ import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { SharedModule } from './shared/shared.module';
 import { HealthModule } from './shared/health/health.module';
+import { HttpSecurityModule } from './shared/http/http-security.module';
 import { AllExceptionsFilter } from './shared/errors/all-exceptions.filter';
 import { ResponseInterceptor } from './shared/errors/response.interceptor';
 import { IdentityModule } from './modules/identity/identity.module';
@@ -25,6 +26,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
   imports: [
     SharedModule,
     HealthModule,
+    HttpSecurityModule,
     IdentityModule,
     ProfilesModule,
     CatalogModule,

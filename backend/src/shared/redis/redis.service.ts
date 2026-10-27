@@ -13,6 +13,32 @@ export type RedisChannelListener = (message: string, channel: string) => void;
  */
 const RECONNECT_BACKOFF_MS = (attempt: number): number => Math.min(attempt * 200, 3_000);
 
+/** One rate-limit window, as counted by `incrementRateLimit`. Times are in milliseconds. */
+export interface RateLimitCount {
+  hits: number;
+  windowRemainingMs: number;
+  blocked: boolean;
+  blockRemainingMs: number;
+}
+
+/**
+ * Fixed-window counter with a block, atomically in one round trip (Work 59). KEYS[1] counts hits
+ * and expires with the window; KEYS[2] marks a block. Once hits exceed the limit the block is set
+ * for `blockMs`, and every request while it exists is refused without extending it.
+ */
+const RATE_LIMIT_SCRIPT = `
+local hits = redis.call('INCR', KEYS[1])
+if hits == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+local windowTtl = redis.call('PTTL', KEYS[1])
+local blockTtl = redis.call('PTTL', KEYS[2])
+if blockTtl > 0 then return {hits, windowTtl, 1, blockTtl} end
+if hits > tonumber(ARGV[2]) then
+  redis.call('SET', KEYS[2], '1', 'PX', ARGV[3])
+  return {hits, windowTtl, 1, tonumber(ARGV[3])}
+end
+return {hits, windowTtl, 0, 0}
+`;
+
 /**
  * The platform's **single** Redis client (`architecture/module-08-delivery-tracking.md` §7).
  *
@@ -178,6 +204,38 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       this.logger.warn(`Redis SET ${key} failed: ${(err as Error).message}`);
       return false;
+    }
+  }
+
+  /**
+   * Counts one request against a shared rate-limit window (Work 59), or returns `null` when Redis
+   * is off or the call failed, so the caller can fall back without ever treating "unknown" as
+   * "allowed". `key` is namespaced here; it is a hash, never a raw IP or credential.
+   */
+  async incrementRateLimit(key: string, ttlMs: number, limit: number, blockMs: number): Promise<RateLimitCount | null> {
+    if (!this.data) {
+      return null;
+    }
+    try {
+      const hitsKey = this.key('ratelimit', key);
+      const [hits, windowTtl, blocked, blockTtl] = (await this.data.eval(
+        RATE_LIMIT_SCRIPT,
+        2,
+        hitsKey,
+        `${hitsKey}:blocked`,
+        String(Math.max(1, Math.floor(ttlMs))),
+        String(limit),
+        String(Math.max(1, Math.floor(blockMs))),
+      )) as [number, number, number, number];
+      return {
+        hits,
+        windowRemainingMs: Math.max(0, windowTtl),
+        blocked: blocked === 1,
+        blockRemainingMs: Math.max(0, blockTtl),
+      };
+    } catch (err) {
+      this.logger.warn(`Redis rate-limit increment failed: ${(err as Error).message}`);
+      return null;
     }
   }
 

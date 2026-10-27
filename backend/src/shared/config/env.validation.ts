@@ -86,6 +86,19 @@ import {
   IdentityVerificationProviderName,
   resolveIdentityVerificationProvider,
 } from './identity-verification.config';
+import {
+  DEFAULT_HTTP_HSTS_MAX_AGE_SECONDS,
+  DEFAULT_RATE_LIMIT_AUTH_LIMIT,
+  DEFAULT_RATE_LIMIT_AUTH_TTL_SECONDS,
+  DEFAULT_RATE_LIMIT_DEFAULT_LIMIT,
+  DEFAULT_RATE_LIMIT_DEFAULT_TTL_SECONDS,
+  MAX_HTTP_HSTS_MAX_AGE_SECONDS,
+  MAX_RATE_LIMIT,
+  MAX_RATE_LIMIT_TTL_SECONDS,
+  MIN_RATE_LIMIT,
+  MIN_RATE_LIMIT_TTL_SECONDS,
+  parseTrustProxy,
+} from './http-security.config';
 import { DEFAULT_REDIS_KEY_PREFIX } from './redis.config';
 
 /**
@@ -110,6 +123,26 @@ export class DeliveryFeeZonesConstraint implements ValidatorConstraintInterface 
 
   defaultMessage(): string {
     return 'DELIVERY_FEE_ZONES must be comma-separated id:uptoMeters:feeMinorUnits entries, e.g. "inner:3000:2000,outer:9000:4000".';
+  }
+}
+
+/** Rejects an unsafe or malformed `TRUST_PROXY` at boot; `parseTrustProxy` is the single rule. */
+@ValidatorConstraint({ name: 'trustProxy', async: false })
+export class TrustProxyConstraint implements ValidatorConstraintInterface {
+  private reason = '';
+
+  validate(value: unknown): boolean {
+    try {
+      parseTrustProxy(value);
+      return true;
+    } catch (err) {
+      this.reason = (err as Error).message;
+      return false;
+    }
+  }
+
+  defaultMessage(): string {
+    return this.reason || 'TRUST_PROXY is invalid.';
   }
 }
 
@@ -192,6 +225,60 @@ export class EnvironmentVariables {
   @IsIn(IDENTITY_VERIFICATION_PROVIDERS)
   @IsOptional()
   IDENTITY_VERIFICATION_PROVIDER?: IdentityVerificationProviderName;
+
+  /**
+   * Which reverse proxies may set `X-Forwarded-For`/`X-Forwarded-Proto` (Work 59). Unset or
+   * `false` (the default): no proxy is trusted and the client is the TCP peer. Otherwise a
+   * comma-separated list of proxy IPs, CIDR subnets or `loopback`/`linklocal`/`uniquelocal`.
+   * `true`, `*` and hop counts are rejected. See `http-security.config.ts`.
+   */
+  @IsString()
+  @Validate(TrustProxyConstraint)
+  @IsOptional()
+  TRUST_PROXY?: string;
+
+  /**
+   * Sensitive authentication endpoints (login, OTP, registration, token refresh, password
+   * recovery/reset/change, Fayda submission): requests allowed per window, per client, per route.
+   * Always a positive number; there is no setting that disables the limit.
+   */
+  @IsInt()
+  @Min(MIN_RATE_LIMIT)
+  @Max(MAX_RATE_LIMIT)
+  @IsOptional()
+  RATE_LIMIT_AUTH_LIMIT: number = DEFAULT_RATE_LIMIT_AUTH_LIMIT;
+
+  /** The window for `RATE_LIMIT_AUTH_LIMIT`, in seconds. */
+  @IsInt()
+  @Min(MIN_RATE_LIMIT_TTL_SECONDS)
+  @Max(MAX_RATE_LIMIT_TTL_SECONDS)
+  @IsOptional()
+  RATE_LIMIT_AUTH_TTL_SECONDS: number = DEFAULT_RATE_LIMIT_AUTH_TTL_SECONDS;
+
+  /** Every other route except the health probes: requests per window, per client, per route. */
+  @IsInt()
+  @Min(MIN_RATE_LIMIT)
+  @Max(MAX_RATE_LIMIT)
+  @IsOptional()
+  RATE_LIMIT_DEFAULT_LIMIT: number = DEFAULT_RATE_LIMIT_DEFAULT_LIMIT;
+
+  /** The window for `RATE_LIMIT_DEFAULT_LIMIT`, in seconds. */
+  @IsInt()
+  @Min(MIN_RATE_LIMIT_TTL_SECONDS)
+  @Max(MAX_RATE_LIMIT_TTL_SECONDS)
+  @IsOptional()
+  RATE_LIMIT_DEFAULT_TTL_SECONDS: number = DEFAULT_RATE_LIMIT_DEFAULT_TTL_SECONDS;
+
+  /**
+   * `Strict-Transport-Security` max-age in seconds. `0` (the default) sends no HSTS header, which
+   * is correct for local HTTP. Set it only where every client reaches the API over HTTPS
+   * (terminated at a trusted proxy); browsers then refuse plain HTTP for that long.
+   */
+  @IsInt()
+  @Min(0)
+  @Max(MAX_HTTP_HSTS_MAX_AGE_SECONDS)
+  @IsOptional()
+  HTTP_HSTS_MAX_AGE_SECONDS: number = DEFAULT_HTTP_HSTS_MAX_AGE_SECONDS;
 
   /**
    * The platform's commission rate, as a **fraction**: `0.05` is 5%. Backs the

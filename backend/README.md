@@ -78,6 +78,8 @@ The application validates its environment at boot and refuses to start on a miss
 
 `IDENTITY_VERIFICATION_PROVIDER` (`mock` | `fayda`) is optional outside production (default `mock`) and **required in production**, where only `fayda` is accepted; see [docs/runtime-identity-verification.md](docs/runtime-identity-verification.md).
 
+HTTP security settings (`TRUST_PROXY`, `RATE_LIMIT_*`, `HTTP_HSTS_MAX_AGE_SECONDS`) have safe defaults (no trusted proxy, limits always on, no HSTS); see [docs/http-security.md](docs/http-security.md). Without `REDIS_URL`, rate-limit counters are per instance.
+
 Everything else is optional with validated defaults (`NODE_ENV`, `PORT`, `WEB_ORIGIN`, `ORDERS_PLATFORM_FEE_PERCENT`, `REDIS_*`, the `DELIVERY_*` families) or integration-specific (`RESEND_*`, `FCM_*`, `TELEBIRR_*`). Never commit `.env` or real credentials. `NODE_ENV=test` disables the background jobs and is for the test suites only.
 
 ## Clean install (new, empty database)

@@ -10,6 +10,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
+import { SensitiveRateLimit } from '../../../../shared/http/rate-limit.decorator';
 import type { Request } from 'express';
 import { ChangePasswordCommand } from '../../application/commands/change-password.command';
 import { ForgotPasswordCommand } from '../../application/commands/forgot-password.command';
@@ -56,6 +57,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @SensitiveRateLimit()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   register(@Body() dto: RegisterDto) {
@@ -63,6 +65,7 @@ export class AuthController {
   }
 
   @Public()
+  @SensitiveRateLimit()
   @Post('verify-otp')
   verifyOtpHandler(@Body() dto: VerifyOtpDto, @Req() req: Request) {
     return this.verifyOtp.execute({
@@ -73,12 +76,14 @@ export class AuthController {
   }
 
   @Public()
+  @SensitiveRateLimit()
   @Post('resend-otp')
   resendOtpHandler(@Body() dto: ResendOtpDto) {
     return this.resendOtp.execute(dto);
   }
 
   @Public()
+  @SensitiveRateLimit()
   @Post('login')
   login(@Body() dto: LoginDto, @Req() req: Request) {
     return this.loginUser.execute({
@@ -89,18 +94,21 @@ export class AuthController {
   }
 
   @Public()
+  @SensitiveRateLimit()
   @Post('token/refresh')
   refresh(@Body() dto: RefreshDto) {
     return this.refreshToken.execute(dto);
   }
 
   @Public()
+  @SensitiveRateLimit()
   @Post('password/forgot')
   forgot(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
     return this.forgotPassword.execute({ identifier: dto.identifier, ip: req.ip ?? null });
   }
 
   @Public()
+  @SensitiveRateLimit()
   @Post('password/reset')
   reset(@Body() dto: ResetPasswordDto, @Req() req: Request) {
     return this.resetPassword.execute({
@@ -111,6 +119,7 @@ export class AuthController {
     });
   }
 
+  @SensitiveRateLimit()
   @Post('password/change')
   change(
     @CurrentUser() user: AuthenticatedPrincipal,
