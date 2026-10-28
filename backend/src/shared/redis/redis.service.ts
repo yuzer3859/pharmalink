@@ -239,6 +239,36 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Runs one Lua script atomically (Work 60: OTP challenges), or returns `null` when Redis is off,
+   * the call failed, or it did not answer within `timeoutMs`. `null` means "unknown", never "no";
+   * the caller decides how to fail closed. Keys must already be namespaced with `key()`.
+   *
+   * The timeout bounds the request, not the command: a script that completes after it has been
+   * abandoned still takes effect, so callers' scripts must leave a safe state either way.
+   * Neither keys nor arguments are logged.
+   */
+  async runScript(script: string, keys: string[], args: string[], timeoutMs: number): Promise<unknown[] | null> {
+    if (!this.data) {
+      return null;
+    }
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      const reply = await Promise.race([
+        this.data.eval(script, keys.length, ...keys, ...args),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`no reply within ${timeoutMs} ms`)), timeoutMs);
+        }),
+      ]);
+      return Array.isArray(reply) ? (reply as unknown[]) : null;
+    } catch (err) {
+      this.logger.warn(`Redis script failed: ${(err as Error).message}`);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async del(key: string): Promise<void> {
     if (!this.data) {
       return;

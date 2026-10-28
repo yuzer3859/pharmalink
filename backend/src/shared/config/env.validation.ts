@@ -100,6 +100,20 @@ import {
   parseTrustProxy,
 } from './http-security.config';
 import { DEFAULT_REDIS_KEY_PREFIX } from './redis.config';
+import {
+  DEFAULT_OTP_MAX_ATTEMPTS,
+  DEFAULT_OTP_RESEND_COOLDOWN_SECONDS,
+  DEFAULT_OTP_TTL_SECONDS,
+  MAX_OTP_MAX_ATTEMPTS,
+  MAX_OTP_RESEND_COOLDOWN_SECONDS,
+  MAX_OTP_TTL_SECONDS,
+  MIN_OTP_MAX_ATTEMPTS,
+  MIN_OTP_RESEND_COOLDOWN_SECONDS,
+  MIN_OTP_TTL_SECONDS,
+  OTP_STORES,
+  OtpStoreName,
+  resolveOtpStore,
+} from './otp.config';
 
 /**
  * Rejects a malformed `DELIVERY_FEE_ZONES` string at boot.
@@ -225,6 +239,45 @@ export class EnvironmentVariables {
   @IsIn(IDENTITY_VERIFICATION_PROVIDERS)
   @IsOptional()
   IDENTITY_VERIFICATION_PROVIDER?: IdentityVerificationProviderName;
+
+  /**
+   * Where live OTP challenges are stored: `redis` or `memory` (Work 60, see `otp.config.ts`).
+   * Unset means `redis` in production and `memory` elsewhere; `memory` is rejected in production.
+   * `redis` requires `REDIS_URL` and `OTP_HASH_SECRET` (checked across fields in `validateEnv`).
+   */
+  @IsIn(OTP_STORES)
+  @IsOptional()
+  OTP_STORE?: OtpStoreName;
+
+  /**
+   * HMAC key for OTP hashes and the identifier part of OTP keys in Redis. Dedicated, random, at
+   * least 32 characters, and never stored in Redis. Required whenever `OTP_STORE` resolves to
+   * `redis`, which includes every production start.
+   */
+  @IsString()
+  @IsOptional()
+  OTP_HASH_SECRET?: string;
+
+  /** OTP lifetime in seconds (module-01 §7: 5 minutes). */
+  @IsInt()
+  @Min(MIN_OTP_TTL_SECONDS)
+  @Max(MAX_OTP_TTL_SECONDS)
+  @IsOptional()
+  OTP_TTL_SECONDS: number = DEFAULT_OTP_TTL_SECONDS;
+
+  /** Wrong codes allowed per challenge before it is refused (module-01 §7: 5). */
+  @IsInt()
+  @Min(MIN_OTP_MAX_ATTEMPTS)
+  @Max(MAX_OTP_MAX_ATTEMPTS)
+  @IsOptional()
+  OTP_MAX_ATTEMPTS: number = DEFAULT_OTP_MAX_ATTEMPTS;
+
+  /** Minimum seconds between two codes for the same identifier and purpose. */
+  @IsInt()
+  @Min(MIN_OTP_RESEND_COOLDOWN_SECONDS)
+  @Max(MAX_OTP_RESEND_COOLDOWN_SECONDS)
+  @IsOptional()
+  OTP_RESEND_COOLDOWN_SECONDS: number = DEFAULT_OTP_RESEND_COOLDOWN_SECONDS;
 
   /**
    * Which reverse proxies may set `X-Forwarded-For`/`X-Forwarded-Proto` (Work 59). Unset or
@@ -660,9 +713,16 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     throw new Error(`Invalid environment configuration: ${details}`);
   }
 
-  // Cross-field rule: the provider allowed depends on NODE_ENV.
+  // Cross-field rules: the identity provider and OTP store allowed depend on NODE_ENV.
   try {
     resolveIdentityVerificationProvider(validated.NODE_ENV, validated.IDENTITY_VERIFICATION_PROVIDER);
+    resolveOtpStore({
+      nodeEnv: validated.NODE_ENV,
+      store: validated.OTP_STORE,
+      redisUrl: validated.REDIS_URL,
+      hashSecret: validated.OTP_HASH_SECRET,
+      otherSecrets: [validated.JWT_ACCESS_SECRET, validated.JWT_REFRESH_SECRET, validated.MASTER_ENCRYPTION_KEY],
+    });
   } catch (err) {
     throw new Error(`Invalid environment configuration: ${(err as Error).message}`);
   }

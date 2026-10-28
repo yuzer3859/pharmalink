@@ -34,7 +34,7 @@ The global guard (`HttpSecurityModule`, `RateLimitGuard`) is built on `@nestjs/t
 - **New routes:** mark any new credential, OTP, recovery or identity endpoint with `@SensitiveRateLimit()` (`src/shared/http/rate-limit.decorator.ts`).
 - **When a limit is exceeded:** HTTP `429`, the standard envelope with `error.code = RATE_LIMITED`, and `Retry-After` in seconds. The client stays blocked until the window it opened expires. Request bodies, OTPs, passwords and tokens are never logged or echoed.
 - **Validation:** limits are checked at boot as integers, 1–100,000 requests and 1–86,400 seconds. There is no value that turns limiting off; `0`, negative or non-numeric values stop startup.
-- **Existing per-account protections stay:** the OTP's 30-second resend cooldown and its maximum attempts per code are unchanged.
+- **Existing per-account protections stay:** the OTP's maximum attempts per code, and its resend cooldown (enforced across instances since Work 60; see [otp-storage.md](otp-storage.md)).
 
 **Client identity** is `req.ip`. Without trusted proxies (the default) that's the TCP peer, and `X-Forwarded-For` is ignored, so a client can't pick a new identity by sending the header. Behind configured proxies, see below. IPv6 clients are grouped by /64 (the library's default subnet), so one host cannot evade a limit by rotating addresses within its own /64.
 
@@ -65,7 +65,7 @@ No real proxy addresses are configured in this repository.
 
 ## Not covered by this work
 
-- **Production use** still requires a durable OTP store, real SMS, payments and Fayda integrations, persistent proof-of-delivery storage, and Redis configured for rate limits wherever more than one instance runs. The OTP store and proof-of-delivery storage already force a single instance.
+- **Production use** still requires real SMS, payments and Fayda integrations, persistent proof-of-delivery storage, and Redis configured for rate limits wherever more than one instance runs. Proof-of-delivery storage already forces a single instance. OTPs are stored in Redis in production since Work 60 ([otp-storage.md](otp-storage.md)), but are still not delivered.
 - **Webhooks:** `POST /webhooks/payments/*` and `/webhooks/resend` are under the `default` limit per source address. A provider that bursts above it receives 429 and is expected to retry. Revisit the limit when a real provider's delivery pattern is known.
 - **The WebSocket tracking gateway** is excluded from the HTTP guard. It's authenticated and has its own cadence rules.
 - **To verify on a real staging environment:**

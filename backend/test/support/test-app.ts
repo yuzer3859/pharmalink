@@ -5,6 +5,8 @@ import { AppModule } from '../../src/app.module';
 import { AppConfigService } from '../../src/shared/config/app-config.service';
 import { applyHttpSecurity } from '../../src/shared/http/http-security';
 import { NOTIFICATION_PORT } from '../../src/modules/identity/application/ports/notification.port';
+import { OTP_SERVICE } from '../../src/modules/identity/application/ports/otp.service';
+import { InMemoryOtpService } from '../../src/modules/identity/infrastructure/otp/in-memory-otp.service';
 import { OutboxRelay } from '../../src/shared/outbox/outbox-relay.service';
 import { PrismaService } from '../../src/shared/prisma/prisma.service';
 import { PermissionCacheService } from '../../src/shared/rbac/permission-cache.service';
@@ -61,9 +63,10 @@ export interface TestAppOptions {
  * JwtAuthGuard + PermissionsGuard, AllExceptionsFilter, ResponseInterceptor and ValidationPipe,
  * backed by real Prisma repositories against the throwaway container database.
  *
- * Only the outbound notification transport is replaced. OTP (in-memory), Fayda (mock provider)
- * and the permission caches (in-process) are already the project's non-production adapters and
- * are used as-is, so the wiring under test is the wiring that ships.
+ * Only the outbound notification transport is replaced. OTP (in-memory unless a spec sets
+ * `OTP_STORE=redis`), Fayda (mock provider) and the permission caches (in-process) are already the
+ * project's non-production adapters and are used as-is, so the wiring under test is the wiring
+ * that ships.
  */
 export async function createTestApp(
   overrides: TestAppOverride[] = [],
@@ -104,6 +107,7 @@ export async function createTestApp(
   const relay = app.get(OutboxRelay);
   const permissionCache = app.get(PermissionCacheService);
   const permVersions = app.get<CachedPermVersionStore>(PERM_VERSION_STORE);
+  const otp = app.get<unknown>(OTP_SERVICE);
 
   return {
     app,
@@ -125,6 +129,9 @@ export async function createTestApp(
       // permVersion satisfy the guard for a brand-new user id.
       permissionCache.clear();
       permVersions.clear();
+      // The in-memory OTP store enforces the resend cooldown (Work 60); a later test registering
+      // the same phone must not inherit an earlier test's cooldown.
+      if (otp instanceof InMemoryOtpService) otp.clear();
     },
   };
 }
