@@ -12,17 +12,28 @@ A **local-only** Docker Compose stack for the PharmaLink backend, plus a script 
 | `backend/.env.example` | Placeholders and generation commands for the local env file. |
 | `compose.staging.yml` | PostgreSQL 16, Redis 7, one backend instance, and the one-off `tools` service. |
 | `ops/staging/rehearse-clean-install.mjs` | The clean-install rehearsal (Node 22, no dependencies). |
+| `ops/staging/env-file.mjs` | Generation and validation of the local env file, used by the rehearsal. Tests: `node --test ops/staging/env-file.test.mjs`. |
+| `backend/test/staging/otp-store.smoke.ts` | The OTP smoke test the rehearsal runs in the `tools` image. Its own e2e spec is `backend/test/staging/otp-store-smoke.e2e-spec.ts`. |
 
 ## Stack
 
 | Service | Image | Exposure | Notes |
 |---|---|---|---|
 | `postgres` | `postgres:16` | private network only | database `pharmalink_staging`, user `pharmalink`; data in the project's `pgdata` volume |
-| `redis` | `redis:7` | private network only | no persistence (hot cache, never a system of record) |
-| `backend` | built from `backend/` (`runtime`) | `127.0.0.1:${BACKEND_HOST_PORT:-3000}` only | health check on `GET /health/ready`; exactly one instance |
-| `tools` | built from `backend/` (`tools`) | none | profile `tools`: never started by `up`; run explicitly for migrations and the seed |
+| `redis` | `redis:7` | private network only | no persistence; holds caches and this stack's live OTP challenges |
+| `backend` | built from `backend/` (`runtime`) | `127.0.0.1:${BACKEND_HOST_PORT:-3000}` only | `OTP_STORE=redis`; health check on `GET /health/ready`; exactly one instance |
+| `tools` | built from `backend/` (`tools`) | none | profile `tools`: never started by `up`; run explicitly for migrations, the seed and the OTP smoke test |
 
-`compose.staging.yml` sets `DATABASE_URL` and `REDIS_URL` to the stack's own services (overriding the env file), so the backend and the tools can only reach this disposable database. No host networking, privileged mode, Docker socket mounts or added capabilities. The containers run the app as the image's unprivileged `node` user.
+`compose.staging.yml` sets `DATABASE_URL` and `REDIS_URL` to the stack's own services (overriding the env file), so the backend and the tools can only reach this disposable database and Redis. No host networking, privileged mode, Docker socket mounts or added capabilities. The containers run the app as the image's unprivileged `node` user.
+
+### OTP storage: Redis, explicitly (Work 61)
+
+The backend and the `tools` service both set **`OTP_STORE=redis`** in `compose.staging.yml`. This stack therefore keeps OTP challenges in its own Redis through `RedisOtpService`, the adapter production must use. The setting is explicit, not a default: with `NODE_ENV=development`, leaving it unset would select the in-memory store. Using Redis here means the rehearsal exercises the same hashing, TTL, attempt limit, single use and resend cooldown as production would, and fails closed the same way when Redis is down (`backend/docs/otp-storage.md`).
+
+- **`OTP_HASH_SECRET`** reaches Compose by interpolation from `--env-file backend/.env.staging`, not only through `env_file`. `${OTP_HASH_SECRET:?…}` makes `docker compose` stop before starting anything if it is missing, so always pass `--env-file backend/.env.staging`.
+- **`NODE_ENV` stays `development`** (see the Fayda decision below), so production-mode startup is still not exercised.
+- **Still exactly one backend.** Redis-backed OTPs would work across instances, but in-memory proof-of-delivery storage and the in-process event bus still don't.
+- **This Redis is not a production Redis:** no authentication, TLS, persistence, replication, backup or recovery. A restart drops live challenges, and users request a new code.
 
 Migrations and the seed are **not** part of the backend's start command. They are explicit one-off steps, so a restart can never migrate a database by surprise.
 
@@ -38,9 +49,18 @@ Migrations and the seed are **not** part of the backend's start command. They ar
 node ops/staging/rehearse-clean-install.mjs --init-env
 ```
 
-This creates `backend/.env.staging` from `backend/.env.example` with random local-only values for `POSTGRES_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` and `MASTER_ENCRYPTION_KEY`, and never prints them. It refuses to overwrite an existing file. Alternatively, copy the example and fill in each `REPLACE_ME` with the command shown next to it.
+This creates `backend/.env.staging` from `backend/.env.example` with random local-only values for `POSTGRES_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `MASTER_ENCRYPTION_KEY` and `OTP_HASH_SECRET`, and never prints them. It refuses to overwrite an existing file. Alternatively, copy the example and fill in each `REPLACE_ME` with the command shown next to it.
 
-`backend/.env.staging` is gitignored (`backend/.gitignore`: `.env.*`, with only `.env.example` re-included). Never commit it, and never put production credentials or working provider keys in it. Do **not** set `DATABASE_URL`, `REDIS_URL`, `NODE_ENV` or `PORT` there: the rehearsal rejects them, because the stack sets them itself (`BACKEND_HOST_PORT` changes the host-side port).
+**`OTP_HASH_SECRET`** is 32 bytes from Node's CSPRNG (`crypto.randomBytes`), base64url-encoded (43 characters), generated fresh for each new file. Before the file is written, the value is checked against the rules the backend applies at boot (`assertOtpHashSecret`):
+- at least 32 characters;
+- no placeholder text, and at least 8 distinct characters;
+- not a copy of `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` or `MASTER_ENCRYPTION_KEY`.
+
+The rehearsal checks it again before every run, and the backend and the smoke test check it a third time at startup. No check prints the value: messages name the variable and the rule only.
+
+**An env file from before Work 61** has no `OTP_HASH_SECRET`, and the rehearsal rejects it (`OTP_HASH_SECRET is missing or still a placeholder`). Either add the variable with the command in `backend/.env.example`, or move the old file aside and run `--init-env` again.
+
+`backend/.env.staging` is gitignored (`backend/.gitignore`: `.env.*`, with only `.env.example` re-included). Never commit it, and never put production credentials or working provider keys in it. Do **not** set `DATABASE_URL`, `REDIS_URL`, `NODE_ENV`, `PORT` or `OTP_STORE` there: the rehearsal rejects them, because the stack sets them itself (`BACKEND_HOST_PORT` changes the host-side port).
 
 ## Run the rehearsal
 
@@ -51,23 +71,59 @@ node ops/staging/rehearse-clean-install.mjs --keep   # run and leave the stack u
 
 It uses the dedicated Compose project **`pharmalink-staging-rehearsal`** and these steps, stopping at the first failure with the step name and a non-zero exit code:
 
-1. Checks Node 22, Docker, Compose and the env file (placeholders, lengths, 32-byte key, forbidden variables), then validates the Compose file.
-2. Removes any leftovers of **its own project only**, so the database is brand new.
+1. Checks Node 22, Docker, Compose and the env file (placeholders, lengths, 32-byte key, `OTP_HASH_SECRET`, forbidden variables). Then validates the Compose file with `config --quiet`, which never prints the resolved values.
+2. Records the running containers outside its project and lists what already exists under its project name. If a container of that project was created from a different compose file, ownership is unclear, so it stops without deleting anything. Otherwise it removes any leftovers of **its own project only**, so the database is brand new.
 3. Starts PostgreSQL and Redis, waits for both health checks, and confirms the database has **zero** tables.
 4. Builds the `runtime` and `tools` images.
 5. Runs `npx prisma migrate deploy` and reports applied/total migrations.
 6. Runs `npm run prisma:seed` and records the role, permission and grant counts.
 7. Runs the seed again and fails unless the counts are identical (and 14 roles exist).
 8. Starts the backend, calls `GET /health/live` and `GET /health/ready` from the host (no token), then waits for the container health check.
-9. Runs `npx prisma migrate deploy` again and fails unless it reports `No pending migrations to apply`.
+9. Checks Redis and the backend's effective OTP store:
+   - `redis-cli ping` returns `PONG`;
+   - inside the backend container, `OTP_STORE` is `redis`, and `OTP_HASH_SECRET` (at least 32 characters) and `REDIS_URL` are set. Only the store name and yes/no answers leave the container;
+   - the backend log has `Redis connected.` and `OTP challenges are stored in Redis (OTP_STORE=redis).`, and no in-memory OTP warning;
+   - one `POST /auth/resend-otp` for a synthetic `.invalid` address adds exactly two OTP keys (challenge and cooldown) to the stack's Redis, counted inside the Redis container. An immediate second request gets `429 RATE_LIMITED` from the cooldown.
+10. Runs the OTP smoke test in the `tools` image (below).
+11. Runs `npx prisma migrate deploy` again and fails unless it reports `No pending migrations to apply`.
 
-Each HTTP probe has a 5-second timeout, and the script keeps itself alive until it finishes, so a connection held open by Docker's port proxy before the app listens can't end the run early. Its child processes get a sanitised environment: `DATABASE_URL`, `REDIS_URL`, `POSTGRES_PASSWORD` and `COMPOSE_*` from your shell are removed, so nothing outside the stack can be targeted.
+After a normal run, it removes the project (see below). It then checks that no container, volume, network or image of the project is left, and that the unrelated containers it recorded in step 2 are still running.
+
+Each HTTP probe has a timeout, and the script keeps itself alive until it finishes, so a connection held open by Docker's port proxy before the app listens can't end the run early.
+
+Its child processes get a sanitised environment. These variables from your shell are removed: `DATABASE_URL`, `REDIS_URL`, `POSTGRES_PASSWORD`, `OTP_STORE`, `OTP_HASH_SECRET`, `BACKEND_HOST_PORT` and `COMPOSE_*`. So nothing outside the stack can be targeted, and a shell value can't replace one from the env file (Compose prefers the shell over `--env-file` when interpolating).
+
+### The OTP smoke test
+
+```bash
+docker compose -p pharmalink-staging-rehearsal -f compose.staging.yml --env-file backend/.env.staging run --rm tools npx ts-node test/staging/otp-store.smoke.ts
+```
+
+It builds a small Nest context from the backend's own config module (`validateEnv`), logger, Redis module and the identity module's OTP binding (`otpProviders`), and resolves `OTP_SERVICE` from it. It deliberately does not boot the whole application: that would start a second backend (background jobs, outbox relay, event bus) beside the stack's single instance.
+
+Using a synthetic address under `.invalid` with a random suffix, it checks:
+
+1. `OTP_SERVICE` is `RedisOtpService`, not the in-memory store, and Redis is connected;
+2. a `REGISTER` challenge is issued with a six-digit code, kept in the process's memory only;
+3. an immediate second issue for the same address and purpose is refused with `COOLDOWN`;
+4. a wrong code returns `INVALID`;
+5. the right code then returns `OK`;
+6. replaying it returns `EXPIRED`;
+7. a live challenge for another purpose (`LOGIN`) rejects the `REGISTER` code with `INVALID` and still accepts its own.
+
+**Output and exit code:** it prints only `PASS <check>` lines and a summary, never a code, hash, address, secret or connection string. It exits `1` on the first failed check, or on any configuration or Redis error.
+
+**Clean-up:** it always closes its Nest context and Redis connections. Its own checks consume the challenges it creates; the cooldown keys expire by themselves after `OTP_RESEND_COOLDOWN_SECONDS`. It deletes nothing in Redis.
+
+**What it proves:** the stack's configuration selects the Redis store, and that store issues, rate-limits, verifies once and isolates codes against the stack's real Redis.
+
+**What it doesn't prove:** that anyone receives a code. Nothing is delivered; the check reads the code inside its own process.
 
 It does **not** run `ops/predeploy/predeploy-readonly-checks.v2.1.sql`. That script reviews existing data before an upgrade; a clean install has no data to review (see below).
 
 ### What it creates and removes
 
-Everything belongs to Compose project `pharmalink-staging-rehearsal`: its containers, its network, its `pgdata` volume, and the two images built for it. Without `--keep`, the script ends (on success or failure) with:
+Everything belongs to Compose project `pharmalink-staging-rehearsal`: its containers, its network, its `pgdata` volume, and the two images built for it. With `--keep`, the stack stays up for inspection and the script prints the command to remove it. Without `--keep`, the script ends (on success or failure) with:
 
 ```bash
 docker compose -p pharmalink-staging-rehearsal -f compose.staging.yml --env-file backend/.env.staging --profile tools down --volumes --remove-orphans --rmi local
@@ -89,7 +145,13 @@ This uses the project name `pharmalink-staging` from the Compose file, separate 
 
 ## Logs and troubleshooting
 
-- **Logs:** `docker compose -f compose.staging.yml --env-file backend/.env.staging logs -f backend` (add `-p pharmalink-staging-rehearsal` for a `--keep` rehearsal). OTP codes are not written to these logs (since Work 60), and no SMS is sent, so a synthetic user cannot complete OTP verification against this stack.
+- **Logs:** `docker compose -f compose.staging.yml --env-file backend/.env.staging logs -f backend` (add `-p pharmalink-staging-rehearsal` for a `--keep` rehearsal). OTP codes are not written to these logs (since Work 60), and no SMS is sent, so a synthetic user cannot complete OTP verification over HTTP against this stack.
+- **`required variable OTP_HASH_SECRET is missing a value`:** Compose didn't get the env file for interpolation. Pass `--env-file backend/.env.staging`, and make sure the file has the variable.
+- **`OTP_HASH_SECRET must be at least 32 characters`, `looks like a placeholder` or `must be a dedicated secret`:** regenerate it with the command in `backend/.env.example`.
+  - Don't print the env file, or run `docker compose config` without `--quiet`, to debug this: both show every secret.
+  - To check what the backend sees without revealing the value: `docker compose … exec -T backend node -e "console.log(process.env.OTP_STORE, (process.env.OTP_HASH_SECRET || '').length)"`.
+- **OTP requests return `503 DEPENDENCY_UNAVAILABLE`:** the backend can't reach Redis. Check `docker compose … ps redis` and `docker compose … exec -T redis redis-cli ping`, and look for `Redis connected.` in the backend log. The store never falls back to memory.
+- **The smoke test fails at check 1:** the `tools` service isn't getting `OTP_STORE=redis` or `REDIS_URL`. Check that `compose.staging.yml` wasn't changed, and that you ran the test with the same `-p`, `-f` and `--env-file` as the stack.
 - **`Invalid environment configuration`:** a required variable is missing or invalid; compare with `backend/.env.example` and `backend/src/shared/config/env.validation.ts`.
 - **`set POSTGRES_PASSWORD in backend/.env.staging`:** the env file is missing or not passed with `--env-file`.
 - **Port already allocated:** something else uses 127.0.0.1:3000; set `BACKEND_HOST_PORT`.
@@ -121,7 +183,7 @@ Fayda is not the only one. These development stand-ins have no production guard 
 
 | Area | Current state | Production implication |
 |---|---|---|
-| OTP | `InMemoryOtpService` (`OTP_STORE` unset, `NODE_ENV=development`): hashed, never logged, not delivered; lost on restart; per-process. `RedisOtpService` is available with `OTP_STORE=redis` and an `OTP_HASH_SECRET` in the env file, but is not part of this rehearsal | Users can't receive codes; single instance only |
+| OTP | `RedisOtpService` in this stack's Redis (`OTP_STORE=redis`, Work 61): hashed, never logged, not delivered. The stack's Redis has no auth, TLS or persistence | Users can't receive codes (no SMS); a production Redis still has to be provisioned and operated |
 | SMS | `UnconfiguredSmsTransport` | No SMS delivery |
 | Payments | `MockPaymentProvider` approves gateway methods in-process; Telebirr adapter deliberately unimplemented | No real payment collection; mock approvals must never reach real customers |
 | Proof of delivery | `InMemoryProofArtifactStorage` | Artifacts lost on restart; single instance only |
@@ -132,7 +194,8 @@ Fayda is not the only one. These development stand-ins have no production guard 
 ## What this does not verify
 
 - Production-mode (`NODE_ENV=production`) startup: blocked by the Fayda guard above.
-- Real integrations: e-mail (Resend), push (FCM), SMS, payments, identity verification, routing.
+- Real integrations: e-mail (Resend), push (FCM), SMS, payments, identity verification, routing. The OTP smoke test proves storage and verification, not delivery: users still can't receive codes.
+- Production Redis: authentication, TLS, persistence, replication, backup and recovery. This stack's Redis has none of them.
 - Hosting: HTTPS, reverse proxy, private access, multiple instances, resource limits.
 - Backups, restore, monitoring and alerting.
 - Front ends: `web/` and `app/` are not part of this stack.
@@ -145,7 +208,28 @@ The first rehearsal runs exposed two application defects. Both were fixed in a s
 1. `GET /health/live` and `GET /health/ready` were not public, so the global `JwtAuthGuard` answered every probe with `401`. They are now `@Public()`.
 2. `PORT` from the environment always failed validation (untyped property). It is now typed, and `compose.staging.yml` sets `PORT: "3000"`.
 
-## Rehearsal results (2026-10-26, local Docker 29.7.2, Compose v5.3.1, after merging #8)
+## Rehearsal results with Redis OTP storage (Work 61: 2026-10-28, local Docker 29.7.2, Compose v5.3.1)
+
+A fresh `backend/.env.staging` was generated with `--init-env`. `node ops/staging/rehearse-clean-install.mjs` exited 0 with `REHEARSAL PASSED`.
+
+| Step | Result |
+|---|---|
+| 1. Prerequisites, env file (including `OTP_HASH_SECRET`), `docker compose config --quiet` | passed; values not shown |
+| 2. Ownership check and scoped cleanup of the rehearsal project | passed: nothing pre-existing; 3 unrelated running containers recorded |
+| 3. PostgreSQL 16 and Redis 7 healthy; database empty | passed (0 public tables before install) |
+| 4. Image build (`runtime` and `tools`) | passed |
+| 5. `prisma migrate deploy` | passed: 33/33 applied |
+| 6. Seed | passed: 14 roles, 65 permissions, 130 grants |
+| 7. Seed again | passed: identical counts |
+| 8. Backend health (`OTP_STORE=redis`), no token | passed: `/health/live` 200; `/health/ready` 200 with `database: up`; container health check `healthy` |
+| 9. Redis and the effective OTP store | passed: `PONG`; backend container `OTP_STORE=redis`, secret set, `REDIS_URL` set; log shows `Redis connected.` and the Redis OTP store, no in-memory store; `POST /auth/resend-otp` 201 and OTP keys 0 → 2; immediate second request 429 `RATE_LIMITED` |
+| 10. OTP smoke test | passed: 7/7 checks (`OTP SMOKE PASSED (7/7 checks)`) |
+| 11. Second `prisma migrate deploy` | passed: `No pending migrations to apply.` |
+| Cleanup | passed: 0 containers, 0 volumes, 0 networks and 0 images of the project left; the 3 unrelated containers still running |
+
+No env-file secret, OTP code or synthetic address appeared in the rehearsal's output (checked against the env file's values after the run). Before generating the new file, the rehearsal refused the pre-Work 61 env file with `OTP_HASH_SECRET is missing or still a placeholder`, and `docker compose config` refused an env file without the secret.
+
+## Earlier rehearsal results (2026-10-26, local Docker 29.7.2, Compose v5.3.1, after merging #8; in-memory OTP store)
 
 `node ops/staging/rehearse-clean-install.mjs` exited 0 with `REHEARSAL PASSED`.
 

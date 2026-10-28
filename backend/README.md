@@ -79,7 +79,7 @@ The application validates its environment at boot and refuses to start on a miss
 
 `IDENTITY_VERIFICATION_PROVIDER` (`mock` | `fayda`) is optional outside production (default `mock`) and **required in production**, where only `fayda` is accepted; see [docs/runtime-identity-verification.md](docs/runtime-identity-verification.md).
 
-OTP storage: `OTP_STORE` (`redis` | `memory`) defaults to `memory` outside production and `redis` in production, where `memory` is rejected. `redis` requires `REDIS_URL` and a dedicated `OTP_HASH_SECRET` (at least 32 random characters), so **production refuses to start without both**. `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS` and `OTP_RESEND_COOLDOWN_SECONDS` are validated; see [docs/otp-storage.md](docs/otp-storage.md).
+OTP storage: `OTP_STORE` (`redis` | `memory`) defaults to `memory` outside production and `redis` in production, where `memory` is rejected. `redis` requires `REDIS_URL` and a dedicated `OTP_HASH_SECRET` (at least 32 random characters), so **production refuses to start without both**. `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS` and `OTP_RESEND_COOLDOWN_SECONDS` are validated; see [docs/otp-storage.md](docs/otp-storage.md). The local staging stack (`compose.staging.yml`) sets `OTP_STORE=redis` against its own disposable Redis and a locally generated secret; that is a rehearsal, not a production Redis configuration ([ops/staging/README.md](../ops/staging/README.md)).
 
 HTTP security settings (`TRUST_PROXY`, `RATE_LIMIT_*`, `HTTP_HSTS_MAX_AGE_SECONDS`) have safe defaults (no trusted proxy, limits always on, no HSTS); see [docs/http-security.md](docs/http-security.md). Without `REDIS_URL`, rate-limit counters are per instance.
 

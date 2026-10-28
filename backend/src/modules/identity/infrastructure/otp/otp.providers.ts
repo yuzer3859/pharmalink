@@ -23,7 +23,10 @@ export function selectOtpService(config: AppConfigService, redis: RedisService, 
   });
 
   if (store === 'redis') {
-    return new RedisOtpService(redis, config, logger);
+    const service = new RedisOtpService(redis, config, logger);
+    // Names the store only; the local staging rehearsal checks for this line (Work 61).
+    logger.log('OTP challenges are stored in Redis (OTP_STORE=redis).');
+    return service;
   }
 
   logger.setContext('OtpStore');
