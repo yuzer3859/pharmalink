@@ -1,6 +1,8 @@
 # OTP storage and verification
 
-Work 60. This covers where one-time codes are kept, how they are checked and what to configure. **It is about storage and verification only. It does not deliver codes:** no SMS gateway is approved or configured, so users cannot receive production OTPs yet. See "Not covered" at the end.
+Work 60 (storage and verification) and Work 62 (e-mail delivery). This covers where one-time codes are kept, how they are checked, how they reach the user and what to configure.
+
+**Codes are delivered by e-mail only**, when Resend is configured. No SMS gateway is approved, so SMS codes are refused, never reported as sent. See [Delivery](#delivery-work-62) and "Not covered" at the end.
 
 ## Stores
 
@@ -109,18 +111,87 @@ Redis is the system of record for live challenges. A Redis restart loses them, u
 | Redis | the stack's own container: private network, no auth, TLS or persistence | to be provisioned: auth, TLS, persistence and replication |
 | `NODE_ENV` | `development` (production startup is blocked on Fayda) | `production` |
 
+## Delivery (Work 62)
+
+Module 01 sends its codes through `IdentityNotificationAdapter` (`src/modules/identity/infrastructure/messaging/`). It sends e-mail through the platform's one e-mail transport, `EMAIL_TRANSPORT` (Resend's REST API). That transport lives in the global shared `EmailModule` (`src/shared/email/`), the same one Module 13's delivery queue uses.
+
+**Why shared:** Module 13 already depends on Module 01, so Module 01 can't import Module 13 without a cycle. The Resend client and configuration moved below both modules instead of being duplicated, and Module 13's old import paths re-export them.
+
+### Channel policy
+
+| Situation | Result |
+|---|---|
+| Registration with an e-mail address (with or without a phone) | Verified by e-mail; the code goes to the address only |
+| Registration with a phone only | `400 VALIDATION_ERROR` (`details.reason: SMS_UNAVAILABLE`) before any account is created |
+| Any OTP request for a phone number (resend, forgot-password) | `503 DEPENDENCY_UNAVAILABLE` (`details.channel: SMS`); no code is issued |
+| Any e-mail OTP request while Resend is not configured | `503 DEPENDENCY_UNAVAILABLE` (`details.reason: NOT_CONFIGURED`); no code is issued and no account is created |
+
+The policy comes from one method, `INotificationPort.canDeliver(channel)`. The day an SMS gateway is approved, the adapter answers `true` for SMS and phone-only registration works again, with no change to the commands.
+
+Verifying the e-mail activates a pending customer, even one who also gave a phone number; the phone stays unverified. **E-mail verification proves control of an address only.** It never sets `faydaVerifiedAt`, never creates or approves a verification request, and bypasses no identity, licensing or business-verification rule.
+
+### Sending
+
+**Synchronous, while the request waits.** The code goes straight to Resend, with an 8-second limit. It is never written to the outbox, Module 13's notifications or delivery jobs, the audit log or any other table; the only copy at rest is the HMAC in the OTP store. Each message has a fresh idempotency reference, so a new code is never deduplicated against an earlier one.
+
+**Truthful.** A request succeeds only when Resend accepted the message. Anything else is a failure:
+- not configured, or credentials refused;
+- rejected message or recipient;
+- rate limit, outage or timeout;
+- an exception, or a reply the adapter doesn't recognise.
+
+There is no fallback to logging.
+
+**Templates:** plain text (`identity-email-templates.ts`):
+- registration, sign-in, password reset and step-up codes, each with the code, its lifetime and single use, what to do if the request wasn't yours, and a never-share warning;
+- password-changed and password-reset notices.
+
+They contain no name, link, pharmacy, prescription or health information. English only for now.
+
+### When sending fails
+
+| Caller | Response |
+|---|---|
+| `POST /auth/resend-otp` | `503 DEPENDENCY_UNAVAILABLE`, `details: { channel, reason: FAILED, retryAfterSeconds }` |
+| Registration (the `identity.user.registered` handler) | The account stays pending; the failure is logged without the address. The user asks for a new code with resend |
+| `POST /auth/password/forgot` | The generic `{ challengeSent: true }`; see below |
+| Password-changed / password-reset notices | Best effort: the change stands, and the audit record carries `notice: SENT \| NO_CHANNEL \| FAILED` |
+
+**A code may already exist when a send fails.** The code was issued (and its resend cooldown started) before the send. It stays in the store until it expires, or until a new code replaces it, and nobody has it. So:
+- an immediate retry is refused by the cooldown (`429`), which is why the 503 carries `retryAfterSeconds`;
+- after the cooldown, resend issues and sends a new code, which replaces the undelivered one;
+- the atomic cooldown, attempt limit and single use are unchanged.
+
+When the channel can't deliver at all (SMS, or no Resend), the check happens *before* issuing, so no code exists and no cooldown starts.
+
+**Forgot-password stays non-enumerating.**
+- *No provider for the channel:* every identifier gets 503, checked before the account lookup, so the answer is the same for everyone.
+- *A send to a known account that Resend didn't accept:* logged without the identifier, and answered with the generic success. Reporting it would reveal that the account exists. With Resend's test sender, which refuses most recipients, that would be on demand.
+
+**Suppression.** Module 13's suppression list (bounces, complaints) belongs to Module 13, so Module 01 doesn't consult it. A user-requested code to a suppressed address is attempted and may bounce.
+
+### Configuration
+
+| Variable | Effect |
+|---|---|
+| `RESEND_API_KEY` | A Resend API key with sending access (`re_…`). Never logged, never in a response |
+| `RESEND_FROM_EMAIL` | A sender on a domain verified in Resend, e.g. `PharmaLink <otp@your-domain>` |
+
+Both must be set, or e-mail is not configured. Under `NODE_ENV=test` it is never configured, so the automated suites cannot send real e-mail. Resend's shared test sender (`onboarding@resend.dev`) delivers only to your own Resend account address; anything else is refused and reported as not delivered.
+
 ## Logging
 
 No runtime path logs a code, its hash, the secret, or a raw identifier as part of OTP handling.
 - **`InMemoryOtpService`** used to write every code to the log. It doesn't any more.
-- **The Identity module's notification adapter** (`LogNotificationAdapter`) logs only the channel, a masked recipient and the template name.
-- **Tests** read codes from a test-only recording transport (`test/support/recording-notification.adapter.ts`).
+- **`IdentityNotificationAdapter`** logs a failed send with the template name and the provider's safe result code only (e.g. `template=otp-register result=TRANSIENT/EMAIL_TIMEOUT`). It never logs the address, the code, the message text or a provider response.
+- **Tests** read codes from a test-only recording transport (`test/support/recording-notification.adapter.ts`), or from the in-memory e-mail transport's message text.
 - **No route** returns a code.
 
 ## Not covered by this work
 
-- **SMS delivery.** No SMS gateway is approved. The Identity module's notification port is still the log-only adapter, and Module 13's SMS transport is unconfigured. Codes are stored and verifiable but reach no user outside the test suite, and local development can no longer read them from the logs.
-- **Fayda / national-ID verification** is still the mock outside production and fails closed in production (ADR-027).
+- **SMS delivery.** No SMS gateway is approved: phone-only registration and phone OTPs are refused (see Delivery). Module 13's SMS transport is unconfigured.
+- **Real e-mail delivery depends on your Resend account.** It has been exercised only against the in-memory transport in the automated suites, unless a manual smoke test with real credentials is recorded.
+- **Fayda / national-ID verification** is still the mock outside production and fails closed in production (ADR-027). E-mail verification is not identity verification.
 - **`resend-otp` issues to any well-formed identifier,** registered or not, as before. The per-identifier cooldown and per-IP limits bound it, but an SMS gateway will need its own abuse controls.
 - **Production Redis.** The local staging stack uses Redis for OTPs (Work 61), but nothing about a production Redis has been provisioned or verified.
 - **No production deployment** has been made or verified.

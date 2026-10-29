@@ -67,6 +67,20 @@ export function parseEnvText(text) {
   return env;
 }
 
+/**
+ * Whether the optional Resend sender is configured (Work 62): both keys set and a sender with an
+ * address, the same rule as the backend's ResendConfig. Values are never returned or printed.
+ */
+export function emailProviderState(env) {
+  const key = (env.RESEND_API_KEY ?? '').trim();
+  const from = (env.RESEND_FROM_EMAIL ?? '').trim();
+  if (!key && !from) return { configured: false, problem: null };
+  if (!key || !from) return { configured: false, problem: 'RESEND_API_KEY and RESEND_FROM_EMAIL must be set together (or both left unset)' };
+  if (key.includes('REPLACE_ME') || from.includes('REPLACE_ME')) return { configured: false, problem: 'RESEND_API_KEY or RESEND_FROM_EMAIL is still a placeholder' };
+  if (!from.includes('@')) return { configured: false, problem: 'RESEND_FROM_EMAIL must be a sender address, e.g. "PharmaLink <otp@your-verified-domain>"' };
+  return { configured: true, problem: null };
+}
+
 /** Validates a parsed env file. Returns { problems, port }; problems name keys, never values. */
 export function validateEnvValues(env, fileLabel = 'backend/.env.staging') {
   const problems = [];
@@ -86,6 +100,8 @@ export function validateEnvValues(env, fileLabel = 'backend/.env.staging') {
   for (const key of COMPOSE_CONTROLLED) {
     if (key in env) problems.push(`${key} must not be set in ${fileLabel}; compose.staging.yml sets it (use BACKEND_HOST_PORT for the host port)`);
   }
+  const email = emailProviderState(env);
+  if (email.problem) problems.push(email.problem);
   const port = Number(env.BACKEND_HOST_PORT || 3000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) problems.push('BACKEND_HOST_PORT must be a port number');
   return { problems, port };

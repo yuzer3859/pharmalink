@@ -63,7 +63,7 @@ import {
   VERIFICATION_REPOSITORY,
 } from './domain/repositories/verification.repository';
 import { ROLE_ASSIGNMENT_REPOSITORY } from './domain/repositories/role-assignment.repository';
-import { LogNotificationAdapter } from './infrastructure/messaging/log-notification.adapter';
+import { IdentityNotificationAdapter } from './infrastructure/messaging/identity-notification.adapter';
 import { otpProviders } from './infrastructure/otp/otp.providers';
 import {
   PrismaDeviceRepository,
@@ -101,7 +101,7 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
 /**
  * Identity module composition root (module-01 §12). Wires every port to its Phase-0-slice
  * adapter (Prisma persistence, dependency-free scrypt/JWT security, Redis or in-memory OTP by
- * `OTP_STORE`, log-only notifications). Registers JwtAuthGuard + the shared PermissionsGuard
+ * `OTP_STORE`, OTP and security e-mail through the shared Resend transport). Registers JwtAuthGuard + the shared PermissionsGuard
  * globally — Phase 0 deliberately left this activation to Module 01 (see RbacModule).
  */
 @Module({
@@ -129,7 +129,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     // Security / infra adapters
     { provide: HASHER, useClass: ScryptHasher },
     { provide: TOKEN_SERVICE, useClass: JwtTokenService },
-    { provide: NOTIFICATION_PORT, useClass: LogNotificationAdapter },
+    // Work 62: OTP and security e-mail through the shared EMAIL_TRANSPORT (Resend), sent
+    // synchronously; SMS is never deliverable until a gateway is approved. No log-only fallback.
+    { provide: NOTIFICATION_PORT, useClass: IdentityNotificationAdapter },
     { provide: PERMISSION_RESOLVER, useClass: PrismaPermissionResolver },
     { provide: PERMISSION_CACHE_INVALIDATOR, useClass: PermissionCacheAdapter },
     { provide: PERM_VERSION_STORE, useClass: CachedPermVersionStore },

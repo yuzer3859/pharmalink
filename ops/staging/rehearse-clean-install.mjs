@@ -11,9 +11,10 @@
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fillEnvTemplate, generateEnvValues, parseEnvText, validateEnvValues } from './env-file.mjs';
+import { emailProviderState, fillEnvTemplate, generateEnvValues, parseEnvText, validateEnvValues } from './env-file.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const COMPOSE_FILE = join(ROOT, 'compose.staging.yml');
@@ -86,9 +87,10 @@ function checkEnv() {
   if (!existsSync(ENV_FILE)) {
     throw new Error(`missing ${ENV_FILE}. Create it with: node ops/staging/rehearse-clean-install.mjs --init-env (or copy backend/.env.example and fill it in).`);
   }
-  const { problems, port } = validateEnvValues(parseEnvText(readFileSync(ENV_FILE, 'utf8')), ENV_FILE);
+  const env = parseEnvText(readFileSync(ENV_FILE, 'utf8'));
+  const { problems, port } = validateEnvValues(env, ENV_FILE);
   if (problems.length) throw new Error(`invalid ${ENV_FILE}:\n  - ${problems.join('\n  - ')}`);
-  return { port };
+  return { port, emailConfigured: emailProviderState(env).configured };
 }
 
 /** What already exists under this project's name, by Compose label. */
@@ -166,21 +168,40 @@ async function httpCheck(url, timeoutMs = 120_000) {
   }
 }
 
-/** POSTs JSON and returns the status and the response's error code only; the body is not printed. */
-async function post(url, payload) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(10_000),
+/**
+ * POSTs JSON and returns the status and the response's error code only; the body is not printed.
+ *
+ * Uses `node:http` with no agent, so each request gets a fresh connection. A pooled `fetch` socket
+ * left by the health checks can be closed by the server's 5-second keep-alive timeout while the
+ * Docker checks in between run, and reusing it fails the request (`UND_ERR_SOCKET`). A POST is
+ * not safe to retry blindly, so it is never sent on a reused socket.
+ */
+function post(url, payload) {
+  const body = JSON.stringify(payload);
+  return new Promise((resolvePost, rejectPost) => {
+    const req = httpRequest(
+      url,
+      { method: 'POST', agent: false, timeout: 10_000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } },
+      (res) => {
+        let raw = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => (raw += chunk));
+        res.on('end', () => {
+          let errorCode;
+          try {
+            errorCode = JSON.parse(raw)?.error?.code;
+          } catch {
+            errorCode = undefined;
+          }
+          resolvePost({ status: res.statusCode, errorCode });
+        });
+      },
+    );
+    req.on('timeout', () => req.destroy(new Error('timed out')));
+    // The URL is local and the payload synthetic; only the error's own message and code are reported.
+    req.on('error', (err) => rejectPost(new Error(`POST ${new URL(url).pathname} failed: ${err.message}${err.code ? ` (${err.code})` : ''}`)));
+    req.end(body);
   });
-  let errorCode;
-  try {
-    errorCode = (await res.json())?.error?.code;
-  } catch {
-    errorCode = undefined;
-  }
-  return { status: res.status, errorCode };
 }
 
 function psql(sql) {
@@ -219,8 +240,9 @@ async function main() {
   if (major < 22) throw new Error(`Node.js 22+ required (found ${process.versions.node})`);
   run('docker', ['version', '--format', 'Docker server {{.Server.Version}}']);
   run('docker', ['compose', 'version']);
-  const { port } = checkEnv();
+  const { port, emailConfigured } = checkEnv();
   log(`env file OK (${ENV_FILE}): required secrets present and valid, OTP_HASH_SECRET dedicated and at least 32 characters (values not shown)`);
+  log(`e-mail provider (Resend): ${emailConfigured ? 'configured' : 'not configured; OTP requests will be refused with 503, by design'}`);
   log(`backend will be published on 127.0.0.1:${port}`);
   // --quiet: validates without printing the resolved file, which would contain the secrets.
   compose(['--profile', 'tools', 'config', '--quiet']);
@@ -285,18 +307,28 @@ async function main() {
   if (!logs.includes(REDIS_OTP_LOG)) throw new Error(`backend log has no "${REDIS_OTP_LOG}" line: the Redis OTP store was not selected`);
   if (logs.includes(MEMORY_OTP_LOG)) throw new Error('backend log shows the in-memory OTP store was selected');
   log(`backend log: "Redis connected." and "${REDIS_OTP_LOG}"; no in-memory OTP store`);
-  // The running backend writes its OTP state to this Redis: one resend through the public route
-  // creates a challenge and a cooldown key there; a second is refused by that cooldown. Synthetic
-  // `.invalid` address; no code is returned, and nothing is delivered (no SMS or e-mail transport).
-  const keysBefore = otpKeyCount();
-  const identifier = `rehearsal-${randomBytes(6).toString('hex')}@pharmalink-staging.invalid`;
-  const first = await post(`http://127.0.0.1:${port}/auth/resend-otp`, { identifier, purpose: 'REGISTER' });
-  const keysAfter = otpKeyCount();
-  const second = await post(`http://127.0.0.1:${port}/auth/resend-otp`, { identifier, purpose: 'REGISTER' });
-  log(`POST /auth/resend-otp (synthetic .invalid address): first -> HTTP ${first.status}; OTP keys in the stack Redis ${keysBefore} -> ${keysAfter}; second -> HTTP ${second.status} ${second.errorCode ?? ''}`.trimEnd());
-  if (first.status < 200 || first.status >= 300) throw new Error(`first resend returned HTTP ${first.status} ${first.errorCode ?? ''}`);
-  if (keysAfter !== keysBefore + 2) throw new Error(`expected 2 new OTP keys (challenge and cooldown) in the stack Redis, found ${keysAfter - keysBefore}`);
-  if (second.status !== 429 || second.errorCode !== 'RATE_LIMITED') throw new Error(`second resend returned HTTP ${second.status} ${second.errorCode ?? ''}, expected 429 RATE_LIMITED (cooldown)`);
+  // Delivery is truthful (Work 62). Without an e-mail provider, an OTP request is refused with 503
+  // before any code is issued, so no key appears in the stack's Redis; an SMS request is refused
+  // the same way. Keys are counted inside the Redis container; their names never leave it.
+  // Synthetic `.invalid` addresses only. With Resend configured the check is skipped, because a
+  // request would make the provider attempt an undeliverable address; the manual e-mail smoke test
+  // in ops/staging/README.md covers that case.
+  if (emailConfigured) {
+    log('OTP delivery check skipped: an e-mail provider is configured (see "E-mail OTP smoke test" in ops/staging/README.md)');
+  } else {
+    const keysBefore = otpKeyCount();
+    const identifier = `rehearsal-${randomBytes(6).toString('hex')}@pharmalink-staging.invalid`;
+    const mail = await post(`http://127.0.0.1:${port}/auth/resend-otp`, { identifier, purpose: 'REGISTER' });
+    const sms = await post(`http://127.0.0.1:${port}/auth/resend-otp`, { identifier: '+251900000001', purpose: 'LOGIN' });
+    const keysAfter = otpKeyCount();
+    log(`POST /auth/resend-otp without an e-mail provider: e-mail -> HTTP ${mail.status} ${mail.errorCode ?? ''}; SMS -> HTTP ${sms.status} ${sms.errorCode ?? ''}; OTP keys in the stack Redis ${keysBefore} -> ${keysAfter}`);
+    for (const [name, res] of [['e-mail', mail], ['SMS', sms]]) {
+      if (res.status !== 503 || res.errorCode !== 'DEPENDENCY_UNAVAILABLE') {
+        throw new Error(`${name} OTP request returned HTTP ${res.status} ${res.errorCode ?? ''}, expected 503 DEPENDENCY_UNAVAILABLE`);
+      }
+    }
+    if (keysAfter !== keysBefore) throw new Error(`an undeliverable OTP request created ${keysAfter - keysBefore} key(s) in the stack Redis; expected none`);
+  }
 
   step('10. OTP smoke test (RedisOtpService via the real DI binding, in the tools image)');
   compose(['run', '--rm', 'tools', 'npx', 'ts-node', 'test/staging/otp-store.smoke.ts']);

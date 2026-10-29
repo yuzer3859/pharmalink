@@ -1,6 +1,6 @@
 import { OtpPurpose } from '../../domain/enums';
 import { ErrorCode } from '../../../../shared/errors/error-codes';
-import { INotificationPort } from '../ports/notification.port';
+import { INotificationPort, NotificationUndeliverableError } from '../ports/notification.port';
 import { IOtpService } from '../ports/otp.service';
 import { IdentityErrors } from '../../domain/errors';
 import { ResendOtpCommand } from './resend-otp.command';
@@ -11,6 +11,7 @@ describe('ResendOtpCommand', () => {
       issue: jest.fn().mockResolvedValue({ status: 'ISSUED', code: '123456', cooldownSeconds: 30 }),
     } as unknown as jest.Mocked<IOtpService>;
     const notifications = {
+      canDeliver: jest.fn().mockReturnValue(true),
       send: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<INotificationPort>;
     return { command: new ResendOtpCommand(otp, notifications), otp, notifications };
@@ -72,5 +73,50 @@ describe('ResendOtpCommand', () => {
       command.execute({ identifier: 'garbage', purpose: OtpPurpose.REGISTER }),
     ).rejects.toMatchObject({ code: ErrorCode.VALIDATION_ERROR });
     expect(otp.issue).not.toHaveBeenCalled();
+  });
+
+  // Work 62: success means the provider accepted the message.
+  it('refuses an SMS identifier before issuing a code while SMS cannot deliver', async () => {
+    const { command, otp, notifications } = build();
+    notifications.canDeliver.mockImplementation((channel) => channel !== 'SMS');
+
+    await expect(command.execute({ identifier: '0912345678', purpose: OtpPurpose.LOGIN })).rejects.toMatchObject({
+      code: ErrorCode.DEPENDENCY_UNAVAILABLE,
+      httpStatus: 503,
+      details: { channel: 'SMS', reason: 'NOT_CONFIGURED' },
+    });
+    expect(otp.issue).not.toHaveBeenCalled();
+    expect(notifications.send).not.toHaveBeenCalled();
+  });
+
+  it('refuses an e-mail identifier before issuing a code while e-mail has no provider', async () => {
+    const { command, otp, notifications } = build();
+    notifications.canDeliver.mockReturnValue(false);
+
+    await expect(command.execute({ identifier: 'user@example.com', purpose: OtpPurpose.REGISTER })).rejects.toMatchObject({
+      code: ErrorCode.DEPENDENCY_UNAVAILABLE,
+      details: { channel: 'EMAIL', reason: 'NOT_CONFIGURED' },
+    });
+    expect(otp.issue).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed send as 503 with the cooldown, never as resent, and keeps the code out of the error', async () => {
+    const { command, notifications } = build();
+    notifications.send.mockRejectedValue(new NotificationUndeliverableError('EMAIL', 'FAILED'));
+
+    const error = await command.execute({ identifier: 'user@example.com', purpose: OtpPurpose.REGISTER }).catch((e: unknown) => e);
+    expect(error).toMatchObject({
+      code: ErrorCode.DEPENDENCY_UNAVAILABLE,
+      httpStatus: 503,
+      details: { channel: 'EMAIL', reason: 'FAILED', retryAfterSeconds: 30 },
+    });
+    expect(JSON.stringify(error)).not.toContain('123456');
+    expect(String((error as Error).message)).not.toContain('123456');
+  });
+
+  it('does not translate unrelated send failures', async () => {
+    const { command, notifications } = build();
+    notifications.send.mockRejectedValue(new Error('template bug'));
+    await expect(command.execute({ identifier: 'user@example.com', purpose: OtpPurpose.REGISTER })).rejects.toThrow('template bug');
   });
 });

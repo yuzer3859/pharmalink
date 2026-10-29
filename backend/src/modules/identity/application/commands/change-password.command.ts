@@ -7,6 +7,7 @@ import { PasswordPolicy } from '../../domain/value-objects/password-policy';
 import { HASHER, IHasher } from '../ports/hasher.port';
 import { INotificationPort, NOTIFICATION_PORT } from '../ports/notification.port';
 import { PermissionChangeService } from '../services/permission-change.service';
+import { sendSecurityNotice } from '../services/security-notice';
 import { LogoutAllCommand } from './logout.command';
 
 export interface ChangePasswordInput {
@@ -66,21 +67,14 @@ export class ChangePasswordCommand {
     await this.logoutAll.execute(user.id, 'PASSWORD_CHANGED');
     await this.permissionChange.propagate([user.id]);
 
-    const target = user.phone ?? user.email;
-    if (target) {
-      await this.notifications.send({
-        channel: user.phone ? 'SMS' : 'EMAIL',
-        to: target,
-        template: 'security-password-changed',
-        data: { at: new Date().toISOString() },
-      });
-    }
+    const notice = await sendSecurityNotice(this.notifications, user, 'security-password-changed');
 
     await this.audit.record({
       actorUserId: user.id,
       action: 'identity.password.changed',
       resourceType: 'user',
       resourceId: user.id,
+      context: { notice },
       ip: input.ip ?? null,
     });
 

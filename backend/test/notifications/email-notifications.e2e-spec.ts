@@ -7,6 +7,7 @@ import { join } from 'path';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import request from 'supertest';
 import { EMAIL_TRANSPORT } from '../../src/modules/notifications/application/ports/outbound/email-transport.port';
+import { EmailModule } from '../../src/shared/email/email.module';
 import {
   INotificationChannelProvider,
   INotificationChannelProviderRegistry,
@@ -252,7 +253,11 @@ describe('E-mail notifications (e2e)', () => {
   // Work 17: production binds Resend, which is unconfigured without RESEND_* (and always under test).
   it('production binds the Resend transport; unconfigured, no e-mail provider is registered and jobs wait; other channels unaffected', () => {
     const providers = Reflect.getMetadata('providers', NotificationsModule) as Array<{ provide?: unknown; useClass?: unknown; useFactory?: (...a: unknown[]) => INotificationChannelProviderRegistry }>;
-    expect(providers.find((p) => p.provide === EMAIL_TRANSPORT)!.useClass).toBe(ResendEmailTransport);
+    // Work 62: the transport moved to the global shared EmailModule, which Module 01 also uses for OTP e-mail.
+    const shared = Reflect.getMetadata('providers', EmailModule) as Array<{ provide?: unknown; useClass?: unknown }>;
+    expect(shared.find((p) => p.provide === EMAIL_TRANSPORT)!.useClass).toBe(ResendEmailTransport);
+    expect(providers.find((p) => p.provide === EMAIL_TRANSPORT)).toBeUndefined();
+    expect(ctx.app.get(EMAIL_TRANSPORT)).toBe(mailer);
     const factory = providers.find((p) => p.provide === NOTIFICATION_CHANNEL_PROVIDER_REGISTRY)!.useFactory!;
     const fake = (channel: NotificationChannel, name: string): INotificationChannelProvider => ({ name, channel, deliver: async () => ({ outcome: 'NOT_CONFIGURED' }) });
     const off = { isConfigured: () => false };
@@ -261,6 +266,7 @@ describe('E-mail notifications (e2e)', () => {
     const withMail = factory(off, fake(NotificationChannel.PUSH, 'fcm'), off, fake(NotificationChannel.SMS, 'sms'), mailer, fake(NotificationChannel.EMAIL, 'email'));
     expect(Object.values(NotificationChannel).map((c) => withMail.providerFor(c)?.name ?? null)).toEqual([null, null, 'email', null]);
     expect(readFileSync(join(__dirname, '..', '..', 'src', 'modules', 'notifications', 'notifications.module.ts'), 'utf8')).not.toContain('InMemoryEmailTransport');
+    expect(readFileSync(join(__dirname, '..', '..', 'src', 'shared', 'email', 'email.module.ts'), 'utf8')).not.toContain('InMemoryEmailTransport');
   });
 
   describe('boundaries', () => {
@@ -301,14 +307,18 @@ describe('E-mail notifications (e2e)', () => {
     });
 
     // Work 17: Resend is approved — its two settings are read only by ResendConfig; still no SMTP,
-    // no literal credential and no hard-coded sender.
+    // no literal credential and no hard-coded sender. Work 62 moved ResendConfig to the shared
+    // e-mail module (Module 01 sends OTP e-mail through it too), so the scan now covers every
+    // module and the shared e-mail code, and still finds exactly one reader.
     it('no SMTP setting, credential literal or hard-coded sender; RESEND_* keys are read only by ResendConfig', () => {
-      for (const file of sources(join(root, 'notifications'))) {
+      const sharedEmail = join(root, '..', 'shared', 'email');
+      const fromSrc = (f: string) => f.replace(/\\/g, '/').split('/src/')[1];
+      for (const file of [...sources(join(root, 'notifications')), ...sources(join(root, 'identity')), ...sources(sharedEmail)]) {
         const source = readFileSync(file, 'utf8');
-        expect({ file: rel(file), found: /SMTP_|smtp:\/\/|noreply@|from:\s*'|re_[A-Za-z0-9]{8,}/i.test(source) }).toEqual({ file: rel(file), found: false });
+        expect({ file: fromSrc(file), found: /SMTP_|smtp:\/\/|noreply@|from:\s*'|re_[A-Za-z0-9]{8,}/i.test(source) }).toEqual({ file: fromSrc(file), found: false });
       }
-      expect(sources(join(root, 'notifications')).filter((f) => /'RESEND_(API_KEY|FROM_EMAIL)'/.test(readFileSync(f, 'utf8'))).map(rel)).toEqual([
-        'notifications/infrastructure/email/resend.config.ts',
+      expect([...sources(root), ...sources(sharedEmail)].filter((f) => /'RESEND_(API_KEY|FROM_EMAIL)'/.test(readFileSync(f, 'utf8'))).map(fromSrc)).toEqual([
+        'shared/email/resend.config.ts',
       ]);
     });
   });

@@ -4,9 +4,10 @@ import { ApiException } from '../../../../shared/errors/api-exception';
 import { ErrorCode } from '../../../../shared/errors/error-codes';
 import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { OtpPurpose } from '../../domain/enums';
+import { IdentityErrors } from '../../domain/errors';
 import { IUserRepository, USER_REPOSITORY } from '../../domain/repositories/user.repository';
 import { normalizeIdentifier } from '../../domain/value-objects/identifier';
-import { INotificationPort, NOTIFICATION_PORT } from '../ports/notification.port';
+import { INotificationPort, NOTIFICATION_PORT, NotificationUndeliverableError } from '../ports/notification.port';
 import { IOtpService, OTP_SERVICE, OtpIssueOutcome } from '../ports/otp.service';
 
 export interface ForgotPasswordInput {
@@ -27,6 +28,15 @@ export interface ForgotPasswordOutput {
  * the resend cooldown, or the OTP store is unavailable — also gets the generic success. Nothing is
  * issued or sent in either case, so no reset can complete (fail closed); only the response is
  * uniform. An unavailable store is logged without the identifier.
+ *
+ * Delivery (Work 62):
+ * - A channel with no provider (SMS today; e-mail without Resend) fails with 503
+ *   `DEPENDENCY_UNAVAILABLE` for every request on that channel, checked before the account
+ *   lookup, so the answer is the same for known and unknown identifiers.
+ * - A send to a known account that the provider doesn't accept is logged without the identifier
+ *   and answered with the generic success. Reporting it would reveal that the account exists, and
+ *   it would be triggerable on demand where the provider refuses some recipients (e.g. Resend's
+ *   test mode). The user can ask again once the resend cooldown has passed.
  */
 @Injectable()
 export class ForgotPasswordCommand {
@@ -44,6 +54,10 @@ export class ForgotPasswordCommand {
     const identifier = normalizeIdentifier(input.identifier);
     if (!identifier) {
       return { challengeSent: true };
+    }
+
+    if (!this.notifications.canDeliver(identifier.channel)) {
+      throw IdentityErrors.deliveryUnavailable(identifier.channel, 'NOT_CONFIGURED');
     }
 
     const user = await this.users.findByIdentifier(identifier.value);
@@ -75,12 +89,17 @@ export class ForgotPasswordCommand {
     if (issued.status === 'COOLDOWN') {
       return { challengeSent: true };
     }
-    await this.notifications.send({
-      channel: identifier.channel,
-      to: identifier.value,
-      template: 'otp-reset',
-      data: { code: issued.code },
-    });
+    try {
+      await this.notifications.send({
+        channel: identifier.channel,
+        to: identifier.value,
+        template: 'otp-reset',
+        data: { code: issued.code },
+      });
+    } catch (err) {
+      if (!(err instanceof NotificationUndeliverableError)) throw err;
+      this.logger.warn(`Password reset code not delivered (${err.channel}, ${err.reason}).`);
+    }
 
     return { challengeSent: true };
   }

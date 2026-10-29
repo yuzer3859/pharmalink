@@ -12,6 +12,7 @@ import {
   ROLE_ASSIGNMENT_REPOSITORY,
 } from '../../domain/repositories/role-assignment.repository';
 import { HASHER, IHasher } from '../ports/hasher.port';
+import { INotificationPort, NOTIFICATION_PORT } from '../ports/notification.port';
 import { IUnitOfWork, UNIT_OF_WORK } from '../ports/unit-of-work.port';
 
 export interface RegisterUserInput {
@@ -30,6 +31,12 @@ export interface RegisterUserOutput {
 /**
  * Registration use case (module-01 §3.1, §11.1, §13.1). This slice supports self-registration
  * as CUSTOMER only — provider/staff onboarding (invited/verified) is a later slice.
+ *
+ * Verification channel (Work 62): e-mail whenever an address is given, even with a phone number,
+ * because e-mail is the channel that can deliver today. The channel must be deliverable before
+ * any account is created, so a registration never leaves a pending account whose code can't
+ * arrive: phone-only is refused while SMS has no provider, and e-mail is refused while Resend is
+ * not configured. When SMS is approved, `INotificationPort.canDeliver('SMS')` turns phone-only on.
  */
 @Injectable()
 export class RegisterUserCommand {
@@ -41,6 +48,7 @@ export class RegisterUserCommand {
     @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
     @Inject(ROLE_ASSIGNMENT_REPOSITORY) private readonly roleAssignments: IRoleAssignmentRepository,
     private readonly outbox: OutboxService,
+    @Inject(NOTIFICATION_PORT) private readonly notifications: INotificationPort,
   ) {}
 
   async execute(input: RegisterUserInput): Promise<RegisterUserOutput> {
@@ -53,6 +61,13 @@ export class RegisterUserCommand {
     const phone = input.phone ? PhoneNumber.create(input.phone) : null;
     const email = input.email ? Email.create(input.email) : null;
     this.passwordPolicy.assert(input.password);
+
+    const channel: 'SMS' | 'EMAIL' = email ? 'EMAIL' : 'SMS';
+    if (!this.notifications.canDeliver(channel)) {
+      throw channel === 'SMS'
+        ? IdentityErrors.emailRequiredForRegistration()
+        : IdentityErrors.deliveryUnavailable('EMAIL', 'NOT_CONFIGURED');
+    }
 
     if (phone && (await this.users.findByPhone(phone.value))) {
       throw IdentityErrors.duplicateIdentifier({ field: 'phone' });
@@ -92,8 +107,7 @@ export class RegisterUserCommand {
       return created;
     });
 
-    const channel: 'SMS' | 'EMAIL' = phone ? 'SMS' : 'EMAIL';
-    const target = phone ? phone.masked() : (email as Email).masked();
+    const target = email ? email.masked() : (phone as PhoneNumber).masked();
 
     return { userId: user.id, status: user.status, verification: { channel, target } };
   }

@@ -83,7 +83,7 @@ It uses the dedicated Compose project **`pharmalink-staging-rehearsal`** and the
    - `redis-cli ping` returns `PONG`;
    - inside the backend container, `OTP_STORE` is `redis`, and `OTP_HASH_SECRET` (at least 32 characters) and `REDIS_URL` are set. Only the store name and yes/no answers leave the container;
    - the backend log has `Redis connected.` and `OTP challenges are stored in Redis (OTP_STORE=redis).`, and no in-memory OTP warning;
-   - one `POST /auth/resend-otp` for a synthetic `.invalid` address adds exactly two OTP keys (challenge and cooldown) to the stack's Redis, counted inside the Redis container. An immediate second request gets `429 RATE_LIMITED` from the cooldown.
+   - without an e-mail provider (no `RESEND_*` in the env file), `POST /auth/resend-otp` for a synthetic `.invalid` address and for a phone number both get `503 DEPENDENCY_UNAVAILABLE`, and the OTP key count in the stack's Redis doesn't change. That is Work 62's truthful delivery: nothing is issued when nothing can be sent. Keys are counted inside the Redis container. With Resend configured, this check is skipped so that no undeliverable address is mailed; use the e-mail OTP smoke test below instead.
 10. Runs the OTP smoke test in the `tools` image (below).
 11. Runs `npx prisma migrate deploy` again and fails unless it reports `No pending migrations to apply`.
 
@@ -121,6 +121,34 @@ Using a synthetic address under `.invalid` with a random suffix, it checks:
 
 It does **not** run `ops/predeploy/predeploy-readonly-checks.v2.1.sql`. That script reviews existing data before an upgrade; a clean install has no data to review (see below).
 
+### E-mail OTP smoke test (manual, sends real e-mail)
+
+Run this only with your own Resend account and your own inbox; never use a customer address. It checks the full registration journey by e-mail against a `--keep` stack. Without credentials, skip it: nothing else in this README sends e-mail.
+
+1. Add both settings to `backend/.env.staging` (gitignored):
+   - `RESEND_API_KEY=re_…` — a key with sending access;
+   - `RESEND_FROM_EMAIL=PharmaLink <otp@your-verified-domain>`.
+
+   With Resend's shared test sender (`onboarding@resend.dev`), only your own Resend account address receives mail.
+2. Run the rehearsal with `--keep`. Step 1 reports `e-mail provider (Resend): configured`.
+3. Register with your own address, with nothing echoed to the terminal but the response:
+
+   ```bash
+   curl -s -X POST http://127.0.0.1:3000/auth/register -H 'content-type: application/json' -d '{"email":"you@your-inbox","password":"<a strong password>"}'
+   ```
+
+   Expect `201` with `verification.channel: "EMAIL"`. The code arrives at your inbox ("Your PharmaLink verification code"). Read it there; it is never in the logs or the response.
+4. Verify:
+
+   ```bash
+   curl -s -X POST http://127.0.0.1:3000/auth/verify-otp -H 'content-type: application/json' -d '{"identifier":"you@your-inbox","code":"<code from the e-mail>","purpose":"REGISTER"}'
+   ```
+
+   Expect `201` with `verified: true`.
+5. Remove the stack with the `down` command printed by `--keep`.
+
+If a request returns `503 DEPENDENCY_UNAVAILABLE` with `reason: FAILED`, Resend refused the message. The backend log names the template and Resend's result code only, e.g. `result=NOT_CONFIGURED`: a key without sending access, an unverified sender domain, or a recipient that Resend's test sender doesn't allow.
+
 ### What it creates and removes
 
 Everything belongs to Compose project `pharmalink-staging-rehearsal`: its containers, its network, its `pgdata` volume, and the two images built for it. With `--keep`, the stack stays up for inspection and the script prints the command to remove it. Without `--keep`, the script ends (on success or failure) with:
@@ -145,12 +173,15 @@ This uses the project name `pharmalink-staging` from the Compose file, separate 
 
 ## Logs and troubleshooting
 
-- **Logs:** `docker compose -f compose.staging.yml --env-file backend/.env.staging logs -f backend` (add `-p pharmalink-staging-rehearsal` for a `--keep` rehearsal). OTP codes are not written to these logs (since Work 60), and no SMS is sent, so a synthetic user cannot complete OTP verification over HTTP against this stack.
+- **Logs:** `docker compose -f compose.staging.yml --env-file backend/.env.staging logs -f backend` (add `-p pharmalink-staging-rehearsal` for a `--keep` rehearsal). OTP codes are never written to these logs (since Work 60). They arrive only by e-mail, and only when Resend is configured (Work 62).
+- **`RESEND_API_KEY and RESEND_FROM_EMAIL must be set together`:** set both or neither. With neither, the stack runs, but every OTP request gets `503`.
+- **OTP requests return `503` with `details.channel: "EMAIL"`:** with `reason: NOT_CONFIGURED`, Resend isn't configured; with `reason: FAILED`, Resend didn't accept the message (see the backend log's `result=…` code). No code was delivered in either case. After a `FAILED`, wait `details.retryAfterSeconds` before asking again.
+- **OTP requests return `503` with `details.channel: "SMS"`, or registration returns `SMS_UNAVAILABLE`:** SMS has no provider; use an e-mail address.
 - **`required variable OTP_HASH_SECRET is missing a value`:** Compose didn't get the env file for interpolation. Pass `--env-file backend/.env.staging`, and make sure the file has the variable.
 - **`OTP_HASH_SECRET must be at least 32 characters`, `looks like a placeholder` or `must be a dedicated secret`:** regenerate it with the command in `backend/.env.example`.
   - Don't print the env file, or run `docker compose config` without `--quiet`, to debug this: both show every secret.
   - To check what the backend sees without revealing the value: `docker compose … exec -T backend node -e "console.log(process.env.OTP_STORE, (process.env.OTP_HASH_SECRET || '').length)"`.
-- **OTP requests return `503 DEPENDENCY_UNAVAILABLE`:** the backend can't reach Redis. Check `docker compose … ps redis` and `docker compose … exec -T redis redis-cli ping`, and look for `Redis connected.` in the backend log. The store never falls back to memory.
+- **OTP requests return `503 DEPENDENCY_UNAVAILABLE` without a `details.channel`:** the backend can't reach Redis. Check `docker compose … ps redis` and `docker compose … exec -T redis redis-cli ping`, and look for `Redis connected.` in the backend log. The store never falls back to memory.
 - **The smoke test fails at check 1:** the `tools` service isn't getting `OTP_STORE=redis` or `REDIS_URL`. Check that `compose.staging.yml` wasn't changed, and that you ran the test with the same `-p`, `-f` and `--env-file` as the stack.
 - **`Invalid environment configuration`:** a required variable is missing or invalid; compare with `backend/.env.example` and `backend/src/shared/config/env.validation.ts`.
 - **`set POSTGRES_PASSWORD in backend/.env.staging`:** the env file is missing or not passed with `--env-file`.
@@ -194,7 +225,7 @@ Fayda is not the only one. These development stand-ins have no production guard 
 ## What this does not verify
 
 - Production-mode (`NODE_ENV=production`) startup: blocked by the Fayda guard above.
-- Real integrations: e-mail (Resend), push (FCM), SMS, payments, identity verification, routing. The OTP smoke test proves storage and verification, not delivery: users still can't receive codes.
+- Real integrations: push (FCM), SMS, payments, identity verification, routing. E-mail (Resend) is exercised only if you run the manual e-mail OTP smoke test with your own credentials. The OTP smoke test proves storage and verification, not delivery.
 - Production Redis: authentication, TLS, persistence, replication, backup and recovery. This stack's Redis has none of them.
 - Hosting: HTTPS, reverse proxy, private access, multiple instances, resource limits.
 - Backups, restore, monitoring and alerting.
@@ -207,6 +238,24 @@ The first rehearsal runs exposed two application defects. Both were fixed in a s
 
 1. `GET /health/live` and `GET /health/ready` were not public, so the global `JwtAuthGuard` answered every probe with `401`. They are now `@Public()`.
 2. `PORT` from the environment always failed validation (untyped property). It is now typed, and `compose.staging.yml` sets `PORT: "3000"`.
+
+## Rehearsal results with e-mail OTP delivery (Work 62: 2026-10-29, local Docker 29.7.2, Compose v5.3.1)
+
+`node ops/staging/rehearse-clean-install.mjs` exited 0 with `REHEARSAL PASSED`, on the Work 61 env file with **no Resend credentials** (none were available). This run therefore exercises the "provider not configured" path. No real e-mail was sent, and the manual e-mail OTP smoke test was not run.
+
+| Step | Result |
+|---|---|
+| 1. Env file and Compose configuration | passed; `e-mail provider (Resend): not configured` |
+| 2–7. Clean stack, empty database, images, migrations, seed twice | passed: 0 tables before install; 33/33 migrations; 14 roles, 65 permissions, 130 grants, identical both times |
+| 8. Backend health, no token | passed: `/health/live` 200; `/health/ready` 200 (`database: up`); container `healthy` |
+| 9. Redis and OTP behaviour | passed: `PONG`; `OTP_STORE=redis`, secret and `REDIS_URL` set; Redis OTP store in the log. `POST /auth/resend-otp` for an e-mail address and for a phone number both returned 503 `DEPENDENCY_UNAVAILABLE`; OTP keys in Redis 0 → 0 (nothing issued) |
+| 10. OTP smoke test | passed: 7/7 |
+| 11. Second `migrate deploy` | passed: `No pending migrations to apply.` |
+| Cleanup | passed: 0 containers, volumes, networks and images of the project left; the 3 unrelated containers still running |
+
+No env-file secret appeared in the output.
+
+**A first attempt failed in step 9**, with `fetch failed (UND_ERR_SOCKET)` on the first POST. That was the rehearsal script, not the backend: `curl` and a fresh `fetch` against the kept stack both got the correct 503. The health-check `fetch` left a pooled keep-alive connection, which the server closed after its 5-second idle timeout while the Docker checks ran, and the POST reused it. The script now sends its POSTs on a fresh connection (`node:http` with no agent).
 
 ## Rehearsal results with Redis OTP storage (Work 61: 2026-10-28, local Docker 29.7.2, Compose v5.3.1)
 

@@ -54,7 +54,7 @@ describe('ResetPasswordCommand', () => {
     } as unknown as jest.Mocked<IUserRepository>;
     otp = { verify: jest.fn().mockResolvedValue(OtpVerifyResult.OK) } as unknown as jest.Mocked<IOtpService>;
     hasher = { hash: jest.fn().mockResolvedValue('new-hash') } as unknown as jest.Mocked<IHasher>;
-    notifications = { send: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<INotificationPort>;
+    notifications = { canDeliver: jest.fn().mockReturnValue(true), send: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<INotificationPort>;
     logoutAll = { execute: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<LogoutAllCommand>;
     permissionChange = { propagate: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<PermissionChangeService>;
     audit = { record: jest.fn().mockResolvedValue({ id: 'a', hash: 'h' }) } as unknown as jest.Mocked<AuditService>;

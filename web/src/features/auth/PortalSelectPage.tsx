@@ -57,6 +57,7 @@ export function PortalSelectPage() {
   const [busy, setBusy] = useState<PortalKey | null>(null);
   const [otpBusy, setOtpBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const enter = async (portal: PortalKey) => {
     if (!identifier.trim() || !password) {
@@ -67,6 +68,7 @@ export function PortalSelectPage() {
     setBusy(portal);
     setPendingOtp(null);
     setError(null);
+    setNotice(null);
     clearAuthError();
     try {
       await login({ identifier, password, portal });
@@ -91,6 +93,7 @@ export function PortalSelectPage() {
 
     setOtpBusy(true);
     setError(null);
+    setNotice(null);
     clearAuthError();
     try {
       await verifyOtp({ identifier: pendingOtp.identifier, code: otp.trim(), portal: pendingOtp.portal });
@@ -106,9 +109,12 @@ export function PortalSelectPage() {
     if (!pendingOtp) return;
     setOtpBusy(true);
     setError(null);
+    setNotice(null);
     try {
+      // Success here means the backend's e-mail provider accepted the message (Work 62); a phone
+      // number or an unavailable provider comes back as an error, never as "sent".
       await resendOtp(pendingOtp.identifier);
-      setError('A new verification code has been requested.');
+      setNotice('We e-mailed you a new verification code.');
     } catch (caught) {
       setError(getAuthErrorMessage(caught));
     } finally {
@@ -176,7 +182,13 @@ export function PortalSelectPage() {
               autoComplete="current-password"
             />
           </Stack>
-          {visibleError && <Alert severity={error === 'A new verification code has been requested.' ? 'info' : 'error'}>{visibleError}</Alert>}
+          {visibleError && <Alert severity="error">{visibleError}</Alert>}
+          {!visibleError && notice && <Alert severity="success">{notice}</Alert>}
+          {pendingOtp && (
+            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 640 }}>
+              Verification codes are sent by e-mail. SMS codes are not available yet.
+            </Typography>
+          )}
           {pendingOtp && (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ width: '100%', maxWidth: 640 }}>
               <TextField

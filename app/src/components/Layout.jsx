@@ -2,7 +2,7 @@ import { NavLink, Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home, Pill, Stethoscope, FlaskConical, Truck, Palette,
-  Search, Bell, Moon, Sun, ShoppingBag, Menu, X, ShieldCheck,
+  Search, Bell, Moon, Sun, ShoppingBag, Menu, X, ShieldAlert,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTheme } from '../lib/theme'
@@ -68,12 +68,12 @@ function Sidebar() {
         ))}
       </nav>
       <div className="m-3 rounded-2xl border border-border bg-surface-2 p-4">
-        <div className="flex items-center gap-2 text-brand-600 dark:text-brand-300">
-          <ShieldCheck className="h-5 w-5" />
-          <span className="text-caption font-semibold">Fayda ID verified</span>
+        <div className="flex items-center gap-2 text-muted">
+          <ShieldAlert className="h-5 w-5" />
+          <span className="text-caption font-semibold">Fayda verification: not yet connected</span>
         </div>
         <p className="mt-2 text-caption leading-relaxed text-muted">
-          Your medical data is encrypted and shared only with licensed providers.
+          Official Fayda ID verification is not connected in this demo. A verified e-mail address is not an identity check.
         </p>
       </div>
     </aside>

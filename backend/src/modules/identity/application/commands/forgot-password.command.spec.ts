@@ -3,7 +3,7 @@ import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { User } from '../../domain/entities/user.entity';
 import { AccountStatus, OtpPurpose, PreferredLanguage, PrimaryRole } from '../../domain/enums';
 import { IUserRepository } from '../../domain/repositories/user.repository';
-import { INotificationPort } from '../ports/notification.port';
+import { INotificationPort, NotificationUndeliverableError } from '../ports/notification.port';
 import { IOtpService } from '../ports/otp.service';
 import { IdentityErrors } from '../../domain/errors';
 import { ForgotPasswordCommand } from './forgot-password.command';
@@ -42,7 +42,7 @@ describe('ForgotPasswordCommand', () => {
     otp = {
       issue: jest.fn().mockResolvedValue({ status: 'ISSUED', code: '123456', cooldownSeconds: 60 }),
     } as unknown as jest.Mocked<IOtpService>;
-    notifications = { send: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<INotificationPort>;
+    notifications = { canDeliver: jest.fn().mockReturnValue(true), send: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<INotificationPort>;
     audit = { record: jest.fn().mockResolvedValue({ id: 'a', hash: 'h' }) } as unknown as jest.Mocked<AuditService>;
     logger = new AppLogger();
     jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
@@ -112,5 +112,41 @@ describe('ForgotPasswordCommand', () => {
     expect(entry.action).toBe('identity.password.reset_requested');
     expect(JSON.stringify(entry.context)).not.toContain('+251911234567');
     expect(JSON.stringify(entry.context)).toContain('****');
+  });
+
+  // Work 62.
+  it('refuses a channel with no provider for every identifier alike, before looking the account up', async () => {
+    notifications.canDeliver.mockReturnValue(false);
+    for (const identifier of ['0911234567', '0911999999']) {
+      await expect(command.execute({ identifier })).rejects.toMatchObject({
+        code: 'DEPENDENCY_UNAVAILABLE',
+        details: { channel: 'SMS', reason: 'NOT_CONFIGURED' },
+      });
+    }
+    expect(users.findByIdentifier).not.toHaveBeenCalled();
+    expect(otp.issue).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('keeps the generic success when the e-mail to a known account is not accepted, logging no identifier or code', async () => {
+    notifications.send.mockRejectedValue(new NotificationUndeliverableError('EMAIL', 'FAILED'));
+
+    expect(await command.execute({ identifier: 'Known@Example.com' })).toEqual({ challengeSent: true });
+    expect(notifications.send).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith('Password reset code not delivered (EMAIL, FAILED).');
+    expect(JSON.stringify((logger.warn as jest.Mock).mock.calls)).not.toMatch(/known@example\.com|123456/i);
+  });
+
+  it('answers unknown and undeliverable-known identifiers identically', async () => {
+    notifications.send.mockRejectedValue(new NotificationUndeliverableError('EMAIL', 'FAILED'));
+    const known = await command.execute({ identifier: 'known@example.com' });
+    users.findByIdentifier.mockResolvedValue(null);
+    const unknown = await command.execute({ identifier: 'nobody@example.com' });
+    expect(known).toEqual(unknown);
+  });
+
+  it('does not swallow unrelated send failures', async () => {
+    notifications.send.mockRejectedValue(new Error('template bug'));
+    await expect(command.execute({ identifier: 'known@example.com' })).rejects.toThrow('template bug');
   });
 });

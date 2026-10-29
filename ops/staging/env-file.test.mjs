@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   COMPOSE_CONTROLLED,
+  emailProviderState,
   fillEnvTemplate,
   generateEnvValues,
   generateOtpHashSecret,
@@ -105,4 +106,28 @@ test('the existing checks still apply', () => {
 
 test('parseEnvText handles comments, blanks, quotes and CRLF', () => {
   assert.deepEqual(parseEnvText('# c\r\n\r\nA=1\r\nB="two"\r\nC=\'three\'\r\n# OTP_STORE=redis\r\n'), { A: '1', B: 'two', C: 'three' });
+});
+
+test('the optional Resend sender: unset, complete, or rejected as half-configured, without echoing values (Work 62)', () => {
+  const base = generatedFile();
+  assert.deepEqual(emailProviderState(base), { configured: false, problem: null });
+  assert.deepEqual(validateEnvValues(base).problems, []);
+
+  const complete = { ...base, RESEND_API_KEY: 're_test_0123456789abcdef', RESEND_FROM_EMAIL: 'PharmaLink <otp@demo.example>' };
+  assert.deepEqual(emailProviderState(complete), { configured: true, problem: null });
+  assert.deepEqual(validateEnvValues(complete).problems, []);
+
+  for (const [override, expected] of [
+    [{ RESEND_API_KEY: 're_test_0123456789abcdef' }, /set together/],
+    [{ RESEND_FROM_EMAIL: 'otp@demo.example' }, /set together/],
+    [{ RESEND_API_KEY: 'REPLACE_ME', RESEND_FROM_EMAIL: 'otp@demo.example' }, /placeholder/],
+    [{ RESEND_API_KEY: 're_test_0123456789abcdef', RESEND_FROM_EMAIL: 'PharmaLink' }, /sender address/],
+  ]) {
+    const env = { ...base, ...override };
+    const { problems } = validateEnvValues(env);
+    assert.equal(problems.length, 1, JSON.stringify(problems));
+    assert.match(problems[0], expected);
+    assert.ok(!problems[0].includes('re_test_0123456789abcdef'));
+    assert.equal(emailProviderState(env).configured, false);
+  }
 });

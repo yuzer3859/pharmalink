@@ -9,6 +9,7 @@ import { HASHER, IHasher } from '../ports/hasher.port';
 import { INotificationPort, NOTIFICATION_PORT } from '../ports/notification.port';
 import { IOtpService, OTP_SERVICE, OtpVerifyResult } from '../ports/otp.service';
 import { PermissionChangeService } from '../services/permission-change.service';
+import { sendSecurityNotice } from '../services/security-notice';
 import { LogoutAllCommand } from './logout.command';
 
 export interface ResetPasswordInput {
@@ -75,19 +76,14 @@ export class ResetPasswordCommand {
     await this.logoutAll.execute(user.id, 'PASSWORD_RESET');
     await this.permissionChange.propagate([user.id]);
 
-    await this.notifications.send({
-      channel: identifier.channel,
-      to: identifier.value,
-      template: 'security-password-reset',
-      data: { at: new Date().toISOString() },
-    });
+    const notice = await sendSecurityNotice(this.notifications, user, 'security-password-reset');
 
     await this.audit.record({
       actorUserId: user.id,
       action: 'identity.password.reset',
       resourceType: 'user',
       resourceId: user.id,
-      context: { identifier: identifier.masked },
+      context: { identifier: identifier.masked, notice },
       ip: input.ip ?? null,
     });
 

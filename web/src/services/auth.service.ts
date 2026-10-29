@@ -352,6 +352,14 @@ export function getAuthErrorMessage(error: unknown): string {
   if (error instanceof OtpRequiredError) return error.message;
   if (error instanceof ApiError) {
     if (error.code === 'NETWORK_ERROR') return 'The authentication service is unavailable. Please try again.';
+    const details = isRecord(error.details) ? error.details : {};
+    const retryAfter = typeof details.retryAfterSeconds === 'number' ? details.retryAfterSeconds : null;
+    if (error.code === 'RATE_LIMITED' && retryAfter !== null) {
+      return `A code was sent recently. Please wait ${retryAfter} seconds before requesting another.`;
+    }
+    if (error.code === 'DEPENDENCY_UNAVAILABLE' && retryAfter !== null) {
+      return `${error.message} You can request a new code in ${retryAfter} seconds.`;
+    }
     return error.message;
   }
   if (error instanceof Error) return error.message;
