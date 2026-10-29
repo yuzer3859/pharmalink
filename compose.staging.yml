@@ -3,8 +3,9 @@
 #   docker compose -f compose.staging.yml --env-file backend/.env.staging up -d --build
 #
 # PostgreSQL and Redis are reachable only on the stack's private network; the backend is
-# published on 127.0.0.1 only. One backend instance (in-memory OTP, proof-of-delivery storage
-# and event bus make more than one unsafe).
+# published on 127.0.0.1 only. OTP challenges are kept in this stack's Redis (OTP_STORE=redis).
+# One backend instance: in-memory proof-of-delivery storage and the in-process event bus make
+# more than one unsafe.
 name: pharmalink-staging
 
 services:
@@ -25,7 +26,9 @@ services:
 
   redis:
     image: redis:7
-    # Hot cache only, never a system of record: no persistence.
+    # Disposable: no persistence. It holds caches and, for this local stack only, live OTP
+    # challenges, which a restart drops (users request a new code). Not a production Redis: no
+    # auth, TLS, persistence or replication (backend/docs/otp-storage.md).
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -49,6 +52,11 @@ services:
       # This stack does NOT verify production-mode startup (ops/staging/README.md, "Fayda decision").
       NODE_ENV: development
       PORT: "3000"
+      # OTP challenges in this stack's Redis (RedisOtpService), never the in-memory store. The HMAC
+      # key comes from the env file through Compose interpolation (`--env-file`), so a missing one
+      # stops `docker compose` before anything starts.
+      OTP_STORE: redis
+      OTP_HASH_SECRET: ${OTP_HASH_SECRET:?set OTP_HASH_SECRET in backend/.env.staging}
     ports:
       - "127.0.0.1:${BACKEND_HOST_PORT:-3000}:3000"
     depends_on:
@@ -64,18 +72,30 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  # One-off tooling (migrations, seed). Never started by `up`; run explicitly:
+  # One-off tooling (migrations, seed, OTP smoke test). Never started by `up`; run explicitly:
   #   docker compose -f compose.staging.yml --env-file backend/.env.staging run --rm tools npx prisma migrate deploy
   #   docker compose -f compose.staging.yml --env-file backend/.env.staging run --rm tools npm run prisma:seed
+  #   docker compose -f compose.staging.yml --env-file backend/.env.staging run --rm tools npx ts-node test/staging/otp-store.smoke.ts
+  # Same env file and the same stack-only overrides as the backend: the smoke test validates the
+  # backend's configuration and reaches this stack's Redis, nothing else.
   tools:
     profiles: ["tools"]
     build:
       context: ./backend
       target: tools
+    env_file:
+      - path: ./backend/.env.staging
+        required: true
     environment:
       DATABASE_URL: postgresql://pharmalink:${POSTGRES_PASSWORD}@postgres:5432/pharmalink_staging?schema=public
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      OTP_STORE: redis
+      OTP_HASH_SECRET: ${OTP_HASH_SECRET:?set OTP_HASH_SECRET in backend/.env.staging}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:

@@ -59,8 +59,11 @@ describe('OTP store wiring (DI)', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('production selects the Redis store', async () => {
+    const announced = jest.spyOn(AppLogger.prototype, 'log').mockImplementation(() => undefined);
     const moduleRef = await compile({ NODE_ENV: 'production', IDENTITY_VERIFICATION_PROVIDER: 'fayda', REDIS_URL: REDIS, OTP_HASH_SECRET: SECRET });
     expect(moduleRef.get(OTP_SERVICE)).toBeInstanceOf(RedisOtpService);
+    expect(announced).toHaveBeenCalledWith('OTP challenges are stored in Redis (OTP_STORE=redis).');
+    expect(JSON.stringify(announced.mock.calls)).not.toContain(SECRET);
   });
 
   it('production never selects the in-memory store, even when validation is bypassed', async () => {
