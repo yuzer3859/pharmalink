@@ -63,6 +63,13 @@ import {
   VERIFICATION_REPOSITORY,
 } from './domain/repositories/verification.repository';
 import { ROLE_ASSIGNMENT_REPOSITORY } from './domain/repositories/role-assignment.repository';
+import { PLATFORM_BOOTSTRAP_REPOSITORY } from './domain/repositories/platform-bootstrap.repository';
+import { ORGANIZATION_REPOSITORY } from './domain/repositories/organization.repository';
+import { PrismaPlatformBootstrapRepository } from './infrastructure/persistence/prisma-platform-bootstrap.repository';
+import { PrismaOrganizationRepository } from './infrastructure/persistence/prisma-organization.repository';
+import { BootstrapSuperAdminCommand } from './application/commands/bootstrap-super-admin.command';
+import { ApplyPharmacyOrganizationCommand } from './application/commands/apply-pharmacy-organization.command';
+import { OrganizationsController } from './interface/controllers/organizations.controller';
 import { IdentityNotificationAdapter } from './infrastructure/messaging/identity-notification.adapter';
 import { otpProviders } from './infrastructure/otp/otp.providers';
 import {
@@ -112,6 +119,7 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     AdminUsersController,
     VerificationController,
     AdminVerificationController,
+    OrganizationsController,
   ],
   providers: [
     // Repositories
@@ -121,6 +129,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     { provide: DEVICE_REPOSITORY, useClass: PrismaDeviceRepository },
     { provide: LOGIN_HISTORY_REPOSITORY, useClass: PrismaLoginHistoryRepository },
     { provide: ROLE_ASSIGNMENT_REPOSITORY, useClass: PrismaRoleAssignmentRepository },
+    // Work 65: one-time first-Super-Admin bootstrap and pharmacy organisation applications.
+    { provide: PLATFORM_BOOTSTRAP_REPOSITORY, useClass: PrismaPlatformBootstrapRepository },
+    { provide: ORGANIZATION_REPOSITORY, useClass: PrismaOrganizationRepository },
     { provide: RBAC_REPOSITORY, useClass: PrismaRbacRepository },
     { provide: VERIFICATION_REPOSITORY, useClass: PrismaVerificationRepository },
     { provide: CONSENT_REPOSITORY, useClass: PrismaConsentRepository },
@@ -148,6 +159,8 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     RegisterUserCommand,
     VerifyOtpCommand,
     ResendOtpCommand,
+    BootstrapSuperAdminCommand,
+    ApplyPharmacyOrganizationCommand,
     LoginUserCommand,
     RefreshTokenCommand,
     LogoutCommand,

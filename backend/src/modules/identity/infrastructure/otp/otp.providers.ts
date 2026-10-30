@@ -4,6 +4,7 @@ import { OTP_HASH_SECRET_ENV, OTP_STORE_ENV, resolveOtpStore } from '../../../..
 import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { RedisService } from '../../../../shared/redis/redis.service';
 import { IOtpService, OTP_SERVICE } from '../../application/ports/otp.service';
+import { OTP_STORE_PROBE } from '../../application/ports/otp-store-probe.port';
 import { InMemoryOtpService } from './in-memory-otp.service';
 import { RedisOtpService } from './redis-otp.service';
 
@@ -43,4 +44,6 @@ export const otpProviders: Provider[] = [
     useFactory: selectOtpService,
     inject: [AppConfigService, RedisService, AppLogger],
   },
+  // The same instance, seen through its readiness probe (Work 65).
+  { provide: OTP_STORE_PROBE, useExisting: OTP_SERVICE },
 ];
