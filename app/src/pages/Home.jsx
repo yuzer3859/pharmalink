@@ -1,12 +1,15 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  Search, Upload, Pill, Stethoscope, FlaskConical, HeartPulse, Baby, Sparkles,
-  MapPin, ArrowRight, ShieldCheck, Truck, Clock, ChevronRight,
+  Search, Upload, Pill, Stethoscope, FlaskConical, HeartPulse, Tags,
+  ArrowRight, ShieldCheck, Truck, Clock, ChevronRight, RefreshCw,
 } from 'lucide-react'
-import { Button, Card, Badge, Input, IconTile, Rating, Avatar, SectionHead } from '../components/ui'
-import { medicines, doctors } from '../data/mock'
-import { formatETB } from '../lib/utils'
+import { Button, Card, Badge, Input, IconTile, Rating, Avatar, SectionHead, Skeleton } from '../components/ui'
+import { doctors } from '../data/mock'
+import { useCatalog } from '../catalog/catalogService'
+import { categoryName } from '../catalog/format'
+import { ProductCard } from './Medicines'
 
 const stagger = { show: { transition: { staggerChildren: 0.06 } } }
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
@@ -15,19 +18,44 @@ const quickActions = [
   { label: 'Order medicine', desc: 'From verified pharmacies', icon: Pill, to: '/medicines', tone: 'brand' },
   { label: 'Book a doctor', desc: 'By specialty & location', icon: Stethoscope, to: '/doctors', tone: 'accent' },
   { label: 'Lab & imaging', desc: 'Tests, scans & screening', icon: FlaskConical, to: '/diagnostics', tone: 'violet' },
-  { label: 'Upload Rx', desc: 'We match a pharmacy', icon: Upload, to: '/medicines', tone: 'success' },
+  { label: 'Upload Rx', desc: 'Coming soon', icon: Upload, to: '/medicines', tone: 'success' },
 ]
 
-const cats = [
-  { label: 'Prescription', icon: Pill },
-  { label: 'Wellness', icon: HeartPulse },
-  { label: 'Mother & Baby', icon: Baby },
-  { label: 'Personal care', icon: Sparkles },
-  { label: 'Devices', icon: Stethoscope },
-  { label: 'Lab tests', icon: FlaskConical },
-]
+const FEATURED_COUNT = 4
+
+/** Featured products and top-level categories, straight from the Catalog API (no fallback data). */
+function useHomeCatalog(attempt) {
+  const catalog = useCatalog()
+  const [products, setProducts] = useState({ status: 'loading', items: [] })
+  const [categories, setCategories] = useState({ status: 'loading', items: [] })
+  useEffect(() => {
+    const controller = new AbortController()
+    setProducts({ status: 'loading', items: [] })
+    setCategories({ status: 'loading', items: [] })
+    catalog
+      .searchProducts({ sort: 'newest', size: FEATURED_COUNT }, { signal: controller.signal })
+      .then((data) => setProducts({ status: 'ready', items: data.items }))
+      .catch((error) => error?.code !== 'ABORTED' && setProducts({ status: 'error', items: [] }))
+    catalog
+      .getCategoryTree({ signal: controller.signal })
+      .then((tree) => setCategories({ status: 'ready', items: tree.filter((c) => c.isActive !== false) }))
+      .catch((error) => error?.code !== 'ABORTED' && setCategories({ status: 'error', items: [] }))
+    return () => controller.abort()
+  }, [catalog, attempt])
+  return { products, categories }
+}
 
 export default function Home() {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const [attempt, setAttempt] = useState(0)
+  const { products, categories } = useHomeCatalog(attempt)
+  const retry = (
+    <Button variant="secondary" size="sm" onClick={() => setAttempt((n) => n + 1)}>
+      <RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again
+    </Button>
+  )
+
   return (
     <div className="space-y-10">
       {/* Hero */}
@@ -48,15 +76,29 @@ export default function Home() {
             Find medicines, book trusted doctors, and schedule lab tests — all in one secure place.
           </p>
 
-          <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-white/95 p-3 shadow-lg sm:flex-row dark:bg-surface">
+          <form
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const q = query.trim()
+              navigate(q ? `/medicines?${new URLSearchParams({ q })}` : '/medicines')
+            }}
+            className="mt-6 flex flex-col gap-3 rounded-2xl bg-white/95 p-3 shadow-lg sm:flex-row dark:bg-surface"
+          >
             <div className="flex flex-1 items-center gap-2">
-              <Input icon={Search} placeholder="Search medicine, doctor, or test…" className="border-transparent bg-transparent" />
+              <Input
+                icon={Search}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                maxLength={100}
+                placeholder="Search medicines and health products…"
+                aria-label="Search medicines and health products"
+                className="border-transparent bg-transparent"
+              />
             </div>
-            <div className="hidden items-center gap-1.5 border-l border-border pl-3 pr-1 text-caption font-semibold text-muted sm:flex">
-              <MapPin className="h-4 w-4 text-brand-600" /> Bole, Addis Ababa
-            </div>
-            <Button as={Link} to="/medicines" size="md" className="sm:px-6">Search</Button>
-          </div>
+            <Button type="submit" size="md" className="sm:px-6">Search</Button>
+          </form>
 
           <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-caption text-white/80">
             <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Licensed pharmacies only</span>
@@ -94,63 +136,83 @@ export default function Home() {
             <Upload className="h-7 w-7" />
           </div>
           <div className="flex-1">
-            <h3 className="text-h3 text-fg">Have a prescription? Skip the search.</h3>
+            <h3 className="text-h3 text-fg">Have a prescription? Upload is coming soon.</h3>
             <p className="mt-1 text-body text-muted">
-              Upload a photo and our system securely matches it to the nearest licensed pharmacy with stock.
+              Prescription upload and pharmacist review are not available yet. You can already browse the catalog.
             </p>
           </div>
           <Button as={Link} to="/medicines" variant="soft" size="md" className="shrink-0">
-            <Upload className="h-4 w-4" /> Upload prescription
+            <Pill className="h-4 w-4" /> Browse medicines
           </Button>
         </Card>
       </section>
 
       {/* Categories */}
       <section>
-        <SectionHead title="Shop by category" subtitle="Everything your family needs, in one place." />
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-          {cats.map((c) => (
-            <Card key={c.label} interactive className="flex flex-col items-center gap-2.5 p-4 text-center">
-              <IconTile icon={c.icon} size={44} />
-              <span className="text-caption font-semibold text-fg">{c.label}</span>
-            </Card>
-          ))}
-        </div>
+        <SectionHead title="Shop by category" subtitle="Categories from the PharmaLink catalog." />
+        {categories.status === 'loading' && (
+          <div role="status" className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            <span className="sr-only">Loading categories…</span>
+            {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+          </div>
+        )}
+        {categories.status === 'error' && (
+          <Card role="alert" className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <p className="text-body text-muted">Categories could not be loaded.</p>
+            {retry}
+          </Card>
+        )}
+        {categories.status === 'ready' && categories.items.length === 0 && (
+          <Card className="p-5"><p className="text-body text-muted">No categories have been set up in the catalog yet.</p></Card>
+        )}
+        {categories.status === 'ready' && categories.items.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            {categories.items.slice(0, 6).map((c) => (
+              <Card key={c.id} interactive>
+                <Link to={`/medicines?category=${c.id}`} className="flex h-full flex-col items-center gap-2.5 rounded-2xl p-4 text-center">
+                  <IconTile icon={Tags} size={44} />
+                  <span className="text-caption font-semibold text-fg">{categoryName(c)}</span>
+                </Link>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Featured medicines */}
       <section>
         <SectionHead
-          title="Popular right now"
-          subtitle="Frequently ordered near you"
+          title="New in the catalog"
+          subtitle="Recently added medicines and health products"
           action={<Button as={Link} to="/medicines" variant="ghost" size="sm">View all <ChevronRight className="h-4 w-4" /></Button>}
         />
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          {medicines.slice(0, 4).map((m) => (
-            <Card key={m.id} interactive className="flex flex-col p-4">
-              <div className="mb-3 flex items-start justify-between">
-                <div className="grid h-16 w-16 place-items-center rounded-2xl bg-surface-2 text-brand-500">
-                  <Pill className="h-7 w-7" />
-                </div>
-                {m.rx ? <Badge tone="warning">Rx</Badge> : <Badge tone="success">OTC</Badge>}
-              </div>
-              <p className="line-clamp-1 text-body-lg font-semibold text-fg">{m.name}</p>
-              <p className="text-caption text-muted">{m.form}</p>
-              <div className="mt-1"><Rating value={m.rating} count={m.reviews} /></div>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="text-h3 font-bold text-fg">{formatETB(m.price)}</span>
-                <Button size="sm">Add</Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+        {products.status === 'loading' && (
+          <div role="status" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            <span className="sr-only">Loading products…</span>
+            {Array.from({ length: FEATURED_COUNT }, (_, i) => <Skeleton key={i} className="h-44 rounded-2xl" />)}
+          </div>
+        )}
+        {products.status === 'error' && (
+          <Card role="alert" className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <p className="text-body text-muted">Products could not be loaded from the catalog.</p>
+            {retry}
+          </Card>
+        )}
+        {products.status === 'ready' && products.items.length === 0 && (
+          <Card className="p-5"><p className="text-body text-muted">The catalog has no products yet.</p></Card>
+        )}
+        {products.status === 'ready' && products.items.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {products.items.map((p) => <ProductCard key={p.id} product={p} from="/medicines" />)}
+          </div>
+        )}
       </section>
 
       {/* Top doctors */}
       <section>
         <SectionHead
-          title="Top-rated doctors"
-          subtitle="Verified specialists accepting appointments"
+          title="Doctors"
+          subtitle="Sample profiles: doctor booking is a design prototype and not connected yet."
           action={<Button as={Link} to="/doctors" variant="ghost" size="sm">View all <ChevronRight className="h-4 w-4" /></Button>}
         />
         <div className="grid gap-3 sm:gap-4 md:grid-cols-2">

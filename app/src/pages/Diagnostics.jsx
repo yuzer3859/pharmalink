@@ -22,6 +22,9 @@ export default function Diagnostics() {
       <div>
         <h1 className="font-display text-h1 text-fg">Lab tests & diagnostics</h1>
         <p className="text-body text-muted">Book tests and scans at verified centers — or request home sample collection.</p>
+        <p role="note" className="mt-2 rounded-xl border border-border bg-surface-2 px-4 py-3 text-caption text-muted">
+          Design prototype: these tests and centers are sample data and booking is not connected yet.
+        </p>
       </div>
 
       <Card className="flex items-center gap-4 p-4 sm:p-5">

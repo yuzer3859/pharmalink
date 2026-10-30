@@ -31,8 +31,9 @@ Customer authentication needs the backend running; the marketplace screens work 
 
 | Route | Screen |
 | --- | --- |
-| `/` | Home — hero search, quick actions, categories, featured products & doctors |
-| `/medicines` | Medicine catalog — filters, Rx upload, live search & sort |
+| `/` | Home — catalog search, live categories and newest products (backend); sample doctors |
+| `/medicines` | Live catalog: search, type, Rx/OTC, category, sort, pagination (backend) |
+| `/medicines/:id` | Product detail and pharmacy availability (backend) |
 | `/doctors` | Doctor directory — specialty filters + appointment booking flow |
 | `/diagnostics` | Lab tests, imaging & health screening packages |
 | `/tracking` | Live order tracking (animated map + delivery timeline) |
@@ -55,8 +56,73 @@ Customer authentication needs the backend running; the marketplace screens work 
 - **Motion:** Spring-based sheets, staggered reveals, animated tracking.
 - **Responsive:** Sidebar → mobile bottom-nav; fluid grids across breakpoints.
 
-> Marketplace data is mocked in `src/data/mock.js`. Medicines, doctors, diagnostics, tracking and
-> checkout are **simulated**: checkout creates no order and takes no payment, and says so on screen.
+> Medicines come from the backend (Work 64, below). Doctors, diagnostics, tracking and checkout are
+> still **simulated** with `src/data/mock.js`: checkout creates no order and takes no payment, and
+> the doctor and diagnostics pages say they are sample data. Prescription upload is "coming soon".
+
+## Medicine catalog and availability (Work 64)
+
+The medicine pages read the backend's public Catalog (module 03) and Inventory (module 04)
+endpoints. No sign-in is needed and no token is sent. Nothing is filled in by the browser: no mock
+products, prices, ratings, stock, pharmacy names or locations.
+
+| Endpoint | Used for |
+|---|---|
+| `GET /catalog/products` | Listing, search and filters; the home page's newest products (`sort=newest&size=4`) |
+| `GET /catalog/categories` | Category filter (nested) and the home page's top-level categories |
+| `GET /catalog/products/:id` | Product detail |
+| `GET /availability/product/:id?limit=100` | Pharmacy availability on the detail page |
+
+### Search, filters and pagination
+
+- **Search** (`q`) matches product, brand and generic names (English and Amharic) on the server. It
+  is debounced (350 ms); a newer query aborts the older request, and only the latest response is
+  shown.
+- **Filters** are only those the backend supports: product type (`MEDICINE`, `HEALTH_PRODUCT`),
+  classification (`RX`, `OTC`) and category (a real category id). Categories are filtered by their
+  `appliesTo`. A category filter matches products assigned **directly** to that category, not to
+  its subcategories (that's how the backend works), and the page says so.
+- **Sort:** relevance (the backend currently orders it newest first), name A–Z, newest.
+- **Pagination:** 20 per page, using the backend's `meta.total`.
+- The prototype's "In stock", "Nearby", price and rating options are removed: the catalog has no
+  such data.
+- All of it lives in the URL (`/medicines?q=…&type=…&rx=…&category=…&sort=…&page=…`), so a product
+  page's "Back to medicines" returns to the same results. The header and home-page search boxes
+  open this page.
+
+### Product detail
+
+Shows what `ProductDetailView` returns: name (English, and Amharic when present), brand, generic
+name, dosage form, strength, pack size, Rx/OTC, controlled schedule, storage, warnings, description,
+categories and a deprecated notice. Catalog text is labelled as not medical advice. Unknown,
+draft and delisted products are "Product not found" (the backend returns 404); a malformed id is
+answered as not found without a request.
+
+### Availability and prices
+
+- `Product.price` is the **catalog reference price** (ETB minor units, may be null). It is shown only
+  as "Catalog reference price — platform reference only, not a pharmacy selling price".
+- **Selling prices** come only from Inventory listings (`AvailabilityItem.price` + `currency`).
+- The availability endpoint returns no pharmacy or branch names. Listings are therefore shown in
+  aggregate: the number of available listings ("100+" at the request limit) and the selling-price
+  range. Pharmacy, branch and listing ids are never displayed.
+- No listings: "No pharmacy listings are available for this product right now" and no price. A
+  failed request says availability couldn't be checked, which is not the same as out of stock.
+- Products with `onlineSaleProhibited` show "Not available for online sale"; availability is not
+  requested for them.
+- **No location is sent** (`lat`/`lng` are never passed), so no distance or "nearby" label is shown.
+  That waits for a customer address/location flow.
+- Amounts are integer minor units, formatted without floating-point arithmetic
+  (`formatMinorUnits` in `src/lib/utils.js`): `31050` ETB → `ETB 310.50`.
+- There is no "Add to cart" yet; cart and checkout integration is separate work.
+
+### Data needed for a demo
+
+The backend's `prisma/seed.ts` seeds roles and permissions only: a fresh database has **no
+products, categories or listings**, and the pages say so ("The catalog has no products yet.",
+"No categories have been set up…"). To demonstrate the feature, a local database needs ACTIVE
+catalog products (created and approved through the admin catalog flow), active categories assigned
+to them, and an eligible pharmacy branch with enabled listings that have sellable stock.
 
 ## Customer authentication (Work 63)
 
@@ -148,3 +214,13 @@ no backend, no real credentials, no e-mail.
   successful verification, login errors, the protected account route, signed-in and signed-out
   navigation, sign-out, session expiry, the generic forgot-password message, reset, and Fayda shown
   apart from e-mail verification.
+- `src/catalog/catalogService.test.js`: catalog query strings (only supported parameters), list,
+  categories, detail and availability requests, envelopes, errors, malformed responses, network
+  failures, cancellation, minor-unit formatting, availability aggregation, category flattening.
+- `src/catalog/catalogFlows.test.jsx`: listing, debounce, stale-response protection, filters,
+  categories, pagination, empty and error states with retry (no mock fallback), search context kept
+  across detail pages, product fields, Rx/OTC, warnings, sale-prohibited products, availability
+  (results, empty, failure), price labels, no pharmacy names or ids, and the home page.
+
+`src/test/setup.js` replaces the global `fetch` with one that always fails, so no test can reach a
+real server.

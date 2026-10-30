@@ -1,24 +1,5 @@
-// Mock data for the PharmaLink prototype.
-
-export const categories = [
-  { id: 'prescription', label: 'Prescription', icon: 'FileText' },
-  { id: 'otc', label: 'Over the counter', icon: 'Pill' },
-  { id: 'wellness', label: 'Wellness', icon: 'HeartPulse' },
-  { id: 'baby', label: 'Mother & Baby', icon: 'Baby' },
-  { id: 'devices', label: 'Devices', icon: 'Stethoscope' },
-  { id: 'skincare', label: 'Personal care', icon: 'Sparkles' },
-]
-
-export const medicines = [
-  { id: 'm1', name: 'Amoxicillin 500mg', brand: 'Cadila', form: 'Capsule · 21 caps', price: 240, rx: true, rating: 4.8, reviews: 312, stock: 'In stock', pharmacy: 'Kenema Pharmacy', distance: '1.2 km', tag: 'Antibiotic' },
-  { id: 'm2', name: 'Paracetamol 500mg', brand: 'APF', form: 'Tablet · 20 tabs', price: 60, rx: false, rating: 4.9, reviews: 1204, stock: 'In stock', pharmacy: 'Bole Pharma', distance: '0.8 km', tag: 'Pain relief' },
-  { id: 'm3', name: 'Vitamin D3 2000IU', brand: 'Nature Made', form: 'Softgel · 60 caps', price: 520, rx: false, rating: 4.7, reviews: 208, stock: 'Low stock', pharmacy: 'Gerji Health', distance: '2.4 km', tag: 'Supplement' },
-  { id: 'm4', name: 'Metformin 850mg', brand: 'Merck', form: 'Tablet · 30 tabs', price: 310, rx: true, rating: 4.6, reviews: 96, stock: 'In stock', pharmacy: 'Kenema Pharmacy', distance: '1.2 km', tag: 'Diabetes' },
-  { id: 'm5', name: 'Salbutamol Inhaler', brand: 'Ventolin', form: 'Inhaler · 200 doses', price: 480, rx: true, rating: 4.9, reviews: 154, stock: 'In stock', pharmacy: 'Meskel Pharma', distance: '3.1 km', tag: 'Respiratory' },
-  { id: 'm6', name: 'ORS Sachets', brand: 'WHO Formula', form: 'Powder · 10 sachets', price: 95, rx: false, rating: 4.8, reviews: 421, stock: 'In stock', pharmacy: 'Bole Pharma', distance: '0.8 km', tag: 'Hydration' },
-  { id: 'm7', name: 'Omeprazole 20mg', brand: 'AstraZeneca', form: 'Capsule · 14 caps', price: 180, rx: false, rating: 4.5, reviews: 88, stock: 'In stock', pharmacy: 'Gerji Health', distance: '2.4 km', tag: 'Digestive' },
-  { id: 'm8', name: 'Cetirizine 10mg', brand: 'Zyrtec', form: 'Tablet · 10 tabs', price: 75, rx: false, rating: 4.7, reviews: 260, stock: 'In stock', pharmacy: 'Meskel Pharma', distance: '3.1 km', tag: 'Allergy' },
-]
+// Mock data for the PharmaLink prototype's doctor, diagnostics, tracking and checkout screens.
+// Medicines and categories come from the backend Catalog API (Work 64), never from here.
 
 export const doctors = [
   { id: 'd1', name: 'Dr. Selamawit Bekele', specialty: 'Cardiologist', hospital: 'Nordic Medical Centre', experience: 12, fee: 900, rating: 4.9, reviews: 214, next: 'Today 3:30 PM', langs: ['Amharic', 'English'], verified: true },
