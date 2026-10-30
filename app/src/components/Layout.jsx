@@ -168,6 +168,32 @@ function AccountMenu() {
   )
 }
 
+/** Header search: goes to the live medicine catalog search. */
+function HeaderSearch() {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  return (
+    <form
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault()
+        const q = query.trim()
+        navigate(q ? `/medicines?${new URLSearchParams({ q })}` : '/medicines')
+      }}
+    >
+      <Input
+        icon={Search}
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        maxLength={100}
+        placeholder="Search medicines and health products…"
+        aria-label="Search medicines and health products"
+      />
+    </form>
+  )
+}
+
 function Topbar({ onMenu }) {
   const { theme, toggle } = useTheme()
   return (
@@ -183,7 +209,7 @@ function Topbar({ onMenu }) {
         <div className="lg:hidden"><Logo compact /></div>
 
         <div className="mx-auto hidden w-full max-w-xl md:block">
-          <Input icon={Search} placeholder="Search medicines, doctors, tests, pharmacies…" aria-label="Search" />
+          <HeaderSearch />
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">

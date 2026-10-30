@@ -16,7 +16,7 @@ export class ApiError extends Error {
 const isRecord = (value) => typeof value === 'object' && value !== null
 
 export function createApiClient({ baseUrl, fetcher = (...args) => fetch(...args) }) {
-  async function request(path, { method = 'GET', body, accessToken } = {}) {
+  async function request(path, { method = 'GET', body, accessToken, signal } = {}) {
     const headers = { Accept: 'application/json' }
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`
@@ -27,8 +27,11 @@ export function createApiClient({ baseUrl, fetcher = (...args) => fetch(...args)
         method,
         headers,
         body: body === undefined ? undefined : JSON.stringify(body),
+        signal,
       })
     } catch {
+      // A request the caller cancelled (a newer search replaced it) is not a network failure.
+      if (signal?.aborted) throw new ApiError(0, 'ABORTED', 'The request was cancelled.')
       throw new ApiError(0, 'NETWORK_ERROR', 'Unable to reach PharmaLink.')
     }
 

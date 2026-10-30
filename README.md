@@ -13,7 +13,7 @@ This repository holds the product and architecture documents, the NestJS backend
 | `bussiness analysis/` | Business analysis, requirements, market/domain research | Reference |
 | `architecture/` | 16 module design docs + consolidation docs (index, conventions, events, roadmap, decisions) | **Complete** |
 | `backend/` | NestJS backend, Prisma schema and committed migrations | 10 of 16 modules implemented; see `backend/README.md` |
-| `app/` | Customer-facing web prototype — React + Vite + Tailwind + framer-motion | Prototype; customer sign-up, e-mail verification, sign-in, password reset and account call the backend; the marketplace screens use mock data. See `app/README.md` |
+| `app/` | Customer-facing web prototype — React + Vite + Tailwind + framer-motion | Prototype; customer sign-up, e-mail verification, sign-in, password reset, account, the medicine catalog and pharmacy availability call the backend; doctors, diagnostics, tracking and checkout use mock data. See `app/README.md` |
 | `web/` | Pharmacy Portal + Admin/Super-Admin dashboards — React + Vite + MUI + react-query | Prototype; login calls the backend, other screens use mock data |
 | `ops/predeploy/` | Pre-deployment read-only data checks and operator runbook | Reviewed |
 | `qa/` | QA artifacts | Reference |

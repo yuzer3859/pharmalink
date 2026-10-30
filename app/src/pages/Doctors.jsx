@@ -116,6 +116,9 @@ export default function Doctors() {
       <div>
         <h1 className="font-display text-h1 text-fg">Find a doctor</h1>
         <p className="text-body text-muted">Verified specialists from participating hospitals & clinics.</p>
+        <p role="note" className="mt-2 rounded-xl border border-border bg-surface-2 px-4 py-3 text-caption text-muted">
+          Design prototype: these doctor profiles are sample data and booking is not connected yet.
+        </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
