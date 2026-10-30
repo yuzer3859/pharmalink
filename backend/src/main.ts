@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { AppConfigService } from './shared/config/app-config.service';
 import { AppLogger } from './shared/logging/app-logger.service';
+import { parseCorsOrigins } from './shared/http/cors-origins';
 import { applyHttpSecurity } from './shared/http/http-security';
 import { RateLimitStorage } from './shared/http/rate-limit.storage';
 
@@ -21,10 +22,8 @@ async function bootstrap(): Promise<void> {
   const port = config.port;
   // Trusted proxies and security headers (Work 59); must run before any route handles a request.
   applyHttpSecurity(app, config);
-  const allowedOrigins = (config.get<string>('WEB_ORIGIN') || 'http://localhost:5173')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  // Explicit origins only; unset means the local portal (5173) and customer app (5174).
+  const allowedOrigins = parseCorsOrigins(config.get<string>('WEB_ORIGIN'));
   app.enableCors({ origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins });
 
   await app.listen(port);
