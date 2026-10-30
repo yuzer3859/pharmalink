@@ -35,8 +35,6 @@ import { StaticNotificationChannelProviderRegistry } from './infrastructure/prov
 import { PushNotificationProvider } from './infrastructure/providers/push-notification.provider';
 import { SmsNotificationProvider } from './infrastructure/providers/sms-notification.provider';
 import { EmailNotificationProvider } from './infrastructure/providers/email-notification.provider';
-import { ResendEmailTransport } from './infrastructure/email/resend-email.transport';
-import { ResendConfig } from './infrastructure/email/resend.config';
 import { ProcessEmailDeliveryReportCommand } from './application/commands/process-email-delivery-report.command';
 import { DestinationSuppressionService } from './application/services/destination-suppression.service';
 import { DESTINATION_SUPPRESSION_REPOSITORY, EMAIL_WEBHOOK_REPOSITORY } from './domain/repositories/email-webhook.repository';
@@ -158,7 +156,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
  *
  * E-mail (Work 16): `EmailNotificationProvider` sends a plain-text e-mail — subject the rendered
  * title, body the rendered body — to the recipient's verified address from the same Module 01
- * port. The provider is Resend (Work 17): `EMAIL_TRANSPORT` is `ResendEmailTransport`, configured by
+ * port. The provider is Resend (Work 17): `EMAIL_TRANSPORT` is `ResendEmailTransport` (bound by the shared
+ * `EmailModule` since Work 62, which Module 01's OTP e-mail also uses), configured by
  * `RESEND_API_KEY` and `RESEND_FROM_EMAIL`; without both (or under NODE_ENV=test) it is not
  * configured, the e-mail provider is not registered, and EMAIL jobs wait `PENDING` as before.
  *
@@ -262,8 +261,8 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     // No SMS gateway is approved yet: never configured, sends nothing (see SMS_TRANSPORT).
     { provide: SMS_TRANSPORT, useClass: UnconfiguredSmsTransport },
     SmsNotificationProvider,
-    // Resend (Work 17): configured only when RESEND_API_KEY and RESEND_FROM_EMAIL are both set.
-    ResendConfig,
+    // Resend (Work 17): `ResendConfig` and `EMAIL_TRANSPORT` come from the global shared
+    // EmailModule (Work 62), configured only when RESEND_API_KEY and RESEND_FROM_EMAIL are both set.
     { provide: EMAIL_WEBHOOK_REPOSITORY, useClass: PrismaEmailWebhookRepository },
     PrismaDestinationSuppressionRepository,
     { provide: DESTINATION_SUPPRESSION_REPOSITORY, useExisting: PrismaDestinationSuppressionRepository },
@@ -283,7 +282,6 @@ import { NotificationEventsHandler } from './interface/events/notification-event
     DestinationSuppressionService,
     ProcessEmailDeliveryReportCommand,
     { provide: EMAIL_WEBHOOK_READER, useClass: ResendWebhookReader },
-    { provide: EMAIL_TRANSPORT, useClass: ResendEmailTransport },
     EmailNotificationProvider,
     // A channel's provider is bound only when its transport is configured; otherwise its jobs wait
     // PENDING, unread by the dispatcher.

@@ -279,7 +279,10 @@ describe('Resend webhooks and suppression (e2e)', () => {
     });
 
     it('the webhook secret is read only by ResendConfig; no Module 01 / 02 persistence; no raw SQL', () => {
-      expect(sources().filter((f) => /'RESEND_WEBHOOK_SECRET'/.test(readFileSync(f, 'utf8'))).map(rel)).toEqual(['infrastructure/email/resend.config.ts']);
+      // Work 62: ResendConfig moved to the shared e-mail module; Module 13 keeps a re-export only.
+      expect(sources().filter((f) => /'RESEND_WEBHOOK_SECRET'/.test(readFileSync(f, 'utf8'))).map(rel)).toEqual([]);
+      const shared = readdirSync(join(root, '..', '..', 'shared', 'email')).filter((f) => f.endsWith('.ts') && !f.endsWith('.spec.ts'));
+      expect(shared.filter((f) => /'RESEND_WEBHOOK_SECRET'/.test(readFileSync(join(root, '..', '..', 'shared', 'email', f), 'utf8')))).toEqual(['resend.config.ts']);
       for (const file of sources()) {
         const source = readFileSync(file, 'utf8');
         for (const forbidden of [/prisma\.(user|customerProfile|notificationPreference)\b/, /identity\/infrastructure\//, /\$queryRaw|\$executeRaw/]) {

@@ -32,6 +32,27 @@ describe('User entity', () => {
     expect(user.phoneVerifiedAt).not.toBeNull();
   });
 
+  // Work 62: e-mail is the registration channel whenever an address is given.
+  it('activates a pending customer on e-mail verification even when a phone is on file, leaving the phone unverified', () => {
+    const user = makeUser({ email: 'a@example.com' });
+    user.markEmailVerified();
+    expect(user.status).toBe(AccountStatus.ACTIVE);
+    expect(user.emailVerifiedAt).not.toBeNull();
+    expect(user.phoneVerifiedAt).toBeNull();
+  });
+
+  it('e-mail verification never records Fayda identity assurance', () => {
+    const user = makeUser({ phone: null, email: 'a@example.com' });
+    user.markEmailVerified();
+    expect(user.toProps().faydaVerifiedAt).toBeNull();
+  });
+
+  it('e-mail verification does not activate a suspended account', () => {
+    const user = makeUser({ email: 'a@example.com', status: AccountStatus.SUSPENDED });
+    user.markEmailVerified();
+    expect(user.status).toBe(AccountStatus.SUSPENDED);
+  });
+
   it('does not activate an already-suspended account on verification', () => {
     const user = makeUser({ status: AccountStatus.SUSPENDED });
     user.markPhoneVerified();

@@ -50,6 +50,34 @@ export const IdentityErrors = {
       'Verification codes are temporarily unavailable. Please try again shortly.',
     ),
 
+  /**
+   * A code could not be delivered (Work 62), so the caller is never told one was sent. `SMS` has no
+   * provider yet; `EMAIL` without Resend is `NOT_CONFIGURED`; a provider that didn't accept the
+   * message is `FAILED`. When a code was already issued, `retryAfterSeconds` is its resend cooldown.
+   */
+  deliveryUnavailable: (
+    channel: 'SMS' | 'EMAIL' | 'PUSH',
+    reason: 'NOT_CONFIGURED' | 'FAILED',
+    retryAfterSeconds?: number,
+  ) =>
+    new ApiException(
+      ErrorCode.DEPENDENCY_UNAVAILABLE,
+      channel === 'SMS'
+        ? 'SMS delivery is not available yet, so no code was sent. Use your e-mail address instead.'
+        : reason === 'NOT_CONFIGURED'
+          ? 'E-mail delivery is not configured, so no code was sent.'
+          : 'We could not send the e-mail, so no code was delivered. Please try again shortly.',
+      { channel, reason, ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}) },
+    ),
+
+  /** Phone-only self-registration while SMS has no provider (Work 62): rejected before any account exists. */
+  emailRequiredForRegistration: () =>
+    new ApiException(
+      ErrorCode.VALIDATION_ERROR,
+      'Register with an e-mail address: SMS verification is not available yet.',
+      { field: 'email', reason: 'SMS_UNAVAILABLE' },
+    ),
+
   weakPassword: (details?: unknown) =>
     new ApiException(
       ErrorCode.AUTH_WEAK_PASSWORD,

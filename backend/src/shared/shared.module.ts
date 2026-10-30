@@ -8,11 +8,12 @@ import { OutboxModule } from './outbox/outbox.module';
 import { AuditModule } from './audit/audit.module';
 import { RbacModule } from './rbac/rbac.module';
 import { RedisModule } from './redis/redis.module';
+import { EmailModule } from './email/email.module';
 
 /**
  * Aggregates all Phase-0 cross-cutting infrastructure. Every submodule is @Global, so importing
  * SharedModule once (in AppModule) makes config, logging, Prisma, crypto, the event bus, the
- * outbox, audit, RBAC and Redis available to every feature module without re-importing.
+ * outbox, audit, RBAC, Redis and the e-mail transport available to every feature module without re-importing.
  */
 @Global()
 @Module({
@@ -26,6 +27,7 @@ import { RedisModule } from './redis/redis.module';
     AuditModule,
     RbacModule,
     RedisModule,
+    EmailModule,
   ],
   exports: [
     AppConfigModule,
@@ -37,6 +39,7 @@ import { RedisModule } from './redis/redis.module';
     AuditModule,
     RbacModule,
     RedisModule,
+    EmailModule,
   ],
 })
 export class SharedModule {}

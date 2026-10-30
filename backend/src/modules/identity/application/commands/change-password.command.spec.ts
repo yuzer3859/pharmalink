@@ -4,7 +4,7 @@ import { User } from '../../domain/entities/user.entity';
 import { AccountStatus, PreferredLanguage, PrimaryRole } from '../../domain/enums';
 import { IUserRepository } from '../../domain/repositories/user.repository';
 import { IHasher } from '../ports/hasher.port';
-import { INotificationPort } from '../ports/notification.port';
+import { INotificationPort, NotificationUndeliverableError } from '../ports/notification.port';
 import { PermissionChangeService } from '../services/permission-change.service';
 import { ChangePasswordCommand } from './change-password.command';
 import { LogoutAllCommand } from './logout.command';
@@ -54,7 +54,7 @@ describe('ChangePasswordCommand', () => {
       verify: jest.fn().mockResolvedValue(true),
       hash: jest.fn().mockResolvedValue('new-hash'),
     } as unknown as jest.Mocked<IHasher>;
-    notifications = { send: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<INotificationPort>;
+    notifications = { canDeliver: jest.fn().mockReturnValue(true), send: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<INotificationPort>;
     logoutAll = { execute: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<LogoutAllCommand>;
     permissionChange = { propagate: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<PermissionChangeService>;
     audit = { record: jest.fn().mockResolvedValue({ id: 'a', hash: 'h' }) } as unknown as jest.Mocked<AuditService>;
@@ -109,5 +109,23 @@ describe('ChangePasswordCommand', () => {
       code: ErrorCode.AUTH_INVALID_CREDENTIALS,
     });
     expect(hasher.verify).not.toHaveBeenCalled();
+  });
+
+  // Work 62: the notice is best effort; the change already happened and stays.
+  it('completes the change when the security notice cannot be delivered, and audits that it was not', async () => {
+    notifications.send.mockRejectedValue(new NotificationUndeliverableError('SMS', 'FAILED'));
+
+    expect(await command.execute(validInput)).toEqual({ changed: true });
+    expect((users.save.mock.calls[0][0] as User).toProps().passwordHash).toBe('new-hash');
+    expect(logoutAll.execute).toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'identity.password.changed', context: { notice: 'FAILED' } }));
+  });
+
+  it('skips the notice when the account has no deliverable channel', async () => {
+    notifications.canDeliver.mockReturnValue(false);
+
+    expect(await command.execute(validInput)).toEqual({ changed: true });
+    expect(notifications.send).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ context: { notice: 'NO_CHANNEL' } }));
   });
 });

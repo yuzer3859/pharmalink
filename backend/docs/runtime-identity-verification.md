@@ -2,6 +2,8 @@
 
 How the backend chooses its national-ID (Fayda) verification provider, and why production does not start yet. Decision record: ADR-027 in `architecture/00-decision-log.md`.
 
+**E-mail verification is not identity verification (Work 62).** Verifying an e-mail OTP proves control of the address and activates a pending customer account. It never sets `faydaVerifiedAt`, never creates or approves a verification request, and satisfies no identity, licensing or business-verification requirement. Nothing in this document changed.
+
 ## The contract
 
 Two separate settings:

@@ -26,7 +26,7 @@ Several implemented workflows still run on development stand-ins rather than rea
 | Area | Current adapter |
 |---|---|
 | OTP storage | `OTP_STORE`: Redis (hashed, TTL, single-use, shared across instances; required in production) or in-memory (local/tests only). Codes are never logged ([otp-storage.md](docs/otp-storage.md)) |
-| OTP delivery | None: the Identity module's notification port is log-only and SMS is not configured, so codes reach no user |
+| OTP delivery | E-mail only, through the shared Resend transport, sent synchronously; refused with `503` when Resend isn't configured or doesn't accept the message. Phone-only registration and phone OTPs are refused while SMS has no provider ([otp-storage.md](docs/otp-storage.md#delivery-work-62)) |
 | SMS | Not configured; SMS deliveries are never sent |
 | Fayda identity verification | Mock that approves any well-formed id, selected by `IDENTITY_VERIFICATION_PROVIDER` (default `mock` outside production). Production requires `fayda`, which fails at startup until a real adapter exists ([runtime-identity-verification.md](docs/runtime-identity-verification.md)) |
 | Payments | Mock provider approves gateway methods in-process; the Telebirr adapter is deliberately unimplemented |
@@ -132,14 +132,14 @@ See `../architecture/00-shared-conventions.md` §11 (Data & Persistence). Highli
 
 ## E-mail notifications (Resend)
 
-Module 13 sends e-mail through [Resend](https://resend.com) over its REST API (`POST https://api.resend.com/emails`), plain text only. Two settings, both required, both secret-handled through the normal config port (never logged, never stored):
+Module 13's delivery queue and Module 01's OTP and security e-mail (Work 62) send through [Resend](https://resend.com) over its REST API (`POST https://api.resend.com/emails`), plain text only, using one shared transport (`src/shared/email/`). Two settings, both required, both secret-handled through the normal config port (never logged, never stored):
 
 | Variable | Meaning |
 | --- | --- |
 | `RESEND_API_KEY` | Resend API key with sending access |
 | `RESEND_FROM_EMAIL` | Sender on a domain verified in Resend, e.g. `PharmaLink <alerts@your-domain>` |
 
-With either unset — and always under `NODE_ENV=test` — the e-mail provider is not registered and EMAIL delivery jobs wait `PENDING` (no attempts, no retries used). Automated tests never call Resend.
+With either unset — and always under `NODE_ENV=test` — the e-mail provider is not registered and EMAIL delivery jobs wait `PENDING` (no attempts, no retries used). OTP requests are refused with `503 DEPENDENCY_UNAVAILABLE` rather than reported as sent. Automated tests never call Resend.
 
 **Manual smoke test (sends one real e-mail; opt-in only):**
 

@@ -179,7 +179,7 @@ export default function Home() {
         {[
           { icon: ShieldCheck, title: 'Verified & licensed', desc: 'Every pharmacy and doctor is credential-checked.' },
           { icon: Truck, title: 'Real-time tracking', desc: 'Follow your delivery partner live on the map.' },
-          { icon: HeartPulse, title: 'Private by design', desc: 'Medical data encrypted end-to-end with Fayda ID.' },
+          { icon: HeartPulse, title: 'Private by design', desc: 'Medical data protected. Fayda ID verification is planned and not yet connected.' },
         ].map((t) => (
           <Card key={t.title} className="flex gap-3 p-5">
             <IconTile icon={t.icon} size={44} />

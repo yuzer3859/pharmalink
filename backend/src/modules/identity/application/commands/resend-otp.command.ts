@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { OtpPurpose } from '../../domain/enums';
 import { IdentityErrors } from '../../domain/errors';
 import { normalizeIdentifier } from '../../domain/value-objects/identifier';
-import { INotificationPort, NOTIFICATION_PORT } from '../ports/notification.port';
+import { INotificationPort, NOTIFICATION_PORT, NotificationUndeliverableError } from '../ports/notification.port';
 import { IOtpService, OTP_SERVICE } from '../ports/otp.service';
 
 export interface ResendOtpInput {
@@ -20,6 +20,14 @@ export interface ResendOtpOutput {
  * Resend OTP use case (module-01 §3.2 F-VER-05, §11.1). The cooldown is enforced by the OTP store
  * itself, atomically and across instances: while it runs, nothing is issued or sent and the
  * request fails with 429 `RATE_LIMITED` (`details.retryAfterSeconds`).
+ *
+ * Delivery (Work 62) is truthful: success means the provider accepted the message.
+ * - A channel with no provider (SMS today, e-mail without Resend) fails with 503
+ *   `DEPENDENCY_UNAVAILABLE` *before* a code is issued, so no cooldown starts.
+ * - A send that fails after the code was issued also fails with 503, with
+ *   `details.retryAfterSeconds`: the undelivered code stays in the store until it expires or is
+ *   replaced, and the cooldown that started with it still applies. Retrying after it issues a new
+ *   code, which replaces the undelivered one.
  */
 @Injectable()
 export class ResendOtpCommand {
@@ -37,16 +45,27 @@ export class ResendOtpCommand {
       });
     }
 
+    if (!this.notifications.canDeliver(identifier.channel)) {
+      throw IdentityErrors.deliveryUnavailable(identifier.channel, 'NOT_CONFIGURED');
+    }
+
     const issued = await this.otp.issue(identifier.value, input.purpose);
     if (issued.status === 'COOLDOWN') {
       throw IdentityErrors.otpCooldown(issued.retryAfterSeconds);
     }
-    await this.notifications.send({
-      channel: identifier.channel,
-      to: identifier.value,
-      template: `otp-${input.purpose.toLowerCase()}`,
-      data: { code: issued.code },
-    });
+    try {
+      await this.notifications.send({
+        channel: identifier.channel,
+        to: identifier.value,
+        template: `otp-${input.purpose.toLowerCase()}`,
+        data: { code: issued.code },
+      });
+    } catch (err) {
+      if (err instanceof NotificationUndeliverableError) {
+        throw IdentityErrors.deliveryUnavailable(err.channel, err.reason, issued.cooldownSeconds);
+      }
+      throw err;
+    }
     return { resent: true, cooldownSeconds: issued.cooldownSeconds };
   }
 }

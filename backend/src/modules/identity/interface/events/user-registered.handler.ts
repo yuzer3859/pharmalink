@@ -14,6 +14,11 @@ import { IUserRepository, USER_REPOSITORY } from '../../domain/repositories/user
  * (module-01 §13.1). Kept as an event handler — rather than inline in RegisterUserCommand — so
  * the registration transaction stays fast and other consumers (Module 02, 13) can subscribe to
  * the same event independently.
+ *
+ * Work 62: the code goes to the e-mail address when there is one (the channel registration
+ * promised). If it can't be delivered, nothing retries it here — the event bus does not, and a
+ * retry inside the cooldown would be refused anyway — so the failure is logged without the address
+ * and the user asks for a new code with resend once the cooldown has passed.
  */
 @Injectable()
 export class UserRegisteredHandler implements OnModuleInit {
@@ -38,7 +43,7 @@ export class UserRegisteredHandler implements OnModuleInit {
       this.logger.warn(`UserRegistered handler: user ${event.payload.userId} not found`);
       return;
     }
-    const identifier = user.phone ?? user.email;
+    const identifier = user.email ?? user.phone;
     if (!identifier) {
       return;
     }
@@ -50,6 +55,10 @@ export class UserRegisteredHandler implements OnModuleInit {
       // forbids, and retrying the event would not change the answer.
       if (err instanceof ApiException && err.code === ErrorCode.RATE_LIMITED) {
         this.logger.log(`UserRegistered handler: verification code for ${user.id} is within its resend cooldown`);
+        return;
+      }
+      if (err instanceof ApiException && err.code === ErrorCode.DEPENDENCY_UNAVAILABLE) {
+        this.logger.warn(`UserRegistered handler: verification code for ${user.id} was not delivered; the user can request a new one`);
         return;
       }
       throw err;

@@ -93,13 +93,17 @@ export class User {
     }
   }
 
+  /**
+   * Marks the e-mail verified and activates a PENDING_VERIFICATION customer. Since Work 62 e-mail is
+   * the registration channel whenever an address is given (SMS has no provider), so a customer who
+   * also gave a phone number is activated by e-mail too; the phone stays unverified
+   * (`phoneVerifiedAt` is untouched). Proves control of the address only — never identity: Fayda
+   * assurance is `markFaydaVerified`, and nothing here sets it.
+   */
   markEmailVerified(now: Date = new Date()): void {
     this.props.emailVerifiedAt = now;
     this.props.updatedAt = now;
-    if (
-      this.props.status === AccountStatus.PENDING_VERIFICATION &&
-      this.props.phone === null
-    ) {
+    if (this.props.status === AccountStatus.PENDING_VERIFICATION) {
       this.props.status = AccountStatus.ACTIVE;
     }
   }
