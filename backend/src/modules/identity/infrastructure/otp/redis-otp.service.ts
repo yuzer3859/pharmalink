@@ -7,6 +7,7 @@ import { RedisService } from '../../../../shared/redis/redis.service';
 import { OtpPurpose } from '../../domain/enums';
 import { IdentityErrors } from '../../domain/errors';
 import { IOtpService, OtpIssueOutcome, OtpVerifyResult } from '../../application/ports/otp.service';
+import { IOtpStoreProbe } from '../../application/ports/otp-store-probe.port';
 
 /** How long one OTP round trip may take before the request fails closed. */
 const OTP_REDIS_TIMEOUT_MS = 2_000;
@@ -71,7 +72,7 @@ const VERIFY_RESULTS = new Set<string>(Object.values(OtpVerifyResult));
  * `backend/docs/otp-storage.md`.
  */
 @Injectable()
-export class RedisOtpService implements IOtpService {
+export class RedisOtpService implements IOtpService, IOtpStoreProbe {
   private readonly secret: string;
 
   constructor(
@@ -88,6 +89,14 @@ export class RedisOtpService implements IOtpService {
       this.config.jwtRefreshSecret,
       this.config.masterEncryptionKey,
     ]);
+  }
+
+  /** Shared across processes; unusable while the connection is down (fails closed, like `issue`). */
+  async probe(): Promise<{ shared: boolean }> {
+    if (!this.redis.isConnected) {
+      throw IdentityErrors.otpUnavailable();
+    }
+    return { shared: true };
   }
 
   async issue(identifier: string, purpose: OtpPurpose): Promise<OtpIssueOutcome> {

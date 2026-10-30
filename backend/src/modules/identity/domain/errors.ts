@@ -134,4 +134,36 @@ export const IdentityErrors = {
 
   validation: (message: string, details?: unknown) =>
     new ApiException(ErrorCode.VALIDATION_ERROR, message, details),
+
+  /**
+   * The caller can't apply for a pharmacy organisation (Work 65). `reason` says which rule failed;
+   * none of them reveals anything the caller doesn't already know about their own account.
+   */
+  pharmacyApplicationNotEligible: (
+    reason: 'ACCOUNT_NOT_ACTIVE' | 'EMAIL_NOT_VERIFIED' | 'NOT_A_CUSTOMER',
+  ) =>
+    new ApiException(
+      ErrorCode.FORBIDDEN,
+      reason === 'EMAIL_NOT_VERIFIED'
+        ? 'Verify your e-mail address before applying for a pharmacy organisation.'
+        : reason === 'NOT_A_CUSTOMER'
+          ? 'Only customer accounts can apply for a pharmacy organisation.'
+          : 'Only an active account can apply for a pharmacy organisation.',
+      { reason },
+    ),
+
+  /** The same idempotency key was already used by this owner for a different application. */
+  applicationKeyConflict: () =>
+    new ApiException(
+      ErrorCode.IDEMPOTENCY_CONFLICT,
+      'This idempotency key was already used for a different application.',
+      { field: 'idempotencyKey' },
+    ),
+
+  /**
+   * A role the operation depends on is missing or mis-scoped: the RBAC seed has not been applied or
+   * was changed. Fails closed (Work 65): nothing is created without the intended role.
+   */
+  roleCatalogMissing: (roleKey: string) =>
+    new ApiException(ErrorCode.INTERNAL_ERROR, 'The role catalogue is not configured correctly.', { roleKey }),
 };

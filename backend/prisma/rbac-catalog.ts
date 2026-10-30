@@ -55,6 +55,9 @@ export const PERMISSIONS: Array<{
   // Module 04 — Pharmacy & Inventory, Slice 1 (backend/docs/04-pharmacy-inventory-spec.md §7.2).
   { key: 'pharmacy:manage:org', resource: 'pharmacy', action: 'manage', scope: 'org' },
   { key: 'pharmacy:register', resource: 'pharmacy', action: 'register' },
+  // Work 65: a verified customer applies to own a pending pharmacy organisation
+  // (`POST /organizations/pharmacy`). Applying only: approval and activation stay with admins.
+  { key: 'pharmacy:apply:own', resource: 'pharmacy', action: 'apply', scope: 'own' },
   // Reserved for a future authenticated availability read (§7.2) — seeded but never granted to
   // a role and never attached to a route in this slice; the public route uses `@Public()`.
   { key: 'availability:read:any', resource: 'availability', action: 'read', scope: 'any' },
@@ -196,6 +199,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // Module 07 — Wallet (§9.4): a customer reads their own wallet and its history. Spend stays
     // internal to the checkout saga and needs no grant.
     'wallet:read:own',
+    // Work 65 — apply for a pending pharmacy organisation; the org-scoped PHARMACY_OWNER
+    // membership it creates carries the owner's permissions, not this role.
+    'pharmacy:apply:own',
   ],
   PHARMACY_OWNER: [
     'auth:login',

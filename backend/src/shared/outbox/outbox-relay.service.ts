@@ -32,8 +32,8 @@ export class OutboxRelay implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit(): void {
-    if (this.config.isTest) {
-      return; // deterministic tests drive relayOnce() manually
+    if (!this.config.runsBackgroundJobs) {
+      return; // deterministic tests drive relayOnce() manually; an operator CLI never relays
     }
     this.timer = setInterval(() => {
       void this.relayOnce();
