@@ -1,13 +1,16 @@
-import { NavLink, Link, useLocation } from 'react-router-dom'
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home, Pill, Stethoscope, FlaskConical, Truck, Palette,
   Search, Bell, Moon, Sun, ShoppingBag, Menu, X, ShieldAlert,
+  LogIn, LogOut, UserPlus, UserRound,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/theme'
 import { cn } from '../lib/utils'
-import { Avatar, Input } from './ui'
+import { useAuth } from '../auth/AuthContext'
+import { t } from '../auth/strings'
+import { Avatar, Button, Input, Skeleton } from './ui'
 
 const nav = [
   { to: '/', label: 'Home', icon: Home },
@@ -80,6 +83,91 @@ function Sidebar() {
   )
 }
 
+/** The signed-in customer's display name: their e-mail address, as the API returns no name. */
+export function customerLabel(user) {
+  return user?.email ?? user?.phone ?? ''
+}
+
+function AccountMenu() {
+  const { status, user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  if (status === 'initializing') {
+    return (
+      <span role="status" className="ml-1 inline-flex">
+        <Skeleton className="h-9 w-9 rounded-full" />
+        <span className="sr-only">{t('nav.loadingSession')}</span>
+      </span>
+    )
+  }
+
+  if (status !== 'signedIn') {
+    return (
+      <div className="ml-1 flex items-center gap-1.5">
+        <Button as={Link} to="/login" variant="ghost" size="sm" className="whitespace-nowrap">
+          <LogIn className="h-4 w-4" aria-hidden="true" /> {t('nav.login')}
+        </Button>
+        <Button as={Link} to="/register" size="sm" className="hidden whitespace-nowrap sm:inline-flex">
+          {t('nav.register')}
+        </Button>
+      </div>
+    )
+  }
+
+  const label = customerLabel(user)
+  return (
+    <div ref={ref} className="relative ml-1">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        aria-label={t('nav.accountMenu')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Avatar name={label} size={36} ring />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-border bg-surface p-2 shadow-lg">
+          <p className="truncate px-3 py-2 text-caption text-muted" title={label}>{label}</p>
+          <Link
+            role="menuitem"
+            to="/account"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-body font-semibold text-fg hover:bg-surface-2"
+          >
+            <UserRound className="h-4 w-4" aria-hidden="true" /> {t('nav.account')}
+          </Link>
+          <button
+            role="menuitem"
+            onClick={async () => {
+              setOpen(false)
+              await logout()
+              navigate('/')
+            }}
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-body font-semibold text-fg hover:bg-surface-2"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" /> {t('nav.logout')}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Topbar({ onMenu }) {
   const { theme, toggle } = useTheme()
   return (
@@ -124,9 +212,7 @@ function Topbar({ onMenu }) {
             <ShoppingBag className="h-5 w-5" />
             <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white">3</span>
           </Link>
-          <button className="ml-1 rounded-full focus-visible:outline-none" aria-label="Account">
-            <Avatar name="Meron A" size={36} ring />
-          </button>
+          <AccountMenu />
         </div>
       </div>
     </header>
@@ -156,6 +242,37 @@ function MobileNav() {
         ))}
       </div>
     </nav>
+  )
+}
+
+function DrawerAccount({ onClose }) {
+  const { status, user, logout } = useAuth()
+  const navigate = useNavigate()
+  const item = 'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-body font-semibold text-muted hover:bg-surface-2'
+  if (status === 'initializing') return null
+  if (status !== 'signedIn') {
+    return (
+      <>
+        <Link to="/login" onClick={onClose} className={item}><LogIn className="h-5 w-5" /> {t('nav.login')}</Link>
+        <Link to="/register" onClick={onClose} className={item}><UserPlus className="h-5 w-5" /> {t('nav.register')}</Link>
+      </>
+    )
+  }
+  return (
+    <>
+      <p className="truncate px-3 pb-1 text-caption text-subtle">{customerLabel(user)}</p>
+      <Link to="/account" onClick={onClose} className={item}><UserRound className="h-5 w-5" /> {t('nav.account')}</Link>
+      <button
+        onClick={async () => {
+          onClose()
+          await logout()
+          navigate('/')
+        }}
+        className={item}
+      >
+        <LogOut className="h-5 w-5" /> {t('nav.logout')}
+      </button>
+    </>
   )
 }
 
@@ -194,6 +311,9 @@ function MobileDrawer({ open, onClose }) {
                 </NavLink>
               ))}
             </nav>
+            <div className="mt-4 space-y-1 border-t border-border pt-4">
+              <DrawerAccount onClose={onClose} />
+            </div>
           </motion.aside>
         </>
       )}

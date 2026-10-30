@@ -63,6 +63,10 @@ The global guard (`HttpSecurityModule`, `RateLimitGuard`) is built on `@nestjs/t
 
 No real proxy addresses are configured in this repository.
 
+## CORS (Work 63)
+
+`main.ts` allows exactly the origins in `WEB_ORIGIN` (comma-separated), parsed by `src/shared/http/cors-origins.ts`. Unset, it allows the two local development front ends: the operations portal (`web/`, `http://localhost:5173`) and the customer app (`app/`, `http://localhost:5174`). A `*` entry stops the backend at startup: browsers send bearer tokens to this API, so every origin is named. Any deployed front end must be listed in `WEB_ORIGIN`.
+
 ## Not covered by this work
 
 - **Production use** still requires real SMS, payments and Fayda integrations, persistent proof-of-delivery storage, and Redis configured for rate limits wherever more than one instance runs. Proof-of-delivery storage already forces a single instance. OTPs are stored in Redis in production since Work 60 ([otp-storage.md](otp-storage.md)), but are still not delivered.

@@ -8,6 +8,13 @@ import Diagnostics from './pages/Diagnostics'
 import Tracking from './pages/Tracking'
 import Checkout from './pages/Checkout'
 import DesignSystem from './pages/DesignSystem'
+import Register from './pages/auth/Register'
+import VerifyEmail from './pages/auth/VerifyEmail'
+import Login from './pages/auth/Login'
+import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
+import Account from './pages/auth/Account'
+import { RequireCustomer } from './auth/AuthContext'
 
 function Page({ children }) {
   return (
@@ -35,6 +42,12 @@ export default function App() {
           <Route path="/tracking" element={<Page><Tracking /></Page>} />
           <Route path="/checkout" element={<Page><Checkout /></Page>} />
           <Route path="/design-system" element={<Page><DesignSystem /></Page>} />
+          <Route path="/register" element={<Page><Register /></Page>} />
+          <Route path="/verify-email" element={<Page><VerifyEmail /></Page>} />
+          <Route path="/login" element={<Page><Login /></Page>} />
+          <Route path="/forgot-password" element={<Page><ForgotPassword /></Page>} />
+          <Route path="/reset-password" element={<Page><ResetPassword /></Page>} />
+          <Route path="/account" element={<Page><RequireCustomer><Account /></RequireCustomer></Page>} />
         </Routes>
       </AnimatePresence>
     </Layout>

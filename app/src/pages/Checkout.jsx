@@ -41,10 +41,10 @@ export default function Checkout() {
           className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-success/15 text-success">
           <Check className="h-10 w-10" strokeWidth={3} />
         </motion.div>
-        <h1 className="mt-5 font-display text-h1 text-fg">Order placed!</h1>
-        <p className="mt-2 text-body text-muted">Your order <span className="font-semibold text-fg">#PL-48213</span> is confirmed. We'll notify you at every step.</p>
+        <h1 className="mt-5 font-display text-h1 text-fg">Demo order complete</h1>
+        <p className="mt-2 text-body text-muted">This checkout is a design prototype: no order was created and no payment was taken.</p>
         <div className="mt-6 flex flex-col gap-2">
-          <Button as={Link} to="/tracking" size="lg"><Truck className="h-4 w-4" /> Track my order</Button>
+          <Button as={Link} to="/tracking" size="lg"><Truck className="h-4 w-4" /> See the tracking demo</Button>
           <Button as={Link} to="/" variant="ghost">Continue shopping</Button>
         </div>
       </div>
@@ -54,6 +54,9 @@ export default function Checkout() {
   return (
     <div className="space-y-6">
       <h1 className="font-display text-h1 text-fg">Checkout</h1>
+      <p role="note" className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-caption text-muted">
+        Prototype checkout: the cart and payment methods are sample data. Placing an order here creates no real order and takes no payment.
+      </p>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left column */}
