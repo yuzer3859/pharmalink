@@ -128,7 +128,7 @@ describe('BootstrapSuperAdminCommand', () => {
 
     const down = build();
     down.otpStore.probe.mockRejectedValue(IdentityErrors.otpUnavailable());
-    expect((await refusal(down.command.checkPreconditions())).reason).toBe('OTP_STORE_UNAVAILABLE');
+    expect((await refusal(down.command.checkPreconditions())).reason).toBe('OTP_UNAVAILABLE');
     expect(down.uow.run).not.toHaveBeenCalled();
   });
 

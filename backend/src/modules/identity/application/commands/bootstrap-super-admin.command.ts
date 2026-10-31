@@ -25,7 +25,7 @@ export type BootstrapRefusalReason =
   | 'SUPER_ADMIN_EXISTS'
   | 'EMAIL_NOT_CONFIGURED'
   | 'OTP_STORE_NOT_SHARED'
-  | 'OTP_STORE_UNAVAILABLE'
+  | 'OTP_UNAVAILABLE'
   | 'INVALID_EMAIL'
   | 'WEAK_PASSWORD'
   | 'EMAIL_IN_USE';
@@ -121,7 +121,7 @@ export class BootstrapSuperAdminCommand {
     try {
       ({ shared } = await this.otpStore.probe());
     } catch {
-      throw refuse('OTP_STORE_UNAVAILABLE', 'The OTP store (Redis) is not reachable.');
+      throw refuse('OTP_UNAVAILABLE', 'The OTP store (Redis) is not reachable.');
     }
     if (!shared) {
       throw refuse(
