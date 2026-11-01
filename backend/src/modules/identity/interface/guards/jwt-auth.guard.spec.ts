@@ -30,7 +30,8 @@ describe('JwtAuthGuard', () => {
     reflector = { getAllAndOverride: jest.fn().mockReturnValue(false) } as unknown as Reflector;
     tokenService = { verifyAccessToken: jest.fn().mockReturnValue(claims()) } as unknown as jest.Mocked<ITokenService>;
     permVersions = {
-      getCurrent: jest.fn().mockResolvedValue(3),
+      getCurrent: jest.fn(),
+      getAuthState: jest.fn().mockResolvedValue({ permVersion: 3, mfaRequired: false }),
       invalidate: jest.fn(),
     } as unknown as jest.Mocked<IPermVersionStore>;
     guard = new JwtAuthGuard(reflector, tokenService, permVersions);
@@ -48,7 +49,7 @@ describe('JwtAuthGuard', () => {
   });
 
   it('rejects a token minted before a permission change', async () => {
-    permVersions.getCurrent.mockResolvedValue(4);
+    permVersions.getAuthState.mockResolvedValue({ permVersion: 4, mfaRequired: false });
 
     await expect(guard.canActivate(contextFor('Bearer token'))).rejects.toMatchObject({
       code: ErrorCode.TOKEN_EXPIRED,
@@ -56,10 +57,33 @@ describe('JwtAuthGuard', () => {
   });
 
   it('rejects a token for a user that no longer exists', async () => {
-    permVersions.getCurrent.mockResolvedValue(null);
+    permVersions.getAuthState.mockResolvedValue(null);
 
     await expect(guard.canActivate(contextFor('Bearer token'))).rejects.toMatchObject({
       code: ErrorCode.AUTH_TOKEN_INVALID,
+    });
+  });
+
+  describe('administrator MFA (Work 66)', () => {
+    it('rejects a platform administrator token without MFA assurance', async () => {
+      permVersions.getAuthState.mockResolvedValue({ permVersion: 3, mfaRequired: true });
+
+      await expect(guard.canActivate(contextFor('Bearer token'))).rejects.toMatchObject({
+        code: ErrorCode.AUTH_MFA_REQUIRED,
+      });
+    });
+
+    it('admits a platform administrator token with MFA assurance', async () => {
+      tokenService.verifyAccessToken.mockReturnValue(claims({ mfa: true }));
+      permVersions.getAuthState.mockResolvedValue({ permVersion: 3, mfaRequired: true });
+
+      await expect(guard.canActivate(contextFor('Bearer token'))).resolves.toBe(true);
+    });
+
+    it('fails closed when the account state cannot be read', async () => {
+      permVersions.getAuthState.mockRejectedValue(new Error('database unavailable'));
+
+      await expect(guard.canActivate(contextFor('Bearer token'))).rejects.toThrow('database unavailable');
     });
   });
 

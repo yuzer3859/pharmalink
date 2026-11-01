@@ -76,6 +76,7 @@ The application validates its environment at boot and refuses to start on a miss
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | At least 16 characters each |
 | `MASTER_ENCRYPTION_KEY` | Base64 of exactly 32 random bytes (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`) |
+| `ADMIN_MFA_ENCRYPTION_KEY` | **Production only** (optional elsewhere, but no administrator can sign in without it). Base64 of exactly 32 random bytes, dedicated; encrypts administrator authenticator secrets. See [docs/admin-mfa.md](docs/admin-mfa.md) |
 
 `IDENTITY_VERIFICATION_PROVIDER` (`mock` | `fayda`) is optional outside production (default `mock`) and **required in production**, where only `fayda` is accepted; see [docs/runtime-identity-verification.md](docs/runtime-identity-verification.md).
 
@@ -100,10 +101,11 @@ npm run start:prod               # node dist/main.js
 
 Health checks: `GET /health/live` (no database access) and `GET /health/ready` (pings PostgreSQL). There is no global route prefix.
 
-The seed creates no users. To create the first administrator of a development or staging database,
-run the one-time, operator-only `npm run admin:bootstrap-super-admin` (interactive; needs Resend and
-`OTP_STORE=redis`; refused in production until administrator MFA exists): see
-[docs/first-super-admin-bootstrap.md](docs/first-super-admin-bootstrap.md). Customers become pharmacy
+The seed creates no users. To create the first administrator, run the one-time, operator-only
+`npm run admin:bootstrap-super-admin` (interactive; needs Resend, `OTP_STORE=redis` and
+`ADMIN_MFA_ENCRYPTION_KEY`): see [docs/first-super-admin-bootstrap.md](docs/first-super-admin-bootstrap.md).
+Administrators (ADMIN, SUPER_ADMIN) must sign in with an authenticator app:
+see [docs/admin-mfa.md](docs/admin-mfa.md). Customers become pharmacy
 owners through `POST /organizations/pharmacy`, then `POST /pharmacy/register`: see
 [docs/pharmacy-onboarding.md](docs/pharmacy-onboarding.md).
 

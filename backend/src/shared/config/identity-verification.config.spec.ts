@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import 'reflect-metadata';
 import { resolveIdentityVerificationProvider } from './identity-verification.config';
 import { validateEnv } from './env.validation';
@@ -45,6 +46,8 @@ describe('identity verification provider selection', () => {
       JWT_ACCESS_SECRET: 'access-secret-0123456789',
       JWT_REFRESH_SECRET: 'refresh-secret-0123456789',
       MASTER_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+      // Production also requires the administrator-MFA key (Work 66). Test-only, random per run.
+      ADMIN_MFA_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
     };
 
     it('accepts development and test without the setting (mock by default)', () => {

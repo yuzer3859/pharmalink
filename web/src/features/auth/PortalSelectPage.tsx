@@ -21,8 +21,9 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import { useAuth } from '@/context/AuthContext';
 import { PORTALS } from '@/config/navigation';
-import { getAuthErrorMessage, OtpRequiredError } from '@/services/auth.service';
+import { getAuthErrorMessage, MfaRequiredError, type MfaChallenge } from '@/services/auth.service';
 import type { PortalKey } from '@/types';
+import { AdminMfaPanel } from './AdminMfaPanel';
 
 const PORTAL_META: Record<PortalKey, { icon: typeof StorefrontRoundedIcon; blurb: string; tags: string[] }> = {
   pharmacy: {
@@ -42,22 +43,20 @@ const PORTAL_META: Record<PortalKey, { icon: typeof StorefrontRoundedIcon; blurb
   },
 };
 
-interface PendingOtp {
-  identifier: string;
+/** The administrator MFA step in progress (Work 66). Component memory only. */
+interface PendingMfa {
+  challenge: MfaChallenge;
   portal: PortalKey;
 }
 
 export function PortalSelectPage() {
-  const { login, verifyOtp, resendOtp, authError, clearAuthError } = useAuth();
+  const { login, authError, clearAuthError } = useAuth();
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
-  const [pendingOtp, setPendingOtp] = useState<PendingOtp | null>(null);
+  const [pendingMfa, setPendingMfa] = useState<PendingMfa | null>(null);
   const [busy, setBusy] = useState<PortalKey | null>(null);
-  const [otpBusy, setOtpBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const enter = async (portal: PortalKey) => {
     if (!identifier.trim() || !password) {
@@ -66,17 +65,17 @@ export function PortalSelectPage() {
     }
 
     setBusy(portal);
-    setPendingOtp(null);
+    setPendingMfa(null);
     setError(null);
-    setNotice(null);
     clearAuthError();
     try {
       await login({ identifier, password, portal });
       navigate(`${PORTALS[portal].basePath}/dashboard`);
     } catch (caught) {
-      if (caught instanceof OtpRequiredError) {
-        setPendingOtp({ identifier: caught.identifier, portal });
-        setOtp('');
+      if (caught instanceof MfaRequiredError) {
+        // The server decided this account needs administrator MFA; the password is no longer needed.
+        setPassword('');
+        setPendingMfa({ challenge: caught.challenge, portal });
       } else {
         setError(getAuthErrorMessage(caught));
       }
@@ -85,44 +84,12 @@ export function PortalSelectPage() {
     }
   };
 
-  const verify = async () => {
-    if (!pendingOtp || otp.trim().length !== 6) {
-      setError('Enter the six-digit verification code.');
-      return;
-    }
-
-    setOtpBusy(true);
-    setError(null);
-    setNotice(null);
-    clearAuthError();
-    try {
-      await verifyOtp({ identifier: pendingOtp.identifier, code: otp.trim(), portal: pendingOtp.portal });
-      navigate(`${PORTALS[pendingOtp.portal].basePath}/dashboard`);
-    } catch (caught) {
-      setError(getAuthErrorMessage(caught));
-    } finally {
-      setOtpBusy(false);
-    }
+  const restart = (message?: string) => {
+    setPendingMfa(null);
+    setError(message ?? null);
   };
 
-  const resend = async () => {
-    if (!pendingOtp) return;
-    setOtpBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      // Success here means the backend's e-mail provider accepted the message (Work 62); a phone
-      // number or an unavailable provider comes back as an error, never as "sent".
-      await resendOtp(pendingOtp.identifier);
-      setNotice('We e-mailed you a new verification code.');
-    } catch (caught) {
-      setError(getAuthErrorMessage(caught));
-    } finally {
-      setOtpBusy(false);
-    }
-  };
-
-  const visibleError = error ?? authError;
+  const visibleError = pendingMfa ? null : (error ?? authError);
 
   return (
     <Box
@@ -183,29 +150,15 @@ export function PortalSelectPage() {
             />
           </Stack>
           {visibleError && <Alert severity="error">{visibleError}</Alert>}
-          {!visibleError && notice && <Alert severity="success">{notice}</Alert>}
-          {pendingOtp && (
-            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 640 }}>
-              Verification codes are sent by e-mail. SMS codes are not available yet.
-            </Typography>
-          )}
-          {pendingOtp && (
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ width: '100%', maxWidth: 640 }}>
-              <TextField
-                fullWidth
-                label="Verification code"
-                value={otp}
-                onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                inputProps={{ inputMode: 'numeric', maxLength: 6 }}
-                autoComplete="one-time-code"
-              />
-              <Button variant="contained" onClick={verify} disabled={otpBusy}>
-                {otpBusy ? 'Verifying…' : 'Verify code'}
-              </Button>
-              <Button variant="text" onClick={resend} disabled={otpBusy}>
-                Resend
-              </Button>
-            </Stack>
+          {pendingMfa && (
+            <AdminMfaPanel
+              // A new challenge (e.g. after signing in again) starts the panel afresh.
+              key={pendingMfa.challenge.token}
+              challenge={pendingMfa.challenge}
+              portal={pendingMfa.portal}
+              onSignedIn={(user) => navigate(`${PORTALS[user.portal].basePath}/dashboard`)}
+              onRestart={restart}
+            />
           )}
         </Stack>
 
@@ -220,7 +173,7 @@ export function PortalSelectPage() {
                   <CardActionArea
                     sx={{ height: '100%', alignItems: 'stretch' }}
                     onClick={() => void enter(key)}
-                    disabled={busy !== null || otpBusy}
+                    disabled={busy !== null || pendingMfa !== null}
                   >
                     <CardContent sx={{ p: 3 }}>
                       <Stack spacing={2}>
@@ -253,7 +206,7 @@ export function PortalSelectPage() {
                         <Button
                           variant="contained"
                           sx={{ bgcolor: portal.accent, '&:hover': { bgcolor: portal.accent } }}
-                          disabled={busy !== null || otpBusy}
+                          disabled={busy !== null || pendingMfa !== null}
                         >
                           {busy === key ? 'Signing in…' : `Enter ${portal.shortTitle}`}
                         </Button>

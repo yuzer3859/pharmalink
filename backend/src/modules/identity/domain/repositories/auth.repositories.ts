@@ -16,6 +16,8 @@ export interface RefreshTokenRecord {
   usedAt: Date | null;
   revokedAt: Date | null;
   replacedBy: string | null;
+  /** Administrator MFA assurance of the family (Work 66); null when issued without MFA. */
+  mfaVerifiedAt: Date | null;
 }
 
 export interface NewRefreshToken {
@@ -24,6 +26,7 @@ export interface NewRefreshToken {
   tokenHash: string;
   familyId: string;
   expiresAt: Date;
+  mfaVerifiedAt?: Date | null;
 }
 
 export interface IRefreshTokenRepository {
@@ -57,6 +60,7 @@ export interface NewSession {
   ip: string | null;
   userAgent: string | null;
   expiresAt: Date;
+  mfaVerifiedAt?: Date | null;
 }
 
 export interface ISessionRepository {

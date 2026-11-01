@@ -166,4 +166,32 @@ export const IdentityErrors = {
    */
   roleCatalogMissing: (roleKey: string) =>
     new ApiException(ErrorCode.INTERNAL_ERROR, 'The role catalogue is not configured correctly.', { roleKey }),
+
+  /**
+   * A platform administrator's session has no MFA assurance (Work 66): a pre-MFA or password-only
+   * access token, or a refresh token from such a session. The remedy is to sign in again and
+   * complete authenticator verification.
+   */
+  mfaRequired: () =>
+    new ApiException(
+      ErrorCode.AUTH_MFA_REQUIRED,
+      'Administrator accounts must sign in again and complete authenticator verification.',
+    ),
+
+  /** Unknown, expired, consumed, wrong-step or exhausted MFA challenge. Deliberately undifferentiated. */
+  mfaChallengeInvalid: () =>
+    new ApiException(
+      ErrorCode.AUTH_MFA_CHALLENGE_INVALID,
+      'This sign-in step has expired or is no longer valid. Please sign in again.',
+    ),
+
+  mfaCodeInvalid: () =>
+    new ApiException(ErrorCode.AUTH_MFA_CODE_INVALID, 'The code is invalid.'),
+
+  /** ADMIN_MFA_ENCRYPTION_KEY isn't configured (outside production only): MFA fails closed. */
+  mfaUnavailable: () =>
+    new ApiException(
+      ErrorCode.DEPENDENCY_UNAVAILABLE,
+      'Administrator sign-in is not available: multi-factor authentication is not configured.',
+    ),
 };

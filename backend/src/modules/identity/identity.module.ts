@@ -70,6 +70,20 @@ import { PrismaOrganizationRepository } from './infrastructure/persistence/prism
 import { BootstrapSuperAdminCommand } from './application/commands/bootstrap-super-admin.command';
 import { ApplyPharmacyOrganizationCommand } from './application/commands/apply-pharmacy-organization.command';
 import { OrganizationsController } from './interface/controllers/organizations.controller';
+import { ADMIN_MFA_REPOSITORY } from './domain/repositories/admin-mfa.repository';
+import { PrismaAdminMfaRepository } from './infrastructure/persistence/prisma-admin-mfa.repository';
+import { MFA_SECRET_CIPHER } from './application/ports/mfa-secret-cipher.port';
+import { AesGcmMfaSecretCipher } from './infrastructure/security/aes-gcm-mfa-secret.cipher';
+import { AdminMfaPolicy } from './application/services/admin-mfa-policy.service';
+import { AdminMfaChallengeService } from './application/services/admin-mfa-challenge.service';
+import { AdminMfaAuditor } from './application/services/admin-mfa-auditor.service';
+import { StartMfaEnrollmentCommand } from './application/commands/start-mfa-enrollment.command';
+import { ConfirmMfaEnrollmentCommand } from './application/commands/confirm-mfa-enrollment.command';
+import { VerifyMfaChallengeCommand } from './application/commands/verify-mfa-challenge.command';
+import { RedeemMfaRecoveryCodeCommand } from './application/commands/redeem-mfa-recovery-code.command';
+import { RotateMfaRecoveryCodesCommand } from './application/commands/rotate-mfa-recovery-codes.command';
+import { GetMfaStatusQuery } from './application/queries/get-mfa-status.query';
+import { AuthMfaController } from './interface/controllers/auth-mfa.controller';
 import { IdentityNotificationAdapter } from './infrastructure/messaging/identity-notification.adapter';
 import { otpProviders } from './infrastructure/otp/otp.providers';
 import {
@@ -114,6 +128,7 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
 @Module({
   controllers: [
     AuthController,
+    AuthMfaController,
     UsersController,
     AdminRbacController,
     AdminUsersController,
@@ -132,6 +147,8 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     // Work 65: one-time first-Super-Admin bootstrap and pharmacy organisation applications.
     { provide: PLATFORM_BOOTSTRAP_REPOSITORY, useClass: PrismaPlatformBootstrapRepository },
     { provide: ORGANIZATION_REPOSITORY, useClass: PrismaOrganizationRepository },
+    // Work 66: mandatory administrator MFA (authenticator-app TOTP).
+    { provide: ADMIN_MFA_REPOSITORY, useClass: PrismaAdminMfaRepository },
     { provide: RBAC_REPOSITORY, useClass: PrismaRbacRepository },
     { provide: VERIFICATION_REPOSITORY, useClass: PrismaVerificationRepository },
     { provide: CONSENT_REPOSITORY, useClass: PrismaConsentRepository },
@@ -140,6 +157,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     // Security / infra adapters
     { provide: HASHER, useClass: ScryptHasher },
     { provide: TOKEN_SERVICE, useClass: JwtTokenService },
+    // AES-256-GCM under ADMIN_MFA_ENCRYPTION_KEY (Work 66). Unconfigured outside production means
+    // administrator MFA fails closed, never that it is skipped.
+    { provide: MFA_SECRET_CIPHER, useClass: AesGcmMfaSecretCipher },
     // Work 62: OTP and security e-mail through the shared EMAIL_TRANSPORT (Resend), sent
     // synchronously; SMS is never deliverable until a gateway is approved. No log-only fallback.
     { provide: NOTIFICATION_PORT, useClass: IdentityNotificationAdapter },
@@ -155,6 +175,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     ...otpProviders,
 
     // Application services / use cases
+    AdminMfaPolicy,
+    AdminMfaAuditor,
+    AdminMfaChallengeService,
     AuthSessionIssuerService,
     RegisterUserCommand,
     VerifyOtpCommand,
@@ -171,6 +194,14 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     ListDevicesQuery,
     RevokeDeviceCommand,
     GetLoginHistoryQuery,
+
+    // Administrator MFA (Work 66)
+    StartMfaEnrollmentCommand,
+    ConfirmMfaEnrollmentCommand,
+    VerifyMfaChallengeCommand,
+    RedeemMfaRecoveryCodeCommand,
+    RotateMfaRecoveryCodesCommand,
+    GetMfaStatusQuery,
 
     // Profile & lifecycle (§11.5)
     UpdateProfileCommand,

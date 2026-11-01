@@ -11,6 +11,11 @@ export interface AccessTokenClaims {
   permVersion: number;
   deviceId?: string;
   sessionId?: string;
+  /**
+   * The session completed administrator MFA (Work 66). Absent on every other token, including all
+   * tokens minted before Work 66; `JwtAuthGuard` refuses a platform administrator's token without it.
+   */
+  mfa?: true;
   /** JWT ID for token rotation/denylist if ever needed. */
   jti?: string;
 }

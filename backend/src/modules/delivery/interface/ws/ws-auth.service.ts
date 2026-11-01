@@ -35,8 +35,9 @@ export interface WsHandshake {
  * are therefore authenticated at connect **and** every privileged message re-checks authorization
  * against current data — see `TrackingGateway`.
  *
- * If Module 01 ever adds a fourth check to the HTTP guard, it belongs here too; the ports are
- * shared precisely so that the two cannot drift on anything but plumbing.
+ * Module 01 did add a fourth check (Work 66), and it is here too: a platform administrator's token
+ * must carry MFA assurance. The ports are shared precisely so that the two cannot drift on anything
+ * but plumbing.
  */
 @Injectable()
 export class WsAuthService {
@@ -62,8 +63,11 @@ export class WsAuthService {
 
     try {
       const claims = this.tokens.verifyAccessToken(token);
-      const currentVersion = await this.permVersions.getCurrent(claims.sub);
-      if (currentVersion === null || currentVersion !== claims.permVersion) {
+      const state = await this.permVersions.getAuthState(claims.sub);
+      if (state === null || state.permVersion !== claims.permVersion) {
+        return null;
+      }
+      if (state.mfaRequired && claims.mfa !== true) {
         return null;
       }
       return { userId: claims.sub, permissions: claims.permissions };

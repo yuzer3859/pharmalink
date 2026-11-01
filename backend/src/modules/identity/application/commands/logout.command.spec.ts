@@ -18,6 +18,7 @@ describe('LogoutCommand', () => {
       usedAt: null,
       revokedAt: null,
       replacedBy: null,
+      mfaVerifiedAt: null,
     };
     const refreshTokens = {
       findByHash: jest.fn().mockResolvedValue(record),

@@ -6,7 +6,9 @@ import { userVerifiedEvent } from '../../domain/events';
 import { IUserRepository, USER_REPOSITORY } from '../../domain/repositories/user.repository';
 import { DeviceInfo } from '../../domain/repositories/auth.repositories';
 import { normalizeIdentifier } from '../../domain/value-objects/identifier';
+import { AdminMfaAuditor } from '../services/admin-mfa-auditor.service';
 import { IOtpService, OTP_SERVICE, OtpVerifyResult } from '../ports/otp.service';
+import { AdminMfaPolicy } from '../services/admin-mfa-policy.service';
 import { AuthSessionIssuerService, IssuedSession } from '../services/auth-session-issuer.service';
 
 export interface VerifyOtpInput {
@@ -23,9 +25,21 @@ export interface VerifyOtpInput {
 export interface VerifyOtpOutput {
   verified: true;
   tokens?: IssuedSession;
+  /**
+   * Work 66: the account is a platform administrator, so verifying the code issued no session. The
+   * code still did its job (e.g. activated the account); the administrator signs in with their
+   * password and completes authenticator MFA.
+   */
+  mfaRequired?: true;
 }
 
-/** OTP verification use case (module-01 §3.2, §11.1, §13.4). */
+/**
+ * OTP verification use case (module-01 §3.2, §11.1, §13.4).
+ *
+ * A verified code proves control of a phone or inbox. For a platform administrator it is never a
+ * sign-in factor (Work 66): REGISTER/LOGIN auto-login issues no session to them, which also covers
+ * the first Super Admin's e-mail verification after the Work 65 bootstrap.
+ */
 @Injectable()
 export class VerifyOtpCommand {
   constructor(
@@ -33,6 +47,8 @@ export class VerifyOtpCommand {
     @Inject(OTP_SERVICE) private readonly otp: IOtpService,
     private readonly outbox: OutboxService,
     private readonly sessionIssuer: AuthSessionIssuerService,
+    private readonly mfaPolicy: AdminMfaPolicy,
+    private readonly audit: AdminMfaAuditor,
   ) {}
 
   async execute(input: VerifyOtpInput): Promise<VerifyOtpOutput> {
@@ -78,6 +94,18 @@ export class VerifyOtpCommand {
 
     if (!autoLogin) {
       return { verified: true };
+    }
+
+    if (await this.mfaPolicy.requiresMfa(user.id)) {
+      await this.audit.record({
+        actorUserId: user.id,
+        action: 'identity.mfa.privileged_session_blocked',
+        resourceType: 'user',
+        resourceId: user.id,
+        context: { path: 'OTP_AUTO_LOGIN', purpose: input.purpose },
+        ip: input.ip ?? null,
+      });
+      return { verified: true, mfaRequired: true };
     }
 
     const tokens = await this.sessionIssuer.issue({

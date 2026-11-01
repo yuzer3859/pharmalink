@@ -9,7 +9,9 @@ import {
   IRefreshTokenRepository,
   REFRESH_TOKEN_REPOSITORY,
 } from '../../domain/repositories/auth.repositories';
+import { AdminMfaAuditor } from '../services/admin-mfa-auditor.service';
 import { AccessTokenResult, ITokenService, TOKEN_SERVICE } from '../ports/token.service';
+import { AdminMfaPolicy } from '../services/admin-mfa-policy.service';
 
 export interface RefreshTokenInput {
   refreshToken: string;
@@ -26,6 +28,12 @@ export interface RefreshTokenOutput {
  * Token-refresh use case (module-01 §7.5, §11.2, §13.5). Rotating, one-time-use refresh tokens
  * with reuse detection: presenting an already-used/revoked token revokes the whole rotation
  * family and signals theft.
+ *
+ * Administrator MFA (Work 66): the family's MFA assurance (`mfaVerifiedAt`) is copied to every
+ * rotated token. A platform administrator whose family has none (any token from before Work 66,
+ * from before a promotion to ADMIN/SUPER_ADMIN, or otherwise issued without MFA) is refused with
+ * `AUTH_MFA_REQUIRED` and the family revoked. Whether the account is an administrator is read now,
+ * not from when the family began.
  */
 @Injectable()
 export class RefreshTokenCommand {
@@ -36,6 +44,8 @@ export class RefreshTokenCommand {
     @Inject(PERMISSION_RESOLVER) private readonly permissionResolver: IPermissionResolver,
     private readonly config: AppConfigService,
     private readonly outbox: OutboxService,
+    private readonly mfaPolicy: AdminMfaPolicy,
+    private readonly audit: AdminMfaAuditor,
   ) {}
 
   async execute(input: RefreshTokenInput): Promise<RefreshTokenOutput> {
@@ -64,6 +74,18 @@ export class RefreshTokenCommand {
     }
     user.assertCanAuthenticate();
 
+    if (!record.mfaVerifiedAt && (await this.mfaPolicy.requiresMfa(user.id))) {
+      await this.refreshTokens.revokeFamily(record.familyId);
+      await this.audit.record({
+        actorUserId: user.id,
+        action: 'identity.mfa.privileged_session_blocked',
+        resourceType: 'user',
+        resourceId: user.id,
+        context: { path: 'REFRESH', familyId: record.familyId },
+      });
+      throw IdentityErrors.mfaRequired();
+    }
+
     const refreshTtlMs = this.config.refreshTokenTtlDays * 24 * 60 * 60 * 1000;
     const newExpiresAt = new Date(Date.now() + refreshTtlMs);
     const issuedRefresh = await this.tokenService.createRefreshToken();
@@ -74,6 +96,7 @@ export class RefreshTokenCommand {
       tokenHash: issuedRefresh.tokenHash,
       familyId: record.familyId,
       expiresAt: newExpiresAt,
+      mfaVerifiedAt: record.mfaVerifiedAt,
     });
     await this.refreshTokens.markUsed(record.id, newRecord.id);
 
@@ -84,6 +107,7 @@ export class RefreshTokenCommand {
         permissions,
         permVersion: user.permVersion,
         deviceId: record.deviceId ?? undefined,
+        ...(record.mfaVerifiedAt ? { mfa: true as const } : {}),
       },
       this.config.accessTokenTtlSeconds,
     );

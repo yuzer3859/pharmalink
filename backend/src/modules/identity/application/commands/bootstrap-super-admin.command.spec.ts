@@ -1,5 +1,9 @@
+import { randomBytes } from 'crypto';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { AppConfigService } from '../../../../shared/config/app-config.service';
+import { IAdminMfaRepository } from '../../domain/repositories/admin-mfa.repository';
+import { AesGcmMfaSecretCipher } from '../../infrastructure/security/aes-gcm-mfa-secret.cipher';
+import { AdminMfaPolicy, AdminMfaReadiness } from '../services/admin-mfa-policy.service';
 import { AccountStatus, OtpPurpose, PreferredLanguage, PrimaryRole } from '../../domain/enums';
 import { IdentityErrors } from '../../domain/errors';
 import { BootstrapInspection, IPlatformBootstrapRepository } from '../../domain/repositories/platform-bootstrap.repository';
@@ -19,8 +23,13 @@ const ready = (): BootstrapInspection => ({
   superAdminRole: { id: 'role-sa', scope: 'PLATFORM', hasWildcard: true },
 });
 
-function build(overrides: { production?: boolean; state?: BootstrapInspection } = {}) {
-  const config = { isProduction: overrides.production ?? false } as unknown as AppConfigService;
+const mfaReady = (): AdminMfaReadiness => ({ enforced: true, keyConfigured: true, schemaReady: true });
+
+function build(overrides: { mfa?: AdminMfaReadiness | AdminMfaPolicy; state?: BootstrapInspection } = {}) {
+  const mfaPolicy =
+    overrides.mfa instanceof AdminMfaPolicy
+      ? overrides.mfa
+      : ({ readiness: jest.fn().mockResolvedValue(overrides.mfa ?? mfaReady()) } as unknown as AdminMfaPolicy);
   const bootstrap = {
     inspect: jest.fn().mockResolvedValue(overrides.state ?? ready()),
     assignSuperAdminRole: jest.fn().mockResolvedValue({ assignmentId: 'assignment-1' }),
@@ -38,7 +47,7 @@ function build(overrides: { production?: boolean; state?: BootstrapInspection } 
   const otpStore = { probe: jest.fn().mockResolvedValue({ shared: true }) } as jest.Mocked<IOtpStoreProbe>;
   const resendOtp = { execute: jest.fn().mockResolvedValue({ resent: true, cooldownSeconds: 30 }) } as unknown as jest.Mocked<ResendOtpCommand>;
   const audit = { record: jest.fn().mockResolvedValue({ id: 'a', hash: 'h' }) } as unknown as jest.Mocked<AuditService>;
-  const command = new BootstrapSuperAdminCommand(config, bootstrap, users, hasher, uow, notifications, otpStore, resendOtp, audit);
+  const command = new BootstrapSuperAdminCommand(mfaPolicy, bootstrap, users, hasher, uow, notifications, otpStore, resendOtp, audit);
   return { command, bootstrap, users, hasher, uow, notifications, otpStore, resendOtp, audit };
 }
 
@@ -93,11 +102,52 @@ describe('BootstrapSuperAdminCommand', () => {
     expect(recorded).not.toContain('founder@example.com');
   });
 
-  it('refuses production before touching anything', async () => {
-    const m = build({ production: true });
-    expect((await refusal(m.command.execute({ email: 'a@b.co', password: PASSWORD }))).reason).toBe('PRODUCTION_REFUSED');
+  // Work 66 replaced Work 65's blanket production refusal with these administrator-MFA checks.
+  it.each([
+    ['MFA enforcement is not active', { ...mfaReady(), enforced: false }, 'MFA_NOT_ENFORCED'],
+    ['ADMIN_MFA_ENCRYPTION_KEY is missing', { ...mfaReady(), keyConfigured: false }, 'MFA_KEY_MISSING'],
+    ['the MFA migration is not applied', { ...mfaReady(), schemaReady: false }, 'MFA_SCHEMA_MISSING'],
+  ])('refuses when %s, before touching anything', async (_label, mfa, reason) => {
+    const m = build({ mfa });
+    expect((await refusal(m.command.execute({ email: 'a@b.co', password: PASSWORD }))).reason).toBe(reason);
     expect(m.bootstrap.inspect).not.toHaveBeenCalled();
     expect(m.uow.run).not.toHaveBeenCalled();
+    expect(m.resendOtp.execute).not.toHaveBeenCalled();
+  });
+
+  describe('in production, with the real MFA policy and cipher', () => {
+    const productionConfig = (key: string | undefined) =>
+      ({
+        nodeEnv: 'production',
+        isProduction: true,
+        get adminMfaEncryptionKey() {
+          return key === undefined ? null : Buffer.from(key, 'base64');
+        },
+      }) as unknown as AppConfigService;
+    const policyWith = (config: AppConfigService, schemaReady: boolean) =>
+      new AdminMfaPolicy(
+        { isSchemaReady: jest.fn().mockResolvedValue(schemaReady) } as unknown as IAdminMfaRepository,
+        new AesGcmMfaSecretCipher(config),
+      );
+    // Test-only key material, generated per run.
+    const key = randomBytes(32).toString('base64');
+
+    it('passes the MFA preconditions and creates the Super Admin when the key and migration are in place', async () => {
+      const m = build({ mfa: policyWith(productionConfig(key), true) });
+      const result = await m.command.execute({ email: 'founder@example.com', password: PASSWORD });
+      expect(result.delivery).toBe('SENT');
+      expect(m.bootstrap.markCompleted).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses without the encryption key', async () => {
+      const m = build({ mfa: policyWith(productionConfig(undefined), true) });
+      expect((await refusal(m.command.checkPreconditions())).reason).toBe('MFA_KEY_MISSING');
+    });
+
+    it('refuses before the MFA migration is applied', async () => {
+      const m = build({ mfa: policyWith(productionConfig(key), false) });
+      expect((await refusal(m.command.checkPreconditions())).reason).toBe('MFA_SCHEMA_MISSING');
+    });
   });
 
   it.each([

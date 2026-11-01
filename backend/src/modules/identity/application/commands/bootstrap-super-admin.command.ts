@@ -1,6 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../../../../shared/audit/audit.service';
-import { AppConfigService } from '../../../../shared/config/app-config.service';
 import { ApiException } from '../../../../shared/errors/api-exception';
 import { ErrorCode } from '../../../../shared/errors/error-codes';
 import { AccountStatus, OtpPurpose, PreferredLanguage, PrimaryRole } from '../../domain/enums';
@@ -16,10 +15,13 @@ import { HASHER, IHasher } from '../ports/hasher.port';
 import { INotificationPort, NOTIFICATION_PORT } from '../ports/notification.port';
 import { IOtpStoreProbe, OTP_STORE_PROBE } from '../ports/otp-store-probe.port';
 import { IUnitOfWork, UNIT_OF_WORK } from '../ports/unit-of-work.port';
+import { AdminMfaPolicy } from '../services/admin-mfa-policy.service';
 import { ResendOtpCommand } from './resend-otp.command';
 
 export type BootstrapRefusalReason =
-  | 'PRODUCTION_REFUSED'
+  | 'MFA_NOT_ENFORCED'
+  | 'MFA_KEY_MISSING'
+  | 'MFA_SCHEMA_MISSING'
   | 'ROLE_CATALOGUE_MISSING'
   | 'ALREADY_COMPLETED'
   | 'SUPER_ADMIN_EXISTS'
@@ -70,8 +72,11 @@ const refuse = (reason: BootstrapRefusalReason, message: string, requirements?: 
  * One-time, operator-only creation of the first Super Admin (Work 65). Runs only from the CLI
  * (`npm run admin:bootstrap-super-admin`); no HTTP route reaches it.
  *
- * - **Refused in production** until mandatory administrator MFA exists (module-01 requires MFA for
- *   ADMIN/SUPER_ADMIN; `LoginUserCommand` does not enforce it yet).
+ * - **Only where administrator MFA works** (Work 66, replacing Work 65's blanket production
+ *   refusal): enforcement is on (it has no switch), ADMIN_MFA_ENCRYPTION_KEY is configured and
+ *   valid, and the Work 66 migration is applied. Checked in every environment, production included,
+ *   because without them the new Super Admin could never sign in. The account still can't sign in
+ *   until it has verified its e-mail and enrolled an authenticator.
  * - **Preconditions before any write:** the RBAC seed applied (SUPER_ADMIN, PLATFORM scope, `*`),
  *   the marker unused, no Super Admin present, e-mail deliverable, and a shared OTP store reachable
  *   (the CLI issues the code; the HTTP server verifies it).
@@ -90,7 +95,7 @@ export class BootstrapSuperAdminCommand {
   private readonly passwordPolicy = new PasswordPolicy();
 
   constructor(
-    private readonly config: AppConfigService,
+    private readonly mfaPolicy: AdminMfaPolicy,
     @Inject(PLATFORM_BOOTSTRAP_REPOSITORY) private readonly bootstrap: IPlatformBootstrapRepository,
     @Inject(USER_REPOSITORY) private readonly users: IUserRepository,
     @Inject(HASHER) private readonly hasher: IHasher,
@@ -103,10 +108,20 @@ export class BootstrapSuperAdminCommand {
 
   /** Every check that needs no credentials. Writes nothing. */
   async checkPreconditions(): Promise<void> {
-    if (this.config.isProduction) {
+    const mfa = await this.mfaPolicy.readiness();
+    if (!mfa.enforced) {
+      throw refuse('MFA_NOT_ENFORCED', 'Administrator MFA enforcement is not active, so no administrator can be created.');
+    }
+    if (!mfa.keyConfigured) {
       throw refuse(
-        'PRODUCTION_REFUSED',
-        'Refusing to bootstrap in production: mandatory administrator MFA is not implemented yet.',
+        'MFA_KEY_MISSING',
+        'ADMIN_MFA_ENCRYPTION_KEY is not configured, so the Super Admin could not enrol an authenticator or sign in.',
+      );
+    }
+    if (!mfa.schemaReady) {
+      throw refuse(
+        'MFA_SCHEMA_MISSING',
+        'The administrator MFA migration has not been applied. Run `npx prisma migrate deploy` first.',
       );
     }
     this.assertBootstrappable(await this.bootstrap.inspect());

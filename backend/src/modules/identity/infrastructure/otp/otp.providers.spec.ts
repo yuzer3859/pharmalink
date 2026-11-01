@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import { AppConfigService } from '../../../../shared/config/app-config.service';
@@ -19,6 +20,8 @@ const BASE_ENV = {
   JWT_ACCESS_SECRET: 'access-secret-0123456789',
   JWT_REFRESH_SECRET: 'refresh-secret-0123456789',
   MASTER_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+  // Production also requires the administrator-MFA key (Work 66). Test-only, random per run.
+  ADMIN_MFA_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
 };
 const SECRET = 'q7Vb2Lx9Rk4Tz1Wm8Np3Hs6Df0Gj5Ya2';
 const REDIS = 'redis://localhost:6379';

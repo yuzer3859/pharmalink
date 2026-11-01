@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
-import { IPermVersionStore } from '../../application/ports/perm-version.port';
+import { AuthState, IPermVersionStore } from '../../application/ports/perm-version.port';
+import { platformAdminWhere } from '../persistence/prisma-admin-mfa.repository';
 
 interface CacheEntry {
-  version: number | null;
+  state: AuthState | null;
   expiresAt: number;
 }
 
@@ -25,18 +26,27 @@ export class CachedPermVersionStore implements IPermVersionStore {
   constructor(private readonly prisma: PrismaService) {}
 
   async getCurrent(userId: string): Promise<number | null> {
+    return (await this.getAuthState(userId))?.permVersion ?? null;
+  }
+
+  /**
+   * The administrator flag is cached with the version on purpose: every change that can make an
+   * account an administrator (a role assignment, a role's grants) bumps `permVersion` and evicts
+   * this entry through `PermissionChangeService`, so both are always read together.
+   */
+  async getAuthState(userId: string): Promise<AuthState | null> {
     const cached = this.cache.get(userId);
     if (cached && cached.expiresAt > Date.now()) {
-      return cached.version;
+      return cached.state;
     }
 
-    const row = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { permVersion: true },
-    });
-    const version = row?.permVersion ?? null;
-    this.cache.set(userId, { version, expiresAt: Date.now() + TTL_MS });
-    return version;
+    const [row, administrators] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { permVersion: true } }),
+      this.prisma.user.count({ where: platformAdminWhere(userId) }),
+    ]);
+    const state = row ? { permVersion: row.permVersion, mfaRequired: administrators > 0 } : null;
+    this.cache.set(userId, { state, expiresAt: Date.now() + TTL_MS });
+    return state;
   }
 
   invalidate(userIds: string[]): void {

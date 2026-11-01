@@ -222,6 +222,16 @@ export enum ErrorCode {
   // `PermissionsGuard` already refuses an unentitled caller with `RBAC_FORBIDDEN`, and a second
   // code for the same refusal would give one rejection two names for no gain.
   CONFIG_VALIDATION_FAILED = 'CONFIG_VALIDATION_FAILED',
+
+  // Module 01 — administrator MFA (Work 66, backend/docs/admin-mfa.md). `AUTH_MFA_REQUIRED` above
+  // already names "this session needs MFA"; these two name the MFA step's own failures, so the
+  // portal never has to guess which verification method is being asked for.
+  // A challenge token that is unknown, expired, consumed, used for the wrong step or out of
+  // attempts. One code for all of them, so the response reveals nothing about which.
+  AUTH_MFA_CHALLENGE_INVALID = 'AUTH_MFA_CHALLENGE_INVALID',
+  // An authenticator or recovery code that didn't verify (wrong, outside the time window, or
+  // already used). Counts against the challenge's attempt limit.
+  AUTH_MFA_CODE_INVALID = 'AUTH_MFA_CODE_INVALID',
 }
 
 /** Default HTTP status mapping for each error code. */
@@ -375,4 +385,8 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   // declares about that value's range or permitted set, which is exactly the distinction 422 draws
   // and the same reasoning that placed the coupon amount codes there.
   [ErrorCode.CONFIG_VALIDATION_FAILED]: 422,
+
+  // Module 01 — administrator MFA (Work 66).
+  [ErrorCode.AUTH_MFA_CHALLENGE_INVALID]: 401,
+  [ErrorCode.AUTH_MFA_CODE_INVALID]: 401,
 };
