@@ -117,8 +117,12 @@ describe('Pharmacy & Inventory domain events — contract vs. 00-domain-event-ca
   });
 
   it('PharmacySuspended: pharmacy.pharmacy.suspended carries { pharmacyId, reason } on license-expiry sweep (spec §9)', async () => {
-    const pharmacy = await createActivatedPharmacy(ctx, {
-      licenseExpiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    // Activation refuses an expired licence (Work 67), so activate on a valid one and then let the
+    // stored expiry lapse, as time passing would.
+    const pharmacy = await createActivatedPharmacy(ctx);
+    await ctx.prisma.pharmacy.update({
+      where: { id: pharmacy.pharmacyId },
+      data: { licenseExpiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
     });
 
     const sweeper = ctx.app.get(LicenseExpirySweeper);

@@ -22,6 +22,20 @@ export const PharmacyInventoryErrors = {
       'This pharmacy is not currently eligible to transact.',
     ),
 
+  /**
+   * `POST /pharmacy/activate` refused (Work 67): the organisation or its approved licence evidence
+   * doesn't permit transacting. `reason` says which check failed. Nothing was changed.
+   */
+  activationRefused: (
+    reason: 'ORGANIZATION_NOT_PHARMACY' | 'ORGANIZATION_NOT_ACTIVE' | 'LICENSE_MISSING' | 'LICENSE_NOT_APPROVED',
+    details: Record<string, unknown> = {},
+  ) =>
+    new ApiException(
+      ErrorCode.PHARMACY_NOT_ELIGIBLE,
+      'This pharmacy cannot be activated: its organisation has no current approved licence.',
+      { reason, ...details },
+    ),
+
   licenseExpired: () =>
     new ApiException(ErrorCode.LICENSE_EXPIRED, 'This pharmacy license has expired.'),
 

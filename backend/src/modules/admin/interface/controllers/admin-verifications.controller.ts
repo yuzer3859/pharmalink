@@ -110,6 +110,7 @@ export class AdminVerificationsController {
         actorUserId: reviewer.userId,
         requestId: id,
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+        licenseNumber: body.licenseNumber ?? null,
         reason: body.reason ?? null,
         ip: req.ip ?? null,
       }),

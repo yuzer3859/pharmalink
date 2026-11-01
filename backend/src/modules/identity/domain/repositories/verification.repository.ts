@@ -43,11 +43,23 @@ export interface SaveExpectation {
   status: VerificationStatus;
 }
 
+/**
+ * `tx` is the opaque handle from `IUnitOfWork.run`; without it, each call runs on its own.
+ */
 export interface IVerificationRepository {
-  create(data: NewVerificationRequest): Promise<VerificationRequest>;
-  findById(id: string): Promise<VerificationRequest | null>;
+  create(data: NewVerificationRequest, tx?: unknown): Promise<VerificationRequest>;
+  findById(id: string, tx?: unknown): Promise<VerificationRequest | null>;
   /** The user's open (PENDING) request of a given type, if any — enforces one-at-a-time. */
   findPendingForUser(userId: string, type: VerificationType): Promise<VerificationRequest | null>;
+  /**
+   * The open PHARMACY_LICENSE request for one owner and one organisation (Work 67). Pharmacy
+   * licence applications are organisation-scoped: an owner of two pharmacies has two of them.
+   */
+  findPendingPharmacyLicense(
+    userId: string,
+    organizationId: string,
+    tx?: unknown,
+  ): Promise<VerificationRequest | null>;
   /** Every request for a user, newest first — powers GET /verification/status. */
   listForUser(userId: string): Promise<VerificationRequest[]>;
   listByStatus(
@@ -64,13 +76,16 @@ export interface IVerificationRepository {
     page: number,
     size: number,
   ): Promise<PaginatedResult<VerificationRequest>>;
-  /** APPROVED requests whose licence expiry has passed (module-01 §9.3, BRULE-08). */
+  /**
+   * APPROVED requests whose licence expiry has passed (module-01 §9.3, BRULE-08). `expiresAt <=
+   * now` counts as expired: a licence expiring at exactly `now` is no longer valid.
+   */
   listExpired(now: Date, limit: number): Promise<VerificationRequest[]>;
   /**
    * Persists the aggregate. With `expect`, the write applies only if the stored status still
    * matches (see `SaveExpectation`); otherwise it throws `verificationClosed` for the status found.
    */
-  save(request: VerificationRequest, expect?: SaveExpectation): Promise<void>;
+  save(request: VerificationRequest, expect?: SaveExpectation, tx?: unknown): Promise<void>;
 }
 
 export const CONSENT_REPOSITORY = Symbol('CONSENT_REPOSITORY');

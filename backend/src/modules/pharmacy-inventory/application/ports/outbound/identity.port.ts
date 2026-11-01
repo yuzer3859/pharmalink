@@ -4,8 +4,24 @@ export interface OrganizationView {
   id: string;
   type: string;
   status: string;
+  ownerUserId: string;
   licenseNumber: string | null;
   licenseExpiresAt: Date | null;
+}
+
+/**
+ * Persisted proof of an organisation's current pharmacy licence (Work 67): an APPROVED
+ * PHARMACY_LICENSE verification request Module 01 holds for this organisation and its owner, whose
+ * licence number and expiry equal the organisation's current ones. Read from Identity's own rows,
+ * never from a request body.
+ */
+export interface ApprovedPharmacyLicenseView {
+  verificationRequestId: string;
+  organizationId: string;
+  userId: string;
+  licenseNumber: string;
+  expiresAt: Date;
+  approvedAt: Date | null;
 }
 
 /**
@@ -21,7 +37,18 @@ export interface OrganizationView {
  * pattern.
  */
 export interface IIdentityPort {
-  getOrganization(organizationId: string): Promise<OrganizationView | null>;
+  /**
+   * Undeleted organisations only. With `tx` (a Module 04 transaction) the organisation row is
+   * share-locked until that transaction ends, so its status and licence can't change under a
+   * decision taken from them — a read lock; Module 04 never writes Identity's rows.
+   */
+  getOrganization(organizationId: string, tx?: unknown): Promise<OrganizationView | null>;
+  /**
+   * The approved licence request matching the organisation's current licence number and expiry,
+   * or null when there is none (no licence recorded, or no APPROVED request for it). Expiry is the
+   * caller's to judge against its own clock.
+   */
+  getCurrentPharmacyLicense(organizationId: string, tx?: unknown): Promise<ApprovedPharmacyLicenseView | null>;
   getOrganizationOwner(organizationId: string): Promise<{ userId: string } | null>;
   getUserOrganizationIds(userId: string): Promise<string[]>;
 }

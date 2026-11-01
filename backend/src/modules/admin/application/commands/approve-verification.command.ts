@@ -14,6 +14,8 @@ export interface ApproveVerificationInput {
   requestId: string;
   /** Licence expiry, when the approved document carries one (module-01 §9.3, BRULE-08). */
   expiresAt: Date | null;
+  /** Approved licence number — required by Module 01 for PHARMACY_LICENSE (Work 67). */
+  licenseNumber?: string | null;
   /** Reviewer's note. Recorded in this module's audit entry only — Module 01 keeps no approval reason. */
   reason: string | null;
   ip: string | null;
@@ -55,6 +57,7 @@ export class ApproveVerificationCommand {
       requestId: input.requestId,
       reviewerId: input.actorUserId,
       expiresAt: input.expiresAt,
+      licenseNumber: input.licenseNumber ?? null,
       ip: input.ip,
     });
 
@@ -70,6 +73,7 @@ export class ApproveVerificationCommand {
         subjectUserId: decision.subjectUserId,
         organizationId: decision.organizationId,
         expiresAt: decision.expiresAt?.toISOString() ?? null,
+        licenseNumber: decision.licenseNumber,
         reason: input.reason,
         decidedAt: decision.reviewedAt?.toISOString() ?? null,
       },

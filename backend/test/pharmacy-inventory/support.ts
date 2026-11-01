@@ -25,6 +25,10 @@ export async function createPharmacyOrganization(
   ownerUserId: string,
   overrides: { licenseExpiresAt?: Date | null; name?: string } = {},
 ): Promise<{ organizationId: string }> {
+  const licenseExpiresAt =
+    overrides.licenseExpiresAt === undefined
+      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      : overrides.licenseExpiresAt;
   const org = await ctx.prisma.organization.create({
     data: {
       id: randomUUID(),
@@ -33,9 +37,27 @@ export async function createPharmacyOrganization(
       status: 'ACTIVE',
       ownerUserId,
       licenseNumber: 'LIC-0001',
-      licenseExpiresAt: overrides.licenseExpiresAt ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      licenseExpiresAt,
     },
   });
+  // The approved licence evidence `POST /pharmacy/activate` requires since Work 67: the state
+  // Module 01's licence approval leaves behind (request APPROVED with the organisation's licence
+  // number and expiry). The approval flow itself is exercised end to end in
+  // `test/identity/pharmacy-license-lifecycle.e2e-spec.ts`.
+  if (licenseExpiresAt) {
+    await ctx.prisma.verificationRequest.create({
+      data: {
+        userId: ownerUserId,
+        organizationId: org.id,
+        type: 'PHARMACY_LICENSE',
+        status: 'APPROVED',
+        documents: [{ kind: 'PHARMACY_LICENSE', storageRef: 'enc://verification/seeded' }],
+        reviewedAt: new Date(),
+        licenseNumber: 'LIC-0001',
+        expiresAt: licenseExpiresAt,
+      },
+    });
+  }
   return { organizationId: org.id };
 }
 

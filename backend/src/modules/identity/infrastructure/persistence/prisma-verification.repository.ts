@@ -17,6 +17,8 @@ import {
   VerificationSearchFilter,
 } from '../../domain/repositories/verification.repository';
 
+type Client = PrismaService | Prisma.TransactionClient;
+
 function toDocuments(raw: Prisma.JsonValue | null): VerificationDocument[] {
   return Array.isArray(raw) ? (raw as unknown as VerificationDocument[]) : [];
 }
@@ -35,6 +37,7 @@ function toDomain(row: PrismaVerificationRequest): VerificationRequest {
     submittedAt: row.submittedAt,
     reviewedAt: row.reviewedAt,
     expiresAt: row.expiresAt,
+    licenseNumber: row.licenseNumber,
   });
 }
 
@@ -42,8 +45,12 @@ function toDomain(row: PrismaVerificationRequest): VerificationRequest {
 export class PrismaVerificationRepository implements IVerificationRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: NewVerificationRequest): Promise<VerificationRequest> {
-    const row = await this.prisma.verificationRequest.create({
+  private client(tx?: unknown): Client {
+    return (tx as Client | undefined) ?? this.prisma;
+  }
+
+  async create(data: NewVerificationRequest, tx?: unknown): Promise<VerificationRequest> {
+    const row = await this.client(tx).verificationRequest.create({
       data: {
         userId: data.userId,
         organizationId: data.organizationId,
@@ -55,8 +62,25 @@ export class PrismaVerificationRepository implements IVerificationRepository {
     return toDomain(row);
   }
 
-  async findById(id: string): Promise<VerificationRequest | null> {
-    const row = await this.prisma.verificationRequest.findUnique({ where: { id } });
+  async findById(id: string, tx?: unknown): Promise<VerificationRequest | null> {
+    const row = await this.client(tx).verificationRequest.findUnique({ where: { id } });
+    return row ? toDomain(row) : null;
+  }
+
+  async findPendingPharmacyLicense(
+    userId: string,
+    organizationId: string,
+    tx?: unknown,
+  ): Promise<VerificationRequest | null> {
+    const row = await this.client(tx).verificationRequest.findFirst({
+      where: {
+        userId,
+        organizationId,
+        type: VerificationType.PHARMACY_LICENSE as unknown as PrismaVerificationRequest['type'],
+        status: VerificationStatus.PENDING as unknown as PrismaVerificationRequest['status'],
+      },
+      orderBy: { submittedAt: 'desc' },
+    });
     return row ? toDomain(row) : null;
   }
 
@@ -138,7 +162,7 @@ export class PrismaVerificationRepository implements IVerificationRepository {
     const rows = await this.prisma.verificationRequest.findMany({
       where: {
         status: VerificationStatus.APPROVED as unknown as PrismaVerificationRequest['status'],
-        expiresAt: { not: null, lt: now },
+        expiresAt: { not: null, lte: now },
       },
       orderBy: { expiresAt: 'asc' },
       take: limit,
@@ -146,7 +170,8 @@ export class PrismaVerificationRepository implements IVerificationRepository {
     return rows.map(toDomain);
   }
 
-  async save(request: VerificationRequest, expect?: SaveExpectation): Promise<void> {
+  async save(request: VerificationRequest, expect?: SaveExpectation, tx?: unknown): Promise<void> {
+    const client = this.client(tx);
     const props = request.toProps();
     const data = {
       status: props.status as unknown as PrismaVerificationRequest['status'],
@@ -155,16 +180,17 @@ export class PrismaVerificationRepository implements IVerificationRepository {
       rejectReason: props.rejectReason,
       reviewedAt: props.reviewedAt,
       expiresAt: props.expiresAt,
+      licenseNumber: props.licenseNumber,
     };
 
     if (!expect) {
-      await this.prisma.verificationRequest.update({ where: { id: props.id }, data });
+      await client.verificationRequest.update({ where: { id: props.id }, data });
       return;
     }
 
     // Compare-and-set on the status column: one statement, atomic in Postgres, so of two
     // reviewers who both loaded PENDING exactly one matches and the other affects zero rows.
-    const result = await this.prisma.verificationRequest.updateMany({
+    const result = await client.verificationRequest.updateMany({
       where: {
         id: props.id,
         status: expect.status as unknown as PrismaVerificationRequest['status'],
@@ -175,7 +201,7 @@ export class PrismaVerificationRepository implements IVerificationRepository {
       return;
     }
 
-    const current = await this.prisma.verificationRequest.findUnique({
+    const current = await client.verificationRequest.findUnique({
       where: { id: props.id },
       select: { status: true },
     });

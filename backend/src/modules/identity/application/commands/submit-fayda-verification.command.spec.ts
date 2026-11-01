@@ -53,6 +53,7 @@ function fakeRequest(): VerificationRequest {
     submittedAt: new Date(),
     reviewedAt: null,
     expiresAt: null,
+    licenseNumber: null,
   });
 }
 

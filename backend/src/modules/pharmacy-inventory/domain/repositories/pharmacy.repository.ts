@@ -4,6 +4,8 @@ export const PHARMACY_REPOSITORY = Symbol('PHARMACY_REPOSITORY');
 
 export interface IPharmacyRepository {
   findById(id: string, tx?: unknown): Promise<Pharmacy | null>;
+  /** `SELECT ... FOR UPDATE` on an undeleted pharmacy; requires a transaction client. */
+  findByIdForUpdate(id: string, tx: unknown): Promise<Pharmacy | null>;
   findByOrganizationId(organizationId: string, tx?: unknown): Promise<Pharmacy | null>;
   create(pharmacy: Pharmacy, tx?: unknown): Promise<void>;
   update(pharmacy: Pharmacy, tx?: unknown): Promise<void>;
