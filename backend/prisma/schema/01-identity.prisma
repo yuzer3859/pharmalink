@@ -81,6 +81,14 @@ enum LoginOutcome {
   MFA_REQUIRED
 }
 
+/// What an administrator MFA challenge may be used for (Work 66).
+enum AdminMfaChallengePurpose {
+  /// Set up an authenticator (first enrolment, or replacement after a recovery code).
+  ENROLL
+  /// Prove possession of the enrolled authenticator, or redeem a recovery code.
+  VERIFY
+}
+
 enum VerificationType {
   FAYDA
   PHARMACY_LICENSE
@@ -124,18 +132,21 @@ model User {
   updatedAt           DateTime          @updatedAt
   deletedAt           DateTime?
 
-  ownedOrganizations    Organization[]        @relation("OrgOwner")
-  userRoles             UserRole[]            @relation("UserRoleUser")
-  assignedRoles         UserRole[]            @relation("UserRoleAssigner")
+  ownedOrganizations    Organization[]         @relation("OrgOwner")
+  userRoles             UserRole[]             @relation("UserRoleUser")
+  assignedRoles         UserRole[]             @relation("UserRoleAssigner")
   sessions              Session[]
   refreshTokens         RefreshToken[]
   devices               Device[]
   otps                  Otp[]
   loginHistory          LoginHistory[]
-  verificationRequests  VerificationRequest[] @relation("VerificationSubject")
-  reviewedVerifications VerificationRequest[] @relation("VerificationReviewer")
+  verificationRequests  VerificationRequest[]  @relation("VerificationSubject")
+  reviewedVerifications VerificationRequest[]  @relation("VerificationReviewer")
   consents              Consent[]
   platformBootstrap     PlatformBootstrap?
+  adminMfaCredential    AdminMfaCredential?
+  adminMfaChallenges    AdminMfaChallenge[]
+  adminMfaRecoveryCodes AdminMfaRecoveryCode[]
 
   @@map("users")
 }
@@ -174,6 +185,54 @@ model PlatformBootstrap {
   completedAt      DateTime @default(now())
 
   @@map("platform_bootstrap")
+}
+
+/// An administrator's enrolled authenticator (Work 66). The TOTP secret is stored only as
+/// AES-256-GCM ciphertext under ADMIN_MFA_ENCRYPTION_KEY, bound to the user id. `lastUsedStep` is
+/// the highest TOTP time step ever accepted, so a code (or an earlier one) can't be replayed.
+model AdminMfaCredential {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id])
+  encryptedSecret String
+  lastUsedStep    BigInt?
+  enabledAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("admin_mfa_credentials")
+}
+
+/// A short-lived MFA challenge issued after the password factor (Work 66). Only a hash of the
+/// challenge token is stored. An ENROLL challenge carries the pending (encrypted) secret until a
+/// valid code confirms it.
+model AdminMfaChallenge {
+  id                     String                   @id @default(uuid())
+  userId                 String
+  user                   User                     @relation(fields: [userId], references: [id])
+  tokenHash              String                   @unique
+  purpose                AdminMfaChallengePurpose
+  /// ENROLL only: confirming replaces an existing authenticator (after a recovery code).
+  replacesCredential     Boolean                  @default(false)
+  encryptedPendingSecret String?
+  attempts               Int                      @default(0)
+  expiresAt              DateTime
+  consumedAt             DateTime?
+  createdAt              DateTime                 @default(now())
+
+  @@index([userId])
+  @@map("admin_mfa_challenges")
+}
+
+/// A single-use recovery code (Work 66). Only its SHA-256 hash is stored.
+model AdminMfaRecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, codeHash])
+  @@map("admin_mfa_recovery_codes")
 }
 
 model Role {
@@ -231,15 +290,17 @@ model UserRole {
 }
 
 model Session {
-  id         String    @id @default(uuid())
-  userId     String
-  deviceId   String?
-  ip         String?
-  userAgent  String?
-  createdAt  DateTime  @default(now())
-  lastSeenAt DateTime?
-  expiresAt  DateTime
-  revokedAt  DateTime?
+  id            String    @id @default(uuid())
+  userId        String
+  deviceId      String?
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime?
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  /// When the session's administrator MFA was completed (Work 66). Null: password or OTP only.
+  mfaVerifiedAt DateTime?
 
   user   User    @relation(fields: [userId], references: [id])
   device Device? @relation(fields: [deviceId], references: [id])
@@ -248,16 +309,19 @@ model Session {
 }
 
 model RefreshToken {
-  id         String    @id @default(uuid())
-  userId     String
-  deviceId   String?
-  tokenHash  String    @unique
-  familyId   String
-  expiresAt  DateTime
-  usedAt     DateTime?
-  revokedAt  DateTime?
-  replacedBy String?   @unique
-  createdAt  DateTime  @default(now())
+  id            String    @id @default(uuid())
+  userId        String
+  deviceId      String?
+  tokenHash     String    @unique
+  familyId      String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  revokedAt     DateTime?
+  replacedBy    String?   @unique
+  createdAt     DateTime  @default(now())
+  /// Administrator MFA assurance of the token family (Work 66), copied on every rotation. Null for
+  /// every token issued without MFA, including all tokens that existed before Work 66.
+  mfaVerifiedAt DateTime?
 
   user        User          @relation(fields: [userId], references: [id])
   device      Device?       @relation(fields: [deviceId], references: [id])

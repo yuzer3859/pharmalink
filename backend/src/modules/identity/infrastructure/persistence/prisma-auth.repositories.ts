@@ -33,6 +33,7 @@ export class PrismaRefreshTokenRepository implements IRefreshTokenRepository {
         tokenHash: data.tokenHash,
         familyId: data.familyId,
         expiresAt: data.expiresAt,
+        mfaVerifiedAt: data.mfaVerifiedAt ?? null,
       },
     });
     return row;
@@ -81,6 +82,7 @@ export class PrismaSessionRepository implements ISessionRepository {
         ip: data.ip,
         userAgent: data.userAgent,
         expiresAt: data.expiresAt,
+        mfaVerifiedAt: data.mfaVerifiedAt ?? null,
       },
     });
   }

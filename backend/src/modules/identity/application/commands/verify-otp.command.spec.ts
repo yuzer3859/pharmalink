@@ -3,6 +3,8 @@ import { AccountStatus, DevicePlatform, OtpPurpose, PreferredLanguage, PrimaryRo
 import { User } from '../../domain/entities/user.entity';
 import { IUserRepository } from '../../domain/repositories/user.repository';
 import { OtpVerifyResult } from '../ports/otp.service';
+import { AdminMfaAuditor } from '../services/admin-mfa-auditor.service';
+import { AdminMfaPolicy } from '../services/admin-mfa-policy.service';
 import { AuthSessionIssuerService } from '../services/auth-session-issuer.service';
 import { VerifyOtpCommand } from './verify-otp.command';
 
@@ -29,7 +31,7 @@ function fakeUser(): User {
 }
 
 describe('VerifyOtpCommand', () => {
-  function build(verifyResult: OtpVerifyResult, user: User | null = fakeUser()) {
+  function build(verifyResult: OtpVerifyResult, user: User | null = fakeUser(), admin = false) {
     const users = {
       findByIdentifier: jest.fn().mockResolvedValue(user),
       save: jest.fn().mockResolvedValue(undefined),
@@ -45,8 +47,11 @@ describe('VerifyOtpCommand', () => {
       }),
     } as unknown as AuthSessionIssuerService;
 
-    const command = new VerifyOtpCommand(users, otp as never, outbox, sessionIssuer);
-    return { command, users, outbox, sessionIssuer, otp };
+    const mfaPolicy = { requiresMfa: jest.fn().mockResolvedValue(admin) } as unknown as AdminMfaPolicy;
+    const audit = { record: jest.fn() } as unknown as AdminMfaAuditor;
+
+    const command = new VerifyOtpCommand(users, otp as never, outbox, sessionIssuer, mfaPolicy, audit);
+    return { command, users, outbox, sessionIssuer, otp, audit };
   }
 
   // Regression: registration keys the OTP by the stored E.164 phone, so a user submitting the
@@ -116,5 +121,31 @@ describe('VerifyOtpCommand', () => {
     await expect(
       command.execute({ identifier: '+251912345678', code: '000000', purpose: OtpPurpose.REGISTER }),
     ).rejects.toMatchObject({ code: 'AUTH_OTP_ATTEMPTS_EXCEEDED' });
+  });
+
+  describe('platform administrators (Work 66)', () => {
+    const deviceInfo = { fingerprint: 'fp-1', platform: DevicePlatform.WEB };
+
+    it.each([OtpPurpose.REGISTER, OtpPurpose.LOGIN])(
+      'verifies a %s code but issues no session to an administrator',
+      async (purpose) => {
+        const user = fakeUser();
+        const { command, users, sessionIssuer, audit } = build(OtpVerifyResult.OK, user, true);
+
+        const result = await command.execute({ identifier: '+251912345678', code: '123456', purpose, deviceInfo });
+
+        expect(result).toEqual({ verified: true, mfaRequired: true });
+        expect(sessionIssuer.issue).not.toHaveBeenCalled();
+        // The code still verified the phone and activated the account.
+        expect(users.save).toHaveBeenCalledWith(user);
+        expect(user.status).toBe(AccountStatus.ACTIVE);
+        expect(audit.record).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'identity.mfa.privileged_session_blocked',
+            context: { path: 'OTP_AUTO_LOGIN', purpose },
+          }),
+        );
+      },
+    );
   });
 });

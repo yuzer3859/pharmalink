@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { OtpPurpose } from '../../src/modules/identity/domain/enums';
+import { base32Decode, timeStepAt, totpForStep } from '../../src/modules/identity/domain/mfa/totp';
 import { TestContext } from './test-app';
 
 export const DEVICE = { fingerprint: 'e2e-device-fingerprint', platform: 'ANDROID' as const };
@@ -62,6 +63,11 @@ export async function registerAndVerify(
   return { userId: body(registration).userId as string, phone, password };
 }
 
+/**
+ * Signs in through the real HTTP surface. A platform administrator gets an MFA challenge instead of
+ * tokens (Work 66); this completes it the way an operator would, with an authenticator app: the
+ * first time by enrolling (the secret is kept in `testAuthenticators`), afterwards with a TOTP code.
+ */
 export async function login(
   ctx: TestContext,
   identifier: string,
@@ -74,7 +80,74 @@ export async function login(
     .expect(201);
 
   const data = body(res);
+  if (data.mfaRequired === true) {
+    return completeAdminMfa(ctx, identifier, data.challenge as MfaChallenge, device);
+  }
   return { accessToken: data.accessToken as string, refreshToken: data.refreshToken as string };
+}
+
+export interface MfaChallenge {
+  type: 'TOTP' | 'ENROLLMENT';
+  token: string;
+  expiresAt: string;
+  reason?: 'RECOVERY';
+}
+
+/** Authenticator secrets (base32) of administrators enrolled through `login`, by identifier. */
+export const testAuthenticators = new Map<string, string>();
+
+/**
+ * A TOTP code the server will accept now for `userId`: the earliest step in the ±1 window that is
+ * newer than the last step it accepted, waiting for the next 30-second step if the window is used up.
+ */
+export async function freshTotp(ctx: TestContext, userId: string, secret: string): Promise<string> {
+  for (;;) {
+    const credential = await ctx.prisma.adminMfaCredential.findUnique({ where: { userId } });
+    const last = credential?.lastUsedStep == null ? -1 : Number(credential.lastUsedStep);
+    const now = timeStepAt(Date.now());
+    const step = [now, now + 1].find((candidate) => candidate > last);
+    if (step !== undefined) return totpForStep(base32Decode(secret), step);
+    await new Promise((resolve) => setTimeout(resolve, 30_000 - (Date.now() % 30_000) + 50));
+  }
+}
+
+export async function completeAdminMfa(
+  ctx: TestContext,
+  identifier: string,
+  challenge: MfaChallenge,
+  device: { fingerprint: string; platform: string } = DEVICE,
+): Promise<Tokens> {
+  let res: request.Response;
+  if (challenge.type === 'ENROLLMENT') {
+    const started = await request(ctx.server)
+      .post('/auth/mfa/enrollment/start')
+      .send({ challengeToken: challenge.token })
+      .expect(200);
+    const secret = body(started).secret as string;
+    testAuthenticators.set(identifier, secret);
+    res = await request(ctx.server)
+      .post('/auth/mfa/enrollment/confirm')
+      .send({ challengeToken: challenge.token, code: totpForStep(base32Decode(secret), timeStepAt(Date.now())), deviceInfo: device })
+      .expect(200);
+  } else {
+    const secret = testAuthenticators.get(identifier);
+    if (!secret) throw new Error(`No test authenticator enrolled for ${identifier}`);
+    const userId = await userIdFor(ctx, identifier);
+    res = await request(ctx.server)
+      .post('/auth/mfa/verify')
+      .send({ challengeToken: challenge.token, code: await freshTotp(ctx, userId, secret), deviceInfo: device })
+      .expect(200);
+  }
+  const data = body(res);
+  return { accessToken: data.accessToken as string, refreshToken: data.refreshToken as string };
+}
+
+async function userIdFor(ctx: TestContext, identifier: string): Promise<string> {
+  const user = await ctx.prisma.user.findFirstOrThrow({
+    where: { OR: [{ phone: identifier }, { email: identifier.toLowerCase() }] },
+    select: { id: true },
+  });
+  return user.id;
 }
 
 /**

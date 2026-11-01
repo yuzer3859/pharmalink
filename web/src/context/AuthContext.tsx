@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { AuthUser, PermissionKey } from '@/types';
+import type { AuthUser, PermissionKey, PortalKey } from '@/types';
 import {
   authService,
   getAuthErrorMessage,
-  OtpRequiredError,
+  MfaRequiredError,
   PortalAccessError,
   type LoginCredentials,
-  type OtpCredentials,
+  type MfaChallenge,
+  type MfaEnrollment,
 } from '@/services/auth.service';
 import type { DataScope } from '@/services/scope';
 
@@ -15,9 +16,17 @@ interface AuthContextValue {
   scope: DataScope | null;
   isInitializing: boolean;
   authError: string | null;
+  /** Throws `MfaRequiredError` with the next step when the account is an administrator. */
   login: (credentials: LoginCredentials) => Promise<AuthUser>;
-  verifyOtp: (credentials: OtpCredentials) => Promise<AuthUser>;
-  resendOtp: (identifier: string) => Promise<void>;
+  startMfaEnrollment: (challengeToken: string) => Promise<MfaEnrollment>;
+  /**
+   * Opens the session but does not sign the user in to the portal yet, so the one-time recovery
+   * codes are always shown first. Call `acceptSession` once they are saved.
+   */
+  confirmMfaEnrollment: (challengeToken: string, code: string) => Promise<{ user: AuthUser; recoveryCodes: string[] }>;
+  verifyMfa: (challengeToken: string, code: string, portal?: PortalKey) => Promise<AuthUser>;
+  redeemRecoveryCode: (challengeToken: string, recoveryCode: string) => Promise<MfaChallenge>;
+  acceptSession: (user: AuthUser, portal?: PortalKey) => Promise<AuthUser>;
   logout: () => Promise<void>;
   clearAuthError: () => void;
   can: (permission: PermissionKey) => boolean;
@@ -62,43 +71,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (credentials: LoginCredentials) => {
     setAuthError(null);
     try {
-      const authenticatedUser = await authService.login(credentials);
-      if (credentials.portal && authenticatedUser.portal !== credentials.portal) {
-        await authService.logout();
-        throw new PortalAccessError(credentials.portal);
-      }
+      const authenticatedUser = await ensurePortal(await authService.login(credentials), credentials.portal);
       setUser(authenticatedUser);
       return authenticatedUser;
     } catch (error) {
-      if (!(error instanceof OtpRequiredError)) setAuthError(getAuthErrorMessage(error));
+      if (!(error instanceof MfaRequiredError)) setAuthError(getAuthErrorMessage(error));
       throw error;
     }
   }, []);
 
-  const verifyOtp = useCallback(async (credentials: OtpCredentials) => {
-    setAuthError(null);
-    try {
-      const authenticatedUser = await authService.verifyOtp(credentials);
-      if (credentials.portal && authenticatedUser.portal !== credentials.portal) {
-        await authService.logout();
-        throw new PortalAccessError(credentials.portal);
-      }
-      setUser(authenticatedUser);
-      return authenticatedUser;
-    } catch (error) {
-      setAuthError(getAuthErrorMessage(error));
-      throw error;
-    }
+  const startMfaEnrollment = useCallback((challengeToken: string) => authService.startMfaEnrollment(challengeToken), []);
+
+  const confirmMfaEnrollment = useCallback(
+    (challengeToken: string, code: string) => authService.confirmMfaEnrollment(challengeToken, code),
+    [],
+  );
+
+  const verifyMfa = useCallback(async (challengeToken: string, code: string, portal?: PortalKey) => {
+    const authenticatedUser = await ensurePortal(await authService.verifyMfa(challengeToken, code), portal);
+    setUser(authenticatedUser);
+    return authenticatedUser;
   }, []);
 
-  const resendOtp = useCallback(async (identifier: string) => {
+  const redeemRecoveryCode = useCallback(
+    (challengeToken: string, recoveryCode: string) => authService.redeemRecoveryCode(challengeToken, recoveryCode),
+    [],
+  );
+
+  const acceptSession = useCallback(async (authenticatedUser: AuthUser, portal?: PortalKey) => {
     setAuthError(null);
-    try {
-      await authService.resendOtp(identifier);
-    } catch (error) {
-      setAuthError(getAuthErrorMessage(error));
-      throw error;
-    }
+    const accepted = await ensurePortal(authenticatedUser, portal);
+    setUser(accepted);
+    return accepted;
   }, []);
 
   const logout = useCallback(async () => {
@@ -126,16 +130,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitializing,
       authError,
       login,
-      verifyOtp,
-      resendOtp,
+      startMfaEnrollment,
+      confirmMfaEnrollment,
+      verifyMfa,
+      redeemRecoveryCode,
+      acceptSession,
       logout,
       clearAuthError,
       can,
     }),
-    [user, scope, isInitializing, authError, login, verifyOtp, resendOtp, logout, clearAuthError, can],
+    [
+      user,
+      scope,
+      isInitializing,
+      authError,
+      login,
+      startMfaEnrollment,
+      confirmMfaEnrollment,
+      verifyMfa,
+      redeemRecoveryCode,
+      acceptSession,
+      logout,
+      clearAuthError,
+      can,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/** The portal the user picked is only a destination; the server decided who they are. */
+async function ensurePortal(authenticatedUser: AuthUser, portal?: PortalKey): Promise<AuthUser> {
+  if (portal && authenticatedUser.portal !== portal) {
+    await authService.logout();
+    throw new PortalAccessError(portal);
+  }
+  return authenticatedUser;
 }
 
 export function useAuth() {

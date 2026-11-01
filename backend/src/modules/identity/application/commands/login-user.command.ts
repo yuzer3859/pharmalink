@@ -8,7 +8,11 @@ import {
   LOGIN_HISTORY_REPOSITORY,
 } from '../../domain/repositories/auth.repositories';
 import { normalizeIdentifier } from '../../domain/value-objects/identifier';
+import { AdminMfaAuditor } from '../services/admin-mfa-auditor.service';
+import { ADMIN_MFA_REPOSITORY, IAdminMfaRepository } from '../../domain/repositories/admin-mfa.repository';
 import { HASHER, IHasher } from '../ports/hasher.port';
+import { AdminMfaChallengeService, MfaChallengeView } from '../services/admin-mfa-challenge.service';
+import { AdminMfaPolicy } from '../services/admin-mfa-policy.service';
 import { AuthSessionIssuerService, IssuedSession } from '../services/auth-session-issuer.service';
 
 export interface LoginUserInput {
@@ -19,11 +23,16 @@ export interface LoginUserInput {
   userAgent?: string | null;
 }
 
-export type LoginUserOutput = IssuedSession;
+/** A session, or (platform administrators) an MFA challenge and no session. */
+export type LoginUserOutput = IssuedSession | MfaChallengeView;
 
 /**
- * Password login use case (module-01 §3.3 F-LOG-01, §11.2, §13.2). MFA/step-up gating
- * (F-LOG-05) is out of scope for this slice — every account authenticates directly once ACTIVE.
+ * Password login use case (module-01 §3.3 F-LOG-01, F-LOG-05, §11.2, §13.2).
+ *
+ * Platform administrators (Work 66) never get a session from the password alone. They get a
+ * five-minute challenge instead: `TOTP` when an authenticator is enrolled, `ENROLLMENT` when not.
+ * The decision comes from stored roles, never from anything the client sends. Everyone else signs
+ * in as before.
  */
 @Injectable()
 export class LoginUserCommand {
@@ -32,6 +41,10 @@ export class LoginUserCommand {
     @Inject(HASHER) private readonly hasher: IHasher,
     @Inject(LOGIN_HISTORY_REPOSITORY) private readonly loginHistory: ILoginHistoryRepository,
     private readonly sessionIssuer: AuthSessionIssuerService,
+    private readonly mfaPolicy: AdminMfaPolicy,
+    private readonly mfaChallenges: AdminMfaChallengeService,
+    @Inject(ADMIN_MFA_REPOSITORY) private readonly mfa: IAdminMfaRepository,
+    private readonly audit: AdminMfaAuditor,
   ) {}
 
   async execute(input: LoginUserInput): Promise<LoginUserOutput> {
@@ -61,6 +74,29 @@ export class LoginUserCommand {
     } catch (err) {
       await this.recordFailure(input, 'ACCOUNT_STATUS', user.id, identifier.value);
       throw err;
+    }
+
+    if (await this.mfaPolicy.requiresMfa(user.id)) {
+      const enrolled = (await this.mfa.findCredential(user.id)) !== null;
+      const challenge = await this.mfaChallenges.issue(user.id, enrolled ? 'VERIFY' : 'ENROLL');
+      await this.loginHistory.record({
+        userId: user.id,
+        identifier: identifier.value,
+        deviceId: null,
+        ip: input.ip ?? null,
+        userAgent: input.userAgent ?? null,
+        outcome: LoginOutcome.MFA_REQUIRED,
+        failureReason: enrolled ? null : 'MFA_NOT_ENROLLED',
+      });
+      await this.audit.record({
+        actorUserId: user.id,
+        action: 'identity.mfa.challenge_issued',
+        resourceType: 'user',
+        resourceId: user.id,
+        context: { purpose: enrolled ? 'VERIFY' : 'ENROLL' },
+        ip: input.ip ?? null,
+      });
+      return challenge;
     }
 
     const tokens = await this.sessionIssuer.issue({

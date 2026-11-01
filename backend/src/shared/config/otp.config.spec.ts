@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { validateEnv } from './env.validation';
 import { assertOtpHashSecret, resolveOtpStore } from './otp.config';
 
@@ -67,6 +68,8 @@ describe('OTP store configuration', () => {
       JWT_ACCESS_SECRET: 'access-secret-0123456789',
       JWT_REFRESH_SECRET: 'refresh-secret-0123456789',
       MASTER_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
+      // Production also requires the administrator-MFA key (Work 66). Test-only, random per run.
+      ADMIN_MFA_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
     };
 
     it('boots outside production with no OTP settings (in-memory store)', () => {

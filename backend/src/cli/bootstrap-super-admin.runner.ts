@@ -16,7 +16,7 @@ type Bootstrapper = Pick<BootstrapSuperAdminCommand, 'checkPreconditions' | 'exe
  * not the password, its hash, the verification code or any token. Only a masked e-mail and ids.
  */
 export async function runBootstrapSuperAdmin(command: Bootstrapper, io: CliIo): Promise<number> {
-  io.print('PharmaLink: one-time first Super Admin bootstrap (development/staging only).');
+  io.print('PharmaLink: one-time first Super Admin bootstrap.');
   try {
     await command.checkPreconditions();
   } catch (err) {
@@ -42,6 +42,7 @@ export async function runBootstrapSuperAdmin(command: Bootstrapper, io: CliIo): 
 
   io.print(`Created the first Super Admin (user ${result.userId}) for ${result.maskedEmail}.`);
   io.print('The account is PENDING_VERIFICATION and cannot sign in until its e-mail is verified.');
+  io.print('After that, the first sign-in requires enrolling an authenticator app (administrator MFA).');
   if (result.delivery === 'SENT') {
     io.print(`A verification code was e-mailed to ${result.maskedEmail}. Verify it with`);
     io.print('POST /auth/verify-otp { identifier: <e-mail>, code: <code>, purpose: "REGISTER" }.');

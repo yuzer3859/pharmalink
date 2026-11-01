@@ -114,6 +114,7 @@ import {
   OtpStoreName,
   resolveOtpStore,
 } from './otp.config';
+import { resolveAdminMfaKey } from './admin-mfa.config';
 
 /**
  * Rejects a malformed `DELIVERY_FEE_ZONES` string at boot.
@@ -225,6 +226,15 @@ export class EnvironmentVariables {
   @IsString()
   @MinLength(44)
   MASTER_ENCRYPTION_KEY!: string;
+
+  /**
+   * AES-256-GCM key for administrator TOTP secrets at rest (Work 66, see `admin-mfa.config.ts`):
+   * 32 random bytes in base64. **Required in production**; optional elsewhere, where its absence
+   * leaves administrators unable to sign in rather than weakening MFA.
+   */
+  @IsString()
+  @IsOptional()
+  ADMIN_MFA_ENCRYPTION_KEY?: string;
 
   /**
    * Which national-ID verification provider the identity module uses: `mock` or `fayda`
@@ -722,6 +732,16 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       redisUrl: validated.REDIS_URL,
       hashSecret: validated.OTP_HASH_SECRET,
       otherSecrets: [validated.JWT_ACCESS_SECRET, validated.JWT_REFRESH_SECRET, validated.MASTER_ENCRYPTION_KEY],
+    });
+    resolveAdminMfaKey({
+      nodeEnv: validated.NODE_ENV,
+      key: validated.ADMIN_MFA_ENCRYPTION_KEY,
+      otherSecrets: [
+        validated.JWT_ACCESS_SECRET,
+        validated.JWT_REFRESH_SECRET,
+        validated.MASTER_ENCRYPTION_KEY,
+        validated.OTP_HASH_SECRET,
+      ],
     });
   } catch (err) {
     throw new Error(`Invalid environment configuration: ${(err as Error).message}`);

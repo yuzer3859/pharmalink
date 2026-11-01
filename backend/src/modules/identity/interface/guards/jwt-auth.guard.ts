@@ -17,6 +17,10 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
  * `permVersion` that snapshot was taken at: any role/permission change bumps that version and
  * this guard then rejects the stale token, forcing a refresh that re-resolves permissions.
  * Without this check a revoked role would stay effective until the access token expired.
+ *
+ * Administrator MFA (Work 66): a platform administrator's token must also carry MFA assurance
+ * (`mfa: true`, set only by the MFA sign-in). A token without it, including every token minted before
+ * Work 66, or one minted before the account was promoted, is refused with `AUTH_MFA_REQUIRED`.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -43,12 +47,15 @@ export class JwtAuthGuard implements CanActivate {
 
     const claims = this.tokenService.verifyAccessToken(header.slice('Bearer '.length));
 
-    const currentVersion = await this.permVersions.getCurrent(claims.sub);
-    if (currentVersion === null) {
+    const state = await this.permVersions.getAuthState(claims.sub);
+    if (state === null) {
       throw IdentityErrors.tokenInvalid();
     }
-    if (currentVersion !== claims.permVersion) {
+    if (state.permVersion !== claims.permVersion) {
       throw IdentityErrors.permissionsChanged();
+    }
+    if (state.mfaRequired && claims.mfa !== true) {
+      throw IdentityErrors.mfaRequired();
     }
 
     request.user = {

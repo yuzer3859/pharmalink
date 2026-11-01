@@ -14,10 +14,27 @@ export interface LoginCredentials {
   portal?: PortalKey;
 }
 
-export interface OtpCredentials {
-  identifier: string;
-  code: string;
-  portal?: PortalKey;
+/**
+ * An administrator MFA step returned by `POST /auth/login` instead of a session (Work 66). Held in
+ * component memory only: never persisted, never put in a URL.
+ */
+export interface MfaChallenge {
+  type: 'TOTP' | 'ENROLLMENT';
+  token: string;
+  expiresAt: string;
+  /** `RECOVERY`: a recovery code was used, so a replacement authenticator must be set up. */
+  reason?: 'RECOVERY';
+}
+
+/** Authenticator provisioning details. Shown once during enrolment, then discarded. */
+export interface MfaEnrollment {
+  secret: string;
+  otpauthUri: string;
+  issuer: string;
+  accountName: string;
+  digits: number;
+  period: number;
+  expiresAt: string;
 }
 
 interface BackendRole {
@@ -38,11 +55,6 @@ interface BackendCurrentUser {
   deletionRequestedAt: string | null;
   roles: BackendRole[];
   permissions: string[];
-}
-
-interface VerifyOtpResponse {
-  verified: true;
-  tokens?: Record<string, unknown>;
 }
 
 const SESSION_STORAGE_KEY = 'pharmalink.auth';
@@ -286,16 +298,29 @@ function toAuthUser(currentUser: BackendCurrentUser): AuthUser {
   };
 }
 
-function isMfaChallenge(value: unknown): value is { mfaRequired: true; challengeId?: string } {
-  return isRecord(value) && value.mfaRequired === true;
+function parseMfaChallenge(value: unknown): MfaChallenge | null {
+  if (!isRecord(value) || value.mfaRequired !== true || !isRecord(value.challenge)) return null;
+  const { type, token, expiresAt, reason } = value.challenge;
+  if ((type !== 'TOTP' && type !== 'ENROLLMENT') || typeof token !== 'string' || typeof expiresAt !== 'string') {
+    throw new ApiError(502, 'AUTH_RESPONSE_INVALID', 'The authentication service returned an invalid sign-in step.');
+  }
+  return { type, token, expiresAt, ...(reason === 'RECOVERY' ? { reason } : {}) };
 }
 
-export class OtpRequiredError extends Error {
-  readonly code = 'AUTH_MFA_REQUIRED';
+/**
+ * The password was right, but this is an administrator account: the server requires authenticator
+ * MFA before it issues a session (Work 66). The server decides this, never the portal.
+ */
+export class MfaRequiredError extends Error {
+  readonly code = 'AUTH_MFA_CHALLENGE';
 
-  constructor(readonly identifier: string, readonly challengeId?: string) {
-    super('A verification code is required to finish signing in.');
-    this.name = 'OtpRequiredError';
+  constructor(readonly challenge: MfaChallenge) {
+    super(
+      challenge.type === 'ENROLLMENT'
+        ? 'Set up an authenticator app to finish signing in.'
+        : 'Enter the code from your authenticator app to finish signing in.',
+    );
+    this.name = 'MfaRequiredError';
   }
 }
 
@@ -337,6 +362,16 @@ async function requestWithSession<T>(path: string, options: Omit<ApiRequestOptio
   });
 }
 
+async function startSession(response: unknown): Promise<AuthUser> {
+  try {
+    setTokens(response);
+    return await currentUser();
+  } catch (error) {
+    clearStoredSession();
+    throw error;
+  }
+}
+
 async function currentUser(): Promise<AuthUser> {
   const response = await requestWithSession<BackendCurrentUser>('/users/me', { method: 'GET' });
   return toAuthUser(response);
@@ -349,9 +384,13 @@ function expireSession(): void {
 }
 
 export function getAuthErrorMessage(error: unknown): string {
-  if (error instanceof OtpRequiredError) return error.message;
+  if (error instanceof MfaRequiredError) return error.message;
   if (error instanceof ApiError) {
     if (error.code === 'NETWORK_ERROR') return 'The authentication service is unavailable. Please try again.';
+    if (error.code === 'AUTH_MFA_REQUIRED') {
+      return 'Administrator accounts must sign in again and complete authenticator verification.';
+    }
+    if (error.code === 'AUTH_MFA_CODE_INVALID') return 'That code is not valid. Check your authenticator app and try again.';
     const details = isRecord(error.details) ? error.details : {};
     const retryAfter = typeof details.retryAfterSeconds === 'number' ? details.retryAfterSeconds : null;
     if (error.code === 'RATE_LIMITED' && retryAfter !== null) {
@@ -368,58 +407,51 @@ export function getAuthErrorMessage(error: unknown): string {
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthUser> {
-    let response: unknown;
-    try {
-      response = await apiClient.post<unknown>('/auth/login', {
-        identifier: credentials.identifier.trim(),
-        password: credentials.password,
-        deviceInfo: deviceInfo(),
-      });
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 'AUTH_MFA_REQUIRED') {
-        const details = isRecord(error.details) ? error.details : {};
-        const challengeId = typeof details.challengeId === 'string' ? details.challengeId : undefined;
-        throw new OtpRequiredError(credentials.identifier.trim(), challengeId);
-      }
-      throw error;
-    }
-
-    if (isMfaChallenge(response)) {
-      throw new OtpRequiredError(credentials.identifier.trim(), response.challengeId);
-    }
-
-    try {
-      setTokens(response);
-      return await currentUser();
-    } catch (error) {
-      clearStoredSession();
-      throw error;
-    }
-  },
-
-  async verifyOtp(credentials: OtpCredentials): Promise<AuthUser> {
-    const response = await apiClient.post<VerifyOtpResponse>('/auth/verify-otp', {
+    const response = await apiClient.post<unknown>('/auth/login', {
       identifier: credentials.identifier.trim(),
-      code: credentials.code,
-      purpose: 'LOGIN',
+      password: credentials.password,
       deviceInfo: deviceInfo(),
     });
 
-    if (!response.tokens) {
-      throw new ApiError(401, 'AUTH_MFA_REQUIRED', 'The verification code did not create a session.');
-    }
+    const challenge = parseMfaChallenge(response);
+    if (challenge) throw new MfaRequiredError(challenge);
 
-    try {
-      setTokens(response.tokens);
-      return await currentUser();
-    } catch (error) {
-      clearStoredSession();
-      throw error;
-    }
+    return startSession(response);
   },
 
-  async resendOtp(identifier: string): Promise<void> {
-    await apiClient.post('/auth/resend-otp', { identifier: identifier.trim(), purpose: 'LOGIN' });
+  /** Step 1 of authenticator enrolment: the secret and `otpauth://` URI, for this screen only. */
+  async startMfaEnrollment(challengeToken: string): Promise<MfaEnrollment> {
+    return apiClient.post<MfaEnrollment>('/auth/mfa/enrollment/start', { challengeToken });
+  },
+
+  /** Step 2: a code from the new authenticator. Returns the session's user and one-time recovery codes. */
+  async confirmMfaEnrollment(challengeToken: string, code: string): Promise<{ user: AuthUser; recoveryCodes: string[] }> {
+    const response = await apiClient.post<Record<string, unknown>>('/auth/mfa/enrollment/confirm', {
+      challengeToken,
+      code,
+      deviceInfo: deviceInfo(),
+    });
+    const recoveryCodes = Array.isArray(response.recoveryCodes)
+      ? response.recoveryCodes.filter((c): c is string => typeof c === 'string')
+      : [];
+    // Only the tokens are stored; the recovery codes stay in the caller's memory.
+    const user = await startSession(response);
+    return { user, recoveryCodes };
+  },
+
+  async verifyMfa(challengeToken: string, code: string): Promise<AuthUser> {
+    const response = await apiClient.post<unknown>('/auth/mfa/verify', { challengeToken, code, deviceInfo: deviceInfo() });
+    return startSession(response);
+  },
+
+  /** A recovery code never signs in by itself: it returns a replacement-enrolment challenge. */
+  async redeemRecoveryCode(challengeToken: string, recoveryCode: string): Promise<MfaChallenge> {
+    const response = await apiClient.post<unknown>('/auth/mfa/recovery', { challengeToken, recoveryCode });
+    const challenge = parseMfaChallenge(response);
+    if (!challenge) {
+      throw new ApiError(502, 'AUTH_RESPONSE_INVALID', 'The authentication service returned an invalid sign-in step.');
+    }
+    return challenge;
   },
 
   getCurrentUser(): Promise<AuthUser> {

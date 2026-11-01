@@ -1,4 +1,5 @@
 import { execFileSync } from 'child_process';
+import { randomBytes } from 'crypto';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
 import { TEST_DATABASE_NAME } from './support/test-database';
@@ -26,6 +27,8 @@ module.exports = async function globalSetup(): Promise<void> {
   process.env.JWT_ACCESS_SECRET ??= 'e2e-access-secret-value-0123456789';
   process.env.JWT_REFRESH_SECRET ??= 'e2e-refresh-secret-value-0123456789';
   process.env.MASTER_ENCRYPTION_KEY ??= Buffer.alloc(32, 7).toString('base64');
+  // Administrator MFA secrets are encrypted under this (Work 66). Random per run, never committed.
+  process.env.ADMIN_MFA_ENCRYPTION_KEY ??= randomBytes(32).toString('base64');
   process.env.OTP_TTL_SECONDS ??= '300';
   // A non-zero platform commission for the whole e2e suite (5%, as a fraction — see
   // `orders.config.ts`). Deliberately configured here rather than defaulted in application code:

@@ -1,11 +1,13 @@
-# First Super Admin bootstrap (Work 65)
+# First Super Admin bootstrap (Work 65, Work 66)
 
 A fresh PharmaLink database has roles and permissions (from the RBAC seed) but no administrator.
 Customers can sign up; staff can't, and role assignment needs an administrator who already holds
 `rbac:manage`. This one-time, operator-only command creates the first Super Admin without writing
 to the database by hand.
 
-**Development and staging only.** It refuses `NODE_ENV=production`; see "Why production is blocked".
+It runs only where mandatory administrator MFA works (Work 66): the encryption key is configured
+and the MFA migration is applied. That is checked in every environment, production included; see
+"Production".
 
 ## Why it is operator-only
 
@@ -26,7 +28,9 @@ if one fails:
 
 | Check | Fix |
 |---|---|
-| `NODE_ENV` is not `production` | Not available in production yet (see below) |
+| Administrator MFA enforcement is active | Always true: it has no switch. Listed because the command checks it |
+| `ADMIN_MFA_ENCRYPTION_KEY` is configured and valid | Generate and provision it ([admin-mfa.md](admin-mfa.md#encryption-key)). Production refuses to start without it anyway |
+| The administrator MFA migration (`20261102000000_module01_admin_mfa`) is applied | `npx prisma migrate deploy` |
 | The `SUPER_ADMIN` role exists, is PLATFORM-scoped and holds the `*` permission | Run the RBAC seed: `npm run prisma:seed`. The command never creates roles or permissions itself |
 | The one-time bootstrap has not been used on this database | It can't be repeated; see "One-time" |
 | No user has `primaryRole = SUPER_ADMIN` and no `SUPER_ADMIN` assignment exists | An existing Super Admin without a bootstrap record is a state for an operator to review, not a reason to create another |
@@ -46,7 +50,7 @@ npm run prisma:seed
 ```
 
 Then, in an interactive terminal, in an environment with the same `DATABASE_URL`, `REDIS_URL`,
-`OTP_STORE=redis`, `OTP_HASH_SECRET` and Resend settings as the backend:
+`OTP_STORE=redis`, `OTP_HASH_SECRET`, `ADMIN_MFA_ENCRYPTION_KEY` and Resend settings as the backend:
 
 ```bash
 npm run admin:bootstrap-super-admin
@@ -55,7 +59,8 @@ npm run admin:bootstrap-super-admin
 From a built backend (`dist/`), the same command is `node dist/cli/bootstrap-super-admin.js`.
 
 In the local staging stack (`compose.staging.yml`), the `tools` service already has the stack's
-database and Redis, `OTP_STORE=redis` and the env file:
+database and Redis, `OTP_STORE=redis` and the env file (add `ADMIN_MFA_ENCRYPTION_KEY` to
+`backend/.env.staging` first; it is not generated for you):
 
 ```bash
 docker compose -f compose.staging.yml --env-file backend/.env.staging --profile tools run --rm tools npm run admin:bootstrap-super-admin
@@ -91,7 +96,21 @@ POST /auth/verify-otp
 ```
 
 Verification marks the e-mail verified and activates the account. It does not mark Fayda verified:
-an e-mail address is not an identity check. Then sign in with `POST /auth/login`.
+an e-mail address is not an identity check. It also issues **no session**, even with `deviceInfo`:
+the response is `{ "verified": true, "mfaRequired": true }`. Verifying an e-mail address is not the
+administrator's second factor.
+
+## Signing in for the first time
+
+1. `POST /auth/login` with the e-mail address and password returns an MFA **enrolment challenge**,
+   not tokens.
+2. `POST /auth/mfa/enrollment/start` returns the authenticator setup key; add it to an authenticator
+   app.
+3. `POST /auth/mfa/enrollment/confirm` with the app's code returns the first Super Admin session and
+   ten one-time recovery codes. Store them offline.
+
+The web operations portal walks through the same steps. From then on every sign-in needs the
+authenticator code. See [admin-mfa.md](admin-mfa.md).
 
 ## When the e-mail isn't delivered
 
@@ -124,10 +143,22 @@ transaction as the account, so:
 Restoring the ability to bootstrap would mean editing the database by hand, which is deliberately
 not supported.
 
-## Why production is blocked
+## Production
 
-The approved Identity design requires MFA for ADMIN and SUPER_ADMIN sign-in, and
-`LoginUserCommand` does not enforce MFA yet. Until mandatory administrator MFA exists and has been
-reviewed, the command refuses `NODE_ENV=production`. This work does not make administrator
-authentication production-ready, and that restriction must not be relaxed to get a production
-bootstrap through.
+Work 65 refused `NODE_ENV=production` outright because administrator MFA didn't exist. Work 66
+replaced that refusal with the checks it was standing in for: enforcement is active (it can't be
+turned off), `ADMIN_MFA_ENCRYPTION_KEY` is valid, and the MFA migration is applied. The command runs
+in production only when they hold, and in no environment can the new Super Admin get a session
+without enrolling an authenticator.
+
+Production bootstrap sequence:
+
+1. Provision `ADMIN_MFA_ENCRYPTION_KEY`, Resend credentials, `REDIS_URL`, `OTP_STORE=redis` and
+   `OTP_HASH_SECRET` from the secret manager, identical to the running backend's.
+2. `npx prisma migrate deploy`, then `npm run prisma:seed` (roles and permissions only).
+3. Run the command in an interactive shell on a host the operator controls.
+4. Verify the e-mail address with the code (`POST /auth/verify-otp`).
+5. Sign in and enrol an authenticator; store the recovery codes offline.
+
+Everything else in [admin-mfa.md](admin-mfa.md#production-prerequisites) still applies, and this
+command does not make the platform production-ready on its own.

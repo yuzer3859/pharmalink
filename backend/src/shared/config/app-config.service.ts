@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { IConfigPort } from './config.port';
 import { EnvironmentVariables, NodeEnv } from './env.validation';
 import { isCliProcess } from './process-role';
+import { resolveAdminMfaKey } from './admin-mfa.config';
 
 /**
  * Env-backed implementation of IConfigPort. Typed accessors for known variables plus a
@@ -56,6 +57,23 @@ export class AppConfigService implements IConfigPort {
 
   get masterEncryptionKey(): string {
     return this.config.getOrThrow('MASTER_ENCRYPTION_KEY', { infer: true });
+  }
+
+  /**
+   * The administrator-MFA encryption key (Work 66), or `null` outside production when it is not
+   * set. Throws when it is set but malformed, or missing in production (validated at boot too).
+   */
+  get adminMfaEncryptionKey(): Buffer | null {
+    return resolveAdminMfaKey({
+      nodeEnv: this.nodeEnv,
+      key: this.config.get('ADMIN_MFA_ENCRYPTION_KEY', { infer: true }),
+      otherSecrets: [
+        this.config.get('JWT_ACCESS_SECRET', { infer: true }),
+        this.config.get('JWT_REFRESH_SECRET', { infer: true }),
+        this.config.get('MASTER_ENCRYPTION_KEY', { infer: true }),
+        this.config.get('OTP_HASH_SECRET', { infer: true }),
+      ],
+    });
   }
 
   get jwtAccessSecret(): string {

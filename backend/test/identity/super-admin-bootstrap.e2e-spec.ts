@@ -16,7 +16,7 @@ import { createBootstrapContext } from '../../src/cli/bootstrap-context';
 import { CliIo } from '../../src/cli/terminal-prompter';
 import { declareCliProcess, isCliProcess } from '../../src/shared/config/process-role';
 import { AppConfigService } from '../../src/shared/config/app-config.service';
-import { auth, body, createUserWithRole, DEVICE, errorOf } from '../support/fixtures';
+import { auth, body, completeAdminMfa, createUserWithRole, DEVICE, errorOf, MfaChallenge } from '../support/fixtures';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 
 /**
@@ -115,7 +115,7 @@ describe('First Super Admin bootstrap (e2e)', () => {
     expect(JSON.stringify(entry.context)).not.toContain(code);
   });
 
-  it('activates only through the normal e-mail OTP verification, then holds the wildcard', async () => {
+  it('activates only through e-mail OTP verification, then signs in only after authenticator enrolment (Work 66)', async () => {
     await command.execute({ email: EMAIL, password: PASSWORD });
 
     const before = await request(ctx.server)
@@ -125,25 +125,34 @@ describe('First Super Admin bootstrap (e2e)', () => {
     expect(errorOf(before).code).toBe('AUTH_INVALID_CREDENTIALS');
 
     const code = ctx.notifications.lastCodeFor(EMAIL, 'otp-register');
-    await request(ctx.server)
+    // E-mail verification proves the inbox; it is not the administrator's second factor and, even
+    // with a device for auto-login, issues no session.
+    const verified = await request(ctx.server)
       .post('/auth/verify-otp')
-      .send({ identifier: EMAIL, code, purpose: OtpPurpose.REGISTER })
+      .send({ identifier: EMAIL, code, purpose: OtpPurpose.REGISTER, deviceInfo: DEVICE })
       .expect(201);
+    expect(body(verified)).toEqual({ verified: true, mfaRequired: true });
     const user = await ctx.prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
     expect(user.status).toBe('ACTIVE');
     expect(user.emailVerifiedAt).not.toBeNull();
     expect(user.faydaVerifiedAt).toBeNull();
+    expect(await ctx.prisma.refreshToken.count({ where: { userId: user.id } })).toBe(0);
 
-    const tokens = body(
+    // The password gets an enrolment challenge, not a session.
+    const challenge = body(
       await request(ctx.server)
         .post('/auth/login')
         .send({ identifier: EMAIL, password: PASSWORD, deviceInfo: DEVICE })
         .expect(201),
     );
-    const me = body(await request(ctx.server).get('/users/me').set(...auth(tokens.accessToken as string)).expect(200));
+    expect(challenge).toMatchObject({ mfaRequired: true, challenge: { type: 'ENROLLMENT' } });
+    expect(challenge).not.toHaveProperty('accessToken');
+
+    const tokens = await completeAdminMfa(ctx, EMAIL, challenge.challenge as MfaChallenge);
+    const me = body(await request(ctx.server).get('/users/me').set(...auth(tokens.accessToken)).expect(200));
     expect(me).toMatchObject({ primaryRole: 'SUPER_ADMIN', faydaVerified: false });
     expect(me.permissions).toContain('*');
-    await request(ctx.server).get('/admin/rbac/roles').set(...auth(tokens.accessToken as string)).expect(200);
+    await request(ctx.server).get('/admin/rbac/roles').set(...auth(tokens.accessToken)).expect(200);
   });
 
   it('is permanently one-time: a second run is refused and creates nothing', async () => {
