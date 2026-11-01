@@ -38,6 +38,13 @@ export class PrismaPharmacyRepository implements IPharmacyRepository {
     return row ? Pharmacy.rehydrate(this.toProps(row)) : null;
   }
 
+  async findByIdForUpdate(id: string, tx: unknown): Promise<Pharmacy | null> {
+    const locked = await (tx as Prisma.TransactionClient).$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "pharmacies" WHERE "id" = ${id} AND "deletedAt" IS NULL FOR UPDATE
+    `;
+    return locked.length === 0 ? null : this.findById(id, tx);
+  }
+
   async findByOrganizationId(organizationId: string, tx?: unknown): Promise<Pharmacy | null> {
     const row = await this.client(tx).pharmacy.findUnique({ where: { organizationId } });
     return row ? Pharmacy.rehydrate(this.toProps(row)) : null;

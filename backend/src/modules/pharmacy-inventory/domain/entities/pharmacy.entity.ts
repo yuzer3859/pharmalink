@@ -65,6 +65,15 @@ export class Pharmacy {
     this.props.updatedAt = now;
   }
 
+  /** Already transacting on exactly this licence expiry: activating again would change nothing. */
+  isActiveWithLicense(licenseExpiresAt: Date): boolean {
+    return (
+      this.props.transactingStatus === TransactingStatus.ACTIVE &&
+      this.props.licenseStatus === LicenseStatus.VALID &&
+      this.props.licenseExpiresAt?.getTime() === licenseExpiresAt.getTime()
+    );
+  }
+
   suspendForExpiredLicense(now: Date = new Date()): void {
     this.props.transactingStatus = TransactingStatus.SUSPENDED;
     this.props.licenseStatus = LicenseStatus.EXPIRED;

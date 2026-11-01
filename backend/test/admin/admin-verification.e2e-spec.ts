@@ -126,6 +126,27 @@ describe('Admin verification management (e2e)', () => {
     return { user, requestId: body(res).requestId as string };
   }
 
+  /** Seeds an applicant's PENDING_APPROVAL pharmacy organisation (Module 01 state, test-only). */
+  async function pharmacyOrganization(ownerUserId: string): Promise<string> {
+    const org = await ctx.prisma.organization.create({
+      data: { type: 'PHARMACY', name: 'Applicant Pharmacy', status: 'PENDING_APPROVAL', ownerUserId },
+    });
+    return org.id;
+  }
+
+  /** A pharmacy licence application for the applicant's own organisation (Work 67). */
+  async function submitPharmacyLicence(): Promise<{ user: RegisteredUser & Tokens; requestId: string; organizationId: string }> {
+    const registered = await registerAndVerify(ctx);
+    const user = { ...registered, ...(await login(ctx, registered.phone, registered.password)) };
+    const organizationId = await pharmacyOrganization(user.userId);
+    const { requestId } = await submitDocuments('PHARMACY_LICENSE', {
+      user,
+      organizationId,
+      documents: [{ kind: 'BUSINESS_LICENSE', storageRef: 'enc://verification/biz-1' }],
+    });
+    return { user, requestId, organizationId };
+  }
+
   async function submitFayda(): Promise<{ user: RegisteredUser & Tokens; requestId: string }> {
     const registered = await registerAndVerify(ctx);
     const user = { ...registered, ...(await login(ctx, registered.phone, registered.password)) };
@@ -194,9 +215,7 @@ describe('Admin verification management (e2e)', () => {
 
     it('filters by verification type', async () => {
       const driver = await submitDocuments('DRIVER_DOCS');
-      const pharmacy = await submitDocuments('PHARMACY_LICENSE', {
-        documents: [{ kind: 'BUSINESS_LICENSE', storageRef: 'enc://verification/biz-1' }],
-      });
+      const pharmacy = await submitPharmacyLicence();
 
       const drivers = body(
         await list(admin.accessToken, { type: 'DRIVER_DOCS' }).expect(200),
@@ -654,19 +673,28 @@ describe('Admin verification management (e2e)', () => {
     });
 
     it('lifts a PENDING_APPROVAL pharmacy owner through Module 01, and activates nothing in Module 04', async () => {
-      const { requestId, user } = await submitDocuments('PHARMACY_LICENSE', {
-        documents: [{ kind: 'BUSINESS_LICENSE', storageRef: 'enc://verification/biz-1' }],
-      });
+      const { requestId, user, organizationId } = await submitPharmacyLicence();
       // Module 01's own state for a provider awaiting approval (test seeding, not a Module 16 write).
       await ctx.prisma.user.update({
         where: { id: user.userId },
         data: { primaryRole: 'PHARMACY_OWNER', status: 'PENDING_APPROVAL' },
       });
 
-      await approve(admin.accessToken, requestId).expect(200);
+      // A pharmacy licence approval records the licence (Work 67); without it Module 01 refuses.
+      await approve(admin.accessToken, requestId).expect(400);
+      const decision = body(
+        await approve(admin.accessToken, requestId, {
+          licenseNumber: 'EFDA/PH/0042',
+          expiresAt: '2030-01-01T00:00:00.000Z',
+        }).expect(200),
+      ) as unknown as DecisionBody & { licenseNumber: string };
+      expect(decision.licenseNumber).toBe('EFDA/PH/0042');
 
       const stored = await ctx.prisma.user.findUniqueOrThrow({ where: { id: user.userId } });
       expect(stored.status).toBe('ACTIVE');
+      // Module 01 activated the organisation, not the pharmacy.
+      const org = await ctx.prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
+      expect(org).toMatchObject({ status: 'ACTIVE', licenseNumber: 'EFDA/PH/0042' });
 
       // Module 04 stays on its explicit `POST /pharmacy/activate`: no pharmacy row was created or
       // changed by an approval, and nothing in this module knows the table exists.

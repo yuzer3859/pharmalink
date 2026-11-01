@@ -72,11 +72,17 @@ describe('In-app notification center (e2e)', () => {
     await request(ctx.server).patch('/users/me').set(...auth(user.accessToken)).send({ preferredLanguage }).expect(200);
   }
 
+  /**
+   * A provider licence whose approval lifts and whose expiry suspends the account. Since Work 67 a
+   * PHARMACY_LICENSE is organisation-scoped and its expiry suspends the organisation instead (see
+   * test/identity/pharmacy-license-lifecycle.e2e-spec.ts), so these account-level notifications
+   * are driven by a DOCTOR_LICENSE.
+   */
   async function submitLicence(user: User): Promise<string> {
     const res = await request(ctx.server)
       .post('/verification/documents')
       .set(...auth(user.accessToken))
-      .send({ type: 'PHARMACY_LICENSE', documents: LICENSE_DOCS })
+      .send({ type: 'DOCTOR_LICENSE', documents: LICENSE_DOCS })
       .expect(202);
     return body(res).requestId as string;
   }
@@ -171,7 +177,7 @@ describe('In-app notification center (e2e)', () => {
           type: 'PROVIDER_VERIFICATION_APPROVED',
           category: 'SYSTEM',
           title: 'Verification approved',
-          data: { verificationRequestId: requestId, verificationType: 'PHARMACY_LICENSE' },
+          data: { verificationRequestId: requestId, verificationType: 'DOCTOR_LICENSE' },
           read: false,
         }),
       ]);
@@ -193,7 +199,7 @@ describe('In-app notification center (e2e)', () => {
         type: 'PROVIDER_VERIFICATION_REJECTED',
         title: 'ማረጋገጫዎ አልጸደቀም',
         body: 'የማረጋገጫ ጥያቄዎ አልጸደቀም። ምክንያት፦ Licence photo is unreadable',
-        data: { verificationRequestId: requestId, verificationType: 'PHARMACY_LICENSE', reason: 'Licence photo is unreadable' },
+        data: { verificationRequestId: requestId, verificationType: 'DOCTOR_LICENSE', reason: 'Licence photo is unreadable' },
       });
     });
 
@@ -229,7 +235,7 @@ describe('In-app notification center (e2e)', () => {
       const expired = (await readInbox(fresh.accessToken)).items.find((i) => i.type === 'PROVIDER_LICENSE_EXPIRED')!;
       expect(expired).toMatchObject({
         title: 'Licence expired',
-        data: { verificationRequestId: requestId, verificationType: 'PHARMACY_LICENSE', expiredAt: '2027-01-02T00:00:00.000Z' },
+        data: { verificationRequestId: requestId, verificationType: 'DOCTOR_LICENSE', expiredAt: '2027-01-02T00:00:00.000Z' },
       });
     });
 

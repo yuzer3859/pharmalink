@@ -68,10 +68,19 @@ export class SubmitDocumentsDto {
 }
 
 export class ApproveVerificationDto {
-  /** Licence expiry, when the approved document carries one. */
+  /** Licence expiry, when the approved document carries one. Required for PHARMACY_LICENSE. */
   @IsOptional()
   @IsDateString()
   expiresAt?: string;
+
+  /**
+   * Approved licence number. Required for PHARMACY_LICENSE (Work 67), where it is trimmed and must
+   * be 1 to 64 characters; not used for other types.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  licenseNumber?: string;
 }
 
 export class RejectVerificationDto {

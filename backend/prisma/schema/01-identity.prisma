@@ -397,10 +397,14 @@ model VerificationRequest {
   submittedAt      DateTime           @default(now())
   reviewedAt       DateTime?
   expiresAt        DateTime?
+  /// Approved licence number (Work 67). Set only when a PHARMACY_LICENSE request is approved;
+  /// null for every other verification type.
+  licenseNumber    String?
 
   user     User  @relation("VerificationSubject", fields: [userId], references: [id])
   reviewer User? @relation("VerificationReviewer", fields: [reviewerId], references: [id])
 
+  @@index([organizationId, type, status])
   @@map("verification_requests")
 }
 

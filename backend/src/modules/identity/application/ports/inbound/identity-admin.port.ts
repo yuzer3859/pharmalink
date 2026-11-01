@@ -176,6 +176,8 @@ export interface VerificationDetailView extends VerificationSummaryView {
   reviewerId: string | null;
   rejectReason: string | null;
   expiresAt: Date | null;
+  /** Approved licence number (PHARMACY_LICENSE only); null until approved. */
+  licenseNumber: string | null;
   /** The subject's account as Module 01 sees it — what a decision would lift or hold. */
   applicant: { userId: string; primaryRole: PrimaryRole; accountStatus: AccountStatus } | null;
 }
@@ -189,12 +191,15 @@ export interface VerificationDecisionResult {
   organizationId: string | null;
   reviewedAt: Date | null;
   expiresAt: Date | null;
+  licenseNumber: string | null;
 }
 
 export interface ApproveVerificationRequestInput {
   requestId: string;
   reviewerId: string;
   expiresAt: Date | null;
+  /** Required for PHARMACY_LICENSE (Work 67). */
+  licenseNumber?: string | null;
   ip: string | null;
 }
 
@@ -451,6 +456,7 @@ export class IdentityAdminPortAdapter implements IIdentityAdminPort {
       reviewerId: request.reviewerId,
       rejectReason: request.rejectReason,
       expiresAt: request.expiresAt,
+      licenseNumber: request.licenseNumber,
       applicant: user
         ? { userId: user.id, primaryRole: user.primaryRole, accountStatus: user.status }
         : null,
@@ -490,6 +496,7 @@ export class IdentityAdminPortAdapter implements IIdentityAdminPort {
       organizationId: request.organizationId,
       reviewedAt: request.reviewedAt,
       expiresAt: request.expiresAt,
+      licenseNumber: request.licenseNumber,
     };
   }
 }

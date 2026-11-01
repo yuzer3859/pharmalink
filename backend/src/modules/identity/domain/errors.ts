@@ -125,6 +125,40 @@ export const IdentityErrors = {
       'A verification request of this type is already awaiting review.',
     ),
 
+  /**
+   * Pharmacy licence submissions name the organisation they are for (Work 67). The caller's own
+   * undeleted PHARMACY organisation only; anyone else's answers as not found, so the endpoint does
+   * not reveal which organisation IDs exist.
+   */
+  licenseOrganizationRequired: () =>
+    new ApiException(
+      ErrorCode.VALIDATION_ERROR,
+      'organizationId is required for a pharmacy licence submission.',
+      { field: 'organizationId' },
+    ),
+
+  organizationNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Organization not found.'),
+
+  notPharmacyOrganization: () =>
+    new ApiException(
+      ErrorCode.BUSINESS_RULE_VIOLATION,
+      'Pharmacy licence documents can only be submitted for a pharmacy organisation.',
+      { reason: 'ORGANIZATION_NOT_PHARMACY' },
+    ),
+
+  /**
+   * A PHARMACY_LICENSE request can't be decided because it is not linked to an undeleted pharmacy
+   * organisation owned by the request's subject (Work 67). Nothing is changed.
+   */
+  licenseOrganizationMismatch: (
+    reason: 'ORGANIZATION_MISSING' | 'ORGANIZATION_NOT_FOUND' | 'ORGANIZATION_NOT_PHARMACY' | 'OWNER_MISMATCH',
+  ) =>
+    new ApiException(
+      ErrorCode.BUSINESS_RULE_VIOLATION,
+      'This pharmacy licence request is not linked to a pharmacy organisation owned by its applicant.',
+      { reason },
+    ),
+
   invalidStatusTransition: (from: string, to: string) =>
     new ApiException(
       ErrorCode.BUSINESS_RULE_VIOLATION,

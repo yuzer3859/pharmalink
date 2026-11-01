@@ -1,17 +1,31 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
-import { IIdentityPort, OrganizationView } from '../../application/ports/outbound/identity.port';
+import {
+  ApprovedPharmacyLicenseView,
+  IIdentityPort,
+  OrganizationView,
+} from '../../application/ports/outbound/identity.port';
+
+type Client = PrismaService | Prisma.TransactionClient;
 
 /**
- * `IIdentityPort` adapter (module-04 §2) — direct, in-process `PrismaService.organization`
- * reads, never a Prisma relation (ADR-002). Module 04 never writes to `organizations`.
+ * `IIdentityPort` adapter (module-04 §2) — direct, in-process reads of Identity's
+ * `organizations`, `user_roles` and (Work 67) `verification_requests`, never a Prisma relation
+ * (ADR-002). Module 04 never writes to any of them.
  */
 @Injectable()
 export class IdentityPortAdapter implements IIdentityPort {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getOrganization(organizationId: string): Promise<OrganizationView | null> {
-    const org = await this.prisma.organization.findUnique({ where: { id: organizationId } });
+  async getOrganization(organizationId: string, tx?: unknown): Promise<OrganizationView | null> {
+    const client = (tx as Client | undefined) ?? this.prisma;
+    if (tx) {
+      await (tx as Prisma.TransactionClient).$queryRaw`
+        SELECT "id" FROM "organizations" WHERE "id" = ${organizationId} FOR SHARE
+      `;
+    }
+    const org = await client.organization.findUnique({ where: { id: organizationId } });
     if (!org || org.deletedAt) {
       return null;
     }
@@ -19,8 +33,42 @@ export class IdentityPortAdapter implements IIdentityPort {
       id: org.id,
       type: org.type,
       status: org.status,
+      ownerUserId: org.ownerUserId,
       licenseNumber: org.licenseNumber,
       licenseExpiresAt: org.licenseExpiresAt,
+    };
+  }
+
+  async getCurrentPharmacyLicense(
+    organizationId: string,
+    tx?: unknown,
+  ): Promise<ApprovedPharmacyLicenseView | null> {
+    const client = (tx as Client | undefined) ?? this.prisma;
+    const org = await client.organization.findUnique({ where: { id: organizationId } });
+    if (!org || org.deletedAt || !org.licenseNumber || !org.licenseExpiresAt) {
+      return null;
+    }
+    const request = await client.verificationRequest.findFirst({
+      where: {
+        organizationId: org.id,
+        userId: org.ownerUserId,
+        type: 'PHARMACY_LICENSE',
+        status: 'APPROVED',
+        licenseNumber: org.licenseNumber,
+        expiresAt: org.licenseExpiresAt,
+      },
+      orderBy: [{ reviewedAt: 'desc' }, { id: 'asc' }],
+    });
+    if (!request || !request.organizationId || !request.licenseNumber || !request.expiresAt) {
+      return null;
+    }
+    return {
+      verificationRequestId: request.id,
+      organizationId: request.organizationId,
+      userId: request.userId,
+      licenseNumber: request.licenseNumber,
+      expiresAt: request.expiresAt,
+      approvedAt: request.reviewedAt,
     };
   }
 

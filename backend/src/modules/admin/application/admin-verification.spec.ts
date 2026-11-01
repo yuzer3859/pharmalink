@@ -65,6 +65,7 @@ describe('Admin verification management (application)', () => {
       reviewerId: null,
       rejectReason: null,
       expiresAt: null,
+      licenseNumber: null,
       applicant: {
         userId: 'user-1',
         primaryRole: PrimaryRole.DRIVER,
@@ -84,6 +85,7 @@ describe('Admin verification management (application)', () => {
       organizationId: null,
       reviewedAt: NOW,
       expiresAt: null,
+      licenseNumber: null,
       ...overrides,
     };
   }
@@ -298,8 +300,24 @@ describe('Admin verification management (application)', () => {
         requestId: 'req-1',
         reviewerId: 'admin-1',
         expiresAt: expiry,
+        licenseNumber: null,
         ip: '10.0.0.1',
       });
+    });
+
+    it('forwards a pharmacy licence number to Module 01 as given (Work 67)', async () => {
+      const expiry = new Date('2027-06-30T00:00:00.000Z');
+      await command.execute({
+        actorUserId: 'admin-1',
+        requestId: 'req-1',
+        expiresAt: expiry,
+        licenseNumber: ' EFDA/PH/0042 ',
+        reason: null,
+        ip: null,
+      });
+      expect(identity.approveVerification).toHaveBeenCalledWith(
+        expect.objectContaining({ licenseNumber: ' EFDA/PH/0042 ', expiresAt: expiry }),
+      );
     });
 
     it('records the admin action with the transition, the reason and no document data', async () => {
@@ -330,6 +348,7 @@ describe('Admin verification management (application)', () => {
         subjectUserId: 'user-1',
         organizationId: null,
         expiresAt: '2027-06-30T00:00:00.000Z',
+        licenseNumber: null,
         reason: 'Documents verified against registry',
         decidedAt: NOW.toISOString(),
       });

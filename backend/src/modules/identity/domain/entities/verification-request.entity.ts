@@ -22,6 +22,26 @@ export interface VerificationRequestProps {
   submittedAt: Date;
   reviewedAt: Date | null;
   expiresAt: Date | null;
+  /** Approved licence number (Work 67). Only a PHARMACY_LICENSE approval sets it. */
+  licenseNumber: string | null;
+}
+
+/** Upper bound on a stored licence number; the database CHECK constraint matches it. */
+export const LICENSE_NUMBER_MAX_LENGTH = 64;
+
+/**
+ * Trims a licence number and checks it is a non-empty, bounded string. No national format is
+ * enforced: none is specified, so the administrator's transcription is stored as given.
+ */
+export function normalizeLicenseNumber(raw: string | null | undefined): string {
+  const value = typeof raw === 'string' ? raw.trim() : '';
+  if (value.length === 0 || value.length > LICENSE_NUMBER_MAX_LENGTH) {
+    throw IdentityErrors.validation(
+      `A licence number of 1 to ${LICENSE_NUMBER_MAX_LENGTH} characters is required.`,
+      { field: 'licenseNumber' },
+    );
+  }
+  return value;
 }
 
 /**
@@ -58,6 +78,9 @@ export class VerificationRequest {
   get expiresAt(): Date | null {
     return this.props.expiresAt;
   }
+  get licenseNumber(): string | null {
+    return this.props.licenseNumber;
+  }
   get reviewerId(): string | null {
     return this.props.reviewerId;
   }
@@ -79,12 +102,51 @@ export class VerificationRequest {
     this.props.documents = [...this.props.documents, ...documents];
   }
 
+  /**
+   * Approves any request except a pharmacy licence, which needs `approvePharmacyLicense`: a
+   * pharmacy licence approval without a licence number and a future expiry would leave an
+   * organisation active on a licence nobody recorded.
+   */
   approve(reviewerId: string, expiresAt: Date | null, now: Date = new Date()): void {
     this.assertReviewable(reviewerId);
+    if (this.props.type === VerificationType.PHARMACY_LICENSE) {
+      throw IdentityErrors.validation(
+        'A pharmacy licence approval requires the licence number and its expiry.',
+        { fields: ['licenseNumber', 'expiresAt'] },
+      );
+    }
     this.props.status = VerificationStatus.APPROVED;
     this.props.reviewerId = reviewerId;
     this.props.reviewedAt = now;
     this.props.expiresAt = expiresAt;
+    this.props.rejectReason = null;
+  }
+
+  /**
+   * Pharmacy licence approval (Work 67): records the approved licence number (trimmed, 1 to 64
+   * characters) and an expiry strictly later than the approval time.
+   */
+  approvePharmacyLicense(
+    reviewerId: string,
+    licence: { licenseNumber: string; expiresAt: Date },
+    now: Date = new Date(),
+  ): void {
+    if (this.props.type !== VerificationType.PHARMACY_LICENSE) {
+      throw IdentityErrors.validation('Only a pharmacy licence request records a licence number.');
+    }
+    this.assertReviewable(reviewerId);
+    const licenseNumber = normalizeLicenseNumber(licence.licenseNumber);
+    const expiresAt = licence.expiresAt;
+    if (!(expiresAt instanceof Date) || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= now.getTime()) {
+      throw IdentityErrors.validation('The licence expiry must be a date later than now.', {
+        field: 'expiresAt',
+      });
+    }
+    this.props.status = VerificationStatus.APPROVED;
+    this.props.reviewerId = reviewerId;
+    this.props.reviewedAt = now;
+    this.props.expiresAt = expiresAt;
+    this.props.licenseNumber = licenseNumber;
     this.props.rejectReason = null;
   }
 

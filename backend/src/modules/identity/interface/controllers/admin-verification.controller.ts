@@ -42,6 +42,7 @@ export class AdminVerificationController {
       requestId,
       reviewerId: reviewer.userId,
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+      licenseNumber: dto.licenseNumber ?? null,
       ip: req.ip ?? null,
     });
   }

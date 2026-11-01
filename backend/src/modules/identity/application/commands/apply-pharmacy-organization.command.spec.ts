@@ -16,7 +16,10 @@ const org = (overrides: Partial<OrganizationRecord> = {}): OrganizationRecord =>
   status: 'PENDING_APPROVAL',
   ownerUserId: 'user-1',
   applicationKey: 'key-12345678',
+  licenseNumber: null,
+  licenseExpiresAt: null,
   createdAt: CREATED_AT,
+  deletedAt: null,
   ...overrides,
 });
 const customer = {
@@ -33,7 +36,7 @@ function build(user: unknown = customer) {
     findRoleByKey: jest.fn().mockResolvedValue({ id: 'role-owner', key: 'PHARMACY_OWNER', scope: 'ORG' }),
     createPendingPharmacy: jest.fn().mockResolvedValue(org()),
     addMembership: jest.fn().mockResolvedValue({ assignmentId: 'assignment-1' }),
-  } as jest.Mocked<IOrganizationRepository>;
+  } as unknown as jest.Mocked<IOrganizationRepository>;
   const uow = {
     run: jest.fn(async (work: (tx: unknown) => Promise<unknown>) => work('tx')),
   } as unknown as jest.Mocked<IUnitOfWork>;

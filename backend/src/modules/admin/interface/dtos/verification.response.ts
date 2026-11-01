@@ -48,6 +48,7 @@ export interface VerificationDetailResponse extends VerificationQueueItemRespons
   reviewerId: string | null;
   rejectReason: string | null;
   expiresAt: string | null;
+  licenseNumber: string | null;
   applicant: { userId: string; primaryRole: string; accountStatus: string } | null;
 }
 
@@ -60,6 +61,7 @@ export interface VerificationDecisionResponse {
   organizationId: string | null;
   decidedAt: string | null;
   expiresAt: string | null;
+  licenseNumber: string | null;
 }
 
 function toAging(aging: VerificationAging): VerificationAgingResponse {
@@ -110,6 +112,7 @@ export function toVerificationDetailResponse(
     reviewerId: view.reviewerId,
     rejectReason: view.rejectReason,
     expiresAt: view.expiresAt?.toISOString() ?? null,
+    licenseNumber: view.licenseNumber,
     applicant: view.applicant
       ? {
           userId: view.applicant.userId,
@@ -132,5 +135,6 @@ export function toVerificationDecisionResponse(
     organizationId: decision.organizationId,
     decidedAt: decision.reviewedAt?.toISOString() ?? null,
     expiresAt: decision.expiresAt?.toISOString() ?? null,
+    licenseNumber: decision.licenseNumber,
   };
 }

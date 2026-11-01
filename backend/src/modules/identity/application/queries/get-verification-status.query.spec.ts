@@ -18,6 +18,7 @@ function request(type: VerificationType, faydaIdEncrypted: string | null): Verif
     submittedAt: new Date(),
     reviewedAt: null,
     expiresAt: null,
+    licenseNumber: null,
   });
 }
 

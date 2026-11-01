@@ -77,6 +77,12 @@ export class ApproveVerificationDto {
   @IsOptional()
   expiresAt?: string;
 
+  /** Approved licence number — required by Module 01 for PHARMACY_LICENSE, forwarded as given. */
+  @IsString()
+  @MaxLength(256)
+  @IsOptional()
+  licenseNumber?: string;
+
   /** Reviewer's note, recorded in this module's audit entry. */
   @IsString()
   @MaxLength(MAX_VERIFICATION_REASON_LENGTH)
