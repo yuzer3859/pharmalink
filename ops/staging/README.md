@@ -49,7 +49,7 @@ Migrations and the seed are **not** part of the backend's start command. They ar
 node ops/staging/rehearse-clean-install.mjs --init-env
 ```
 
-This creates `backend/.env.staging` from `backend/.env.example` with random local-only values for `POSTGRES_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `MASTER_ENCRYPTION_KEY` and `OTP_HASH_SECRET`, and never prints them. It refuses to overwrite an existing file. Alternatively, copy the example and fill in each `REPLACE_ME` with the command shown next to it.
+This creates `backend/.env.staging` from `backend/.env.example` with random local-only values for `POSTGRES_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `MASTER_ENCRYPTION_KEY`, `OTP_HASH_SECRET` and `ADMIN_MFA_ENCRYPTION_KEY`, and never prints them. It refuses to overwrite an existing file. Alternatively, copy the example and fill in each `REPLACE_ME` with the command shown next to it.
 
 **`OTP_HASH_SECRET`** is 32 bytes from Node's CSPRNG (`crypto.randomBytes`), base64url-encoded (43 characters), generated fresh for each new file. Before the file is written, the value is checked against the rules the backend applies at boot (`assertOtpHashSecret`):
 - at least 32 characters;
@@ -59,6 +59,28 @@ This creates `backend/.env.staging` from `backend/.env.example` with random loca
 The rehearsal checks it again before every run, and the backend and the smoke test check it a third time at startup. No check prints the value: messages name the variable and the rule only.
 
 **An env file from before Work 61** has no `OTP_HASH_SECRET`, and the rehearsal rejects it (`OTP_HASH_SECRET is missing or still a placeholder`). Either add the variable with the command in `backend/.env.example`, or move the old file aside and run `--init-env` again.
+
+**`ADMIN_MFA_ENCRYPTION_KEY`** (Work 68) encrypts administrator authenticator secrets ([admin-mfa.md](../../backend/docs/admin-mfa.md)). Without it no administrator can sign in, and the first Super Admin bootstrap refuses to run, so the staging env file requires it. It is 32 bytes from `crypto.randomBytes`, standard base64 (44 characters, ending in `=`), checked against the rules the backend applies at boot (`decodeAdminMfaKey`):
+- standard, padded base64 that decodes to exactly 32 bytes;
+- not a placeholder (at least 16 distinct bytes);
+- a dedicated secret: not a copy of `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `MASTER_ENCRYPTION_KEY` or `OTP_HASH_SECRET`.
+
+### Adding ADMIN_MFA_ENCRYPTION_KEY to an existing env file
+
+An env file from before Work 68 has no `ADMIN_MFA_ENCRYPTION_KEY`, and the rehearsal rejects it (`ADMIN_MFA_ENCRYPTION_KEY is missing or still a placeholder (add it with: node ops/staging/ensure-env-secrets.mjs)`). Keep the file and add the key:
+
+```bash
+node ops/staging/ensure-env-secrets.mjs --check   # report only, writes nothing
+node ops/staging/ensure-env-secrets.mjs           # add the key if it is missing
+```
+
+- It adds `ADMIN_MFA_ENCRYPTION_KEY` **only if the file has no active `ADMIN_MFA_ENCRYPTION_KEY=` line** (a commented-out line doesn't count). It appends one comment and one line at the end, in the file's own line endings.
+- Every existing byte is kept: the new file must start with the old one, byte for byte. That is checked on a temporary file beside it before an atomic rename replaces the original, and again afterwards. If the file changes while the script runs, nothing is replaced.
+- A key that is already present is **never** replaced, even if it is invalid: an invalid key is reported (`FAIL`) and left for you to fix. Nothing rotates the key automatically; rotating it would make every enrolled authenticator unusable.
+- Running it again changes nothing.
+- It prints key names and states only: `added`, `present, left unchanged`, `PASS`/`FAIL`, and whether Resend is `configured` or `not configured`. Never a value.
+
+The key reaches the backend and the `tools` containers through the `env_file` both services already load; `compose.staging.yml` doesn't override it. Containers read the env file when they are created, so recreate a running backend afterwards (`up -d backend`); `run --rm tools` always starts fresh.
 
 `backend/.env.staging` is gitignored (`backend/.gitignore`: `.env.*`, with only `.env.example` re-included). Never commit it, and never put production credentials or working provider keys in it. Do **not** set `DATABASE_URL`, `REDIS_URL`, `NODE_ENV`, `PORT` or `OTP_STORE` there: the rehearsal rejects them, because the stack sets them itself (`BACKEND_HOST_PORT` changes the host-side port).
 
@@ -71,17 +93,18 @@ node ops/staging/rehearse-clean-install.mjs --keep   # run and leave the stack u
 
 It uses the dedicated Compose project **`pharmalink-staging-rehearsal`** and these steps, stopping at the first failure with the step name and a non-zero exit code:
 
-1. Checks Node 22, Docker, Compose and the env file (placeholders, lengths, 32-byte key, `OTP_HASH_SECRET`, forbidden variables). Then validates the Compose file with `config --quiet`, which never prints the resolved values.
+1. Checks Node 22, Docker, Compose and the env file (placeholders, lengths, 32-byte key, `OTP_HASH_SECRET`, `ADMIN_MFA_ENCRYPTION_KEY`, forbidden variables), and reports whether Resend is configured. Then validates the Compose file with `config --quiet`, which never prints the resolved values.
 2. Records the running containers outside its project and lists what already exists under its project name. If a container of that project was created from a different compose file, ownership is unclear, so it stops without deleting anything. Otherwise it removes any leftovers of **its own project only**, so the database is brand new.
 3. Starts PostgreSQL and Redis, waits for both health checks, and confirms the database has **zero** tables.
 4. Builds the `runtime` and `tools` images.
-5. Runs `npx prisma migrate deploy` and reports applied/total migrations.
+5. Runs `npx prisma migrate deploy`, reports applied/total migrations, and fails unless the administrator MFA migration (`20261102000000_module01_admin_mfa`, Work 66) is applied.
 6. Runs `npm run prisma:seed` and records the role, permission and grant counts.
 7. Runs the seed again and fails unless the counts are identical (and 14 roles exist).
 8. Starts the backend, calls `GET /health/live` and `GET /health/ready` from the host (no token), then waits for the container health check.
 9. Checks Redis and the backend's effective OTP store:
    - `redis-cli ping` returns `PONG`;
    - inside the backend container, `OTP_STORE` is `redis`, and `OTP_HASH_SECRET` (at least 32 characters) and `REDIS_URL` are set. Only the store name and yes/no answers leave the container;
+   - `ADMIN_MFA_ENCRYPTION_KEY` is standard base64 of 32 bytes inside the backend container and inside a one-off `tools` container. Only `PASS`/`FAIL` leaves the containers;
    - the backend log has `Redis connected.` and `OTP challenges are stored in Redis (OTP_STORE=redis).`, and no in-memory OTP warning;
    - without an e-mail provider (no `RESEND_*` in the env file), `POST /auth/resend-otp` for a synthetic `.invalid` address and for a phone number both get `503 DEPENDENCY_UNAVAILABLE`, and the OTP key count in the stack's Redis doesn't change. That is Work 62's truthful delivery: nothing is issued when nothing can be sent. Keys are counted inside the Redis container. With Resend configured, this check is skipped so that no undeliverable address is mailed; use the e-mail OTP smoke test below instead.
 10. Runs the OTP smoke test in the `tools` image (below).
@@ -171,6 +194,23 @@ curl http://127.0.0.1:3000/health/ready
 
 This uses the project name `pharmalink-staging` from the Compose file, separate from the rehearsal's project. Stop it with `down`; add `--volumes` to delete its database.
 
+### First Super Admin bootstrap on the staging stack (Work 68)
+
+The bootstrap is one-time per database and sends a real verification code, so prepare everything first. In order:
+
+1. **MFA key:** `node ops/staging/ensure-env-secrets.mjs` reports `ADMIN_MFA_ENCRYPTION_KEY valid …: PASS`.
+2. **Resend:** add `RESEND_API_KEY` and `RESEND_FROM_EMAIL` (a sender on a domain verified in your Resend account) to `backend/.env.staging` yourself, in an editor. Never on a command line, and never commit them. `ensure-env-secrets.mjs` then reports `e-mail provider …: configured`.
+3. **Prove delivery to your own inbox** with the e-mail OTP smoke test above (on a `--keep` rehearsal), before the bootstrap. "Configured" only means both settings are present; only a code arriving in your inbox shows the sender can deliver to it. With Resend's shared test sender, only your Resend account's own address receives mail.
+4. **Rehearsal:** `node ops/staging/rehearse-clean-install.mjs` passes. It covers the MFA key in both containers, the Work 66 migration, Redis and the Redis OTP store, and reports whether Resend is configured.
+5. **Stack:** bring `pharmalink-staging` up with the "Manual use" commands above (`migrate deploy`, `prisma:seed`, `up -d --build backend`). The backend must be (re)created after the env file changed.
+6. **Bootstrap**, in an interactive terminal, typing the e-mail address and password yourself:
+
+   ```bash
+   docker compose -f compose.staging.yml --env-file backend/.env.staging --profile tools run --rm tools npm run admin:bootstrap-super-admin
+   ```
+
+   The command checks its own preconditions (MFA key, MFA migration, seed, Resend, Redis OTP store) and refuses without writing anything if one fails. Then verify the code from your inbox and enrol an authenticator: [first-super-admin-bootstrap.md](../../backend/docs/first-super-admin-bootstrap.md).
+
 ## Logs and troubleshooting
 
 - **Logs:** `docker compose -f compose.staging.yml --env-file backend/.env.staging logs -f backend` (add `-p pharmalink-staging-rehearsal` for a `--keep` rehearsal). OTP codes are never written to these logs (since Work 60). They arrive only by e-mail, and only when Resend is configured (Work 62).
@@ -238,6 +278,24 @@ The first rehearsal runs exposed two application defects. Both were fixed in a s
 
 1. `GET /health/live` and `GET /health/ready` were not public, so the global `JwtAuthGuard` answered every probe with `401`. They are now `@Public()`.
 2. `PORT` from the environment always failed validation (untyped property). It is now typed, and `compose.staging.yml` sets `PORT: "3000"`.
+
+## Rehearsal results with the administrator MFA key (Work 68: 2026-11-02)
+
+The existing `backend/.env.staging` (from before Work 68) was kept. `ensure-env-secrets.mjs --check` reported the key missing and wrote nothing. `ensure-env-secrets.mjs` then added `ADMIN_MFA_ENCRYPTION_KEY`: the file's first 4,919 bytes stayed identical to a backup taken before, with one comment and one key line appended. A second run changed nothing. `node ops/staging/rehearse-clean-install.mjs` exited 0 with `REHEARSAL PASSED`. **No Resend credentials** were configured, so no e-mail was sent.
+
+| Check | Result |
+|---|---|
+| `ADMIN_MFA_ENCRYPTION_KEY` in the env file (base64 of 32 bytes, dedicated) | PASS |
+| E-mail provider (Resend) | not configured |
+| Migrations applied | 36/36 |
+| Administrator MFA migration `20261102000000_module01_admin_mfa` applied | PASS |
+| `redis-cli ping` | PONG |
+| `ADMIN_MFA_ENCRYPTION_KEY` valid in the backend container / tools container | PASS / PASS |
+| OTP smoke test (Redis store) | 7/7 |
+| Second `migrate deploy` | nothing pending |
+| Clean-up | project left with 0 containers, volumes, networks and images; the 3 unrelated containers still running |
+
+None of the env file's six secret values appeared in the rehearsal output (checked against the file after the run). The first Super Admin bootstrap was **not** run: it waits for Resend and a proven delivery to the owner's inbox.
 
 ## Rehearsal results with e-mail OTP delivery (Work 62: 2026-10-29, local Docker 29.7.2, Compose v5.3.1)
 

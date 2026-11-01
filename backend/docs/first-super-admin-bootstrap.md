@@ -59,8 +59,12 @@ npm run admin:bootstrap-super-admin
 From a built backend (`dist/`), the same command is `node dist/cli/bootstrap-super-admin.js`.
 
 In the local staging stack (`compose.staging.yml`), the `tools` service already has the stack's
-database and Redis, `OTP_STORE=redis` and the env file (add `ADMIN_MFA_ENCRYPTION_KEY` to
-`backend/.env.staging` first; it is not generated for you):
+database and Redis, `OTP_STORE=redis` and the env file. `--init-env` generates
+`ADMIN_MFA_ENCRYPTION_KEY` for a new `backend/.env.staging`; for an existing one,
+`node ops/staging/ensure-env-secrets.mjs` adds it only if it is missing, without changing anything
+else (Work 68). Follow the staging checklist in
+[ops/staging/README.md](../../ops/staging/README.md#first-super-admin-bootstrap-on-the-staging-stack-work-68),
+which includes proving e-mail delivery to your own inbox first:
 
 ```bash
 docker compose -f compose.staging.yml --env-file backend/.env.staging --profile tools run --rm tools npm run admin:bootstrap-super-admin
