@@ -25,7 +25,7 @@ export class LicenseExpiryJob implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit(): void {
-    if (this.config.isTest) {
+    if (!this.config.runsBackgroundJobs) {
       return;
     }
     this.timer = setInterval(() => {

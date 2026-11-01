@@ -21,6 +21,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "admin:bootstrap-super-admin": "ts-node src/cli/bootstrap-super-admin.ts",
     "maintenance:backfill-delivery-job-refs": "ts-node prisma/maintenance/backfill-fulfillment-delivery-job-ids.ts"
   },
   "prisma": {

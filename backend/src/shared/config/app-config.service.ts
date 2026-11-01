@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IConfigPort } from './config.port';
 import { EnvironmentVariables, NodeEnv } from './env.validation';
+import { isCliProcess } from './process-role';
 
 /**
  * Env-backed implementation of IConfigPort. Typed accessors for known variables plus a
@@ -35,6 +36,14 @@ export class AppConfigService implements IConfigPort {
 
   get isTest(): boolean {
     return this.nodeEnv === NodeEnv.Test;
+  }
+
+  /**
+   * Whether this process runs the background timers (outbox relay, scheduled jobs). Off under
+   * `NODE_ENV=test`, where tests drive them by hand, and in an operator CLI process (Work 65).
+   */
+  get runsBackgroundJobs(): boolean {
+    return !this.isTest && !isCliProcess();
   }
 
   get port(): number {

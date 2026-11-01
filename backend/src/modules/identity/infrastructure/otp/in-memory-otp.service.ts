@@ -4,6 +4,7 @@ import { AppConfigService } from '../../../../shared/config/app-config.service';
 import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { OtpPurpose } from '../../domain/enums';
 import { IOtpService, OtpIssueOutcome, OtpVerifyResult } from '../../application/ports/otp.service';
+import { IOtpStoreProbe } from '../../application/ports/otp-store-probe.port';
 
 interface OtpEntry {
   hash: string;
@@ -21,7 +22,7 @@ interface OtpEntry {
  * of the process, and are never logged: tests read them from a recording notification transport.
  */
 @Injectable()
-export class InMemoryOtpService implements IOtpService {
+export class InMemoryOtpService implements IOtpService, IOtpStoreProbe {
   private readonly store = new Map<string, OtpEntry>();
   private readonly cooldowns = new Map<string, number>();
   private readonly processKey = randomBytes(32);
@@ -34,6 +35,11 @@ export class InMemoryOtpService implements IOtpService {
     if (this.config.isProduction) {
       throw new Error('InMemoryOtpService must not be used in production; set OTP_STORE=redis.');
     }
+  }
+
+  /** Codes live in this process only: another process (the HTTP server) could never verify them. */
+  async probe(): Promise<{ shared: boolean }> {
+    return { shared: false };
   }
 
   async issue(identifier: string, purpose: OtpPurpose): Promise<OtpIssueOutcome> {

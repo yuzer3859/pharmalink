@@ -100,6 +100,13 @@ npm run start:prod               # node dist/main.js
 
 Health checks: `GET /health/live` (no database access) and `GET /health/ready` (pings PostgreSQL). There is no global route prefix.
 
+The seed creates no users. To create the first administrator of a development or staging database,
+run the one-time, operator-only `npm run admin:bootstrap-super-admin` (interactive; needs Resend and
+`OTP_STORE=redis`; refused in production until administrator MFA exists): see
+[docs/first-super-admin-bootstrap.md](docs/first-super-admin-bootstrap.md). Customers become pharmacy
+owners through `POST /organizations/pharmacy`, then `POST /pharmacy/register`: see
+[docs/pharmacy-onboarding.md](docs/pharmacy-onboarding.md).
+
 Upgrading a database that **already holds data or migration history** is a different procedure: follow `../ops/predeploy/README.md` before running the newer migrations.
 
 ## Tests

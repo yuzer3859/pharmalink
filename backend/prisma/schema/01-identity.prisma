@@ -135,6 +135,7 @@ model User {
   verificationRequests  VerificationRequest[] @relation("VerificationSubject")
   reviewedVerifications VerificationRequest[] @relation("VerificationReviewer")
   consents              Consent[]
+  platformBootstrap     PlatformBootstrap?
 
   @@map("users")
 }
@@ -148,13 +149,31 @@ model Organization {
   owner            User             @relation("OrgOwner", fields: [ownerUserId], references: [id])
   licenseNumber    String?
   licenseExpiresAt DateTime?
+  /// Owner-scoped retry key from `POST /organizations/pharmacy` (Work 65). Null for organisations
+  /// created any other way; unique per owner, so a resubmitted application cannot create a second
+  /// organisation.
+  applicationKey   String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   deletedAt        DateTime?
 
   userRoles UserRole[]
 
+  @@unique([ownerUserId, applicationKey])
   @@map("organizations")
+}
+
+/// One-time platform bootstrap record (Work 65). At most one row ever exists: the primary key is a
+/// fixed value, enforced by a CHECK constraint in the migration. Written in the same transaction as
+/// the first Super Admin and never deleted by application code, so the bootstrap can't run twice
+/// against the same database even if that account is later removed or demoted.
+model PlatformBootstrap {
+  key              String   @id
+  superAdminUserId String   @unique
+  superAdmin       User     @relation(fields: [superAdminUserId], references: [id])
+  completedAt      DateTime @default(now())
+
+  @@map("platform_bootstrap")
 }
 
 model Role {
