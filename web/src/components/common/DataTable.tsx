@@ -1,5 +1,5 @@
 import { Card } from '@mui/material';
-import { DataGrid, type GridColDef, type GridPaginationModel, type GridRowsProp } from '@mui/x-data-grid';
+import { DataGrid, type GridColDef, type GridPaginationModel, type GridRowIdGetter, type GridRowsProp } from '@mui/x-data-grid';
 import { EmptyState } from './EmptyState';
 
 interface DataTableProps {
@@ -10,6 +10,8 @@ interface DataTableProps {
   emptyTitle?: string;
   emptyDescription?: string;
   autoHeight?: boolean;
+  /** For rows whose key is not `id`. */
+  getRowId?: GridRowIdGetter;
   /** Server-side paging: the grid shows one page the server returned and asks for the next. */
   server?: {
     rowCount: number;
@@ -27,6 +29,7 @@ export function DataTable({
   emptyTitle,
   emptyDescription,
   autoHeight = true,
+  getRowId,
   server,
 }: DataTableProps) {
   const paging = server
@@ -46,6 +49,7 @@ export function DataTable({
       <DataGrid
         rows={rows}
         columns={columns}
+        getRowId={getRowId}
         loading={loading}
         autoHeight={autoHeight}
         disableRowSelectionOnClick

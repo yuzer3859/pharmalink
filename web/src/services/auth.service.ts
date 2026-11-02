@@ -246,10 +246,10 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
   }
 
   if (portal === 'admin') {
-    if (has('provider:verify:any')) {
-      result.add('pharmacies:view');
-      result.add('pharmacies:manage');
-    }
+    // Reading pharmacies is `pharmacy:read:any` (GET /admin/operations/pharmacies); activating
+    // one is `provider:verify:any` (POST /pharmacy/activate).
+    if (has('pharmacy:read:any')) result.add('pharmacies:view');
+    if (has('pharmacy:read:any') && has('provider:verify:any')) result.add('pharmacies:manage');
     if (has('order:read:org')) result.add('orders:view');
     if (has('order:fulfill:org')) result.add('orders:manage');
     if (has('inventory:manage:org')) {

@@ -136,6 +136,41 @@ export interface Pharmacy {
   joinedAt: string;
 }
 
+export type TransactingStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
+export type LicenseStatus = 'VALID' | 'EXPIRED' | 'SUSPENDED';
+
+/**
+ * One pharmacy as `GET /admin/operations/pharmacies` reports it: stored statuses, licence expiry,
+ * eligibility and counts. The API returns no name, owner, contact, address or licence number.
+ */
+export interface PharmacyOperations {
+  pharmacyId: string;
+  transactingStatus: TransactingStatus;
+  licenseStatus: LicenseStatus;
+  licenseExpiresAt: string | null;
+  /** Server-computed: may transact now (active, valid and unexpired licence). */
+  eligible: boolean;
+  createdAt: string;
+  updatedAt: string;
+  branches: { total: number; active: number };
+  listings: {
+    total: number;
+    enabled: number;
+    disabled: number;
+    inStock: number;
+    outOfStock: number;
+    customerPurchasable: number;
+    customerUnpurchasable: number;
+  };
+}
+
+export interface PharmacyOperationsPage {
+  items: PharmacyOperations[];
+  total: number;
+  page: number;
+  size: number;
+}
+
 // ----- Analytics -----
 export interface KpiMetric {
   key: string;
