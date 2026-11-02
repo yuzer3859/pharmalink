@@ -250,8 +250,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     // one is `provider:verify:any` (POST /pharmacy/activate).
     if (has('pharmacy:read:any')) result.add('pharmacies:view');
     if (has('pharmacy:read:any') && has('provider:verify:any')) result.add('pharmacies:manage');
-    if (has('order:read:org')) result.add('orders:view');
-    if (has('order:fulfill:org')) result.add('orders:manage');
+    // Order operations are read-only for administrators (GET /admin/operations/orders).
+    if (has('order:read:any')) result.add('orders:view');
     if (has('inventory:manage:org')) {
       result.add('inventory:view');
       result.add('inventory:manage');

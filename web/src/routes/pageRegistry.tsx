@@ -1,7 +1,9 @@
 import type { ComponentType } from 'react';
+import type { PortalKey } from '@/types';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { OrdersPage } from '@/features/orders/OrdersPage';
+import { AdminOrdersPage } from '@/features/orders/AdminOrdersPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -21,3 +23,18 @@ export const PAGE_REGISTRY: Record<string, ComponentType> = {
   pharmacies: PharmaciesPage,
   audit: AuditPage,
 };
+
+// Pages that differ by portal. The admin portals read platform-wide operations APIs (Module 16);
+// the pharmacy portal keeps its own pages for the same path.
+const ADMIN_PAGES: Record<string, ComponentType> = {
+  orders: AdminOrdersPage,
+};
+
+const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {
+  admin: ADMIN_PAGES,
+  superadmin: ADMIN_PAGES,
+};
+
+export function pageFor(portal: PortalKey, path: string): ComponentType | undefined {
+  return PORTAL_PAGES[portal]?.[path] ?? PAGE_REGISTRY[path];
+}

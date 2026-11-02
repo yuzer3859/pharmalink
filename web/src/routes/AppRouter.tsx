@@ -3,7 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PortalSelectPage } from '@/features/auth/PortalSelectPage';
 import { NotFoundPage } from '@/features/misc/NotFoundPage';
 import { RequirePermission, RequirePortal } from './guards';
-import { PAGE_REGISTRY } from './pageRegistry';
+import { pageFor } from './pageRegistry';
 import { PORTALS } from '@/config/navigation';
 import type { PortalKey } from '@/types';
 
@@ -26,7 +26,7 @@ export function AppRouter() {
           <Route key={portalKey} path={portal.basePath} element={<PortalRoutes portalKey={portalKey} />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             {portal.nav.map((item) => {
-              const Page = PAGE_REGISTRY[item.path];
+              const Page = pageFor(portalKey, item.path);
               if (!Page) return null;
               return (
                 <Route

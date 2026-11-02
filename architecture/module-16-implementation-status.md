@@ -48,7 +48,7 @@ in-memory seed (`web/src/services/mock/seed.ts`).
 | Sign-in, MFA enrolment and verification | `/auth/*` | COMPLETE |
 | Audit Logs (admin, super admin) | `GET /admin/audit` | COMPLETE (Work 69): server-paged, exact-match filters, read-only |
 | Pharmacies | `/admin/operations/pharmacies` (read); activation is `POST /pharmacy/activate` | COMPLETE (Work 70): server-paged, status and eligibility filters, activation with the server's refusal reasons. No suspend action: the backend has none. The API returns no names, so rows show the pharmacy id |
-| Orders | `/admin/operations/orders` | PARTIAL: mock |
+| Orders | `/admin/operations/orders` | COMPLETE (Work 71): admin portals get a read-only, server-paged orders page (status, COD, exact order number) with a detail drawer (fulfillments, payment status, fees). The pharmacy portal keeps its own page |
 | Inventory | `/admin/operations/inventory/*` | PARTIAL: mock |
 | Dashboard, Analytics | `/admin/analytics/overview` | PARTIAL: mock |
 | Staff (admin portals) | `/admin/accounts` | PARTIAL: mock |
