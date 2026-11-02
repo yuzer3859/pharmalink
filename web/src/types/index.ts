@@ -261,6 +261,40 @@ export interface AdminListingPage {
   size: number;
 }
 
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
+/**
+ * `GET /admin/analytics/overview`: six sections of counts and a stamp. Only `cod` is money (minor
+ * units, ETB): the cash Module 08 accounts for, not revenue.
+ */
+export interface AnalyticsOverview {
+  generatedAt: string;
+  accounts: { total: number; byStatus: StatusCount[]; byPrimaryRole: Array<{ primaryRole: string; count: number }> };
+  catalog: { products: { total: number; byStatus: StatusCount[] } };
+  providers: {
+    pharmacies: { total: number; eligible: number; byTransactingStatus: StatusCount[]; byLicenseStatus: StatusCount[] };
+    branches: { total: number; active: number; inactive: number };
+    listings: { total: number; enabled: number; disabled: number; inStock: number; outOfStock: number };
+  };
+  orders: { orders: { total: number; byStatus: StatusCount[] }; fulfillments: { total: number; byStatus: StatusCount[] } };
+  delivery: {
+    jobs: { total: number; byStatus: StatusCount[] };
+    drivers: { total: number; dispatchable: number; byAvailability: Array<{ availability: string; count: number }> };
+  };
+  cod: {
+    count: number;
+    expectedAmount: number;
+    collectedAmount: number;
+    remittedAmount: number;
+    outstandingCount: number;
+    outstandingAmount: number;
+    discrepancyCount: number;
+  };
+}
+
 // ----- Analytics -----
 export interface KpiMetric {
   key: string;

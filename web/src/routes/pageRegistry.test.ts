@@ -4,6 +4,9 @@ import { OrdersPage } from '@/features/orders/OrdersPage';
 import { AdminInventoryPage } from '@/features/inventory/AdminInventoryPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { AuditPage } from '@/features/audit/AuditPage';
+import { AdminAnalyticsPage, AdminDashboardPage } from '@/features/analytics/AdminOverviewPage';
+import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
+import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { pageFor } from './pageRegistry';
 
 describe('pageFor', () => {
@@ -17,6 +20,13 @@ describe('pageFor', () => {
     expect(pageFor('admin', 'inventory')).toBe(AdminInventoryPage);
     expect(pageFor('superadmin', 'inventory')).toBe(AdminInventoryPage);
     expect(pageFor('pharmacy', 'inventory')).toBe(InventoryPage);
+  });
+
+  it('gives the admin portals the platform overview for dashboard and analytics', () => {
+    expect(pageFor('admin', 'dashboard')).toBe(AdminDashboardPage);
+    expect(pageFor('superadmin', 'analytics')).toBe(AdminAnalyticsPage);
+    expect(pageFor('pharmacy', 'dashboard')).toBe(DashboardPage);
+    expect(pageFor('pharmacy', 'analytics')).toBe(AnalyticsPage);
   });
 
   it('falls back to the shared page, and to nothing for an unknown path', () => {

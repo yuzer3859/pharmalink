@@ -50,7 +50,7 @@ in-memory seed (`web/src/services/mock/seed.ts`).
 | Pharmacies | `/admin/operations/pharmacies` (read); activation is `POST /pharmacy/activate` | COMPLETE (Work 70): server-paged, status and eligibility filters, activation with the server's refusal reasons. No suspend action: the backend has none. The API returns no names, so rows show the pharmacy id |
 | Orders | `/admin/operations/orders` | COMPLETE (Work 71): admin portals get a read-only, server-paged orders page (status, COD, exact order number) with a detail drawer (fulfillments, payment status, fees). The pharmacy portal keeps its own page |
 | Inventory | `/admin/operations/inventory/*` | COMPLETE (Work 72): admin portals get a read-only, server-paged listings page (pharmacy id, enabled, purchasable) with a stock-diagnostics drawer (reserved, unexpired batches, stored vs computed). The pharmacy portal keeps its own page |
-| Dashboard, Analytics | `/admin/analytics/overview` | PARTIAL: mock |
+| Dashboard, Analytics | `/admin/analytics/overview` | COMPLETE (Work 73): admin portals show the platform snapshot (account, pharmacy, order, fulfillment, delivery, catalogue breakdowns and the COD cash summary). No trend charts: the API has no time series. The pharmacy portal keeps its own pages |
 | Staff (admin portals) | `/admin/accounts` | PARTIAL: mock |
 | Roles | `/admin/roles`, `/admin/accounts/:id/roles` | PARTIAL: mock |
 | Reports | none | BLOCKED: no reporting API exists |
