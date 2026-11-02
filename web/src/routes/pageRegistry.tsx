@@ -5,6 +5,7 @@ import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { OrdersPage } from '@/features/orders/OrdersPage';
 import { AdminOrdersPage } from '@/features/orders/AdminOrdersPage';
 import { AdminInventoryPage } from '@/features/inventory/AdminInventoryPage';
+import { AdminAnalyticsPage, AdminDashboardPage } from '@/features/analytics/AdminOverviewPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -30,6 +31,8 @@ export const PAGE_REGISTRY: Record<string, ComponentType> = {
 const ADMIN_PAGES: Record<string, ComponentType> = {
   orders: AdminOrdersPage,
   inventory: AdminInventoryPage,
+  dashboard: AdminDashboardPage,
+  analytics: AdminAnalyticsPage,
 };
 
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {

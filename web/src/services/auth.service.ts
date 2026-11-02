@@ -257,8 +257,9 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('finance:report:any')) {
       result.add('reports:view');
       result.add('reports:export');
-      result.add('analytics:view');
     }
+    // Platform analytics are GET /admin/analytics/overview (analytics:read).
+    if (has('analytics:read')) result.add('analytics:view');
     if (has('rbac:read')) result.add('roles:view');
     if (has('rbac:manage')) {
       result.add('roles:view');
