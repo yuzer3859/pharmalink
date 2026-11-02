@@ -252,10 +252,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('pharmacy:read:any') && has('provider:verify:any')) result.add('pharmacies:manage');
     // Order operations are read-only for administrators (GET /admin/operations/orders).
     if (has('order:read:any')) result.add('orders:view');
-    if (has('inventory:manage:org')) {
-      result.add('inventory:view');
-      result.add('inventory:manage');
-    }
+    // Inventory operations are read-only for administrators (GET /admin/operations/inventory/listings).
+    if (has('pharmacy:read:any')) result.add('inventory:view');
     if (has('finance:report:any')) {
       result.add('reports:view');
       result.add('reports:export');
