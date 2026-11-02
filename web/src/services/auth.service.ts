@@ -79,6 +79,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'audit:view',
   'verifications:view',
   'verifications:manage',
+  'catalog:review',
   'settings:manage',
 ];
 
@@ -273,6 +274,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('verification:queue:read') && has('provider:verify:any')) result.add('verifications:manage');
     // Platform configuration and feature flags (config:manage:global, Super Admin by wildcard).
     if (has('config:manage:global')) result.add('settings:manage');
+    // Catalogue moderation (GET/POST /admin/catalog/review, catalog:manage:any).
+    if (has('catalog:manage:any')) result.add('catalog:review');
     // Accounts are listed with rbac:read (GET /admin/accounts); suspending or reinstating one needs
     // user:suspend:any or user:reactivate:any; role changes need rbac:manage (roles:manage above).
     if (has('rbac:read')) result.add('staff:view');
