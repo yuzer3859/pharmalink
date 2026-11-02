@@ -14,7 +14,15 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { emailProviderState, fillEnvTemplate, generateEnvValues, parseEnvText, validateEnvValues } from './env-file.mjs';
+import {
+  ADDABLE_SECRETS,
+  appendMissingEnvValues,
+  emailProviderState,
+  fillEnvTemplate,
+  generateEnvValues,
+  parseEnvText,
+  validateEnvValues,
+} from './env-file.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const COMPOSE_FILE = join(ROOT, 'compose.staging.yml');
@@ -26,6 +34,12 @@ const PROJECT_LABEL = `label=com.docker.compose.project=${PROJECT}`;
 const EXPECTED_ROLES = 14;
 const REDIS_OTP_LOG = 'OTP challenges are stored in Redis (OTP_STORE=redis).';
 const MEMORY_OTP_LOG = 'OTP challenges are kept in memory';
+// The administrator MFA migration (Work 66): the first Super Admin bootstrap refuses to run without it.
+const ADMIN_MFA_MIGRATION = '20261102000000_module01_admin_mfa';
+// Run inside a container: whether ADMIN_MFA_ENCRYPTION_KEY is standard base64 of 32 bytes. Prints a
+// boolean only, never the value.
+const MFA_KEY_PROBE =
+  "const k=(process.env.ADMIN_MFA_ENCRYPTION_KEY||'').trim();console.log(JSON.stringify({mfaKeyValid:/^[A-Za-z0-9+/]{43}=$/.test(k)&&Buffer.from(k,'base64').length===32}))";
 
 const args = new Set(process.argv.slice(2));
 const KEEP = args.has('--keep');
@@ -76,11 +90,16 @@ function initEnv() {
     console.error(`${ENV_FILE} already exists; not overwriting it. Delete it first to regenerate.`);
     process.exit(1);
   }
-  const filled = fillEnvTemplate(readFileSync(join(ROOT, 'backend', '.env.example'), 'utf8'), generateEnvValues(randomBytes));
+  const values = generateEnvValues(randomBytes);
+  const template = fillEnvTemplate(readFileSync(join(ROOT, 'backend', '.env.example'), 'utf8'), values);
+  // .env.example only comments ADMIN_MFA_ENCRYPTION_KEY out (it is optional outside staging), so it
+  // is appended the same way ensure-env-secrets.mjs adds it to an existing file.
+  const addable = Object.fromEntries(ADDABLE_SECRETS.map((key) => [key, values[key]]));
+  const filled = appendMissingEnvValues(Buffer.from(template, 'utf8'), addable).bytes.toString('utf8');
   const { problems } = validateEnvValues(parseEnvText(filled), ENV_FILE);
   if (problems.length) throw new Error(`generated env file would be invalid (nothing written):\n  - ${problems.join('\n  - ')}`);
   writeFileSync(ENV_FILE, filled, { encoding: 'utf8', flag: 'wx' });
-  log(`Created ${ENV_FILE} with random local-only secrets, including a dedicated OTP_HASH_SECRET (gitignored). Values were not printed.`);
+  log(`Created ${ENV_FILE} with random local-only secrets, including a dedicated OTP_HASH_SECRET and ADMIN_MFA_ENCRYPTION_KEY (gitignored). Values were not printed.`);
 }
 
 function checkEnv() {
@@ -242,6 +261,7 @@ async function main() {
   run('docker', ['compose', 'version']);
   const { port, emailConfigured } = checkEnv();
   log(`env file OK (${ENV_FILE}): required secrets present and valid, OTP_HASH_SECRET dedicated and at least 32 characters (values not shown)`);
+  log('ADMIN_MFA_ENCRYPTION_KEY in the env file (base64 of 32 bytes, dedicated): PASS');
   log(`e-mail provider (Resend): ${emailConfigured ? 'configured' : 'not configured; OTP requests will be refused with 503, by design'}`);
   log(`backend will be published on 127.0.0.1:${port}`);
   // --quiet: validates without printing the resolved file, which would contain the secrets.
@@ -272,6 +292,9 @@ async function main() {
   compose(['run', '--rm', 'tools', 'npx', 'prisma', 'migrate', 'deploy']);
   const migrations = psql('SELECT count(*) FILTER (WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) || \'/\' || count(*) FROM "_prisma_migrations"');
   log(`applied migrations (finished/total): ${migrations}`);
+  const mfaMigration = psql(`SELECT count(*) FROM "_prisma_migrations" WHERE migration_name = '${ADMIN_MFA_MIGRATION}' AND finished_at IS NOT NULL AND rolled_back_at IS NULL`);
+  log(`administrator MFA migration (${ADMIN_MFA_MIGRATION}) applied: ${mfaMigration === '1' ? 'PASS' : 'FAIL'}`);
+  if (mfaMigration !== '1') throw new Error(`migration ${ADMIN_MFA_MIGRATION} is not applied; the first Super Admin bootstrap would refuse to run`);
 
   step('6. seed roles and permissions (first run)');
   compose(['run', '--rm', 'tools', 'npm', 'run', 'prisma:seed']);
@@ -302,6 +325,12 @@ async function main() {
   const env = JSON.parse(effective);
   log(`backend container: OTP_STORE=${env.store}; OTP_HASH_SECRET set (>= 32 characters): ${env.secretSet}; REDIS_URL set: ${env.redisUrlSet}`);
   if (env.store !== 'redis' || !env.secretSet || !env.redisUrlSet) throw new Error('the backend container is not configured for the Redis OTP store');
+  // The key reaches both containers through env_file: the server runs in backend, the bootstrap in tools.
+  const backendMfa = JSON.parse(compose(['exec', '-T', 'backend', 'node', '-e', MFA_KEY_PROBE], { capture: true }).stdout.trim());
+  const toolsOut = compose(['run', '--rm', '-T', 'tools', 'node', '-e', MFA_KEY_PROBE], { capture: true }).stdout;
+  const toolsMfa = JSON.parse(lines(toolsOut).pop() ?? '{}');
+  log(`ADMIN_MFA_ENCRYPTION_KEY valid in the backend container: ${backendMfa.mfaKeyValid ? 'PASS' : 'FAIL'}; in the tools container: ${toolsMfa.mfaKeyValid ? 'PASS' : 'FAIL'}`);
+  if (!backendMfa.mfaKeyValid || !toolsMfa.mfaKeyValid) throw new Error('ADMIN_MFA_ENCRYPTION_KEY did not reach both the backend and tools containers');
   const logs = compose(['logs', '--no-color', 'backend'], { capture: true }).stdout;
   if (!logs.includes('Redis connected.')) throw new Error('backend log has no "Redis connected." line');
   if (!logs.includes(REDIS_OTP_LOG)) throw new Error(`backend log has no "${REDIS_OTP_LOG}" line: the Redis OTP store was not selected`);
