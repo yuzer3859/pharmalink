@@ -80,6 +80,8 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'verifications:view',
   'verifications:manage',
   'catalog:review',
+  'finance:view',
+  'finance:settle',
   'settings:manage',
 ];
 
@@ -276,6 +278,10 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('config:manage:global')) result.add('settings:manage');
     // Catalogue moderation (GET/POST /admin/catalog/review, catalog:manage:any).
     if (has('catalog:manage:any')) result.add('catalog:review');
+    // Financial oversight and COD disputes read with finance:report:any; settlements and dispute
+    // resolution need finance:settlement:any.
+    if (has('finance:report:any')) result.add('finance:view');
+    if (has('finance:report:any') && has('finance:settlement:any')) result.add('finance:settle');
     // Accounts are listed with rbac:read (GET /admin/accounts); suspending or reinstating one needs
     // user:suspend:any or user:reactivate:any; role changes need rbac:manage (roles:manage above).
     if (has('rbac:read')) result.add('staff:view');

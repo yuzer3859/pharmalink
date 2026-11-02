@@ -42,7 +42,9 @@ Status key:
 
 Signing in (with administrator MFA) uses the real API. Before Work 69 every data page used an
 in-memory seed (`web/src/services/mock/seed.ts`). After Work 74, every admin and super admin page
-except Reports uses the real API; the seed now serves only the pharmacy portal and Reports.
+except Reports uses the real API; the seed now serves only the pharmacy portal and Reports. Works 75–78
+added the pages the portal lacked: verifications, configuration, catalogue review, finance and COD
+disputes.
 
 | Portal page | Backend it should use | Status |
 |---|---|---|
@@ -59,7 +61,7 @@ except Reports uses the real API; the seed now serves only the pharmacy portal a
 | Verifications queue | `/admin/verifications` | COMPLETE (Work 75): queue (status, type, waiting time), review drawer, approve (licence number and future expiry required for a pharmacy licence) and reject with a reason. Document preview remains BLOCKED (references only) |
 | Configuration and feature flags | `/admin/config`, `/admin/feature-flags` | COMPLETE (Work 76): Super Admin Configuration page: settings with effective value and source, typed publish with range/allowed checks and an audited reason, version history with restore; feature flags with confirmed toggles |
 | Catalogue review | `/admin/catalog/review` | COMPLETE (Work 77): queue with summary (waiting count, oldest, lifetime approvals and rejections), name/status/type filters, product drawer with review history, and the decisions the server allows (submit, approve, reject with reason, return to review) |
-| Finance, COD disputes | `/admin/finance`, `/admin/cod-disputes` | Not in the portal yet |
+| Finance, COD disputes | `/admin/finance`, `/admin/finance/settlements`, `/admin/cod-disputes` | COMPLETE (Work 78): Finance page (overview, payments with refund detail, refunds; settlements read-only for `finance:settlement:any`) and COD disputes page (list, collection detail, resolve with an optional note). Running, approving or paying settlements is not in the portal (DEFERRED) |
 
 Mock pages are not disguised as live: replacing each one with its real API is the remaining
 portal work, one page per Work, each with service-level tests (Vitest, `npm test` in `web/`).
