@@ -171,6 +171,68 @@ export interface PharmacyOperationsPage {
   size: number;
 }
 
+export type AdminOrderStatus =
+  | 'DRAFT'
+  | 'PENDING_PAYMENT'
+  | 'PAID'
+  | 'ACCEPTED'
+  | 'READY'
+  | 'DISPATCHED'
+  | 'DELIVERED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REFUNDED';
+
+/**
+ * One order as `GET /admin/operations/orders` reports it: Module 06's columns, no customer data.
+ * Money is in integer minor units.
+ */
+export interface AdminOrderSummary {
+  orderId: string;
+  orderNumber: string;
+  status: AdminOrderStatus;
+  isCod: boolean;
+  grandTotal: number;
+  currency: string;
+  lineCount: number;
+  fulfillmentCount: number;
+  placedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminOrderListItem extends AdminOrderSummary {
+  hasDeliveryJobReference: boolean;
+  unreferencedFulfillmentCount: number;
+}
+
+export interface AdminOrderPage {
+  items: AdminOrderListItem[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface AdminOrderDetail extends AdminOrderSummary {
+  subtotal: number;
+  deliveryFee: number;
+  platformFee: number;
+  discountTotal: number;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  fulfillments: Array<{
+    fulfillmentId: string;
+    pharmacyId: string;
+    branchId: string;
+    status: string;
+    deliveryJobId: string | null;
+    acceptedAt: string | null;
+    readyAt: string | null;
+    createdAt: string;
+  }>;
+  payment: { paymentId: string; status: string; method: string; updatedAt: string } | null;
+}
+
 // ----- Analytics -----
 export interface KpiMetric {
   key: string;

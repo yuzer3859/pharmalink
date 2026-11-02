@@ -12,6 +12,8 @@ interface DataTableProps {
   autoHeight?: boolean;
   /** For rows whose key is not `id`. */
   getRowId?: GridRowIdGetter;
+  /** Called with the clicked row. */
+  onRowClick?: (row: unknown) => void;
   /** Server-side paging: the grid shows one page the server returned and asks for the next. */
   server?: {
     rowCount: number;
@@ -30,6 +32,7 @@ export function DataTable({
   emptyDescription,
   autoHeight = true,
   getRowId,
+  onRowClick,
   server,
 }: DataTableProps) {
   const paging = server
@@ -50,6 +53,7 @@ export function DataTable({
         rows={rows}
         columns={columns}
         getRowId={getRowId}
+        onRowClick={onRowClick ? (params) => onRowClick(params.row) : undefined}
         loading={loading}
         autoHeight={autoHeight}
         disableRowSelectionOnClick
