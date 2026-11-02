@@ -15,6 +15,7 @@ import { PaymentMethod } from '../../src/modules/payment/domain/enums';
 import { MockPaymentProvider } from '../../src/modules/payment/infrastructure/providers/mock-payment-provider.adapter';
 import { ErrorCode } from '../../src/shared/errors/error-codes';
 import { auth, body, createUserWithRole, RegisteredUser, Tokens } from '../support/fixtures';
+import { containsTestPan } from '../support/card-data';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 
 /**
@@ -539,7 +540,8 @@ describe('Refund HTTP API (e2e)', () => {
     expect(serialized).not.toContain(raw);
     expect(serialized).not.toContain('sk_live_supersecret');
     expect(serialized).not.toContain('ak_12345');
-    expect(serialized).not.toContain('4111');
+    // UUID-aware: the envelope carries request ids, and a v4 UUID can contain `4111` by chance.
+    expect(containsTestPan(serialized)).toBe(false);
     expect(response.body.error.code).toBe(ErrorCode.DEPENDENCY_UNAVAILABLE);
     // Nothing durable took the raw text either.
     const audits = await ctx.prisma.auditLog.findMany();
