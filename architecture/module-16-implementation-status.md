@@ -41,7 +41,8 @@ Status key:
 ## Operations portal (`web/`)
 
 Signing in (with administrator MFA) uses the real API. Before Work 69 every data page used an
-in-memory seed (`web/src/services/mock/seed.ts`).
+in-memory seed (`web/src/services/mock/seed.ts`). After Work 74, every admin and super admin page
+except Reports uses the real API; the seed now serves only the pharmacy portal and Reports.
 
 | Portal page | Backend it should use | Status |
 |---|---|---|
@@ -51,8 +52,8 @@ in-memory seed (`web/src/services/mock/seed.ts`).
 | Orders | `/admin/operations/orders` | COMPLETE (Work 71): admin portals get a read-only, server-paged orders page (status, COD, exact order number) with a detail drawer (fulfillments, payment status, fees). The pharmacy portal keeps its own page |
 | Inventory | `/admin/operations/inventory/*` | COMPLETE (Work 72): admin portals get a read-only, server-paged listings page (pharmacy id, enabled, purchasable) with a stock-diagnostics drawer (reserved, unexpired batches, stored vs computed). The pharmacy portal keeps its own page |
 | Dashboard, Analytics | `/admin/analytics/overview` | COMPLETE (Work 73): admin portals show the platform snapshot (account, pharmacy, order, fulfillment, delivery, catalogue breakdowns and the COD cash summary). No trend charts: the API has no time series. The pharmacy portal keeps its own pages |
-| Staff (admin portals) | `/admin/accounts` | PARTIAL: mock |
-| Roles | `/admin/roles`, `/admin/accounts/:id/roles` | PARTIAL: mock |
+| Staff (admin portals) | `/admin/accounts` | COMPLETE (Work 74): Accounts page, server-paged, exact phone/e-mail, status and primary-role filters; detail drawer with suspend (required reason) and reinstate, role assignment (organisation id for ORG roles) and revocation |
+| Roles | `/admin/roles`, `/admin/accounts/:id/roles` | COMPLETE (Work 74): read-only role catalogue with permissions; roles come from the RBAC seed and have no edit API. Assignment is on the Accounts page |
 | Reports | none | BLOCKED: no reporting API exists |
 | Pharmacy portal pages (inventory, orders, staff, roles) | Module 04/05 pharmacy APIs, not Module 16 | PARTIAL: mock; outside this module |
 | Verifications queue | `/admin/verifications` | Not in the portal yet |

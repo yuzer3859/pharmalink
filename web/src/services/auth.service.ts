@@ -266,7 +266,10 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
       result.add('roles:manage');
     }
     if (has('audit:read:any')) result.add('audit:view');
-    if (has('user:suspend:any', 'user:reactivate:any')) result.add('staff:view');
+    // Accounts are listed with rbac:read (GET /admin/accounts); suspending or reinstating one needs
+    // user:suspend:any or user:reactivate:any; role changes need rbac:manage (roles:manage above).
+    if (has('rbac:read')) result.add('staff:view');
+    if (has('rbac:read') && has('user:suspend:any', 'user:reactivate:any')) result.add('staff:manage');
   }
 
   return ALL_PORTAL_PERMISSIONS.filter((permission) => result.has(permission));

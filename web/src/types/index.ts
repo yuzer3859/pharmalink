@@ -295,6 +295,95 @@ export interface AnalyticsOverview {
   };
 }
 
+export type AccountStatus =
+  | 'PENDING_VERIFICATION'
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'DEACTIVATED'
+  | 'DELETED'
+  | 'PENDING_APPROVAL'
+  | 'REJECTED';
+
+export type PrimaryRole =
+  | 'CUSTOMER'
+  | 'PHARMACY_OWNER'
+  | 'PHARMACY_MANAGER'
+  | 'PHARMACIST'
+  | 'CASHIER'
+  | 'INVENTORY_STAFF'
+  | 'DOCTOR'
+  | 'DRIVER'
+  | 'HOSPITAL_ADMIN'
+  | 'DIAGNOSTIC_CENTER_ADMIN'
+  | 'LAB_STAFF'
+  | 'CUSTOMER_SUPPORT'
+  | 'FINANCE_OFFICER'
+  | 'ADMIN'
+  | 'SUPER_ADMIN';
+
+/** One account as `GET /admin/accounts` reports it. */
+export interface AdminAccount {
+  userId: string;
+  phone: string | null;
+  email: string | null;
+  primaryRole: PrimaryRole;
+  status: AccountStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAccountPage {
+  items: AdminAccount[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface RoleAssignment {
+  assignmentId: string;
+  roleKey: string;
+  roleName: string;
+  organizationId: string | null;
+  createdAt: string;
+}
+
+export interface AdminAccountDetail extends AdminAccount {
+  preferredLanguage: string;
+  phoneVerifiedAt: string | null;
+  emailVerifiedAt: string | null;
+  faydaVerifiedAt: string | null;
+  deletionRequestedAt: string | null;
+  deletedAt: string | null;
+  roles: RoleAssignment[];
+}
+
+export interface AccountStatusChange {
+  userId: string;
+  previousStatus: AccountStatus;
+  status: AccountStatus;
+  changedAt: string;
+}
+
+export interface RoleChange {
+  assignmentId: string;
+  userId: string;
+  roleKey: string;
+  organizationId: string | null;
+  roles: Array<{ roleKey: string; organizationId: string | null }>;
+}
+
+/** One role of the catalogue (`GET /admin/roles`). */
+export interface RoleCatalogueEntry {
+  id: string;
+  key: string;
+  name: string;
+  /** `PLATFORM` or an organisation scope. */
+  scope: string;
+  isSystem: boolean;
+  description: string | null;
+  permissions: string[];
+}
+
 // ----- Analytics -----
 export interface KpiMetric {
   key: string;

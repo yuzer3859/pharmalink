@@ -7,6 +7,10 @@ import { AuditPage } from '@/features/audit/AuditPage';
 import { AdminAnalyticsPage, AdminDashboardPage } from '@/features/analytics/AdminOverviewPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
+import { AdminStaffPage } from '@/features/staff/AdminStaffPage';
+import { StaffPage } from '@/features/staff/StaffPage';
+import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
+import { RolesPage } from '@/features/roles/RolesPage';
 import { pageFor } from './pageRegistry';
 
 describe('pageFor', () => {
@@ -27,6 +31,13 @@ describe('pageFor', () => {
     expect(pageFor('superadmin', 'analytics')).toBe(AdminAnalyticsPage);
     expect(pageFor('pharmacy', 'dashboard')).toBe(DashboardPage);
     expect(pageFor('pharmacy', 'analytics')).toBe(AnalyticsPage);
+  });
+
+  it('gives the admin portals the accounts and role catalogue pages', () => {
+    expect(pageFor('admin', 'staff')).toBe(AdminStaffPage);
+    expect(pageFor('superadmin', 'roles')).toBe(AdminRolesPage);
+    expect(pageFor('pharmacy', 'staff')).toBe(StaffPage);
+    expect(pageFor('pharmacy', 'roles')).toBe(RolesPage);
   });
 
   it('falls back to the shared page, and to nothing for an unknown path', () => {
