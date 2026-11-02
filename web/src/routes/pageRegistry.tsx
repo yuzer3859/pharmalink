@@ -11,6 +11,8 @@ import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
 import { AdminVerificationsPage } from '@/features/verifications/AdminVerificationsPage';
 import { ConfigurationPage } from '@/features/configuration/ConfigurationPage';
 import { CatalogReviewPage } from '@/features/catalog/CatalogReviewPage';
+import { FinancePage } from '@/features/finance/FinancePage';
+import { CodDisputesPage } from '@/features/finance/CodDisputesPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -43,6 +45,8 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   verifications: AdminVerificationsPage,
   configuration: ConfigurationPage,
   'catalog-review': CatalogReviewPage,
+  finance: FinancePage,
+  'cod-disputes': CodDisputesPage,
 };
 
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {

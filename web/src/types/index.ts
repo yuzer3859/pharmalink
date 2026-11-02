@@ -21,6 +21,8 @@ export type PermissionKey =
   | 'verifications:view'
   | 'verifications:manage'
   | 'catalog:review'
+  | 'finance:view'
+  | 'finance:settle'
   | 'settings:manage';
 
 export interface AuthUser {
@@ -536,6 +538,198 @@ export interface CatalogReviewSummary {
 export interface CatalogHistory {
   productId: string;
   history: Array<{ from: string | null; to: string | null; occurredAt: string; reason: string | null }>;
+}
+
+export type FinancePaymentStatus =
+  | 'INITIATED'
+  | 'AUTHORIZED'
+  | 'CAPTURED'
+  | 'SETTLED'
+  | 'FAILED'
+  | 'VOIDED'
+  | 'REFUNDED'
+  | 'PARTIALLY_REFUNDED'
+  | 'EXPIRED';
+export type FinancePaymentMethod = 'CARD' | 'TELEBIRR' | 'BANK_TRANSFER' | 'WALLET' | 'COD' | 'CROSS_BORDER';
+export type RefundStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'FAILED';
+export type SettlementStatus = 'DRAFT' | 'APPROVED' | 'PAID' | 'FAILED';
+export type CodDisputeStatus = 'OPEN' | 'RESOLVED';
+
+/** Money in this section is in integer minor units. */
+export interface FinancePayment {
+  paymentId: string;
+  orderId: string;
+  customerUserId: string;
+  amount: number;
+  currency: string;
+  method: FinancePaymentMethod;
+  status: FinancePaymentStatus;
+  provider: string | null;
+  providerRef: string | null;
+  originalAmount: number | null;
+  originalCurrency: string | null;
+  fxRate: number | null;
+  fxSource: string | null;
+  authorizedAt: string | null;
+  capturedAt: string | null;
+  failureReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinancePaymentPage {
+  items: FinancePayment[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface FinanceRefund {
+  refundId: string;
+  paymentId: string;
+  amount: number;
+  currency: string;
+  type: string;
+  destination: string;
+  status: RefundStatus;
+  providerRef: string | null;
+  reason: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  approvedBy?: string | null;
+}
+
+export interface FinanceRefundPage {
+  items: FinanceRefund[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface FinancePaymentDetail {
+  payment: FinancePayment;
+  refunds: { capturedAmount: number; totalRefunded: number; remainingRefundable: number; refunds: FinanceRefund[] };
+}
+
+export interface FinanceOverview {
+  generatedAt: string;
+  payments: { byStatus: Array<{ currency: string; status: string; count: number; amount: number }> };
+  refunds: { byStatus: Array<{ currency: string; status: string; count: number; amount: number }> };
+  settlements: {
+    byStatus: Array<{
+      currency: string;
+      status: string;
+      count: number;
+      providerPayableGross: number;
+      refundClawback: number;
+      netPayable: number;
+      platformRevenue: number;
+      promotionExpense: number;
+      customerCashCollected: number;
+    }>;
+  };
+  cod: {
+    count: number;
+    expectedAmount: number;
+    collectedAmount: number;
+    remittedAmount: number;
+    outstandingCount: number;
+    outstandingAmount: number;
+    discrepancyCount: number;
+  };
+}
+
+export interface Settlement {
+  settlementId: string;
+  statementRef: string;
+  pharmacyId: string;
+  currency: string;
+  periodStart: string;
+  periodEnd: string;
+  providerPayableGross: number;
+  refundClawback: number;
+  netPayable: number;
+  platformRevenue: number;
+  promotionExpense: number;
+  customerCashCollected: number;
+  lineCount: number;
+  status: SettlementStatus;
+  createdAt: string;
+}
+
+export interface SettlementPage {
+  items: Settlement[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface SettlementDetail extends Settlement {
+  lines: Array<{
+    ledgerReference: string;
+    transactionType: string;
+    orderId: string | null;
+    occurredAt: string;
+    providerPayableDelta: number;
+    platformRevenueDelta: number;
+    promotionExpenseDelta: number;
+    customerCashDelta: number;
+  }>;
+}
+
+export interface CodDispute {
+  id: string;
+  collectionId: string;
+  reason: string;
+  status: CodDisputeStatus;
+  openedByUserId: string;
+  openedAt: string;
+  resolvedByUserId: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+}
+
+export interface CodCollectionSummary {
+  id: string;
+  jobId: string;
+  orderId: string;
+  driverId: string;
+  expectedAmount: number;
+  collectedAmount: number;
+  currency: string;
+  status: string;
+}
+
+export interface CodDisputePage {
+  items: Array<{ dispute: CodDispute; collection: CodCollectionSummary }>;
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface CodDisputeDetail {
+  dispute: CodDispute;
+  collection: CodCollectionSummary & {
+    method: string;
+    collectedAt: string;
+    remittedAt: string | null;
+    reconciledAt: string | null;
+    collectionVariance: number;
+    remittanceVariance: number | null;
+    hasDiscrepancy: boolean;
+    isOutstanding: boolean;
+    remittance: { remittedAmount: number; reference: string; remittedAt: string } | null;
+    reconciliation: { outcome: string; reference: string | null; reconciledAt: string } | null;
+    corrections: Array<{ id: string; type: string; reason: string; createdAt: string }>;
+    disputes: CodDispute[];
+  };
+}
+
+export interface CodDisputeResolution {
+  dispute: CodDispute;
+  collectionId: string;
+  previousStatus: CodDisputeStatus;
+  changed: boolean;
 }
 
 // ----- Analytics -----

@@ -11,6 +11,8 @@ import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
 import VerifiedUserRoundedIcon from '@mui/icons-material/VerifiedUserRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded';
+import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
+import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import type { PermissionKey, PortalKey } from '@/types';
 
 export interface NavItem {
@@ -65,6 +67,8 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
+      { label: 'Finance', path: 'finance', icon: AccountBalanceRoundedIcon, permission: 'finance:view', section: INSIGHTS },
+      { label: 'COD disputes', path: 'cod-disputes', icon: GavelRoundedIcon, permission: 'finance:view', section: INSIGHTS },
       { label: 'Reports', path: 'reports', icon: SummarizeRoundedIcon, permission: 'reports:view', section: INSIGHTS },
       { label: 'Staff', path: 'staff', icon: GroupsRoundedIcon, permission: 'staff:view', section: ADMIN },
       { label: 'Roles', path: 'roles', icon: AdminPanelSettingsRoundedIcon, permission: 'roles:view', section: ADMIN },
@@ -85,6 +89,8 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
+      { label: 'Finance', path: 'finance', icon: AccountBalanceRoundedIcon, permission: 'finance:view', section: INSIGHTS },
+      { label: 'COD disputes', path: 'cod-disputes', icon: GavelRoundedIcon, permission: 'finance:view', section: INSIGHTS },
       { label: 'Reports', path: 'reports', icon: SummarizeRoundedIcon, permission: 'reports:view', section: INSIGHTS },
       { label: 'Staff', path: 'staff', icon: GroupsRoundedIcon, permission: 'staff:view', section: ADMIN },
       { label: 'Roles', path: 'roles', icon: AdminPanelSettingsRoundedIcon, permission: 'roles:view', section: ADMIN },
