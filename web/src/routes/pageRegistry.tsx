@@ -8,6 +8,7 @@ import { AdminInventoryPage } from '@/features/inventory/AdminInventoryPage';
 import { AdminAnalyticsPage, AdminDashboardPage } from '@/features/analytics/AdminOverviewPage';
 import { AdminStaffPage } from '@/features/staff/AdminStaffPage';
 import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
+import { AdminVerificationsPage } from '@/features/verifications/AdminVerificationsPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -37,6 +38,7 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   analytics: AdminAnalyticsPage,
   staff: AdminStaffPage,
   roles: AdminRolesPage,
+  verifications: AdminVerificationsPage,
 };
 
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {

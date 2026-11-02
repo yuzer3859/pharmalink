@@ -56,7 +56,7 @@ except Reports uses the real API; the seed now serves only the pharmacy portal a
 | Roles | `/admin/roles`, `/admin/accounts/:id/roles` | COMPLETE (Work 74): read-only role catalogue with permissions; roles come from the RBAC seed and have no edit API. Assignment is on the Accounts page |
 | Reports | none | BLOCKED: no reporting API exists |
 | Pharmacy portal pages (inventory, orders, staff, roles) | Module 04/05 pharmacy APIs, not Module 16 | PARTIAL: mock; outside this module |
-| Verifications queue | `/admin/verifications` | Not in the portal yet |
+| Verifications queue | `/admin/verifications` | COMPLETE (Work 75): queue (status, type, waiting time), review drawer, approve (licence number and future expiry required for a pharmacy licence) and reject with a reason. Document preview remains BLOCKED (references only) |
 | Configuration and feature flags | `/admin/config`, `/admin/feature-flags` | Not in the portal yet |
 | Catalogue review | `/admin/catalog/review` | Not in the portal yet |
 | Finance, COD disputes | `/admin/finance`, `/admin/cod-disputes` | Not in the portal yet |
