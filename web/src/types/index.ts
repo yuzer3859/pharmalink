@@ -180,14 +180,25 @@ export interface ReportRecord {
 }
 
 // ----- Audit -----
+/** One entry of the hash-chained audit trail, as `GET /admin/audit` returns it. */
 export interface AuditLog {
   id: string;
-  actor: string;
   action: string;
-  entity: string;
-  severity: 'info' | 'warning' | 'critical';
-  ip: string;
-  timestamp: string;
+  resourceType: string;
+  resourceId: string | null;
+  actorUserId: string | null;
+  /** The writing module's own record of what happened; secrets are never written to it. */
+  context: unknown;
+  ip: string | null;
+  createdAt: string;
+  chain: { prevHash: string | null; hash: string };
+}
+
+export interface AuditLogPage {
+  items: AuditLog[];
+  total: number;
+  page: number;
+  size: number;
 }
 
 // ----- Query filters -----

@@ -1,5 +1,4 @@
 import type {
-  AuditLog,
   InventoryItem,
   MedicineForm,
   Order,
@@ -201,19 +200,5 @@ export const STAFF: StaffMember[] = STAFF_NAMES.map((name, i) => {
     createdAt: daysFromNow(-int(30, 700)),
   };
 });
-
-export const AUDIT_LOGS: AuditLog[] = Array.from({ length: 60 }).map((_, i) => ({
-  id: `log-${i + 1}`,
-  actor: pick(STAFF_NAMES),
-  action: pick([
-    'Approved prescription', 'Suspended pharmacy', 'Updated role permissions',
-    'Exported revenue report', 'Adjusted stock level', 'Issued refund',
-    'Created staff account', 'Changed platform settings', 'Rejected provider application',
-  ]),
-  entity: pick(['Order', 'Pharmacy', 'Role', 'Report', 'Inventory', 'Payment', 'Staff', 'Settings']),
-  severity: pick<AuditLog['severity']>(['info', 'info', 'info', 'warning', 'critical']),
-  ip: `10.${int(0, 255)}.${int(0, 255)}.${int(1, 254)}`,
-  timestamp: daysFromNow(-int(0, 14)),
-}));
 
 export { CURRENT_PHARMACY, ALL_PERMISSIONS };

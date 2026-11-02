@@ -1,0 +1,50 @@
+# Web CI: type-check, lint, unit tests and the production build for `web/` (the operations portal).
+#
+# Security model, as in backend-ci.yml: `pull_request` (never `pull_request_target`), a read-only
+# token, no secrets, nothing deployed. The unit tests mock the network; no job reaches any server.
+name: Web CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: web
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  web:
+    name: Web type-check, lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npx eslint .
+      - name: Unit tests (Vitest)
+        run: npm test
+      - name: Production build
+        run: npm run build

@@ -513,4 +513,16 @@ export const authService = {
   getSession(): StoredSession | null {
     return session;
   },
+
+  /**
+   * An API call on the signed-in session: sends the access token, refreshes it once on expiry and
+   * ends the session if the refresh is refused. The portal's data services call the backend
+   * through this, never with a token of their own.
+   */
+  request<T>(path: string, options: SessionRequestOptions = {}): Promise<T> {
+    return requestWithSession<T>(path, options);
+  },
 };
+
+export type SessionRequestOptions = Omit<ApiRequestOptions, 'accessToken' | 'refresh' | 'onSessionExpired'>;
+export type SessionRequest = <T>(path: string, options?: SessionRequestOptions) => Promise<T>;
