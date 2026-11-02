@@ -4,6 +4,7 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { OrdersPage } from '@/features/orders/OrdersPage';
 import { AdminOrdersPage } from '@/features/orders/AdminOrdersPage';
+import { AdminInventoryPage } from '@/features/inventory/AdminInventoryPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -28,6 +29,7 @@ export const PAGE_REGISTRY: Record<string, ComponentType> = {
 // the pharmacy portal keeps its own pages for the same path.
 const ADMIN_PAGES: Record<string, ComponentType> = {
   orders: AdminOrdersPage,
+  inventory: AdminInventoryPage,
 };
 
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {

@@ -233,6 +233,34 @@ export interface AdminOrderDetail extends AdminOrderSummary {
   payment: { paymentId: string; status: string; method: string; updatedAt: string } | null;
 }
 
+/** One inventory listing as `GET /admin/operations/inventory/listings` reports it. */
+export interface AdminListing {
+  listingId: string;
+  pharmacyId: string;
+  branchId: string;
+  catalogProductId: string;
+  isEnabled: boolean;
+  storedSellable: number;
+  computedSellable: number;
+  customerPurchasable: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminListingDetail extends AdminListing {
+  reserved: number;
+  unexpiredBatchCount: number;
+  unexpiredBatchQuantity: number;
+  storedMatchesComputed: boolean;
+}
+
+export interface AdminListingPage {
+  items: AdminListing[];
+  total: number;
+  page: number;
+  size: number;
+}
+
 // ----- Analytics -----
 export interface KpiMetric {
   key: string;
