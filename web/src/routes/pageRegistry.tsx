@@ -6,6 +6,8 @@ import { OrdersPage } from '@/features/orders/OrdersPage';
 import { AdminOrdersPage } from '@/features/orders/AdminOrdersPage';
 import { AdminInventoryPage } from '@/features/inventory/AdminInventoryPage';
 import { AdminAnalyticsPage, AdminDashboardPage } from '@/features/analytics/AdminOverviewPage';
+import { AdminStaffPage } from '@/features/staff/AdminStaffPage';
+import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -33,6 +35,8 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   inventory: AdminInventoryPage,
   dashboard: AdminDashboardPage,
   analytics: AdminAnalyticsPage,
+  staff: AdminStaffPage,
+  roles: AdminRolesPage,
 };
 
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {
