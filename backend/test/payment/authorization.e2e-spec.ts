@@ -20,6 +20,7 @@ import {
 } from '../../src/modules/payment/application/ports/outbound/payment-provider.port';
 import { PaymentMethod, PaymentStatus } from '../../src/modules/payment/domain/enums';
 import { ErrorCode } from '../../src/shared/errors/error-codes';
+import { containsTestPan } from '../support/card-data';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 
 /**
@@ -304,9 +305,9 @@ describe('Payment authorization (e2e)', () => {
     const audit = await ctx.prisma.auditLog.findFirstOrThrow({
       where: { resourceId: row.id, action: 'PAYMENT_AUTH_FAILED' },
     });
-    expect(JSON.stringify(audit.context)).not.toContain('4111');
+    expect(containsTestPan(JSON.stringify(audit.context))).toBe(false);
     const event = await ctx.prisma.outbox.findFirstOrThrow({ where: { aggregateId: row.id } });
-    expect(JSON.stringify(event.payload)).not.toContain('4111');
+    expect(containsTestPan(JSON.stringify(event.payload))).toBe(false);
   });
 
   it('leaves the payment INITIATED and recoverable when the gateway call itself fails', async () => {

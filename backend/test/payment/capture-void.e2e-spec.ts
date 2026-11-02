@@ -26,6 +26,7 @@ import {
 import { LedgerService } from '../../src/modules/payment/domain/services/ledger.service';
 import { AccountRef } from '../../src/modules/payment/domain/value-objects/account-ref.vo';
 import { ErrorCode } from '../../src/shared/errors/error-codes';
+import { containsPanShapedValue, containsTestPan, TEST_PAN } from '../support/card-data';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 
 /**
@@ -534,6 +535,18 @@ describe('Payment capture and void (e2e)', () => {
 
   it('no card data reaches the payment row, the ledger, the audit trail or the outbox', async () => {
     const seed = await seedAuthorizedPayment();
+    // A misbehaving gateway first declines with a card number in its reason, so the audit trail
+    // carries provider text that had a PAN in it; the retry then captures normally.
+    gateway.nextCapture = {
+      outcome: 'FAILED',
+      providerRef: 'gw-declined',
+      failureReason: `Capture declined for card ${TEST_PAN}`,
+      failureCode: 'declined',
+    };
+    await expect(capture.execute({ paymentId: seed.paymentId })).rejects.toMatchObject({
+      code: ErrorCode.PAYMENT_CAPTURE_FAILED,
+    });
+    gateway.nextCapture = { outcome: 'CAPTURED', providerRef: null };
     await capture.execute({ paymentId: seed.paymentId });
 
     const [payment, audits, events, entries] = await Promise.all([
@@ -560,6 +573,30 @@ describe('Payment capture and void (e2e)', () => {
       audits.map((entry) => entry.context),
       events.map((event) => event.payload),
     ]);
-    expect(providerText).not.toMatch(/\b(?:\d[ -]?){11,18}\d\b/);
+    // UUIDs are stripped before the scan (see card-data.ts): an id like `16701923-8052-…` is
+    // otherwise read as a 12-digit PAN, which made this assertion fail at random.
+    expect(audits.some((entry) => entry.action === 'PAYMENT_CAPTURE_FAILED')).toBe(true);
+    expect(containsPanShapedValue(providerText)).toBe(false);
+    expect(containsTestPan(providerText)).toBe(false);
+    // The whole PAN is checked everywhere, hash chain included: 16 fixed digits do not occur
+    // in random hex by chance the way a 4-digit fragment can.
+    expect(serialized).not.toContain(TEST_PAN);
+    expect(serialized).not.toContain(TEST_PAN.replace(/\D/g, ''));
+  });
+
+  it('the PAN scan ignores UUIDs with an all-digit prefix but still catches a real card number', () => {
+    const uuid = '16701923-8052-41d2-9c4e-0a1b2c3d4e5f';
+    const allDigitUuid = '12345678-1234-4123-8123-123456789012';
+    expect(containsPanShapedValue(JSON.stringify({ providerRef: `gw-capture-${uuid}` }))).toBe(false);
+    expect(containsPanShapedValue(JSON.stringify([allDigitUuid, `gw-void-${allDigitUuid}`]))).toBe(
+      false,
+    );
+    // A v4 UUID can hold `4111` in its version group; that alone is not the test card.
+    expect(containsTestPan('gw-auth-0a1b2c3d-9f8e-4111-8abc-0123456789ab')).toBe(false);
+
+    expect(containsPanShapedValue(`gw-capture-${uuid} 4111111111111111`)).toBe(true);
+    expect(containsPanShapedValue(`reason: ${TEST_PAN}`)).toBe(true);
+    expect(containsPanShapedValue('card 4111-1111-1111-1111')).toBe(true);
+    expect(containsTestPan(`ref ${uuid} card 4111111111111111`)).toBe(true);
   });
 });
