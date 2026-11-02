@@ -1,95 +1,126 @@
 import { useMemo, useState } from 'react';
-import { Button, MenuItem, Rating, Stack, TextField } from '@mui/material';
+import { Alert, Button, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
-import type { GridColDef } from '@mui/x-data-grid';
+import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable } from '@/components/common/DataTable';
 import { StatusChip } from '@/components/common/StatusChip';
-import { SearchInput } from '@/components/common/SearchInput';
-import { usePharmacies, usePharmacyStatusMutation } from '@/hooks/usePharmacies';
+import { useActivatePharmacy, usePharmacies } from '@/hooks/usePharmacies';
 import { useAuth } from '@/context/AuthContext';
 import { usePortal } from '@/hooks/usePortal';
-import { currency, formatDate } from '@/utils/format';
-import type { Pharmacy } from '@/types';
+import { PHARMACY_PAGE_SIZES } from '@/services/pharmacies.service';
+import { ApiError } from '@/services/apiClient';
+import { formatDate } from '@/utils/format';
+import type { PharmacyOperations, TransactingStatus } from '@/types';
 
+type Flag = 'any' | 'yes' | 'no';
+const toFlag = (value: Flag) => (value === 'any' ? undefined : value === 'yes');
+
+function loadErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 403) return 'Your account is not allowed to view pharmacy operations.';
+  if (error instanceof ApiError) return `${error.message}${error.requestId ? ` (request ${error.requestId})` : ''}`;
+  return 'Pharmacies could not be loaded.';
+}
+
+/**
+ * Live pharmacies from `GET /admin/operations/pharmacies` (read-only, `pharmacy:read:any`), with
+ * the one operator action the backend has: `POST /pharmacy/activate` (`provider:verify:any`). The
+ * server decides eligibility; the portal only asks.
+ */
 export function PharmaciesPage() {
   const portal = usePortal();
   const { can } = useAuth();
-  const canManage = can('pharmacies:manage');
+  const canActivate = can('pharmacies:manage');
 
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<Pharmacy['status'] | 'all'>('all');
+  const [status, setStatus] = useState<TransactingStatus | 'all'>('all');
+  const [eligible, setEligible] = useState<Flag>('any');
+  const [paging, setPaging] = useState<GridPaginationModel>({ page: 0, pageSize: PHARMACY_PAGE_SIZES[1] });
 
-  const filters = useMemo(() => ({ search, status }), [search, status]);
-  const { data = [], isLoading } = usePharmacies(filters);
-  const statusMutation = usePharmacyStatusMutation();
+  const filters = useMemo(
+    () => ({ transactingStatus: status, eligible: toFlag(eligible), page: paging.page + 1, size: paging.pageSize }),
+    [status, eligible, paging],
+  );
+  const { data, isLoading, isFetching, error } = usePharmacies(filters);
+  const activate = useActivatePharmacy();
 
-  const columns: GridColDef[] = [
-    { field: 'name', headerName: 'Pharmacy', flex: 1.2, minWidth: 180 },
-    { field: 'licenseNo', headerName: 'License', width: 150 },
-    { field: 'city', headerName: 'City', width: 130 },
+  const resetPage = () => setPaging((p) => ({ ...p, page: 0 }));
+
+  const columns: GridColDef<PharmacyOperations>[] = [
     {
-      field: 'rating',
-      headerName: 'Rating',
-      width: 150,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ height: '100%' }}>
-          <Rating value={params.value as number} precision={0.1} size="small" readOnly />
-        </Stack>
+      field: 'pharmacyId',
+      headerName: 'Pharmacy id',
+      flex: 1,
+      minWidth: 140,
+      renderCell: ({ row }) => (
+        <Tooltip title={row.pharmacyId}>
+          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+            {row.pharmacyId.slice(0, 8)}…
+          </Typography>
+        </Tooltip>
       ),
     },
-    { field: 'ordersThisMonth', headerName: 'Orders (mo)', width: 110, type: 'number' },
     {
-      field: 'revenueThisMonth',
-      headerName: 'Revenue (mo)',
-      width: 140,
-      valueFormatter: (value: number) => currency(value),
-    },
-    {
-      field: 'licenseExpiry',
-      headerName: 'License expiry',
-      width: 140,
-      valueFormatter: (value: string) => formatDate(value),
-    },
-    {
-      field: 'status',
+      field: 'transactingStatus',
       headerName: 'Status',
       width: 120,
-      renderCell: (params) => <StatusChip status={params.value as string} />,
+      renderCell: ({ value }) => <StatusChip status={String(value).toLowerCase()} />,
+    },
+    {
+      field: 'licenseStatus',
+      headerName: 'Licence',
+      width: 110,
+      renderCell: ({ value }) => <StatusChip status={String(value).toLowerCase()} />,
+    },
+    {
+      field: 'licenseExpiresAt',
+      headerName: 'Licence expiry',
+      width: 130,
+      valueFormatter: (value: string | null) => (value ? formatDate(value) : '—'),
+    },
+    {
+      field: 'eligible',
+      headerName: 'Can transact',
+      width: 120,
+      valueFormatter: (value: boolean) => (value ? 'Yes' : 'No'),
+    },
+    {
+      field: 'branches',
+      headerName: 'Branches (active/total)',
+      width: 170,
+      sortable: false,
+      valueGetter: (_v, row) => `${row.branches.active}/${row.branches.total}`,
+    },
+    {
+      field: 'listings',
+      headerName: 'Purchasable listings',
+      width: 160,
+      sortable: false,
+      valueGetter: (_v, row) => `${row.listings.customerPurchasable}/${row.listings.total}`,
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Registered',
+      width: 120,
+      valueFormatter: (value: string) => formatDate(value),
     },
     {
       field: 'actions',
       headerName: '',
-      width: 150,
+      width: 130,
       sortable: false,
       filterable: false,
-      renderCell: (params) => {
-        const row = params.row as Pharmacy;
-        if (!canManage) return null;
-        if (row.status === 'active') {
-          return (
-            <Button
-              size="small"
-              color="error"
-              startIcon={<BlockRoundedIcon />}
-              onClick={() => statusMutation.mutate({ id: row.id, status: 'suspended' })}
-            >
-              Suspend
-            </Button>
-          );
-        }
-        return (
+      renderCell: ({ row }) =>
+        canActivate && row.transactingStatus !== 'ACTIVE' ? (
           <Button
             size="small"
             color="success"
             startIcon={<CheckCircleRoundedIcon />}
-            onClick={() => statusMutation.mutate({ id: row.id, status: 'active' })}
+            disabled={activate.isPending}
+            onClick={() => activate.mutate(row.pharmacyId)}
           >
-            {row.status === 'pending' ? 'Approve' : 'Activate'}
+            Activate
           </Button>
-        );
-      },
+        ) : null,
     },
   ];
 
@@ -98,32 +129,62 @@ export function PharmaciesPage() {
       <PageHeader
         portalName={portal.title}
         title="Pharmacies"
-        subtitle="Onboard, verify and manage pharmacies operating on the platform."
+        subtitle="Live pharmacies, their licence state and whether they can transact."
       />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search name or city" />
         <TextField
           select
           size="small"
           label="Status"
           value={status}
-          onChange={(e) => setStatus(e.target.value as Pharmacy['status'] | 'all')}
+          onChange={(e) => {
+            setStatus(e.target.value as TransactingStatus | 'all');
+            resetPage();
+          }}
           sx={{ minWidth: 160 }}
         >
           <MenuItem value="all">All statuses</MenuItem>
-          <MenuItem value="active">Active</MenuItem>
-          <MenuItem value="pending">Pending</MenuItem>
-          <MenuItem value="suspended">Suspended</MenuItem>
+          <MenuItem value="ACTIVE">Active</MenuItem>
+          <MenuItem value="PENDING">Pending</MenuItem>
+          <MenuItem value="SUSPENDED">Suspended</MenuItem>
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Can transact"
+          value={eligible}
+          onChange={(e) => {
+            setEligible(e.target.value as Flag);
+            resetPage();
+          }}
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="any">Any</MenuItem>
+          <MenuItem value="yes">Yes</MenuItem>
+          <MenuItem value="no">No</MenuItem>
         </TextField>
       </Stack>
 
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {loadErrorMessage(error)}
+        </Alert>
+      ) : null}
+
       <DataTable
-        rows={data}
-        columns={columns}
-        loading={isLoading}
+        rows={data?.items ?? []}
+        columns={columns as GridColDef[]}
+        getRowId={(row) => (row as PharmacyOperations).pharmacyId}
+        loading={isLoading || isFetching}
         emptyTitle="No pharmacies found"
         emptyDescription="Pharmacies matching your filters will appear here."
+        server={{
+          rowCount: data?.total ?? 0,
+          paginationModel: paging,
+          onPaginationModelChange: setPaging,
+          pageSizeOptions: [...PHARMACY_PAGE_SIZES],
+        }}
       />
     </>
   );

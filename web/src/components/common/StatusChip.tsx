@@ -8,6 +8,8 @@ const TONE_MAP: Record<string, Tone> = {
   low_stock: 'warning',
   out_of_stock: 'error',
   expired: 'error',
+  // licence
+  valid: 'success',
   // orders
   placed: 'info',
   verified: 'info',
