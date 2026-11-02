@@ -77,6 +77,8 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'pharmacies:view',
   'pharmacies:manage',
   'audit:view',
+  'verifications:view',
+  'verifications:manage',
   'settings:manage',
 ];
 
@@ -266,6 +268,9 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
       result.add('roles:manage');
     }
     if (has('audit:read:any')) result.add('audit:view');
+    // The verification queue (GET /admin/verifications) and its decisions (provider:verify:any).
+    if (has('verification:queue:read')) result.add('verifications:view');
+    if (has('verification:queue:read') && has('provider:verify:any')) result.add('verifications:manage');
     // Accounts are listed with rbac:read (GET /admin/accounts); suspending or reinstating one needs
     // user:suspend:any or user:reactivate:any; role changes need rbac:manage (roles:manage above).
     if (has('rbac:read')) result.add('staff:view');

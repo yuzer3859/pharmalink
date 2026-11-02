@@ -18,6 +18,8 @@ export type PermissionKey =
   | 'pharmacies:view'
   | 'pharmacies:manage'
   | 'audit:view'
+  | 'verifications:view'
+  | 'verifications:manage'
   | 'settings:manage';
 
 export interface AuthUser {
@@ -382,6 +384,52 @@ export interface RoleCatalogueEntry {
   isSystem: boolean;
   description: string | null;
   permissions: string[];
+}
+
+export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+export type VerificationType = 'FAYDA' | 'PHARMACY_LICENSE' | 'DRIVER_DOCS' | 'DOCTOR_LICENSE';
+
+/** One request of `GET /admin/verifications`. */
+export interface VerificationQueueItem {
+  requestId: string;
+  userId: string;
+  organizationId: string | null;
+  type: VerificationType;
+  status: VerificationStatus;
+  documentCount: number;
+  submittedAt: string;
+  reviewedAt: string | null;
+  aging: { pendingSince: string | null; ageSeconds: number };
+}
+
+export interface VerificationQueuePage {
+  items: VerificationQueueItem[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface VerificationDetail extends VerificationQueueItem {
+  /** Document references only: the API has no preview or download. */
+  documents: Array<{ kind: string; storageRef: string; expiresAt: string | null }>;
+  hasFaydaId: boolean;
+  reviewerId: string | null;
+  rejectReason: string | null;
+  expiresAt: string | null;
+  licenseNumber: string | null;
+  applicant: { userId: string; primaryRole: string; accountStatus: string } | null;
+}
+
+export interface VerificationDecision {
+  requestId: string;
+  type: VerificationType;
+  previousStatus: VerificationStatus;
+  status: VerificationStatus;
+  subjectUserId: string;
+  organizationId: string | null;
+  decidedAt: string | null;
+  expiresAt: string | null;
+  licenseNumber: string | null;
 }
 
 // ----- Analytics -----

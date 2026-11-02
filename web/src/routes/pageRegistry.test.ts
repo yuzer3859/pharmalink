@@ -11,6 +11,8 @@ import { AdminStaffPage } from '@/features/staff/AdminStaffPage';
 import { StaffPage } from '@/features/staff/StaffPage';
 import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
 import { RolesPage } from '@/features/roles/RolesPage';
+import { AdminVerificationsPage } from '@/features/verifications/AdminVerificationsPage';
+import { PORTALS } from '@/config/navigation';
 import { pageFor } from './pageRegistry';
 
 describe('pageFor', () => {
@@ -38,6 +40,13 @@ describe('pageFor', () => {
     expect(pageFor('superadmin', 'roles')).toBe(AdminRolesPage);
     expect(pageFor('pharmacy', 'staff')).toBe(StaffPage);
     expect(pageFor('pharmacy', 'roles')).toBe(RolesPage);
+  });
+
+  it('routes the verification queue in the admin portals only', () => {
+    expect(pageFor('admin', 'verifications')).toBe(AdminVerificationsPage);
+    expect(pageFor('superadmin', 'verifications')).toBe(AdminVerificationsPage);
+    expect(PORTALS.pharmacy.nav.some((i) => i.path === 'verifications')).toBe(false);
+    expect(PORTALS.admin.nav.find((i) => i.path === 'verifications')?.permission).toBe('verifications:view');
   });
 
   it('falls back to the shared page, and to nothing for an unknown path', () => {
