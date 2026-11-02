@@ -14,6 +14,7 @@ import { RolesPage } from '@/features/roles/RolesPage';
 import { AdminVerificationsPage } from '@/features/verifications/AdminVerificationsPage';
 import { PORTALS } from '@/config/navigation';
 import { ConfigurationPage } from '@/features/configuration/ConfigurationPage';
+import { CatalogReviewPage } from '@/features/catalog/CatalogReviewPage';
 import { pageFor } from './pageRegistry';
 
 describe('pageFor', () => {
@@ -55,6 +56,13 @@ describe('pageFor', () => {
     expect(PORTALS.superadmin.nav.find((i) => i.path === 'configuration')?.permission).toBe('settings:manage');
     expect(PORTALS.admin.nav.some((i) => i.path === 'configuration')).toBe(false);
     expect(PORTALS.pharmacy.nav.some((i) => i.path === 'configuration')).toBe(false);
+  });
+
+  it('routes catalogue review in the admin portals only', () => {
+    expect(pageFor('admin', 'catalog-review')).toBe(CatalogReviewPage);
+    expect(pageFor('superadmin', 'catalog-review')).toBe(CatalogReviewPage);
+    expect(PORTALS.admin.nav.find((i) => i.path === 'catalog-review')?.permission).toBe('catalog:review');
+    expect(PORTALS.pharmacy.nav.some((i) => i.path === 'catalog-review')).toBe(false);
   });
 
   it('falls back to the shared page, and to nothing for an unknown path', () => {

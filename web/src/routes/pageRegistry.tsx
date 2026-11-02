@@ -10,6 +10,7 @@ import { AdminStaffPage } from '@/features/staff/AdminStaffPage';
 import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
 import { AdminVerificationsPage } from '@/features/verifications/AdminVerificationsPage';
 import { ConfigurationPage } from '@/features/configuration/ConfigurationPage';
+import { CatalogReviewPage } from '@/features/catalog/CatalogReviewPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -41,6 +42,7 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   roles: AdminRolesPage,
   verifications: AdminVerificationsPage,
   configuration: ConfigurationPage,
+  'catalog-review': CatalogReviewPage,
 };
 
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {

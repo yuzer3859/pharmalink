@@ -20,6 +20,7 @@ export type PermissionKey =
   | 'audit:view'
   | 'verifications:view'
   | 'verifications:manage'
+  | 'catalog:review'
   | 'settings:manage';
 
 export interface AuthUser {
@@ -486,6 +487,55 @@ export interface FeatureFlagToggle {
   flag: FeatureFlag;
   created: boolean;
   changed: boolean;
+}
+
+export type CatalogProductStatus = 'DRAFT' | 'PENDING_REVIEW' | 'ACTIVE' | 'DEPRECATED' | 'DELISTED' | 'REJECTED';
+export type CatalogProductType = 'MEDICINE' | 'HEALTH_PRODUCT';
+
+/** One product of `GET /admin/catalog/review`. `price` is in minor units. */
+export interface CatalogReviewItem {
+  id: string;
+  type: CatalogProductType;
+  genericName: string | null;
+  brandName: string | null;
+  nameAm: string | null;
+  nameEn: string | null;
+  dosageForm: string | null;
+  strengthValue: number | null;
+  strengthUnit: string | null;
+  rxClassification: string | null;
+  controlledSchedule: string;
+  onlineSaleProhibited: boolean;
+  manufacturerName: string | null;
+  price: number | null;
+  status: CatalogProductStatus;
+  /** Target statuses the server will accept from this product's current status. */
+  allowedTransitions: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CatalogReviewPage {
+  items: CatalogReviewItem[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface CatalogReviewSummary {
+  generatedAt: string;
+  queue: {
+    pendingReviewCount: number;
+    pendingWithoutRecordedSubmission: number;
+    oldestPendingSubmittedAt: string | null;
+    oldestPendingAgeSeconds: number | null;
+  };
+  lifetimeTransitions: { approvals: number; rejections: number; resubmissions: number };
+}
+
+export interface CatalogHistory {
+  productId: string;
+  history: Array<{ from: string | null; to: string | null; occurredAt: string; reason: string | null }>;
 }
 
 // ----- Analytics -----

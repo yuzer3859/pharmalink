@@ -58,7 +58,7 @@ except Reports uses the real API; the seed now serves only the pharmacy portal a
 | Pharmacy portal pages (inventory, orders, staff, roles) | Module 04/05 pharmacy APIs, not Module 16 | PARTIAL: mock; outside this module |
 | Verifications queue | `/admin/verifications` | COMPLETE (Work 75): queue (status, type, waiting time), review drawer, approve (licence number and future expiry required for a pharmacy licence) and reject with a reason. Document preview remains BLOCKED (references only) |
 | Configuration and feature flags | `/admin/config`, `/admin/feature-flags` | COMPLETE (Work 76): Super Admin Configuration page: settings with effective value and source, typed publish with range/allowed checks and an audited reason, version history with restore; feature flags with confirmed toggles |
-| Catalogue review | `/admin/catalog/review` | Not in the portal yet |
+| Catalogue review | `/admin/catalog/review` | COMPLETE (Work 77): queue with summary (waiting count, oldest, lifetime approvals and rejections), name/status/type filters, product drawer with review history, and the decisions the server allows (submit, approve, reject with reason, return to review) |
 | Finance, COD disputes | `/admin/finance`, `/admin/cod-disputes` | Not in the portal yet |
 
 Mock pages are not disguised as live: replacing each one with its real API is the remaining

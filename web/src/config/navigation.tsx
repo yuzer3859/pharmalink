@@ -10,6 +10,7 @@ import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
 import VerifiedUserRoundedIcon from '@mui/icons-material/VerifiedUserRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
+import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded';
 import type { PermissionKey, PortalKey } from '@/types';
 
 export interface NavItem {
@@ -60,6 +61,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
       { label: 'Pharmacies', path: 'pharmacies', icon: StorefrontRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Verifications', path: 'verifications', icon: VerifiedUserRoundedIcon, permission: 'verifications:view', section: OPS },
+      { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
@@ -79,6 +81,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
       { label: 'Pharmacies', path: 'pharmacies', icon: StorefrontRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Verifications', path: 'verifications', icon: VerifiedUserRoundedIcon, permission: 'verifications:view', section: OPS },
+      { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
