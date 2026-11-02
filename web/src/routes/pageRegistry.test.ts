@@ -13,6 +13,7 @@ import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { AdminVerificationsPage } from '@/features/verifications/AdminVerificationsPage';
 import { PORTALS } from '@/config/navigation';
+import { ConfigurationPage } from '@/features/configuration/ConfigurationPage';
 import { pageFor } from './pageRegistry';
 
 describe('pageFor', () => {
@@ -47,6 +48,13 @@ describe('pageFor', () => {
     expect(pageFor('superadmin', 'verifications')).toBe(AdminVerificationsPage);
     expect(PORTALS.pharmacy.nav.some((i) => i.path === 'verifications')).toBe(false);
     expect(PORTALS.admin.nav.find((i) => i.path === 'verifications')?.permission).toBe('verifications:view');
+  });
+
+  it('offers Configuration in the super admin portal only', () => {
+    expect(pageFor('superadmin', 'configuration')).toBe(ConfigurationPage);
+    expect(PORTALS.superadmin.nav.find((i) => i.path === 'configuration')?.permission).toBe('settings:manage');
+    expect(PORTALS.admin.nav.some((i) => i.path === 'configuration')).toBe(false);
+    expect(PORTALS.pharmacy.nav.some((i) => i.path === 'configuration')).toBe(false);
   });
 
   it('falls back to the shared page, and to nothing for an unknown path', () => {

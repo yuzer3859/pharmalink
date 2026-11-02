@@ -432,6 +432,62 @@ export interface VerificationDecision {
   licenseNumber: string | null;
 }
 
+export type ConfigValueType = 'BOOLEAN' | 'INTEGER' | 'DECIMAL' | 'STRING' | 'JSON';
+
+/** One governable setting (`GET /admin/config`). */
+export interface ConfigSetting {
+  namespace: string;
+  key: string;
+  valueType: ConfigValueType;
+  description: string;
+  min: number | null;
+  max: number | null;
+  allowed: readonly string[] | null;
+  effectiveValue: unknown;
+  /** Where the effective value comes from, e.g. a published version or the code default. */
+  source: string;
+  activeVersion: number | null;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface ConfigVersion {
+  namespace: string;
+  key: string;
+  version: number;
+  valueType: ConfigValueType;
+  value: unknown;
+  isActive: boolean;
+  reason: string | null;
+  updatedBy: string;
+  createdAt: string;
+}
+
+export interface ConfigHistory {
+  namespace: string;
+  key: string;
+  versions: ConfigVersion[];
+}
+
+export interface ConfigUpdate {
+  config: ConfigVersion;
+  previous: ConfigVersion | null;
+}
+
+export interface FeatureFlag {
+  key: string;
+  enabled: boolean;
+  description: string | null;
+  updatedBy: string | null;
+  updatedAt: string;
+}
+
+export interface FeatureFlagToggle {
+  flag: FeatureFlag;
+  created: boolean;
+  changed: boolean;
+}
+
 // ----- Analytics -----
 export interface KpiMetric {
   key: string;

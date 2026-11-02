@@ -9,6 +9,7 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
 import VerifiedUserRoundedIcon from '@mui/icons-material/VerifiedUserRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import type { PermissionKey, PortalKey } from '@/types';
 
 export interface NavItem {
@@ -85,6 +86,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Staff', path: 'staff', icon: GroupsRoundedIcon, permission: 'staff:view', section: ADMIN },
       { label: 'Roles', path: 'roles', icon: AdminPanelSettingsRoundedIcon, permission: 'roles:view', section: ADMIN },
       { label: 'Audit Logs', path: 'audit', icon: FactCheckRoundedIcon, permission: 'audit:view', section: ADMIN },
+      { label: 'Configuration', path: 'configuration', icon: TuneRoundedIcon, permission: 'settings:manage', section: ADMIN },
     ],
   },
 };

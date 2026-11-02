@@ -271,6 +271,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     // The verification queue (GET /admin/verifications) and its decisions (provider:verify:any).
     if (has('verification:queue:read')) result.add('verifications:view');
     if (has('verification:queue:read') && has('provider:verify:any')) result.add('verifications:manage');
+    // Platform configuration and feature flags (config:manage:global, Super Admin by wildcard).
+    if (has('config:manage:global')) result.add('settings:manage');
     // Accounts are listed with rbac:read (GET /admin/accounts); suspending or reinstating one needs
     // user:suspend:any or user:reactivate:any; role changes need rbac:manage (roles:manage above).
     if (has('rbac:read')) result.add('staff:view');
