@@ -59,7 +59,9 @@ function isRefreshableAuthError(error: ApiError): boolean {
 export class ApiClient {
   constructor(
     private readonly baseUrl = API_BASE_URL,
-    private readonly fetcher: typeof fetch = fetch,
+    // Browsers throw "Illegal invocation" when `fetch` is called with any receiver other than the
+    // global object, and `this.fetcher(...)` would pass the ApiClient. Call it unbound instead.
+    private readonly fetcher: typeof fetch = (input, init) => fetch(input, init),
   ) {}
 
   async request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
