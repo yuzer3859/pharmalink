@@ -203,7 +203,10 @@ export function PortalSelectPage() {
                             <Chip key={tag} label={tag} size="small" variant="outlined" />
                           ))}
                         </Stack>
+                        {/* A span, not a second button: the whole card is the button (no nested
+                            interactive elements, one focus stop per portal). */}
                         <Button
+                          component="span"
                           variant="contained"
                           sx={{ bgcolor: portal.accent, '&:hover': { bgcolor: portal.accent } }}
                           disabled={busy !== null || pendingMfa !== null}
