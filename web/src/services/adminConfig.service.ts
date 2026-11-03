@@ -110,7 +110,36 @@ export function createAdminConfigService(request: SessionRequest) {
     toggleFlag(key: string, enabled: boolean): Promise<FeatureFlagToggle> {
       return request<FeatureFlagToggle>(`/admin/feature-flags/${encodeURIComponent(key)}`, { method: 'PUT', body: { enabled } });
     },
+
+    /**
+     * Administers a flag for the first time: the same `PUT`, which creates the flag when it does
+     * not exist yet. The key is normalized as the server does; an empty description is not sent.
+     */
+    createFlag(key: string, enabled: boolean, description?: string): Promise<FeatureFlagToggle> {
+      const trimmed = description?.trim();
+      return request<FeatureFlagToggle>(`/admin/feature-flags/${encodeURIComponent(normalizeFlagKey(key))}`, {
+        method: 'PUT',
+        body: trimmed ? { enabled, description: trimmed } : { enabled },
+      });
+    },
   };
+}
+
+/** The server's flag key rule (feature-flag.entity.ts): lowercase identifier, at most 100 characters. */
+export const MAX_FLAG_KEY_LENGTH = 100;
+export const MAX_FLAG_DESCRIPTION_LENGTH = 500;
+const FLAG_KEY = /^[a-z][a-z0-9_]*$/;
+
+export const normalizeFlagKey = (raw: string) => raw.trim().toLowerCase();
+
+/** Why a new flag can't be created with this key, or null. `existing` are the keys already listed. */
+export function flagKeyProblem(raw: string, existing: string[] = []): string | null {
+  const key = normalizeFlagKey(raw);
+  if (!key) return 'Enter a key.';
+  if (key.length > MAX_FLAG_KEY_LENGTH) return `At most ${MAX_FLAG_KEY_LENGTH} characters.`;
+  if (!FLAG_KEY.test(key)) return 'Lowercase letters, digits and underscores, starting with a letter.';
+  if (existing.includes(key)) return 'That flag already exists; toggle it in the list.';
+  return null;
 }
 
 export const adminConfigService = createAdminConfigService(authService.request);

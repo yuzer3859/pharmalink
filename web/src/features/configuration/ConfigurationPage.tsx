@@ -3,6 +3,10 @@ import {
   Alert,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Drawer,
   IconButton,
@@ -16,13 +20,22 @@ import {
   Typography,
 } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import type { GridColDef } from '@mui/x-data-grid';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { usePortal } from '@/hooks/usePortal';
 import { useConfigActions, useConfigHistory, useConfigSettings, useFeatureFlags } from '@/hooks/useAdminConfig';
-import { configErrorMessage, formatConfigValue, MAX_CONFIG_REASON_LENGTH, parseConfigInput } from '@/services/adminConfig.service';
+import {
+  configErrorMessage,
+  flagKeyProblem,
+  formatConfigValue,
+  MAX_CONFIG_REASON_LENGTH,
+  MAX_FLAG_DESCRIPTION_LENGTH,
+  MAX_FLAG_KEY_LENGTH,
+  parseConfigInput,
+} from '@/services/adminConfig.service';
 import { formatDateTime } from '@/utils/format';
 import type { ConfigSetting, ConfigVersion, FeatureFlag } from '@/types';
 
@@ -197,10 +210,60 @@ function SettingsTab() {
   );
 }
 
+function AddFlagDialog({ open, existing, onClose }: { open: boolean; existing: string[]; onClose: () => void }) {
+  const actions = useConfigActions();
+  const [key, setKey] = useState('');
+  const [description, setDescription] = useState('');
+  const [enabled, setEnabled] = useState(false);
+  const problem = flagKeyProblem(key, existing);
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Add a feature flag</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          <TextField
+            autoFocus
+            size="small"
+            label="Key"
+            placeholder="e.g. cod_payments"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            error={key.trim() !== '' && !!problem}
+            helperText={key.trim() !== '' && problem ? problem : 'Lowercase letters, digits and underscores, starting with a letter.'}
+            inputProps={{ maxLength: MAX_FLAG_KEY_LENGTH }}
+          />
+          <TextField
+            size="small"
+            label="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            inputProps={{ maxLength: MAX_FLAG_DESCRIPTION_LENGTH }}
+          />
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} inputProps={{ 'aria-label': 'Start turned on' }} />
+            <Typography variant="body2">{enabled ? 'Starts on (takes effect platform-wide)' : 'Starts off'}</Typography>
+          </Stack>
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          disabled={!!problem || actions.createFlag.isPending}
+          onClick={() => actions.createFlag.mutate({ key, enabled, description }, { onSuccess: onClose })}
+        >
+          Add flag
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 function FlagsTab() {
   const { data = [], isLoading, error } = useFeatureFlags();
   const actions = useConfigActions();
   const [pending, setPending] = useState<FeatureFlag | null>(null);
+  const [adding, setAdding] = useState(false);
   const columns: GridColDef<FeatureFlag>[] = [
     { field: 'key', headerName: 'Flag', flex: 1, minWidth: 220 },
     { field: 'description', headerName: 'Description', flex: 1.5, minWidth: 240, valueFormatter: (v: string | null) => v ?? '—' },
@@ -222,6 +285,11 @@ function FlagsTab() {
           {configErrorMessage(error, 'Feature flags could not be loaded.')}
         </Alert>
       ) : null}
+      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setAdding(true)}>
+          Add flag
+        </Button>
+      </Stack>
       <DataTable
         rows={data}
         columns={columns as GridColDef[]}
@@ -229,8 +297,10 @@ function FlagsTab() {
         loading={isLoading}
         pageSize={25}
         emptyTitle="No feature flags"
-        emptyDescription="Flags appear here once they have been administered."
+        emptyDescription="Add a flag to administer it here."
       />
+      {/* Re-mounted on open so the form starts empty. */}
+      {adding ? <AddFlagDialog open existing={data.map((f) => f.key)} onClose={() => setAdding(false)} /> : null}
       <ConfirmDialog
         open={pending !== null}
         title={`Turn ${pending?.key ?? ''} ${pending?.enabled ? 'off' : 'on'}?`}
