@@ -14,6 +14,7 @@ import { ListingCountRow, listingCountColumns, toListingCounts } from './listing
 
 interface PharmacyRow {
   id: string;
+  displayName: string;
   transactingStatus: TransactingStatus;
   licenseStatus: LicenseStatus;
   licenseExpiresAt: Date | null;
@@ -69,7 +70,7 @@ export class PrismaPharmacyOperationsReadAdapter implements IPharmacyOperationsR
     return this.prisma.$transaction(
       async (tx) => {
         const rows = await tx.$queryRaw<PharmacyRow[]>`
-          SELECT ph."id", ph."transactingStatus", ph."licenseStatus", ph."licenseExpiresAt", ph."createdAt", ph."updatedAt",
+          SELECT ph."id", ph."displayName", ph."transactingStatus", ph."licenseStatus", ph."licenseExpiresAt", ph."createdAt", ph."updatedAt",
                  (${eligiblePharmacyWhere('ph', now)}) AS "eligible"
             FROM "pharmacies" ph
            WHERE ${where}
@@ -97,6 +98,7 @@ export class PrismaPharmacyOperationsReadAdapter implements IPharmacyOperationsR
           const b = branches.get(r.id);
           return {
             pharmacyId: r.id,
+            displayName: r.displayName,
             transactingStatus: r.transactingStatus,
             licenseStatus: r.licenseStatus,
             licenseExpiresAt: r.licenseExpiresAt,

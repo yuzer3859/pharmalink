@@ -4,11 +4,12 @@ import {
 } from '../../../pharmacy-inventory/application/ports/inbound/pharmacy-operations-read.port';
 
 /**
- * One pharmacy — stored statuses, licence expiry, eligibility and counts. No name, owner, staff,
- * contact, address, coordinate, licence number or document.
+ * One pharmacy — its public display name (Work 80), stored statuses, licence expiry, eligibility
+ * and counts. No owner, staff, contact, address, coordinate, licence number or document.
  */
 export interface PharmacyOperationsResponse {
   pharmacyId: string;
+  displayName: string;
   transactingStatus: string;
   licenseStatus: string;
   licenseExpiresAt: string | null;
@@ -38,6 +39,7 @@ export interface PharmacyOperationsListResponse {
 export function toPharmacyOperationsResponse(p: PharmacyOperationsView): PharmacyOperationsResponse {
   return {
     pharmacyId: p.pharmacyId,
+    displayName: p.displayName,
     transactingStatus: p.transactingStatus,
     licenseStatus: p.licenseStatus,
     licenseExpiresAt: p.licenseExpiresAt ? p.licenseExpiresAt.toISOString() : null,

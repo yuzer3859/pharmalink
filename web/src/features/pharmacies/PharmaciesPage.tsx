@@ -47,14 +47,15 @@ export function PharmaciesPage() {
 
   const columns: GridColDef<PharmacyOperations>[] = [
     {
-      field: 'pharmacyId',
-      headerName: 'Pharmacy id',
-      flex: 1,
-      minWidth: 140,
+      // Work 80: the storefront name, so an operator knows which pharmacy they are activating.
+      field: 'displayName',
+      headerName: 'Pharmacy',
+      flex: 1.4,
+      minWidth: 180,
       renderCell: ({ row }) => (
-        <Tooltip title={row.pharmacyId}>
-          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-            {row.pharmacyId.slice(0, 8)}…
+        <Tooltip title={`Pharmacy id ${row.pharmacyId}`}>
+          <Typography variant="body2" noWrap>
+            {row.displayName}
           </Typography>
         </Tooltip>
       ),

@@ -150,6 +150,8 @@ export type LicenseStatus = 'VALID' | 'EXPIRED' | 'SUSPENDED';
  */
 export interface PharmacyOperations {
   pharmacyId: string;
+  /** The public storefront name (Work 80). */
+  displayName: string;
   transactingStatus: TransactingStatus;
   licenseStatus: LicenseStatus;
   licenseExpiresAt: string | null;

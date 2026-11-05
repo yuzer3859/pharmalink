@@ -25,7 +25,7 @@ import { GetPharmacyOperationsQuery, ListPharmacyOperationsQuery, MAX_PHARMACY_O
 const NOW = new Date('2026-10-14T12:00:00Z');
 const P1 = '11111111-1111-4111-8111-111111111111';
 const P2 = '22222222-2222-4222-8222-222222222222';
-const KEYS = ['pharmacyId', 'transactingStatus', 'licenseStatus', 'licenseExpiresAt', 'eligible', 'createdAt', 'updatedAt', 'branches', 'listings'];
+const KEYS = ['pharmacyId', 'displayName', 'transactingStatus', 'licenseStatus', 'licenseExpiresAt', 'eligible', 'createdAt', 'updatedAt', 'branches', 'listings'];
 const LISTING_KEYS = ['total', 'enabled', 'disabled', 'inStock', 'outOfStock', 'customerPurchasable', 'customerUnpurchasable'];
 const flat = (s: Prisma.Sql) => s.text.replace(/\s+/g, ' ').trim();
 /** Placeholder numbers shift when fragments are embedded; compare shapes. */
@@ -41,7 +41,7 @@ function fakePrisma(rows: unknown[], total: number, listings: unknown[], branche
   return { prisma, statements, options: () => options };
 }
 const pharmacyRow = (id: string, over: Record<string, unknown> = {}) => ({
-  id, transactingStatus: 'ACTIVE', licenseStatus: 'VALID', licenseExpiresAt: null, createdAt: NOW, updatedAt: NOW, eligible: true, ...over,
+  id, displayName: `Pharmacy ${id}`, transactingStatus: 'ACTIVE', licenseStatus: 'VALID', licenseExpiresAt: null, createdAt: NOW, updatedAt: NOW, eligible: true, ...over,
 });
 
 describe('Admin pharmacy operations (Work 47)', () => {
@@ -122,7 +122,7 @@ describe('Admin pharmacy operations (Work 47)', () => {
         [{ pharmacyId: P1, total: 3n, active: 2n }],
       );
       const page = await new PrismaPharmacyOperationsReadAdapter(prisma).listPharmacies({}, 1, 20, NOW);
-      expect(page.items[0]).toMatchObject({ eligible: true, branches: { total: 3, active: 2 }, listings: { total: 5, enabled: 4, disabled: 1, inStock: 3, outOfStock: 1, customerPurchasable: 2, customerUnpurchasable: 3 } });
+      expect(page.items[0]).toMatchObject({ displayName: `Pharmacy ${P1}`, eligible: true, branches: { total: 3, active: 2 }, listings: { total: 5, enabled: 4, disabled: 1, inStock: 3, outOfStock: 1, customerPurchasable: 2, customerUnpurchasable: 3 } });
       // Stored ACTIVE, yet ineligible — eligibility is the rule, not the status.
       expect(page.items[1]).toMatchObject({ transactingStatus: 'ACTIVE', eligible: false, branches: { total: 0, active: 0 }, listings: { total: 0, customerPurchasable: 0, customerUnpurchasable: 0 } });
     });
@@ -137,7 +137,7 @@ describe('Admin pharmacy operations (Work 47)', () => {
 
   describe('Module 16 surface', () => {
     const view = (over: Partial<PharmacyOperationsView> = {}): PharmacyOperationsView => ({
-      pharmacyId: P1, transactingStatus: TransactingStatus.ACTIVE, licenseStatus: LicenseStatus.VALID, licenseExpiresAt: null, eligible: true, createdAt: NOW, updatedAt: NOW,
+      pharmacyId: P1, displayName: 'Bole Pharmacy', transactingStatus: TransactingStatus.ACTIVE, licenseStatus: LicenseStatus.VALID, licenseExpiresAt: null, eligible: true, createdAt: NOW, updatedAt: NOW,
       branches: { total: 1, active: 1 }, listings: { total: 2, enabled: 2, disabled: 0, inStock: 2, outOfStock: 0, customerPurchasable: 1, customerUnpurchasable: 1 }, ...over,
     });
 
@@ -163,12 +163,14 @@ describe('Admin pharmacy operations (Work 47)', () => {
       for (const field of ['name', 'ownerUserId', 'licenseNumber', 'city', 'q']) expect(dtoErrors({ [field]: 'x' })).toEqual([field]);
     });
 
-    it('explicit allow-list: name, owner, contact, address, coordinates and licence number never reach the response', () => {
-      const leaky = Object.assign(view(), { displayName: 'Bole Pharmacy', ownerUserId: 'user-secret', phone: '+251911', addressLine: 'Africa Ave', lat: 9.03, licenseNumber: 'LIC-SECRET', organizationId: 'org-secret' });
+    it('explicit allow-list: the public display name only; owner, contact, address, coordinates and licence number never reach the response', () => {
+      const leaky = Object.assign(view(), { ownerUserId: 'user-secret', phone: '+251911', addressLine: 'Africa Ave', lat: 9.03, licenseNumber: 'LIC-SECRET', organizationId: 'org-secret' });
       const res = toPharmacyOperationsResponse(leaky);
       expect(Object.keys(res)).toEqual(KEYS);
       expect(Object.keys(res.listings)).toEqual(LISTING_KEYS);
-      expect(JSON.stringify(res)).not.toMatch(/Bole|secret|SECRET|\+2519|Africa|9\.03/);
+      // Work 80: the storefront name is shown so operators can tell pharmacies apart.
+      expect(res.displayName).toBe('Bole Pharmacy');
+      expect(JSON.stringify(res)).not.toMatch(/secret|SECRET|\+2519|Africa|9\.03/);
     });
 
     it('pharmacy:read:any is ADMIN-only (SUPER_ADMIN by wildcard); owner, analytics and verification grants do not imply it; it implies no action', () => {

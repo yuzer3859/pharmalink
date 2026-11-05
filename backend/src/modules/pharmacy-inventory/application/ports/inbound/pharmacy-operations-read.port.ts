@@ -37,6 +37,8 @@ export interface PharmacyOperationsFilter {
  */
 export interface PharmacyOperationsView {
   pharmacyId: string;
+  /** The public storefront name (Work 80): what customers see, so an operator can tell pharmacies apart. */
+  displayName: string;
   transactingStatus: TransactingStatus;
   licenseStatus: LicenseStatus;
   licenseExpiresAt: Date | null;

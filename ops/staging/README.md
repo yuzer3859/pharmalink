@@ -211,6 +211,20 @@ The bootstrap is one-time per database and sends a real verification code, so pr
 
    The command checks its own preconditions (MFA key, MFA migration, seed, Resend, Redis OTP store) and refuses without writing anything if one fails. Then verify the code from your inbox and enrol an authenticator: [first-super-admin-bootstrap.md](../../backend/docs/first-super-admin-bootstrap.md).
 
+`ensure-env-secrets.mjs` also rejects a `RESEND_API_KEY` that does not start with `re_` (Work 80), so a pasted webhook secret (`whsec_…`) or another provider's key is caught before the first send.
+
+### Verification baseline and admin walkthrough (Work 80)
+
+After the bootstrap, three commands give the stack test data and verify every admin page against it. All three are staging-only; the first two run in the `tools` container and refuse unless the database is `pharmalink_staging` (checked on the URL and on the live connection) and `NODE_ENV` is neither `production` nor `test`.
+
+| Command | What it does |
+|---|---|
+| `npm run staging:seed` | Idempotent baseline built through the application's own commands: ADMIN and FINANCE_OFFICER sign-in accounts (no password), pharmacy organisations in every lifecycle state, pending verifications of every type, products in every catalogue status, payments, refunds, a settlement, COD collections with open disputes, and a walk feature flag. Fixtures are listed in `backend/src/cli/staging-seed/fixtures.ts`. A second run reports everything as already present. |
+| `npm run staging:set-password` | Interactive terminal only: the owner chooses one of the two sign-in accounts and types its password twice (hidden). Policy-checked, hashed, sessions revoked, audited. |
+| `npm run staging:walk` | Run from `backend/` on the host: the owner signs in (password and authenticator code typed), then every admin page read and action runs against the signed-in role's own fixtures; the report is saved as `staging-walk-<round>.json` without secrets. |
+
+The full procedure and the portal click-through are in [admin-walkthrough.md](admin-walkthrough.md). One-shot actions (approve, reject, activate, resolve, submit) consume their fixtures, so a repeat walk on the same database reports them as `FIXTURE_NOT_FOUND`. The SUSPENDED organisation is fixture data written directly: no backend action suspends an organisation yet.
+
 ## Logs and troubleshooting
 
 - **Logs:** `docker compose -f compose.staging.yml --env-file backend/.env.staging logs -f backend` (add `-p pharmalink-staging-rehearsal` for a `--keep` rehearsal). OTP codes are never written to these logs (since Work 60). They arrive only by e-mail, and only when Resend is configured (Work 62).

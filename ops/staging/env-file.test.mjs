@@ -136,6 +136,10 @@ test('the optional Resend sender: unset, complete, or rejected as half-configure
     [{ RESEND_FROM_EMAIL: 'otp@demo.example' }, /set together/],
     [{ RESEND_API_KEY: 'REPLACE_ME', RESEND_FROM_EMAIL: 'otp@demo.example' }, /placeholder/],
     [{ RESEND_API_KEY: 're_test_0123456789abcdef', RESEND_FROM_EMAIL: 'PharmaLink' }, /sender address/],
+    // Work 80: only a Resend API key is accepted, so a pasted webhook secret or a foreign key is caught.
+    [{ RESEND_API_KEY: 'whsec_0123456789abcdef', RESEND_FROM_EMAIL: 'otp@demo.example' }, /starts with "re_"/],
+    [{ RESEND_API_KEY: 'sk_live_0123456789abcdef', RESEND_FROM_EMAIL: 'otp@demo.example' }, /starts with "re_"/],
+    [{ RESEND_API_KEY: 'RE_0123456789abcdef', RESEND_FROM_EMAIL: 'otp@demo.example' }, /starts with "re_"/],
   ]) {
     const env = { ...base, ...override };
     const { problems } = validateEnvValues(env);
