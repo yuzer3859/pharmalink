@@ -12,7 +12,7 @@ import { StaffPage } from '@/features/staff/StaffPage';
 import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { AdminVerificationsPage } from '@/features/verifications/AdminVerificationsPage';
-import { PORTALS } from '@/config/navigation';
+import { landingUrl, PORTALS } from '@/config/navigation';
 import { ConfigurationPage } from '@/features/configuration/ConfigurationPage';
 import { CatalogReviewPage } from '@/features/catalog/CatalogReviewPage';
 import { FinancePage } from '@/features/finance/FinancePage';
@@ -104,5 +104,16 @@ describe('the finance portal (Work 81)', () => {
 
   it('keeps every other portal opening on its dashboard', () => {
     for (const key of ['pharmacy', 'admin', 'superadmin'] as const) expect(PORTALS[key].landingPath).toBe('dashboard');
+  });
+});
+
+describe('landingUrl (Work 81)', () => {
+  it('opens each portal on a page that portal routes', () => {
+    expect(landingUrl('finance')).toBe('/finance/finance');
+    expect(landingUrl('admin')).toBe('/admin/dashboard');
+    for (const key of Object.keys(PORTALS) as Array<keyof typeof PORTALS>) {
+      const landing = PORTALS[key].landingPath;
+      expect({ key, routed: PORTALS[key].nav.some((i) => i.path === landing) }).toEqual({ key, routed: true });
+    }
   });
 });

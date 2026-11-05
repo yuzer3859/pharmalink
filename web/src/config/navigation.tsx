@@ -120,3 +120,8 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
 };
 
 export const NAV_SECTIONS: Array<NavItem['section']> = [OPS, INSIGHTS, ADMIN];
+
+/** Where a portal opens: after sign-in, and when a page the account may not see sends it back. */
+export function landingUrl(portal: PortalKey): string {
+  return `${PORTALS[portal].basePath}/${PORTALS[portal].landingPath}`;
+}

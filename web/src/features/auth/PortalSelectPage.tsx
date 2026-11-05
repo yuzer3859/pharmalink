@@ -21,7 +21,7 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import { useAuth } from '@/context/AuthContext';
-import { PORTALS } from '@/config/navigation';
+import { landingUrl, PORTALS } from '@/config/navigation';
 import { getAuthErrorMessage, MfaRequiredError, type MfaChallenge } from '@/services/auth.service';
 import type { PortalKey } from '@/types';
 import { AdminMfaPanel } from './AdminMfaPanel';
@@ -76,7 +76,7 @@ export function PortalSelectPage() {
     clearAuthError();
     try {
       await login({ identifier, password, portal });
-      navigate(`${PORTALS[portal].basePath}/dashboard`);
+      navigate(landingUrl(portal));
     } catch (caught) {
       if (caught instanceof MfaRequiredError) {
         // The server decided this account needs administrator MFA; the password is no longer needed.
@@ -162,7 +162,7 @@ export function PortalSelectPage() {
               key={pendingMfa.challenge.token}
               challenge={pendingMfa.challenge}
               portal={pendingMfa.portal}
-              onSignedIn={(user) => navigate(`${PORTALS[user.portal].basePath}/dashboard`)}
+              onSignedIn={(user) => navigate(landingUrl(user.portal))}
               onRestart={restart}
             />
           )}
