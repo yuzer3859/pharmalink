@@ -10,10 +10,13 @@ import {
 } from '../../domain/repositories/payout.repository';
 import { IUnitOfWork, UNIT_OF_WORK } from '../ports/unit-of-work.port';
 
-/** Approving a statement for payment (module-07 §15.11). */
-export const FINANCE_SETTLEMENT_PERMISSION = 'finance:settlement:any';
-/** Disbursing money and verifying where it goes (§15.3): never shared with generation. */
-export const FINANCE_PAYOUT_PERMISSION = 'finance:payout:any';
+import {
+  FINANCE_PAYOUT_PERMISSION,
+  FINANCE_SETTLEMENT_PERMISSION,
+} from '../ports/inbound/settlement-payout.port';
+
+// Defined on the inbound port, which Admin may import; re-exported for Module 07's own callers.
+export { FINANCE_PAYOUT_PERMISSION, FINANCE_SETTLEMENT_PERMISSION };
 
 export interface ApproveSettlementInput {
   settlementId: string;

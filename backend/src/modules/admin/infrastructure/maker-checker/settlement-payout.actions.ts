@@ -7,7 +7,7 @@ import {
 import {
   FINANCE_PAYOUT_PERMISSION,
   FINANCE_SETTLEMENT_PERMISSION,
-} from '../../../payment/application/commands/approve-settlement.command';
+} from '../../../payment/application/ports/inbound/settlement-payout.port';
 import { AdminErrors } from '../../domain/errors';
 import { MakerCheckerActionRegistry } from '../../domain/maker-checker/maker-checker-action';
 

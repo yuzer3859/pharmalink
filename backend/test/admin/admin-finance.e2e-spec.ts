@@ -850,6 +850,8 @@ describe('Admin finance oversight (e2e)', () => {
         'delivery/application/ports/inbound/driver-operations-read.port',
         'delivery/delivery.module',
         'payment/application/ports/inbound/finance-oversight.port',
+        // Work 83: settlement approval and payout for maker-checker.
+        'payment/application/ports/inbound/settlement-payout.port',
         'payment/payment.module',
       ]);
     });

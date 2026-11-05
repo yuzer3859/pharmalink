@@ -1,12 +1,17 @@
-import { PayoutRail } from '@prisma/client';
-import { PayoutBeneficiaryView } from '../../commands/payout-beneficiary.commands';
-import { PayoutRunResult } from '../../commands/execute-payout.command';
-import {
+import type { PayoutRail } from '@prisma/client';
+import type { PayoutBeneficiaryView } from '../../commands/payout-beneficiary.commands';
+import type { PayoutRunResult } from '../../commands/execute-payout.command';
+import type {
   PayoutAttemptProps,
   SettlementPayoutState,
 } from '../../../domain/repositories/payout.repository';
 
 export const SETTLEMENT_PAYOUT_PORT = Symbol('SETTLEMENT_PAYOUT_PORT');
+
+/** Approving a statement for payment (module-07 §15.11). */
+export const FINANCE_SETTLEMENT_PERMISSION = 'finance:settlement:any';
+/** Disbursing money and verifying where it goes (§15.3): never shared with generation. */
+export const FINANCE_PAYOUT_PERMISSION = 'finance:payout:any';
 
 export type { PayoutBeneficiaryView, PayoutRunResult, SettlementPayoutState };
 

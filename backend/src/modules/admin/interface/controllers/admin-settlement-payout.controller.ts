@@ -18,12 +18,12 @@ import { CurrentUser } from '../../../identity/interface/decorators/current-user
 import {
   FINANCE_PAYOUT_PERMISSION,
   FINANCE_SETTLEMENT_PERMISSION,
-} from '../../../payment/application/commands/approve-settlement.command';
+} from '../../../payment/application/ports/inbound/settlement-payout.port';
 import {
   ISettlementPayoutPort,
   SETTLEMENT_PAYOUT_PORT,
 } from '../../../payment/application/ports/inbound/settlement-payout.port';
-import { RequireIdempotencyKey } from '../../../payment/interface/decorators/idempotency-key.decorator';
+import { RequireIdempotencyKey } from '../decorators/idempotency-key.decorator';
 import { toApprovalView } from '../../application/maker-checker/approval-queries';
 import {
   MakerCheckerGate,
