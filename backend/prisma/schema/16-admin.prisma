@@ -9,6 +9,8 @@ enum ApprovalStatus {
   REJECTED
   CANCELLED
   EXPIRED
+  /// Work 82: approved, but the owning module refused to run the action (a domain rule).
+  FAILED
 }
 
 enum ApprovalEntityType {
@@ -54,22 +56,41 @@ enum AnnouncementAudience {
   DRIVERS
 }
 
-// Maker-checker approval requests routed to admins.
+/// A maker-checker request (NFR-SEC-06, module-16 §11.2; Work 82, backend/docs/maker-checker.md).
+/// The maker asks; a different administrator holding `requiredPermission` decides; an approval
+/// runs the registered action with the idempotency key `approval:<id>`.
 model ApprovalRequest {
-  id                String             @id @default(uuid())
-  entityType        ApprovalEntityType
-  entityId          String
-  requestedByUserId String
-  assignedToUserId  String?
-  status            ApprovalStatus     @default(PENDING)
-  payload           Json?
-  decisionNote      String?
-  decidedByUserId   String?
-  decidedAt         DateTime?
-  expiresAt         DateTime?
-  createdAt         DateTime           @default(now())
+  id                  String             @id @default(uuid())
+  entityType          ApprovalEntityType
+  entityId            String
+  /// The registered action, e.g. `SETTLEMENT_PAYOUT`. One open request per (actionType, entityId).
+  actionType          String
+  /// The permission a checker must hold to decide this request.
+  requiredPermission  String
+  requestedByUserId   String
+  /// The maker's idempotency key; unique per (maker, actionType).
+  makerIdempotencyKey String
+  /// A one-line description of what will happen, shown to the checker.
+  summary             String
+  /// The maker's reason.
+  reason              String?
+  assignedToUserId    String?
+  status              ApprovalStatus     @default(PENDING)
+  payload             Json?
+  decisionNote        String?
+  decidedByUserId     String?
+  decidedAt           DateTime?
+  expiresAt           DateTime?
+  executedAt          DateTime?
+  executionResult     Json?
+  /// `{ code, message }` when the owning module refused the action (status FAILED).
+  executionError      Json?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @default(now()) @updatedAt
 
+  @@unique([requestedByUserId, actionType, makerIdempotencyKey])
   @@index([status, entityType])
+  @@index([status, expiresAt])
   @@map("approval_requests")
 }
 

@@ -222,6 +222,17 @@ export enum ErrorCode {
   // `PermissionsGuard` already refuses an unentitled caller with `RBAC_FORBIDDEN`, and a second
   // code for the same refusal would give one rejection two names for no gain.
   CONFIG_VALIDATION_FAILED = 'CONFIG_VALIDATION_FAILED',
+  // Work 82 — maker-checker (NFR-SEC-06, backend/docs/maker-checker.md). Each has a thrower in
+  // `DecideApprovalCommand`:
+  // the checker is the maker. Separation of duties holds whatever roles the maker has.
+  MAKER_CHECKER_SELF_APPROVAL = 'MAKER_CHECKER_SELF_APPROVAL',
+  // the request waited longer than `approvals.ttlHours` and can no longer be decided.
+  APPROVAL_EXPIRED = 'APPROVAL_EXPIRED',
+  // the request was already decided the other way (or rejected, failed, expired).
+  APPROVAL_ALREADY_DECIDED = 'APPROVAL_ALREADY_DECIDED',
+  // §9's own code: approved, but the owning module refused to run the action. The module's code
+  // is in `details.cause`. Admin cannot force past a domain invariant.
+  RESOLUTION_ACTION_FAILED = 'RESOLUTION_ACTION_FAILED',
 
   // Module 01 — administrator MFA (Work 66, backend/docs/admin-mfa.md). `AUTH_MFA_REQUIRED` above
   // already names "this session needs MFA"; these two name the MFA step's own failures, so the
@@ -385,6 +396,10 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   // declares about that value's range or permitted set, which is exactly the distinction 422 draws
   // and the same reasoning that placed the coupon amount codes there.
   [ErrorCode.CONFIG_VALIDATION_FAILED]: 422,
+  [ErrorCode.MAKER_CHECKER_SELF_APPROVAL]: 403,
+  [ErrorCode.APPROVAL_EXPIRED]: 409,
+  [ErrorCode.APPROVAL_ALREADY_DECIDED]: 409,
+  [ErrorCode.RESOLUTION_ACTION_FAILED]: 422,
 
   // Module 01 — administrator MFA (Work 66).
   [ErrorCode.AUTH_MFA_CHALLENGE_INVALID]: 401,

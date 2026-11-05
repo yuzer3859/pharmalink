@@ -24,6 +24,9 @@ const TONE_MAP: Record<string, Tone> = {
   paid: 'success',
   refunded: 'default',
   failed: 'error',
+  // maker-checker approvals (Work 82)
+  approved: 'success',
+  rejected: 'error',
   // generic entity status
   active: 'success',
   invited: 'info',

@@ -115,6 +115,12 @@ import {
   resolveOtpStore,
 } from './otp.config';
 import { resolveAdminMfaKey } from './admin-mfa.config';
+import {
+  DEFAULT_APPROVALS_TTL_HOURS,
+  MAX_APPROVALS_TTL_HOURS,
+  MIN_APPROVALS_TTL_HOURS,
+  readMakerCheckerActions,
+} from './approvals.config';
 
 /**
  * Rejects a malformed `DELIVERY_FEE_ZONES` string at boot.
@@ -361,6 +367,23 @@ export class EnvironmentVariables {
   @Max(1)
   @IsOptional()
   ORDERS_PLATFORM_FEE_PERCENT: number = DEFAULT_ORDERS_PLATFORM_FEE_PERCENT;
+
+  /**
+   * Maker-checker (Work 82, backend/docs/maker-checker.md): the action types that need a second
+   * administrator, comma-separated. Backs `approvals.makerCheckerActions`. Optional; unset means
+   * no action needs a checker. Each item must be a registered action type, which `validateEnv`
+   * checks below (`readMakerCheckerActions`) so a typo fails at boot.
+   */
+  @IsString()
+  @IsOptional()
+  APPROVALS_MAKER_CHECKER_ACTIONS?: string;
+
+  /** How long a maker-checker request waits for a checker, in hours. Backs `approvals.ttlHours`. */
+  @IsInt()
+  @Min(MIN_APPROVALS_TTL_HOURS)
+  @Max(MAX_APPROVALS_TTL_HOURS)
+  @IsOptional()
+  APPROVALS_TTL_HOURS: number = DEFAULT_APPROVALS_TTL_HOURS;
 
   /**
    * How many delivery jobs one driver may hold at once (BRULE-28). Backs the
@@ -733,6 +756,7 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       hashSecret: validated.OTP_HASH_SECRET,
       otherSecrets: [validated.JWT_ACCESS_SECRET, validated.JWT_REFRESH_SECRET, validated.MASTER_ENCRYPTION_KEY],
     });
+    readMakerCheckerActions(config);
     resolveAdminMfaKey({
       nodeEnv: validated.NODE_ENV,
       key: validated.ADMIN_MFA_ENCRYPTION_KEY,

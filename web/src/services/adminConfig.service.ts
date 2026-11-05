@@ -35,12 +35,30 @@ export function parseConfigInput(
       if (!text) return { ok: false, error: 'Enter a value.' };
       if (setting.allowed && !setting.allowed.includes(text)) return { ok: false, error: `Must be one of: ${setting.allowed.join(', ')}.` };
       return { ok: true, value: text };
-    case 'JSON':
+    case 'JSON': {
+      let value: unknown;
       try {
-        return { ok: true, value: JSON.parse(text) as unknown };
+        value = JSON.parse(text) as unknown;
       } catch {
         return { ok: false, error: 'Enter valid JSON.' };
       }
+      // A JSON setting with allowed values is a list drawn from them (Work 82's
+      // `approvals.makerCheckerActions`): distinct names, each allowed.
+      if (setting.allowed) {
+        if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+          return { ok: false, error: 'Enter a list of names, e.g. [] or ["A"].' };
+        }
+        const unknown = value.find((item) => !setting.allowed!.includes(item as string));
+        if (unknown !== undefined) {
+          return {
+            ok: false,
+            error: setting.allowed.length ? `Not allowed: ${String(unknown)}. Allowed: ${setting.allowed.join(', ')}.` : 'No values are allowed yet; enter [].',
+          };
+        }
+        if (new Set(value).size !== value.length) return { ok: false, error: 'List each name once.' };
+      }
+      return { ok: true, value };
+    }
     default:
       return { ok: false, error: 'Unknown value type.' };
   }

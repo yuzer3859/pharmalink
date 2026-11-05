@@ -33,7 +33,8 @@ const preview = (s: ConfigSetting) => {
 };
 
 function ValueInput({ setting, value, onChange, error }: { setting: ConfigSetting; value: string; onChange: (v: string) => void; error?: string }) {
-  const options = setting.valueType === 'BOOLEAN' ? ['true', 'false'] : setting.allowed;
+  // A JSON setting's `allowed` constrains the items of a list, not one choice: it is typed as JSON.
+  const options = setting.valueType === 'BOOLEAN' ? ['true', 'false'] : setting.valueType === 'JSON' ? null : setting.allowed;
   if (options) {
     return (
       <TextField select size="small" label="New value" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -55,7 +56,12 @@ function ValueInput({ setting, value, onChange, error }: { setting: ConfigSettin
       multiline={setting.valueType === 'JSON'}
       minRows={setting.valueType === 'JSON' ? 4 : undefined}
       error={!!error}
-      helperText={error ?? `${setting.valueType.toLowerCase()}${range ? ` (${range})` : ''}`}
+      helperText={
+        error ??
+        (setting.valueType === 'JSON' && setting.allowed
+          ? `list of: ${setting.allowed.length ? setting.allowed.join(', ') : 'nothing yet ([])'}`
+          : `${setting.valueType.toLowerCase()}${range ? ` (${range})` : ''}`)
+      }
     />
   );
 }

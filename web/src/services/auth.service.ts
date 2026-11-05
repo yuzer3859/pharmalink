@@ -82,6 +82,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'catalog:review',
   'finance:view',
   'finance:settle',
+  'approvals:view',
   'settings:manage',
 ];
 
@@ -257,6 +258,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     // settlements and dispute resolution with finance:settlement:any as well. Nothing else.
     if (has('finance:report:any')) result.add('finance:view');
     if (has('finance:report:any') && has('finance:settlement:any')) result.add('finance:settle');
+    // Work 82: the maker-checker queue (GET /admin/approvals).
+    if (has('approval:read:any')) result.add('approvals:view');
     result.delete('dashboard:view');
   }
 
@@ -296,6 +299,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     // user:suspend:any or user:reactivate:any; role changes need rbac:manage (roles:manage above).
     if (has('rbac:read')) result.add('staff:view');
     if (has('rbac:read') && has('user:suspend:any', 'user:reactivate:any')) result.add('staff:manage');
+    // Work 82: the maker-checker queue (GET /admin/approvals). Deciding is the server's rule per request.
+    if (has('approval:read:any')) result.add('approvals:view');
   }
 
   return ALL_PORTAL_PERMISSIONS.filter((permission) => result.has(permission));

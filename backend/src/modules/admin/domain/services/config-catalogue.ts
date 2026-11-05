@@ -32,6 +32,11 @@ import {
   MIN_DELIVERY_STALE_ASSIGNMENT_SECONDS,
   DELIVERY_POD_REQUIREMENTS,
 } from '../../../../shared/config/delivery.config';
+import {
+  MAKER_CHECKER_ACTION_TYPES,
+  MAX_APPROVALS_TTL_HOURS,
+  MIN_APPROVALS_TTL_HOURS,
+} from '../../../../shared/config/approvals.config';
 import { ConfigValueType } from '../enums';
 
 /**
@@ -357,6 +362,27 @@ const DEFINITIONS: readonly ConfigKeyDefinition[] = [
     min: MIN_DELIVERY_STALE_ASSIGNMENT_SECONDS,
     max: MAX_DELIVERY_STALE_ASSIGNMENT_SECONDS,
     description: 'How long a pre-pickup job may sit with a driver who has stopped working.',
+  },
+  // -------------------------------------------------------------------------------------------
+  // Module 16 — maker-checker (Work 82, backend/docs/maker-checker.md)
+  // -------------------------------------------------------------------------------------------
+  {
+    namespace: 'approvals',
+    key: 'makerCheckerActions',
+    type: ConfigValueType.JSON,
+    // A JSON array of action types. `allowed` is the registered set: an action nobody executes
+    // cannot be listed.
+    allowed: MAKER_CHECKER_ACTION_TYPES,
+    description:
+      'Action types that need a second administrator to approve them (maker-checker), as a list.',
+  },
+  {
+    namespace: 'approvals',
+    key: 'ttlHours',
+    type: ConfigValueType.INTEGER,
+    min: MIN_APPROVALS_TTL_HOURS,
+    max: MAX_APPROVALS_TTL_HOURS,
+    description: 'How many hours a maker-checker request waits for a checker before it expires.',
   },
 ];
 

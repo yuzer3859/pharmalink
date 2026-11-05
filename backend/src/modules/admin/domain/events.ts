@@ -11,6 +11,8 @@ import { createDomainEvent, DomainEvent } from '../../../shared/events/domain-ev
 export const AdminEventType = {
   ConfigChanged: 'admin.config.changed',
   FeatureFlagToggled: 'admin.feature_flag.toggled',
+  ApprovalRequested: 'admin.approval.requested',
+  ApprovalDecided: 'admin.approval.decided',
 } as const;
 
 export type AdminEventType = (typeof AdminEventType)[keyof typeof AdminEventType];
@@ -78,6 +80,49 @@ export function featureFlagToggledEvent(
     type: AdminEventType.FeatureFlagToggled,
     aggregateType: 'FeatureFlag',
     aggregateId: payload.key,
+    payload,
+  });
+}
+
+/** Work 82: a maker asked for an action that needs a checker. */
+export interface ApprovalRequestedPayload {
+  approvalId: string;
+  actionType: string;
+  entityType: string;
+  entityId: string;
+  requestedBy: string;
+  expiresAt: string;
+}
+
+/** Work 82: a request left PENDING — approved, rejected or expired. */
+export interface ApprovalDecidedPayload {
+  approvalId: string;
+  actionType: string;
+  entityId: string;
+  status: string;
+  requestedBy: string;
+  /** `null` when the request expired. */
+  decidedBy: string | null;
+}
+
+export function approvalRequestedEvent(
+  payload: ApprovalRequestedPayload,
+): DomainEvent<ApprovalRequestedPayload> {
+  return createDomainEvent({
+    type: AdminEventType.ApprovalRequested,
+    aggregateType: 'ApprovalRequest',
+    aggregateId: payload.approvalId,
+    payload,
+  });
+}
+
+export function approvalDecidedEvent(
+  payload: ApprovalDecidedPayload,
+): DomainEvent<ApprovalDecidedPayload> {
+  return createDomainEvent({
+    type: AdminEventType.ApprovalDecided,
+    aggregateType: 'ApprovalRequest',
+    aggregateId: payload.approvalId,
     payload,
   });
 }

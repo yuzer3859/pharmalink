@@ -23,6 +23,7 @@ export type PermissionKey =
   | 'catalog:review'
   | 'finance:view'
   | 'finance:settle'
+  | 'approvals:view'
   | 'settings:manage';
 
 export interface AuthUser {
@@ -803,4 +804,46 @@ export interface AuditLogPage {
 export interface Paginated<T> {
   rows: T[];
   total: number;
+}
+
+// ----- Maker-checker approvals (Work 82, GET/POST /admin/approvals) -----
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED' | 'FAILED';
+export type ApprovalDecision = 'APPROVE' | 'REJECT';
+
+export interface Approval {
+  id: string;
+  actionType: string;
+  entityType: string;
+  entityId: string;
+  summary: string;
+  reason: string | null;
+  /** Effective: a PENDING request past its expiry reads EXPIRED. */
+  status: ApprovalStatus;
+  payload: Record<string, unknown>;
+  requiredPermission: string;
+  requestedByUserId: string;
+  decidedByUserId: string | null;
+  decisionNote: string | null;
+  createdAt: string;
+  expiresAt: string;
+  decidedAt: string | null;
+  executedAt: string | null;
+  executionResult: Record<string, unknown> | null;
+  executionError: { code: string; message: string } | null;
+  canDecide: boolean;
+  isOwnRequest: boolean;
+}
+
+export interface ApprovalPage {
+  items: Approval[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface ApprovalAction {
+  type: string;
+  entityType: string;
+  requiredPermission: string;
+  requiresApproval: boolean;
 }

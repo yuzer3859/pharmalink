@@ -78,6 +78,21 @@ import { ListUsersQuery } from './application/queries/list-users.query';
 import { ListVerificationQueueQuery } from './application/queries/list-verification-queue.query';
 import { FEATURE_FLAG_REPOSITORY } from './domain/repositories/feature-flag.repository';
 import { PLATFORM_CONFIG_REPOSITORY } from './domain/repositories/platform-config.repository';
+import { AdminApprovalsController } from './interface/controllers/admin-approvals.controller';
+import {
+  GetApprovalQuery,
+  ListApprovalActionsQuery,
+  ListApprovalsQuery,
+} from './application/maker-checker/approval-queries';
+import { DecideApprovalCommand } from './application/maker-checker/decide-approval.command';
+import { ExpireApprovalService } from './application/maker-checker/expire-approval.service';
+import { MakerCheckerGate } from './application/maker-checker/maker-checker-gate.service';
+import { ADMIN_UNIT_OF_WORK } from './application/ports/unit-of-work.port';
+import { APPROVAL_REQUEST_REPOSITORY } from './domain/maker-checker/approval-request.repository';
+import { MakerCheckerActionRegistry } from './domain/maker-checker/maker-checker-action';
+import { ApprovalExpiryJob } from './infrastructure/jobs/approval-expiry.job';
+import { PrismaApprovalRequestRepository } from './infrastructure/persistence/prisma-approval-request.repository';
+import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { ConfigOverrideLoader } from './infrastructure/config/config-override.loader';
 import { PrismaFeatureFlagRepository } from './infrastructure/persistence/prisma-feature-flag.repository';
 import { PrismaPlatformConfigRepository } from './infrastructure/persistence/prisma-platform-config.repository';
@@ -170,9 +185,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
  *   distributed configuration system. `ConfigOverrideLoader` reloads the whole snapshot from
  *   Postgres on a 30-second timer and immediately after a publish, which bounds staleness by
  *   construction — there is no invalidation message that can be missed.
- * - **Maker-checker.** §14 of the brief says not to add it without an existing contract requiring
- *   it, and there is none; `ApprovalRequest` is scaffolded in the schema with a `CONFIG_CHANGE`
- *   entity type, waiting for the work that builds the workflow.
+ * - **Maker-checker for configuration.** Work 82 built maker-checker (backend/docs/maker-checker.md)
+ *   for the actions an owning module registers; publishing configuration is still single-actor
+ *   and audited (module-16 open question 2).
  * - **Percentage rollout.** The flag table carries `rolloutPercent` and `targetRules` from Phase 0
  *   and this work writes neither, because no evaluator exists that could honour them.
  * - **`delivery.feeZones`** and the `redis` namespace — see `ConfigCatalogue` for why each is
@@ -225,6 +240,19 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
 
     // Fills the shared registry at boot, after every publish, and on its own timer.
     ConfigOverrideLoader,
+
+    // Work 82 — maker-checker (NFR-SEC-06, backend/docs/maker-checker.md). Actions register with
+    // `MakerCheckerActionRegistry` from their own adapters (Works 83, 84).
+    { provide: APPROVAL_REQUEST_REPOSITORY, useClass: PrismaApprovalRequestRepository },
+    { provide: ADMIN_UNIT_OF_WORK, useClass: PrismaUnitOfWork },
+    MakerCheckerActionRegistry,
+    MakerCheckerGate,
+    DecideApprovalCommand,
+    ExpireApprovalService,
+    ApprovalExpiryJob,
+    ListApprovalsQuery,
+    GetApprovalQuery,
+    ListApprovalActionsQuery,
 
     // Work 02 — verification management. No repository of its own: everything goes through the
     // port Module 01 exports.
@@ -387,6 +415,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminDeliveryQueueController,
     AdminDeliveryRetryController,
     AdminDeliveryLeaseController,
+    // Work 82 — maker-checker requests.
+    AdminApprovalsController,
   ],
   // Nothing is exported. No other module calls into Admin — they read configuration through
   // `IConfigPort`, which is `SharedModule`'s, and an exported port here would be a coupling that
