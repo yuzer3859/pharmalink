@@ -28,6 +28,8 @@ export interface PortalDefinition {
   title: string;
   shortTitle: string;
   basePath: string;
+  /** Where the portal opens, and where a page the account may not see sends it back to. */
+  landingPath: string;
   accent: string;
   nav: NavItem[];
 }
@@ -42,6 +44,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
     title: 'Pharmacy Portal',
     shortTitle: 'Pharmacy',
     basePath: '/pharmacy',
+    landingPath: 'dashboard',
     accent: '#00838f',
     nav: [
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
@@ -58,6 +61,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
     title: 'Admin Dashboard',
     shortTitle: 'Admin',
     basePath: '/admin',
+    landingPath: 'dashboard',
     accent: '#7b1fa2',
     nav: [
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
@@ -80,6 +84,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
     title: 'Super Admin Dashboard',
     shortTitle: 'Super Admin',
     basePath: '/superadmin',
+    landingPath: 'dashboard',
     accent: '#005662',
     nav: [
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
@@ -96,6 +101,20 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Roles', path: 'roles', icon: AdminPanelSettingsRoundedIcon, permission: 'roles:view', section: ADMIN },
       { label: 'Audit Logs', path: 'audit', icon: FactCheckRoundedIcon, permission: 'audit:view', section: ADMIN },
       { label: 'Configuration', path: 'configuration', icon: TuneRoundedIcon, permission: 'settings:manage', section: ADMIN },
+    ],
+  },
+  // Work 81: the Finance Officer's portal. Financial oversight and COD disputes only; it opens on
+  // Finance because the platform dashboard needs analytics:read, which finance does not hold.
+  finance: {
+    key: 'finance',
+    title: 'Finance Portal',
+    shortTitle: 'Finance',
+    basePath: '/finance',
+    landingPath: 'finance',
+    accent: '#2e7d32',
+    nav: [
+      { label: 'Finance', path: 'finance', icon: AccountBalanceRoundedIcon, permission: 'finance:view', section: INSIGHTS },
+      { label: 'COD disputes', path: 'cod-disputes', icon: GavelRoundedIcon, permission: 'finance:view', section: INSIGHTS },
     ],
   },
 };

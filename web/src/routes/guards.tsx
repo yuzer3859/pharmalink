@@ -23,6 +23,6 @@ export function RequirePermission({
   const { user, isInitializing, can } = useAuth();
   if (isInitializing) return <FullPageLoader />;
   if (!user) return <Navigate to="/" replace />;
-  if (!can(permission)) return <Navigate to={`${PORTALS[user.portal].basePath}/dashboard`} replace />;
+  if (!can(permission)) return <Navigate to={`${PORTALS[user.portal].basePath}/${PORTALS[user.portal].landingPath}`} replace />;
   return <>{children}</>;
 }

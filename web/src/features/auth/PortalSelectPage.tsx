@@ -19,6 +19,7 @@ import LocalPharmacyRoundedIcon from '@mui/icons-material/LocalPharmacyRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
+import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import { useAuth } from '@/context/AuthContext';
 import { PORTALS } from '@/config/navigation';
 import { getAuthErrorMessage, MfaRequiredError, type MfaChallenge } from '@/services/auth.service';
@@ -40,6 +41,11 @@ const PORTAL_META: Record<PortalKey, { icon: typeof StorefrontRoundedIcon; blurb
     icon: ShieldRoundedIcon,
     blurb: 'Full platform control including roles, permissions and configuration.',
     tags: ['Roles', 'All Portals', 'Audit', 'Settings'],
+  },
+  finance: {
+    icon: AccountBalanceRoundedIcon,
+    blurb: 'Payments, refunds, settlements and cash-on-delivery disputes.',
+    tags: ['Payments', 'Refunds', 'Settlements', 'COD'],
   },
 };
 
