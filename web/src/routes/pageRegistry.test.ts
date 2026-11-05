@@ -12,7 +12,7 @@ import { StaffPage } from '@/features/staff/StaffPage';
 import { AdminRolesPage } from '@/features/roles/AdminRolesPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { AdminVerificationsPage } from '@/features/verifications/AdminVerificationsPage';
-import { PORTALS } from '@/config/navigation';
+import { landingUrl, PORTALS } from '@/config/navigation';
 import { ConfigurationPage } from '@/features/configuration/ConfigurationPage';
 import { CatalogReviewPage } from '@/features/catalog/CatalogReviewPage';
 import { FinancePage } from '@/features/finance/FinancePage';
@@ -77,5 +77,43 @@ describe('pageFor', () => {
   it('falls back to the shared page, and to nothing for an unknown path', () => {
     expect(pageFor('admin', 'audit')).toBe(AuditPage);
     expect(pageFor('admin', 'nope')).toBeUndefined();
+  });
+});
+
+describe('the finance portal (Work 81)', () => {
+  it('offers Finance and COD disputes and nothing else, opening on Finance', () => {
+    expect(PORTALS.finance.nav.map((i) => i.path)).toEqual(['finance', 'cod-disputes']);
+    expect(PORTALS.finance.landingPath).toBe('finance');
+    expect(PORTALS.finance.basePath).toBe('/finance');
+    // Only nav items become routes (AppRouter), so these are the only pages the portal can reach.
+    for (const item of PORTALS.finance.nav) expect(item.permission).toBe('finance:view');
+  });
+
+  it('routes its pages to the same finance pages the admin portals use', () => {
+    expect(pageFor('finance', 'finance')).toBe(FinancePage);
+    expect(pageFor('finance', 'cod-disputes')).toBe(CodDisputesPage);
+  });
+
+  it('has no admin, pharmacy or dashboard page in its navigation', () => {
+    const paths = new Set(PORTALS.finance.nav.map((i) => i.path));
+    const others = [...PORTALS.admin.nav, ...PORTALS.superadmin.nav, ...PORTALS.pharmacy.nav]
+      .map((i) => i.path)
+      .filter((p) => p !== 'finance' && p !== 'cod-disputes');
+    for (const path of others) expect({ path, routed: paths.has(path) }).toEqual({ path, routed: false });
+  });
+
+  it('keeps every other portal opening on its dashboard', () => {
+    for (const key of ['pharmacy', 'admin', 'superadmin'] as const) expect(PORTALS[key].landingPath).toBe('dashboard');
+  });
+});
+
+describe('landingUrl (Work 81)', () => {
+  it('opens each portal on a page that portal routes', () => {
+    expect(landingUrl('finance')).toBe('/finance/finance');
+    expect(landingUrl('admin')).toBe('/admin/dashboard');
+    for (const key of Object.keys(PORTALS) as Array<keyof typeof PORTALS>) {
+      const landing = PORTALS[key].landingPath;
+      expect({ key, routed: PORTALS[key].nav.some((i) => i.path === landing) }).toEqual({ key, routed: true });
+    }
   });
 });

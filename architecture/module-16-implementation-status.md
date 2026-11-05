@@ -57,11 +57,11 @@ disputes.
 | Staff (admin portals) | `/admin/accounts` | COMPLETE (Work 74): Accounts page, server-paged, exact phone/e-mail, status and primary-role filters; detail drawer with suspend (required reason) and reinstate, role assignment (organisation id for ORG roles) and revocation |
 | Roles | `/admin/roles`, `/admin/accounts/:id/roles` | COMPLETE (Work 74): read-only role catalogue with permissions; roles come from the RBAC seed and have no edit API. Assignment is on the Accounts page |
 | Reports | none | BLOCKED: no reporting API exists |
-| Pharmacy portal pages (inventory, orders, staff, roles) | Module 04/05 pharmacy APIs, not Module 16 | PARTIAL: mock; outside this module |
 | Verifications queue | `/admin/verifications` | COMPLETE (Work 75): queue (status, type, waiting time), review drawer, approve (licence number and future expiry required for a pharmacy licence) and reject with a reason. Document preview remains BLOCKED (references only) |
 | Configuration and feature flags | `/admin/config`, `/admin/feature-flags` | COMPLETE (Work 76): Super Admin Configuration page: settings with effective value and source, typed publish with range/allowed checks and an audited reason, version history with restore; feature flags with confirmed toggles |
 | Catalogue review | `/admin/catalog/review` | COMPLETE (Work 77): queue with summary (waiting count, oldest, lifetime approvals and rejections), name/status/type filters, product drawer with review history, and the decisions the server allows (submit, approve, reject with reason, return to review) |
 | Finance, COD disputes | `/admin/finance`, `/admin/finance/settlements`, `/admin/cod-disputes` | COMPLETE (Work 78): Finance page (overview, payments with refund detail, refunds; settlements read-only for `finance:settlement:any`) and COD disputes page (list, collection detail, resolve with an optional note). Running, approving or paying settlements is not in the portal (DEFERRED) |
+| Finance portal (Finance Officer) | `/admin/finance`, `/admin/finance/settlements`, `/admin/cod-disputes` | COMPLETE (Work 81): a `FINANCE_OFFICER` signs in to its own portal (`/finance`, no administrator MFA) that opens on Finance and offers Finance and COD disputes only; settlements and dispute resolution with `finance:settlement:any`. The server refuses every other admin read (e2e) |
 
 ## Live verification on staging (Work 80)
 
@@ -83,8 +83,11 @@ Admin, then clicked through every admin page; both matched. What the walk did:
 | Finance settlements | refused 403 (`finance:settlement:any`; not shown to Admin) | loaded |
 
 The first walk found one gap, fixed in the same Work: pharmacy rows carried no name, so an
-operator could not tell which pharmacy they were activating. The Finance Officer has no portal yet
-(Work 81).
+operator could not tell which pharmacy they were activating.
 
-Mock pages are not disguised as live: replacing each one with its real API is the remaining
-portal work, one page per Work, each with service-level tests (Vitest, `npm test` in `web/`).
+## Outside Module 16
+
+The pharmacy portal's own pages (inventory, orders, staff, roles for pharmacy staff) still use the
+portal's in-memory seed. They belong to Modules 04 and 05 (pharmacy and orders), not to Module 16,
+so they are tracked as a follow-up for those modules and not in this document (owner's decision,
+2026-11-05). Mock pages are not disguised as live.

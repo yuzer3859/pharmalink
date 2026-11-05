@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { FullPageLoader } from '@/components/common/LoadingScreen';
 import { useAuth } from '@/context/AuthContext';
 import type { PermissionKey, PortalKey } from '@/types';
-import { PORTALS } from '@/config/navigation';
+import { landingUrl, PORTALS } from '@/config/navigation';
 
 export function RequirePortal({ portal, children }: { portal: PortalKey; children: ReactNode }) {
   const { user, isInitializing } = useAuth();
@@ -23,6 +23,6 @@ export function RequirePermission({
   const { user, isInitializing, can } = useAuth();
   if (isInitializing) return <FullPageLoader />;
   if (!user) return <Navigate to="/" replace />;
-  if (!can(permission)) return <Navigate to={`${PORTALS[user.portal].basePath}/dashboard`} replace />;
+  if (!can(permission)) return <Navigate to={landingUrl(user.portal)} replace />;
   return <>{children}</>;
 }

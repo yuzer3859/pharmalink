@@ -42,7 +42,7 @@ interface BackendRole {
   organizationId: string | null;
 }
 
-interface BackendCurrentUser {
+export interface BackendCurrentUser {
   id: string;
   phone: string | null;
   email: string | null;
@@ -215,6 +215,8 @@ function portalFor(currentUser: BackendCurrentUser): PortalKey {
   const roles = roleKeys(currentUser);
   if (roles.has('SUPER_ADMIN')) return 'superadmin';
   if (roles.has('ADMIN')) return 'admin';
+  // Work 81: Finance Officers get the finance portal (financial oversight and COD disputes only).
+  if (roles.has('FINANCE_OFFICER')) return 'finance';
   if ([...roles].some((role) => PHARMACY_ROLES.has(role))) return 'pharmacy';
   throw new ApiError(403, 'PORTAL_ACCESS_DENIED', 'This account is not provisioned for an operations portal.');
 }
@@ -248,6 +250,14 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('settlement:read:org', 'finance:report:any')) result.add('reports:view');
     if (has('finance:report:any')) result.add('reports:export');
     if (has('order:read:org', 'inventory:manage:org')) result.add('analytics:view');
+  }
+
+  if (portal === 'finance') {
+    // The same rule as the admin portals: oversight and COD disputes with finance:report:any;
+    // settlements and dispute resolution with finance:settlement:any as well. Nothing else.
+    if (has('finance:report:any')) result.add('finance:view');
+    if (has('finance:report:any') && has('finance:settlement:any')) result.add('finance:settle');
+    result.delete('dashboard:view');
   }
 
   if (portal === 'admin') {
@@ -295,14 +305,16 @@ function displayRole(currentUser: BackendCurrentUser): string {
   return ROLE_NAMES[currentUser.primaryRole] ?? currentUser.primaryRole.replace(/_/g, ' ');
 }
 
-function toAuthUser(currentUser: BackendCurrentUser): AuthUser {
+/** Maps `GET /users/me` to the portal user. Exported for its tests; the portal goes through `authService`. */
+export function toAuthUser(currentUser: BackendCurrentUser): AuthUser {
   const portal = portalFor(currentUser);
   const pharmacyAssignment = currentUser.roles.find(
     (role) => PHARMACY_ROLES.has(role.roleKey) && role.organizationId,
   );
   const identifier = currentUser.email ?? currentUser.phone ?? currentUser.id;
   const name = currentUser.email?.split('@')[0] ?? currentUser.phone ?? 'PharmaLink user';
-  const avatarColor = portal === 'pharmacy' ? '#00838f' : portal === 'admin' ? '#7b1fa2' : '#005662';
+  const avatarColor =
+    portal === 'pharmacy' ? '#00838f' : portal === 'admin' ? '#7b1fa2' : portal === 'finance' ? '#2e7d32' : '#005662';
 
   return {
     id: currentUser.id,

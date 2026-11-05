@@ -24,7 +24,7 @@ export function AppRouter() {
         const portal = PORTALS[portalKey];
         return (
           <Route key={portalKey} path={portal.basePath} element={<PortalRoutes portalKey={portalKey} />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route index element={<Navigate to={portal.landingPath} replace />} />
             {portal.nav.map((item) => {
               const Page = pageFor(portalKey, item.path);
               if (!Page) return null;

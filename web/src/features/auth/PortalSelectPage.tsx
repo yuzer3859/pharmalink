@@ -19,8 +19,9 @@ import LocalPharmacyRoundedIcon from '@mui/icons-material/LocalPharmacyRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
+import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import { useAuth } from '@/context/AuthContext';
-import { PORTALS } from '@/config/navigation';
+import { landingUrl, PORTALS } from '@/config/navigation';
 import { getAuthErrorMessage, MfaRequiredError, type MfaChallenge } from '@/services/auth.service';
 import type { PortalKey } from '@/types';
 import { AdminMfaPanel } from './AdminMfaPanel';
@@ -40,6 +41,11 @@ const PORTAL_META: Record<PortalKey, { icon: typeof StorefrontRoundedIcon; blurb
     icon: ShieldRoundedIcon,
     blurb: 'Full platform control including roles, permissions and configuration.',
     tags: ['Roles', 'All Portals', 'Audit', 'Settings'],
+  },
+  finance: {
+    icon: AccountBalanceRoundedIcon,
+    blurb: 'Payments, refunds, settlements and cash-on-delivery disputes.',
+    tags: ['Payments', 'Refunds', 'Settlements', 'COD'],
   },
 };
 
@@ -70,7 +76,7 @@ export function PortalSelectPage() {
     clearAuthError();
     try {
       await login({ identifier, password, portal });
-      navigate(`${PORTALS[portal].basePath}/dashboard`);
+      navigate(landingUrl(portal));
     } catch (caught) {
       if (caught instanceof MfaRequiredError) {
         // The server decided this account needs administrator MFA; the password is no longer needed.
@@ -156,7 +162,7 @@ export function PortalSelectPage() {
               key={pendingMfa.challenge.token}
               challenge={pendingMfa.challenge}
               portal={pendingMfa.portal}
-              onSignedIn={(user) => navigate(`${PORTALS[user.portal].basePath}/dashboard`)}
+              onSignedIn={(user) => navigate(landingUrl(user.portal))}
               onRestart={restart}
             />
           )}

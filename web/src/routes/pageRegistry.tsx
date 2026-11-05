@@ -49,9 +49,16 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   'cod-disputes': CodDisputesPage,
 };
 
+// The Finance Officer's portal (Work 81): the same finance pages, nothing else.
+const FINANCE_PAGES: Record<string, ComponentType> = {
+  finance: FinancePage,
+  'cod-disputes': CodDisputesPage,
+};
+
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {
   admin: ADMIN_PAGES,
   superadmin: ADMIN_PAGES,
+  finance: FINANCE_PAGES,
 };
 
 export function pageFor(portal: PortalKey, path: string): ComponentType | undefined {
