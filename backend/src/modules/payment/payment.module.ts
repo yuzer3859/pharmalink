@@ -71,6 +71,20 @@ import { PrismaRefundRepository } from './infrastructure/persistence/prisma-refu
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { PrismaWebhookRepository } from './infrastructure/persistence/prisma-webhook.repository';
 import { MockPaymentProvider } from './infrastructure/providers/mock-payment-provider.adapter';
+import { AppConfigService } from '../../shared/config/app-config.service';
+import { ApproveSettlementCommand } from './application/commands/approve-settlement.command';
+import { ExecutePayoutCommand } from './application/commands/execute-payout.command';
+import {
+  RegisterPayoutBeneficiaryCommand,
+  VerifyPayoutBeneficiaryCommand,
+} from './application/commands/payout-beneficiary.commands';
+import { SETTLEMENT_PAYOUT_PORT } from './application/ports/inbound/settlement-payout.port';
+import { SettlementPayoutPortAdapter } from './application/ports/inbound/settlement-payout.port.adapter';
+import { PAYOUT_PROVIDER_PORT } from './application/ports/outbound/payout-provider.port';
+import { PAYOUT_REPOSITORY } from './domain/repositories/payout.repository';
+import { PrismaPayoutRepository } from './infrastructure/persistence/prisma-payout.repository';
+import { MockPayoutProvider } from './infrastructure/providers/payout/mock-payout-provider.adapter';
+import { UnavailablePayoutProvider } from './infrastructure/providers/payout/unavailable-payout-provider.adapter';
 import { PaymentProviderRegistry } from './infrastructure/providers/payment-provider.registry';
 import { TelebirrAdapter } from './infrastructure/providers/telebirr/telebirr.adapter';
 import { TelebirrConfig } from './infrastructure/providers/telebirr/telebirr.config';
@@ -187,6 +201,21 @@ import { WalletController } from './interface/controllers/wallet.controller';
     // here posts a transaction, and there is deliberately no payout provider — §11.5's
     // `ExecutePayout` and its SETTLEMENT posting are a separate task.
     { provide: SETTLEMENT_REPOSITORY, useClass: PrismaSettlementRepository },
+    // Work 83 — settlement approval and payout (module-07 §15, backend/docs/settlement-payout.md).
+    { provide: PAYOUT_REPOSITORY, useClass: PrismaPayoutRepository },
+    // No real payout rail is contracted (Open Question 4): production fails closed; every other
+    // environment uses the deterministic mock rail. No money moves either way.
+    {
+      provide: PAYOUT_PROVIDER_PORT,
+      inject: [AppConfigService],
+      useFactory: (config: AppConfigService) =>
+        config.isProduction ? new UnavailablePayoutProvider() : new MockPayoutProvider(),
+    },
+    ApproveSettlementCommand,
+    ExecutePayoutCommand,
+    RegisterPayoutBeneficiaryCommand,
+    VerifyPayoutBeneficiaryCommand,
+    { provide: SETTLEMENT_PAYOUT_PORT, useClass: SettlementPayoutPortAdapter },
     ProviderPayableService,
     ProviderScopeService,
     RunSettlementCommand,
@@ -287,6 +316,8 @@ import { WalletController } from './interface/controllers/wallet.controller';
     COUPON_PORT,
     FINANCE_OVERSIGHT_PORT,
     PAYMENT_RECIPIENT_READ_PORT,
+    // Work 83: Admin's maker-checker executors and payout routes.
+    SETTLEMENT_PAYOUT_PORT,
   ],
 })
 export class PaymentModule {}

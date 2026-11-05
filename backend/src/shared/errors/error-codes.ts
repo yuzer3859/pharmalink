@@ -233,6 +233,13 @@ export enum ErrorCode {
   // §9's own code: approved, but the owning module refused to run the action. The module's code
   // is in `details.cause`. Admin cannot force past a domain invariant.
   RESOLUTION_ACTION_FAILED = 'RESOLUTION_ACTION_FAILED',
+  // Work 83 — settlement approval and payout (module-07 §15, backend/docs/settlement-payout.md).
+  // A settlement in a state the operation cannot apply to (approve a PAID one, pay a DRAFT one).
+  INVALID_SETTLEMENT_STATE_TRANSITION = 'INVALID_SETTLEMENT_STATE_TRANSITION',
+  // No verified payout destination, or a changed one still in its cooling-off period (ADR-026).
+  PAYOUT_BENEFICIARY_REQUIRED = 'PAYOUT_BENEFICIARY_REQUIRED',
+  // The payout rail positively declined; no money moved. A retry makes a new attempt.
+  PAYOUT_DECLINED = 'PAYOUT_DECLINED',
 
   // Module 01 — administrator MFA (Work 66, backend/docs/admin-mfa.md). `AUTH_MFA_REQUIRED` above
   // already names "this session needs MFA"; these two name the MFA step's own failures, so the
@@ -400,6 +407,9 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCode.APPROVAL_EXPIRED]: 409,
   [ErrorCode.APPROVAL_ALREADY_DECIDED]: 409,
   [ErrorCode.RESOLUTION_ACTION_FAILED]: 422,
+  [ErrorCode.INVALID_SETTLEMENT_STATE_TRANSITION]: 409,
+  [ErrorCode.PAYOUT_BENEFICIARY_REQUIRED]: 422,
+  [ErrorCode.PAYOUT_DECLINED]: 422,
 
   // Module 01 — administrator MFA (Work 66).
   [ErrorCode.AUTH_MFA_CHALLENGE_INVALID]: 401,

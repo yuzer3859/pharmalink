@@ -367,9 +367,13 @@ ExecutePayout → LedgerService.post(SETTLEMENT): DEBIT Provider-Payable; CREDIT
 **Built:** the first three lines. `RunSettlement`, the `DRAFT` statement and its `payout_lines` are
 implemented and are **read-only over the ledger** — generating a statement posts nothing (F-STL-01/02).
 
-**Not built:** everything from `approve` onward. `IPayoutProviderPort` does not exist, no `SETTLEMENT`
-posting is ever written, `Settlement.paidAt` is always null and no payment reaches `SETTLED`
-(F-STL-03). Those three lines hide a payout lifecycle, an approval authority, a payout destination
+**Built in Work 83** ([backend/docs/settlement-payout.md](../backend/docs/settlement-payout.md)):
+approve and pay through module-16 maker-checker, `PROCESSING`, payout attempts, the `SETTLEMENT`
+posting, verified payout destinations and `IPayoutProviderPort` (a mock rail outside production; no
+real rail, so production fails closed). Still not built: payments reaching `SETTLED`, cancellation,
+payout reconciliation anomalies and rail callbacks.
+
+**Before Work 83:** everything from `approve` onward was unbuilt (F-STL-03). Those three lines hide a payout lifecycle, an approval authority, a payout destination
 that **does not exist anywhere in the schema**, a two-key idempotency contract and a set of
 ambiguous-outcome rules — see **§15, Payout Execution — Readiness Review**, and ADR-022..026.
 
@@ -545,8 +549,10 @@ The **ledger is the financial audit trail** (immutable). Additionally hash-chain
 
 ## 15. Payout Execution — Readiness Review
 
-> **Nothing in this section is implemented, and nothing in it moves money.** It is the design work
-> that must land before `ExecutePayout` may be written. §11.5's last three lines — `IPayoutProviderPort.pay`,
+> **Work 83 implemented this section** with the owner's recommended answers to its OPEN items, listed in
+> [backend/docs/settlement-payout.md](../backend/docs/settlement-payout.md); the text below is the
+> original readiness review, kept as the reasoning. It was the design work
+> that had to land before `ExecutePayout` could be written. §11.5's last three lines — `IPayoutProviderPort.pay`,
 > the `SETTLEMENT` posting, `Settlement=PAID` — are one line of pseudocode each and hide every
 > decision below. The settlement foundation (F-STL-01/02) and its HTTP surface are built and are
 > read-only by construction; **F-STL-03 is not started**.

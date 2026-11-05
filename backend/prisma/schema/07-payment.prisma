@@ -93,6 +93,8 @@ enum SettlementStatus {
   APPROVED
   PAID
   FAILED
+  /// Work 83 (ADR-023): a payout was attempted and the provider has not confirmed it.
+  PROCESSING
 }
 
 enum FraudFlagStatus {
@@ -277,9 +279,13 @@ model Settlement {
   status                SettlementStatus @default(DRAFT)
   statementRef          String?
   paidAt                DateTime?
+  /// Work 83: who approved the statement for payment, and when. Approval moves no money.
+  approvedByUserId      String?
+  approvedAt            DateTime?
   createdAt             DateTime         @default(now())
 
-  payoutLines PayoutLine[]
+  payoutLines    PayoutLine[]
+  payoutAttempts PayoutAttempt[]
 
   /// The idempotency key: one statement per provider, period and currency. A re-run replays this
   /// row rather than creating a second (`20260913000000_module07_settlement`).
@@ -344,4 +350,84 @@ model FraudFlag {
   payment Payment @relation(fields: [paymentId], references: [id])
 
   @@map("fraud_flags")
+}
+
+// ---------------------------------------------------------------------------
+// Work 83 — payout execution (module-07 §15, ADR-022..026, backend/docs/settlement-payout.md)
+// ---------------------------------------------------------------------------
+
+enum PayoutRail {
+  BANK_TRANSFER
+  TELEBIRR
+}
+
+enum PayoutBeneficiaryStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  SUPERSEDED
+  REVOKED
+}
+
+/// Where a pharmacy's payouts go (ADR-026). Verified by a second finance officer before use; a
+/// replacement starts PENDING_VERIFICATION and, once verified, supersedes the old one and may
+/// receive money only from `payableFrom` (a cooling-off period against changed-account fraud).
+/// The account identifier is envelope-encrypted (ADR-009); only its last four characters are kept
+/// in clear, for display.
+model PayoutBeneficiary {
+  id                         String                  @id @default(uuid())
+  pharmacyId                 String
+  rail                       PayoutRail
+  accountName                String
+  bankCode                   String?
+  accountIdentifierEncrypted String
+  accountIdentifierLast4     String
+  status                     PayoutBeneficiaryStatus @default(PENDING_VERIFICATION)
+  createdByUserId            String
+  verifiedByUserId           String?
+  verifiedAt                 DateTime?
+  payableFrom                DateTime?
+  supersededAt               DateTime?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @default(now()) @updatedAt
+
+  payoutAttempts PayoutAttempt[]
+
+  @@index([pharmacyId, status])
+  @@map("payout_beneficiaries")
+}
+
+enum PayoutAttemptStatus {
+  /// Committed before the provider call; the provider has not answered or said "pending".
+  PENDING
+  PAID
+  /// The provider positively declined; no money moved.
+  FAILED
+  /// The outcome could not be determined. Never treated as FAILED (ADR-023).
+  UNKNOWN
+}
+
+/// One provider call for a settlement's payout (ADR-024): committed before the call, keyed
+/// `PAYOUT-<id>` towards the provider, and at most one open (PENDING/UNKNOWN) per settlement.
+model PayoutAttempt {
+  id                String              @id @default(uuid())
+  settlementId      String
+  beneficiaryId     String
+  /// The caller's idempotency key (`approval:<id>` through maker-checker); a retry finds this row.
+  idempotencyKey    String              @unique
+  reference         String              @unique
+  providerKey       String
+  amount            Int
+  currency          String
+  status            PayoutAttemptStatus @default(PENDING)
+  providerReference String?
+  failureReason     String?
+  initiatedByUserId String
+  createdAt         DateTime            @default(now())
+  completedAt       DateTime?
+
+  settlement  Settlement        @relation(fields: [settlementId], references: [id])
+  beneficiary PayoutBeneficiary @relation(fields: [beneficiaryId], references: [id])
+
+  @@index([settlementId, createdAt])
+  @@map("payout_attempts")
 }

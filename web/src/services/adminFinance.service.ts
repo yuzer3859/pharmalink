@@ -22,7 +22,7 @@ export const PAYMENT_STATUSES: FinancePaymentStatus[] = [
 ];
 export const PAYMENT_METHODS: FinancePaymentMethod[] = ['CARD', 'TELEBIRR', 'BANK_TRANSFER', 'WALLET', 'COD', 'CROSS_BORDER'];
 export const REFUND_STATUSES: RefundStatus[] = ['PENDING', 'APPROVED', 'COMPLETED', 'FAILED'];
-export const SETTLEMENT_STATUSES: SettlementStatus[] = ['DRAFT', 'APPROVED', 'PAID', 'FAILED'];
+export const SETTLEMENT_STATUSES: SettlementStatus[] = ['DRAFT', 'APPROVED', 'PROCESSING', 'PAID', 'FAILED'];
 export const DISPUTE_STATUSES: CodDisputeStatus[] = ['OPEN', 'RESOLVED'];
 export const FINANCE_PAGE_SIZES = [10, 25, 50] as const;
 /** The server's bound for a dispute resolution note. */

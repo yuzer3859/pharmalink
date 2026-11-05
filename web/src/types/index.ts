@@ -24,6 +24,7 @@ export type PermissionKey =
   | 'finance:view'
   | 'finance:settle'
   | 'approvals:view'
+  | 'finance:payout'
   | 'settings:manage';
 
 export interface AuthUser {
@@ -555,7 +556,7 @@ export type FinancePaymentStatus =
   | 'EXPIRED';
 export type FinancePaymentMethod = 'CARD' | 'TELEBIRR' | 'BANK_TRANSFER' | 'WALLET' | 'COD' | 'CROSS_BORDER';
 export type RefundStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'FAILED';
-export type SettlementStatus = 'DRAFT' | 'APPROVED' | 'PAID' | 'FAILED';
+export type SettlementStatus = 'DRAFT' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'FAILED';
 export type CodDisputeStatus = 'OPEN' | 'RESOLVED';
 
 /** Money in this section is in integer minor units. */
@@ -847,3 +848,60 @@ export interface ApprovalAction {
   requiredPermission: string;
   requiresApproval: boolean;
 }
+
+// ----- Settlement approval and payout (Work 83, /admin/finance/settlements/:id/*) -----
+export type PayoutRail = 'BANK_TRANSFER' | 'TELEBIRR';
+export type PayoutBeneficiaryStatus = 'PENDING_VERIFICATION' | 'VERIFIED' | 'SUPERSEDED' | 'REVOKED';
+export type PayoutAttemptStatus = 'PENDING' | 'PAID' | 'FAILED' | 'UNKNOWN';
+
+export interface PayoutBeneficiary {
+  id: string;
+  pharmacyId: string;
+  rail: PayoutRail;
+  accountName: string;
+  bankCode: string | null;
+  accountIdentifierLast4: string;
+  status: PayoutBeneficiaryStatus;
+  createdByUserId: string;
+  verifiedByUserId: string | null;
+  verifiedAt: string | null;
+  payableFrom: string | null;
+  supersededAt: string | null;
+  createdAt: string;
+}
+
+export interface PayoutAttempt {
+  id: string;
+  settlementId: string;
+  beneficiaryId: string;
+  reference: string;
+  providerKey: string;
+  amount: number;
+  currency: string;
+  status: PayoutAttemptStatus;
+  providerReference: string | null;
+  failureReason: string | null;
+  initiatedByUserId: string;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface SettlementPayoutView {
+  settlement: {
+    id: string;
+    pharmacyId: string;
+    currency: string;
+    netPayable: number;
+    status: SettlementStatus;
+    approvedByUserId: string | null;
+    approvedAt: string | null;
+    paidAt: string | null;
+  };
+  attempts: PayoutAttempt[];
+  beneficiary: PayoutBeneficiary | null;
+}
+
+/** A gated action's answer: run now (200) or waiting for a second officer (202). */
+export type GatedOutcome =
+  | { outcome: 'EXECUTED'; result: Record<string, unknown> }
+  | { outcome: 'MAKER_CHECKER_PENDING'; approval: Approval };

@@ -56,6 +56,15 @@ export const FIXTURE_ACCOUNTS: readonly FixtureAccount[] = [
     purpose: 'The Finance Officer the owner signs in as (password set by the owner)',
   },
   {
+    key: 'financeChecker', round: null,
+    email: email('finance.checker'),
+    phone: null,
+    primaryRole: 'FINANCE_OFFICER',
+    roleKey: 'FINANCE_OFFICER',
+    signIn: true,
+    purpose: 'The second Finance Officer, who decides maker-checker requests (Work 83; password set by the owner)',
+  },
+  {
     key: 'operator', round: null,
     email: email('seed.operator'),
     phone: null,

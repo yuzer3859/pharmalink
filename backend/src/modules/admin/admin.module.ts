@@ -79,6 +79,8 @@ import { ListVerificationQueueQuery } from './application/queries/list-verificat
 import { FEATURE_FLAG_REPOSITORY } from './domain/repositories/feature-flag.repository';
 import { PLATFORM_CONFIG_REPOSITORY } from './domain/repositories/platform-config.repository';
 import { AdminApprovalsController } from './interface/controllers/admin-approvals.controller';
+import { AdminSettlementPayoutController } from './interface/controllers/admin-settlement-payout.controller';
+import { SettlementPayoutActions } from './infrastructure/maker-checker/settlement-payout.actions';
 import {
   GetApprovalQuery,
   ListApprovalActionsQuery,
@@ -253,6 +255,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     ListApprovalsQuery,
     GetApprovalQuery,
     ListApprovalActionsQuery,
+    // Work 83 — settlement approval, payout and payout-destination verification as maker-checker
+    // actions, over Module 07's SETTLEMENT_PAYOUT_PORT.
+    SettlementPayoutActions,
 
     // Work 02 — verification management. No repository of its own: everything goes through the
     // port Module 01 exports.
@@ -417,6 +422,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminDeliveryLeaseController,
     // Work 82 — maker-checker requests.
     AdminApprovalsController,
+    // Work 83 — settlement approve / pay and payout destinations.
+    AdminSettlementPayoutController,
   ],
   // Nothing is exported. No other module calls into Admin — they read configuration through
   // `IConfigPort`, which is `SharedModule`'s, and an exported port here would be a coupling that

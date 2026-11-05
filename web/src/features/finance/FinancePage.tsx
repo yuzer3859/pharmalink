@@ -22,6 +22,7 @@ import {
 import { humanizeStatus } from '@/services/adminAnalytics.service';
 import { fromMinorUnits } from '@/services/adminOrders.service';
 import { currency, formatDate, formatDateTime } from '@/utils/format';
+import { SettlementDrawer } from './SettlementDrawer';
 import type {
   FinancePayment,
   FinanceRefund,
@@ -263,6 +264,7 @@ function RefundsTab() {
 function SettlementsTab() {
   const [status, setStatus] = useState<SettlementStatus | 'all'>('all');
   const [paging, setPaging] = useState(firstPage(FINANCE_PAGE_SIZES[1]));
+  const [selected, setSelected] = useState<Settlement | null>(null);
   const filters = useMemo(() => ({ status, page: paging.page + 1, size: paging.pageSize }), [status, paging]);
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['admin-finance', 'settlements', filters] as const,
@@ -281,7 +283,8 @@ function SettlementsTab() {
   return (
     <>
       <Alert severity="info" sx={{ mb: 2 }}>
-        Read-only. Running, approving or paying a settlement is not available in the portal yet.
+        Open a statement to approve it, register or verify the pharmacy's payout destination, and pay it
+        out. Approving, paying and verifying need a second finance officer (Approvals page).
       </Alert>
       <Stack direction="row" spacing={1.5} sx={{ mb: 2 }}>
         <StatusSelect label="Status" value={status} options={SETTLEMENT_STATUSES} onChange={(v) => { setStatus(v); setPaging((p) => ({ ...p, page: 0 })); }} />
@@ -292,9 +295,11 @@ function SettlementsTab() {
         columns={columns as GridColDef[]}
         getRowId={(row) => (row as Settlement).settlementId}
         loading={isLoading || isFetching}
+        onRowClick={(row) => setSelected(row as Settlement)}
         emptyTitle="No settlements"
         server={{ rowCount: data?.total ?? 0, paginationModel: paging, onPaginationModelChange: setPaging, pageSizeOptions: [...FINANCE_PAGE_SIZES] }}
       />
+      <SettlementDrawer key={selected?.settlementId ?? 'none'} settlement={selected} onClose={() => setSelected(null)} />
     </>
   );
 }
@@ -312,7 +317,7 @@ export function FinancePage() {
   const showSettlements = can('finance:settle');
   return (
     <>
-      <PageHeader portalName={portal.title} title="Finance" subtitle="Payments, refunds and settlements. Read-only; amounts in birr." />
+      <PageHeader portalName={portal.title} title="Finance" subtitle="Payments, refunds and settlements. Amounts in birr." />
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs value={tab} onChange={(_e, v: FinanceTab) => setTab(v)}>
           <Tab value="overview" label="Overview" />

@@ -305,6 +305,67 @@ export const PaymentErrors = {
    * saga, a future admin tool) cannot reach the manual path without the same permission. Reuses
    * the shared `RBAC_FORBIDDEN` code the `PermissionsGuard` itself raises.
    */
+  // ---- Work 83: settlement approval and payout ----
+
+  settlementNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Settlement not found.'),
+
+  invalidSettlementStateTransition: (from: string, to: string) =>
+    new ApiException(
+      ErrorCode.INVALID_SETTLEMENT_STATE_TRANSITION,
+      `A ${from} settlement cannot become ${to}.`,
+      { from, to },
+    ),
+
+  settlementNothingToPay: (netPayable: number) =>
+    new ApiException(
+      ErrorCode.INVALID_SETTLEMENT_STATE_TRANSITION,
+      'This settlement has nothing to pay out.',
+      { netPayable },
+    ),
+
+  payoutPermissionMissing: (permission: string) =>
+    new ApiException(ErrorCode.RBAC_FORBIDDEN, `This needs the ${permission} permission.`, {
+      requiredPermission: permission,
+    }),
+
+  payoutBeneficiaryRequired: (pharmacyId: string, details?: Record<string, unknown>) =>
+    new ApiException(
+      ErrorCode.PAYOUT_BENEFICIARY_REQUIRED,
+      'The pharmacy has no verified payout destination that may receive money now.',
+      { pharmacyId, ...details },
+    ),
+
+  payoutBeneficiaryNotFound: () =>
+    new ApiException(ErrorCode.NOT_FOUND, 'Payout beneficiary not found.'),
+
+  payoutBeneficiaryPending: (beneficiaryId: string) =>
+    new ApiException(
+      ErrorCode.CONFLICT,
+      'This pharmacy already has a payout destination waiting for verification.',
+      { beneficiaryId },
+    ),
+
+  payoutBeneficiaryNotPending: (status: string) =>
+    new ApiException(ErrorCode.CONFLICT, 'Only a pending payout destination can be verified.', {
+      status,
+    }),
+
+  payoutBeneficiarySelfVerification: () =>
+    new ApiException(
+      ErrorCode.MAKER_CHECKER_SELF_APPROVAL,
+      'A different finance officer must verify a payout destination you registered.',
+    ),
+
+  payoutInProgress: (attemptId: string) =>
+    new ApiException(
+      ErrorCode.CONFLICT,
+      'A payout for this settlement is already in progress; refresh its status instead.',
+      { attemptId },
+    ),
+
+  payoutDeclined: (reason: string, details?: Record<string, unknown>) =>
+    new ApiException(ErrorCode.PAYOUT_DECLINED, `The payout was declined: ${reason}`, details),
+
   refundApprovalForbidden: (actorUserId: string | null) =>
     new ApiException(
       ErrorCode.RBAC_FORBIDDEN,
