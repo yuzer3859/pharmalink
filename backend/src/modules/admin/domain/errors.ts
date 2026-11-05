@@ -32,6 +32,11 @@ export const AdminErrors = {
 
   approvalNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Approval request not found.'),
 
+  /** Work 83. */
+  settlementNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Settlement not found.'),
+
+  payoutBeneficiaryNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Payout beneficiary not found.'),
+
   /** The checker is the maker. */
   approvalSelfDecision: () =>
     new ApiException(

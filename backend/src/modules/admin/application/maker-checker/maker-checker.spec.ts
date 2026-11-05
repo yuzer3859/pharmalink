@@ -473,7 +473,8 @@ describe('Maker-checker (Work 82)', () => {
     it('declares approvals.makerCheckerActions (a list of registered types) and approvals.ttlHours (1–720)', () => {
       expect(ConfigCatalogue.find('approvals', 'makerCheckerActions')).toMatchObject({
         type: ConfigValueType.JSON,
-        allowed: [],
+        // Work 83's registered types.
+        allowed: ['SETTLEMENT_APPROVE', 'SETTLEMENT_PAYOUT', 'PAYOUT_BENEFICIARY_VERIFY'],
       });
       expect(ConfigCatalogue.find('approvals', 'ttlHours')).toMatchObject({
         type: ConfigValueType.INTEGER,
@@ -485,6 +486,7 @@ describe('Maker-checker (Work 82)', () => {
     it('accepts the empty list and refuses an unregistered action type', () => {
       const key = ConfigKey.of('approvals', 'makerCheckerActions');
       expect(ConfigValue.of(key, ConfigValueType.JSON, []).value).toEqual([]);
+      expect(ConfigValue.of(key, ConfigValueType.JSON, ['SETTLEMENT_PAYOUT']).value).toEqual(['SETTLEMENT_PAYOUT']);
       for (const bad of [['TEST_PAYOUT'], {}, ['']]) {
         expect(() => ConfigValue.of(key, ConfigValueType.JSON, bad)).toThrow(ApiException);
       }
@@ -500,8 +502,11 @@ describe('Maker-checker (Work 82)', () => {
     });
 
     it('parses APPROVALS_MAKER_CHECKER_ACTIONS and fails on an unregistered type', () => {
-      expect(readMakerCheckerActions({})).toEqual([]);
-      expect(readMakerCheckerActions({ [APPROVALS_MAKER_CHECKER_ACTIONS_ENV]: ' ' })).toEqual([]);
+      // Unset or blank: every registered money action needs a checker (Work 83's secure default).
+      const all = ['SETTLEMENT_APPROVE', 'SETTLEMENT_PAYOUT', 'PAYOUT_BENEFICIARY_VERIFY'];
+      expect(readMakerCheckerActions({})).toEqual(all);
+      expect(readMakerCheckerActions({ [APPROVALS_MAKER_CHECKER_ACTIONS_ENV]: ' ' })).toEqual(all);
+      expect(readMakerCheckerActions({ [APPROVALS_MAKER_CHECKER_ACTIONS_ENV]: 'none' })).toEqual([]);
       expect(readMakerCheckerActions({ [APPROVALS_MAKER_CHECKER_ACTIONS_ENV]: 'A, B,A' }, ['A', 'B'])).toEqual([
         'A',
         'B',

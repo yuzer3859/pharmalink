@@ -177,6 +177,10 @@ export const PERMISSIONS: Array<{
   // `finance:refund:any`), checked in the command, and never one's own request. ADMIN and
   // FINANCE_OFFICER, the two roles whose actions go behind it.
   { key: 'approval:read:any', resource: 'approval', action: 'read', scope: 'any' },
+  // Module 07 Work 83 — sending a settlement's payout and verifying where payouts go (module-07
+  // §15.3: disbursement never shares a permission with generation). FINANCE_OFFICER only;
+  // SUPER_ADMIN by wildcard, and even then a second officer decides through maker-checker.
+  { key: 'finance:payout:any', resource: 'finance', action: 'payout', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -321,6 +325,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'finance:report:any',
     // Module 16 Work 82 — the maker-checker queue.
     'approval:read:any',
+    // Module 07 Work 83 — payouts and payout destinations.
+    'finance:payout:any',
   ],
   ADMIN: [
     'auth:login',

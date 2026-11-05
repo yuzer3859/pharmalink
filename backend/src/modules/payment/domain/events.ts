@@ -23,6 +23,31 @@ export const PaymentEventType = {
   PaymentRefunded: 'payment.refunded',
 } as const;
 
+/** Work 83: the design's `SettlementPaid` (module-07 §10). Consumed by Module 13 to tell the pharmacy. */
+export const SettlementEventType = {
+  SettlementPaid: 'settlement.paid',
+} as const;
+
+export interface SettlementPaidPayload {
+  settlementId: string;
+  pharmacyId: string;
+  amount: number;
+  currency: string;
+  statementRef: string | null;
+  payoutReference: string;
+}
+
+export function settlementPaidEvent(
+  payload: SettlementPaidPayload,
+): DomainEvent<SettlementPaidPayload> {
+  return createDomainEvent({
+    type: SettlementEventType.SettlementPaid,
+    aggregateType: 'Settlement',
+    aggregateId: payload.settlementId,
+    payload,
+  });
+}
+
 /**
  * The catalog's Module 07 wallet rows — `WalletCredited` / `WalletDebited`, payload `userId,
  * amount`, consumed by Module 13 (notifications). Dotted lower-case type strings, matching

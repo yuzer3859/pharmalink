@@ -83,6 +83,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'finance:view',
   'finance:settle',
   'approvals:view',
+  'finance:payout',
   'settings:manage',
 ];
 
@@ -260,6 +261,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('finance:report:any') && has('finance:settlement:any')) result.add('finance:settle');
     // Work 82: the maker-checker queue (GET /admin/approvals).
     if (has('approval:read:any')) result.add('approvals:view');
+    // Work 83: payouts and payout destinations (finance:payout:any).
+    if (has('finance:payout:any')) result.add('finance:payout');
     result.delete('dashboard:view');
   }
 
@@ -301,6 +304,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('rbac:read') && has('user:suspend:any', 'user:reactivate:any')) result.add('staff:manage');
     // Work 82: the maker-checker queue (GET /admin/approvals). Deciding is the server's rule per request.
     if (has('approval:read:any')) result.add('approvals:view');
+    // Work 83: payouts and payout destinations (finance:payout:any; Super Admin by wildcard).
+    if (has('finance:payout:any')) result.add('finance:payout');
   }
 
   return ALL_PORTAL_PERMISSIONS.filter((permission) => result.has(permission));

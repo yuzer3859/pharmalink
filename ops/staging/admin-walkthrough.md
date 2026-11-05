@@ -23,7 +23,9 @@ present. What it creates, and why, is listed in `backend/src/cli/staging-seed/fi
 docker compose -f compose.staging.yml --env-file backend/.env.staging --profile tools run --rm tools npm run staging:set-password
 ```
 
-Run it twice: once for `admin@staging.pharmalink.test`, once for `finance@staging.pharmalink.test`.
+Run it for `admin@staging.pharmalink.test`, `finance@staging.pharmalink.test` and
+`finance.checker@staging.pharmalink.test` (the second Finance Officer, who decides maker-checker
+requests; Work 83).
 Then sign in to the portal once as the Admin and enrol an authenticator app (the portal shows the
 setup key). The Super Admin is the account created by the first-Super-Admin bootstrap.
 
@@ -71,3 +73,22 @@ shows what the walk did:
 - **Configuration (Super Admin):** the flag is off again; the setting's history shows the two
   publications and the rollback.
 - **Audit Logs:** every action above appears, attributed to the signed-in account.
+
+## 5. Settlement payout with maker-checker (Work 83)
+
+Two browsers (or one normal and one private window): **A** signed in as `finance@`, **B** as
+`finance.checker@`, both in the Finance portal. The payout rail is the mock rail (no money moves);
+its outcome follows the account number: `…0000` declines, `…9999` stays PROCESSING until refreshed,
+anything else pays.
+
+1. **A** — Finance → Settlements → open the seeded `DRAFT` statement → *Approve for payment*. The
+   portal says it was sent for approval; the statement stays `DRAFT`.
+2. **B** — Approvals → the `Settlement approve` request → *Approve*. The statement is `APPROVED`.
+   (A opening the same request sees that a different officer must decide it.)
+3. **A** — in the statement drawer, *Register destination*: bank transfer, any account name, bank
+   code `CBE`, account `1000123456789`. It shows as waiting for verification. Click *Verify*.
+4. **B** — Approvals → the `Payout beneficiary verify` request → *Approve*. The drawer shows the
+   verified destination `••••6789`.
+5. **A** — *Pay out*. **B** — Approvals → the `Settlement payout` request → *Approve*. The statement
+   is `PAID` with one attempt `PAID`; Audit Logs shows `SETTLEMENT_APPROVED`, `PAYOUT_INITIATED`,
+   `SETTLEMENT_PAID` and the approval entries with both officers.

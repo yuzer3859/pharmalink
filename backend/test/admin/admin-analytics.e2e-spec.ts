@@ -660,6 +660,8 @@ describe('Admin operational analytics (e2e)', () => {
         'orders/application/ports/inbound/order-operations-read.port',
         'orders/orders.module',
         'payment/application/ports/inbound/finance-oversight.port',
+        // Work 83: settlement approval and payout for maker-checker.
+        'payment/application/ports/inbound/settlement-payout.port',
         'payment/payment.module',
         // Work 48: branch operations visibility (admin-branch-operations.e2e-spec.ts).
         'pharmacy-inventory/application/ports/inbound/branch-operations-read.port',

@@ -13,13 +13,23 @@ import { registerAs } from '@nestjs/config';
 
 /**
  * Every action type an owning module has registered with the maker-checker registry, and so the
- * only values `approvals.makerCheckerActions` may hold.
+ * only values `approvals.makerCheckerActions` may hold. A value nobody executes would be
+ * configuration that does nothing, so it is refused rather than stored.
  *
- * Empty in Work 82, which builds the workflow but puts no existing action behind it; Works 83
- * (settlements) and 84 (high-value refunds) append the types they register. A value nobody
- * executes would be configuration that does nothing, so it is refused rather than stored.
+ * Work 83: settlement approval, payout and payout-destination verification (Module 07).
  */
-export const MAKER_CHECKER_ACTION_TYPES: readonly string[] = [];
+export const MAKER_CHECKER_ACTION_TYPES: readonly string[] = [
+  'SETTLEMENT_APPROVE',
+  'SETTLEMENT_PAYOUT',
+  'PAYOUT_BENEFICIARY_VERIFY',
+];
+
+/**
+ * What needs a checker when `APPROVALS_MAKER_CHECKER_ACTIONS` is unset: every money action. Secure
+ * by default — switching one off is a deliberate, audited configuration publish (`[]` turns all
+ * off), never the absence of a setting.
+ */
+export const DEFAULT_MAKER_CHECKER_ACTIONS: readonly string[] = MAKER_CHECKER_ACTION_TYPES;
 
 export const APPROVALS_MAKER_CHECKER_ACTIONS_ENV = 'APPROVALS_MAKER_CHECKER_ACTIONS';
 export const APPROVALS_TTL_HOURS_ENV = 'APPROVALS_TTL_HOURS';
@@ -31,8 +41,8 @@ export const MIN_APPROVALS_TTL_HOURS = 1;
 export const MAX_APPROVALS_TTL_HOURS = 720;
 
 /**
- * Parses `APPROVALS_MAKER_CHECKER_ACTIONS` (comma-separated). Unset or blank is the empty list:
- * no action needs a checker, which is how the platform behaved before Work 82.
+ * Parses `APPROVALS_MAKER_CHECKER_ACTIONS` (comma-separated). Unset or blank is
+ * `DEFAULT_MAKER_CHECKER_ACTIONS`; `none` is the explicit empty list.
  *
  * Throws on a type that is not registered, so a typo fails at boot instead of leaving the action
  * it meant to protect single-actor.
@@ -43,6 +53,9 @@ export function readMakerCheckerActions(
 ): string[] {
   const raw = env[APPROVALS_MAKER_CHECKER_ACTIONS_ENV];
   if (raw === undefined || raw === null || String(raw).trim() === '') {
+    return [...DEFAULT_MAKER_CHECKER_ACTIONS].filter((action) => known.includes(action));
+  }
+  if (String(raw).trim().toLowerCase() === 'none') {
     return [];
   }
   const actions = [
