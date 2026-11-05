@@ -240,6 +240,9 @@ export enum ErrorCode {
   PAYOUT_BENEFICIARY_REQUIRED = 'PAYOUT_BENEFICIARY_REQUIRED',
   // The payout rail positively declined; no money moved. A retry makes a new attempt.
   PAYOUT_DECLINED = 'PAYOUT_DECLINED',
+  // Work 84: a manual refund above `approvals.highValueRefundThreshold` asked for without a second
+  // officer's approval. Use `POST /admin/finance/payments/{id}/refunds`, which records the request.
+  REFUND_APPROVAL_REQUIRED = 'REFUND_APPROVAL_REQUIRED',
 
   // Module 01 — administrator MFA (Work 66, backend/docs/admin-mfa.md). `AUTH_MFA_REQUIRED` above
   // already names "this session needs MFA"; these two name the MFA step's own failures, so the
@@ -410,6 +413,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCode.INVALID_SETTLEMENT_STATE_TRANSITION]: 409,
   [ErrorCode.PAYOUT_BENEFICIARY_REQUIRED]: 422,
   [ErrorCode.PAYOUT_DECLINED]: 422,
+  [ErrorCode.REFUND_APPROVAL_REQUIRED]: 409,
 
   // Module 01 — administrator MFA (Work 66).
   [ErrorCode.AUTH_MFA_CHALLENGE_INVALID]: 401,

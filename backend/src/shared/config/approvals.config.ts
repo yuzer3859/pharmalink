@@ -17,11 +17,13 @@ import { registerAs } from '@nestjs/config';
  * configuration that does nothing, so it is refused rather than stored.
  *
  * Work 83: settlement approval, payout and payout-destination verification (Module 07).
+ * Work 84: manual refunds above `approvals.highValueRefundThreshold` (Module 07).
  */
 export const MAKER_CHECKER_ACTION_TYPES: readonly string[] = [
   'SETTLEMENT_APPROVE',
   'SETTLEMENT_PAYOUT',
   'PAYOUT_BENEFICIARY_VERIFY',
+  'REFUND_HIGH_VALUE',
 ];
 
 /**
@@ -33,6 +35,17 @@ export const DEFAULT_MAKER_CHECKER_ACTIONS: readonly string[] = MAKER_CHECKER_AC
 
 export const APPROVALS_MAKER_CHECKER_ACTIONS_ENV = 'APPROVALS_MAKER_CHECKER_ACTIONS';
 export const APPROVALS_TTL_HOURS_ENV = 'APPROVALS_TTL_HOURS';
+export const APPROVALS_HIGH_VALUE_REFUND_THRESHOLD_ENV = 'APPROVALS_HIGH_VALUE_REFUND_THRESHOLD';
+
+/**
+ * A manual refund strictly above this many minor units (santim) needs a second finance officer
+ * (Work 84). 1,000,000 santim is 10,000 birr: the owner asked for the recommended default; it is a
+ * governed setting, so finance can move it without a deploy.
+ */
+export const DEFAULT_HIGH_VALUE_REFUND_THRESHOLD = 1_000_000;
+export const MIN_HIGH_VALUE_REFUND_THRESHOLD = 1;
+/** The widest a money column holds (2^31 − 1 santim); a larger threshold would gate nothing. */
+export const MAX_HIGH_VALUE_REFUND_THRESHOLD = 2_147_483_647;
 
 /** Seventy-two hours: long enough to cover a weekend, short enough that a stale request lapses. */
 export const DEFAULT_APPROVALS_TTL_HOURS = 72;
@@ -84,7 +97,17 @@ export function readApprovalsTtlHours(env: NodeJS.ProcessEnv = process.env): num
   return Number(raw);
 }
 
+/** Parses `APPROVALS_HIGH_VALUE_REFUND_THRESHOLD`, falling back to the default when unset or blank. */
+export function readHighValueRefundThreshold(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env[APPROVALS_HIGH_VALUE_REFUND_THRESHOLD_ENV];
+  if (raw === undefined || String(raw).trim() === '') {
+    return DEFAULT_HIGH_VALUE_REFUND_THRESHOLD;
+  }
+  return Number(raw);
+}
+
 export const approvalsConfig = registerAs('approvals', () => ({
   makerCheckerActions: readMakerCheckerActions(),
   ttlHours: readApprovalsTtlHours(),
+  highValueRefundThreshold: readHighValueRefundThreshold(),
 }));

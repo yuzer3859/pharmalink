@@ -81,6 +81,8 @@ import { PLATFORM_CONFIG_REPOSITORY } from './domain/repositories/platform-confi
 import { AdminApprovalsController } from './interface/controllers/admin-approvals.controller';
 import { AdminSettlementPayoutController } from './interface/controllers/admin-settlement-payout.controller';
 import { SettlementPayoutActions } from './infrastructure/maker-checker/settlement-payout.actions';
+import { RefundActions } from './infrastructure/maker-checker/refund.actions';
+import { AdminRefundController } from './interface/controllers/admin-refund.controller';
 import {
   GetApprovalQuery,
   ListApprovalActionsQuery,
@@ -258,6 +260,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     // Work 83 — settlement approval, payout and payout-destination verification as maker-checker
     // actions, over Module 07's SETTLEMENT_PAYOUT_PORT.
     SettlementPayoutActions,
+    // Work 84 — high-value manual refunds, over Module 07's REFUND_ADMIN_PORT.
+    RefundActions,
 
     // Work 02 — verification management. No repository of its own: everything goes through the
     // port Module 01 exports.
@@ -424,6 +428,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminApprovalsController,
     // Work 83 — settlement approve / pay and payout destinations.
     AdminSettlementPayoutController,
+    // Work 84 — manual refunds through maker-checker above the threshold.
+    AdminRefundController,
   ],
   // Nothing is exported. No other module calls into Admin — they read configuration through
   // `IConfigPort`, which is `SharedModule`'s, and an exported port here would be a coupling that

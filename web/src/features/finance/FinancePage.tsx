@@ -23,6 +23,7 @@ import { humanizeStatus } from '@/services/adminAnalytics.service';
 import { fromMinorUnits } from '@/services/adminOrders.service';
 import { currency, formatDate, formatDateTime } from '@/utils/format';
 import { SettlementDrawer } from './SettlementDrawer';
+import { RefundForm } from './RefundForm';
 import type {
   FinancePayment,
   FinanceRefund,
@@ -134,6 +135,7 @@ function OverviewTab() {
 }
 
 function PaymentDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const { can } = useAuth();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-finance', 'payment', id] as const,
     queryFn: () => adminFinanceService.payment(id as string),
@@ -173,6 +175,12 @@ function PaymentDrawer({ id, onClose }: { id: string | null; onClose: () => void
                 </Typography>
               </Box>
             ))}
+            {can('finance:refund') ? (
+              <>
+                <Divider />
+                <RefundForm paymentId={data.payment.paymentId} remaining={data.refunds.remainingRefundable} currency={data.payment.currency} />
+              </>
+            ) : null}
           </Stack>
         ) : null}
       </Box>

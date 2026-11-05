@@ -84,7 +84,9 @@ export class MakerCheckerGate {
     const reason = normaliseReason(input.reason);
     const { entityId, summary } = action.describe(input.payload);
 
-    if (!this.requiresApproval(action.type)) {
+    const gated =
+      this.requiresApproval(action.type) && (action.needsApproval ? await action.needsApproval(input.payload) : true);
+    if (!gated) {
       const result = await action.execute(input.payload, {
         approvalId: null,
         idempotencyKey,

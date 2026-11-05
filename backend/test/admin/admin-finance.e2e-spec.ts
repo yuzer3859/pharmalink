@@ -690,6 +690,8 @@ describe('Admin finance oversight (e2e)', () => {
   });
 
   describe('read-only', () => {
+    // Work 84 adds one: POST /payments/:id/refunds, Module 07's own refund command behind maker-checker
+    // (test/payment/high-value-refund.e2e-spec.ts). Everything else stays absent.
     it('exposes no mutation under /admin/finance that Module 07 does not already own', async () => {
       const seeded = await seedPayment();
       for (const [method, path] of [
@@ -697,7 +699,6 @@ describe('Admin finance oversight (e2e)', () => {
         ['post', '/payments'],
         ['post', `/payments/${seeded.paymentId}`],
         ['post', `/payments/${seeded.paymentId}/refund`],
-        ['post', `/payments/${seeded.paymentId}/refunds`],
         ['post', `/payments/${seeded.paymentId}/capture`],
         ['post', `/payments/${seeded.paymentId}/void`],
         ['post', '/refunds'],
@@ -711,6 +712,12 @@ describe('Admin finance oversight (e2e)', () => {
         const res = await request(ctx.server)[method](`${FINANCE}${path}`).set(...auth(finance.accessToken)).send({});
         expect({ method, path, status: res.status }).toEqual({ method, path, status: 404 });
       }
+      // The refund route exists, but without an Idempotency-Key it refuses before reading anything.
+      const refund = await request(ctx.server)
+        .post(`${FINANCE}/payments/${seeded.paymentId}/refunds`)
+        .set(...auth(finance.accessToken))
+        .send({});
+      expect(refund.status).toBe(400);
       // Nothing moved: the payment stands exactly as captured, with no refund and no ledger delta.
       await expect(ctx.prisma.payment.findUniqueOrThrow({ where: { id: seeded.paymentId } })).resolves.toMatchObject({ status: 'CAPTURED' });
       expect(await ctx.prisma.refund.count()).toBe(0);
@@ -850,6 +857,8 @@ describe('Admin finance oversight (e2e)', () => {
         'delivery/application/ports/inbound/driver-operations-read.port',
         'delivery/delivery.module',
         'payment/application/ports/inbound/finance-oversight.port',
+        // Work 84: high-value refunds for maker-checker.
+        'payment/application/ports/inbound/refund-admin.port',
         // Work 83: settlement approval and payout for maker-checker.
         'payment/application/ports/inbound/settlement-payout.port',
         'payment/payment.module',

@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { CONFIG_PORT, IConfigPort } from '../../../../shared/config/config.port';
 import { randomUUID } from 'crypto';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { OutboxCapableClient, OutboxService } from '../../../../shared/outbox/outbox.service';
@@ -31,6 +32,7 @@ import {
 } from '../services/refund-accounting.service';
 import { isUniqueConstraintViolation, runWithPaymentRetry } from '../support/payment-retry';
 import { sanitizeProviderFailureReason } from '../support/sanitize-provider-failure';
+import { highValueRefundThreshold, refundNeedsSecondApproval } from '../support/high-value-refund-policy';
 
 /** The permission §9.3 requires for a manual/admin refund. */
 export const FINANCE_REFUND_PERMISSION = 'finance:refund:any';
@@ -71,6 +73,12 @@ export interface RefundPaymentInput {
    * `finance:refund:any`.
    */
   actorPermissions?: readonly string[] | null;
+  /**
+   * Work 84: the maker-checker request a second finance officer approved. Set only by Admin's
+   * executor; without it a MANUAL refund above `approvals.highValueRefundThreshold` is refused
+   * (`REFUND_APPROVAL_REQUIRED`), so no single officer can move a high-value refund through any route.
+   */
+  makerCheckerApprovalId?: string | null;
 }
 
 export interface RefundPaymentResult {
@@ -166,6 +174,8 @@ export class RefundPaymentCommand {
     private readonly accounting: RefundAccountingService,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
+    // Optional only so hand-built unit fixtures need not provide it; the app always injects it.
+    @Optional() @Inject(CONFIG_PORT) private readonly config?: IConfigPort,
   ) {}
 
   async execute(input: RefundPaymentInput): Promise<RefundPaymentResult> {
@@ -266,6 +276,19 @@ export class RefundPaymentCommand {
               : Money.of(input.amount, payment.currency),
           destination,
         });
+
+        // Work 84 — decided inside the reservation, on the amount the refund will actually be, so
+        // "amount omitted = everything" cannot slip a high-value refund past the limit.
+        if (
+          input.initiator === RefundInitiator.MANUAL &&
+          !input.makerCheckerApprovalId &&
+          refundNeedsSecondApproval(this.config, classification.amount.amountMinor)
+        ) {
+          throw PaymentErrors.refundApprovalRequired(
+            highValueRefundThreshold(this.config),
+            classification.amount.amountMinor,
+          );
+        }
 
         const entity = Refund.create(randomUUID(), {
           paymentId,

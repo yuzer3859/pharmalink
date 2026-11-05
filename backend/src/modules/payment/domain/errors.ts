@@ -366,6 +366,14 @@ export const PaymentErrors = {
   payoutDeclined: (reason: string, details?: Record<string, unknown>) =>
     new ApiException(ErrorCode.PAYOUT_DECLINED, `The payout was declined: ${reason}`, details),
 
+  /** Work 84. */
+  refundApprovalRequired: (threshold: number, amount: number) =>
+    new ApiException(
+      ErrorCode.REFUND_APPROVAL_REQUIRED,
+      'A refund this large needs a second finance officer. Request it from the finance portal.',
+      { threshold, amount, route: 'POST /admin/finance/payments/{id}/refunds' },
+    ),
+
   refundApprovalForbidden: (actorUserId: string | null) =>
     new ApiException(
       ErrorCode.RBAC_FORBIDDEN,

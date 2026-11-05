@@ -117,8 +117,11 @@ import {
 import { resolveAdminMfaKey } from './admin-mfa.config';
 import {
   DEFAULT_APPROVALS_TTL_HOURS,
+  DEFAULT_HIGH_VALUE_REFUND_THRESHOLD,
   MAX_APPROVALS_TTL_HOURS,
+  MAX_HIGH_VALUE_REFUND_THRESHOLD,
   MIN_APPROVALS_TTL_HOURS,
+  MIN_HIGH_VALUE_REFUND_THRESHOLD,
   readMakerCheckerActions,
 } from './approvals.config';
 
@@ -384,6 +387,13 @@ export class EnvironmentVariables {
   @Max(MAX_APPROVALS_TTL_HOURS)
   @IsOptional()
   APPROVALS_TTL_HOURS: number = DEFAULT_APPROVALS_TTL_HOURS;
+
+  /** Work 84: a manual refund above this many santim needs a second officer. Backs `approvals.highValueRefundThreshold`. */
+  @IsInt()
+  @Min(MIN_HIGH_VALUE_REFUND_THRESHOLD)
+  @Max(MAX_HIGH_VALUE_REFUND_THRESHOLD)
+  @IsOptional()
+  APPROVALS_HIGH_VALUE_REFUND_THRESHOLD: number = DEFAULT_HIGH_VALUE_REFUND_THRESHOLD;
 
   /**
    * How many delivery jobs one driver may hold at once (BRULE-28). Backs the
