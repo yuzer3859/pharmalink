@@ -36,7 +36,7 @@ Status key:
 | NFR-SEC-06 | Maker-checker for sensitive actions | DEFERRED | No dual-control workflow exists; actions are single-actor and audited |
 | — | Operations visibility (`/admin/operations/*`: pharmacies, branches, orders, fulfilments, deliveries, drivers, COD, inventory listings, batches, movements, reservations, integrity) | COMPLETE | Beyond the original design; read-only |
 | — | Notification delivery operations (`/admin/notifications/*`) | COMPLETE | |
-| — | Administrator MFA (Work 66) and first Super Admin bootstrap (Works 65, 68) | COMPLETE | Staging bootstrap waits for the owner's Resend credentials |
+| — | Administrator MFA (Work 66) and first Super Admin bootstrap (Works 65, 68) | COMPLETE | Staging: Resend configured and the first Super Admin bootstrapped, verified and enrolled on 2026-11-03; the portal sign-in fix is #31 |
 
 ## Operations portal (`web/`)
 
@@ -50,7 +50,7 @@ disputes.
 |---|---|---|
 | Sign-in, MFA enrolment and verification | `/auth/*` | COMPLETE |
 | Audit Logs (admin, super admin) | `GET /admin/audit` | COMPLETE (Work 69): server-paged, exact-match filters, read-only |
-| Pharmacies | `/admin/operations/pharmacies` (read); activation is `POST /pharmacy/activate` | COMPLETE (Work 70): server-paged, status and eligibility filters, activation with the server's refusal reasons. No suspend action: the backend has none. The API returns no names, so rows show the pharmacy id |
+| Pharmacies | `/admin/operations/pharmacies` (read); activation is `POST /pharmacy/activate` | COMPLETE (Work 70): server-paged, status and eligibility filters, activation with the server's refusal reasons. No suspend action: the backend has none. Rows show the pharmacy's public display name (Work 80) |
 | Orders | `/admin/operations/orders` | COMPLETE (Work 71): admin portals get a read-only, server-paged orders page (status, COD, exact order number) with a detail drawer (fulfillments, payment status, fees). The pharmacy portal keeps its own page |
 | Inventory | `/admin/operations/inventory/*` | COMPLETE (Work 72): admin portals get a read-only, server-paged listings page (pharmacy id, enabled, purchasable) with a stock-diagnostics drawer (reserved, unexpired batches, stored vs computed). The pharmacy portal keeps its own page |
 | Dashboard, Analytics | `/admin/analytics/overview` | COMPLETE (Work 73): admin portals show the platform snapshot (account, pharmacy, order, fulfillment, delivery, catalogue breakdowns and the COD cash summary). No trend charts: the API has no time series. The pharmacy portal keeps its own pages |
@@ -62,6 +62,29 @@ disputes.
 | Configuration and feature flags | `/admin/config`, `/admin/feature-flags` | COMPLETE (Work 76): Super Admin Configuration page: settings with effective value and source, typed publish with range/allowed checks and an audited reason, version history with restore; feature flags with confirmed toggles |
 | Catalogue review | `/admin/catalog/review` | COMPLETE (Work 77): queue with summary (waiting count, oldest, lifetime approvals and rejections), name/status/type filters, product drawer with review history, and the decisions the server allows (submit, approve, reject with reason, return to review) |
 | Finance, COD disputes | `/admin/finance`, `/admin/finance/settlements`, `/admin/cod-disputes` | COMPLETE (Work 78): Finance page (overview, payments with refund detail, refunds; settlements read-only for `finance:settlement:any`) and COD disputes page (list, collection detail, resolve with an optional note). Running, approving or paying settlements is not in the portal (DEFERRED) |
+
+## Live verification on staging (Work 80)
+
+The staging stack carries an idempotent verification baseline (`npm run staging:seed`, see
+[ops/staging/README.md](../ops/staging/README.md#verification-baseline-and-admin-walkthrough-work-80)).
+On 2026-11-05 the owner ran the scripted walk (`npm run staging:walk`) as Admin and as Super
+Admin, then clicked through every admin page; both matched. What the walk did:
+
+| Page | Admin | Super Admin |
+|---|---|---|
+| Every page and drawer the role is offered | loaded (200) | loaded (200) |
+| Accounts: suspend, reinstate | done | done |
+| Accounts: assign and revoke a role | refused 403 (no `rbac:manage`; the portal offers no role controls) | done |
+| Verifications: approve and reject a pharmacy licence; approve FAYDA and DRIVER_DOCS; reject DOCTOR_LICENSE | done | done |
+| Pharmacies: activate | done | done |
+| Catalogue review: submit, approve, reject, resubmit | done | done |
+| COD disputes: resolve | refused 403 (finance only; the portal offers no resolve button) | done |
+| Configuration: toggle a flag, publish twice, roll back | refused 403 (Super Admin page) | done |
+| Finance settlements | refused 403 (`finance:settlement:any`; not shown to Admin) | loaded |
+
+The first walk found one gap, fixed in the same Work: pharmacy rows carried no name, so an
+operator could not tell which pharmacy they were activating. The Finance Officer has no portal yet
+(Work 81).
 
 Mock pages are not disguised as live: replacing each one with its real API is the remaining
 portal work, one page per Work, each with service-level tests (Vitest, `npm test` in `web/`).
