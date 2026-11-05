@@ -128,7 +128,10 @@ export function parseEnvText(text) {
 
 /**
  * Whether the optional Resend sender is configured (Work 62): both keys set and a sender with an
- * address, the same rule as the backend's ResendConfig. Values are never returned or printed.
+ * address, the same rule as the backend's ResendConfig. Work 80 adds one check the backend does
+ * not make: the key must look like a Resend API key (`re_…`), so a pasted webhook secret
+ * (`whsec_…`) or another provider's key is caught here instead of failing at the first send.
+ * Values are never returned or printed.
  */
 export function emailProviderState(env) {
   const key = (env.RESEND_API_KEY ?? '').trim();
@@ -136,6 +139,7 @@ export function emailProviderState(env) {
   if (!key && !from) return { configured: false, problem: null };
   if (!key || !from) return { configured: false, problem: 'RESEND_API_KEY and RESEND_FROM_EMAIL must be set together (or both left unset)' };
   if (key.includes('REPLACE_ME') || from.includes('REPLACE_ME')) return { configured: false, problem: 'RESEND_API_KEY or RESEND_FROM_EMAIL is still a placeholder' };
+  if (!key.startsWith('re_')) return { configured: false, problem: 'RESEND_API_KEY must be a Resend API key (it starts with "re_")' };
   if (!from.includes('@')) return { configured: false, problem: 'RESEND_FROM_EMAIL must be a sender address, e.g. "PharmaLink <otp@your-verified-domain>"' };
   return { configured: true, problem: null };
 }
