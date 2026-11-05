@@ -28,6 +28,60 @@ export const AdminErrors = {
   validation: (message: string, details?: unknown) =>
     new ApiException(ErrorCode.VALIDATION_ERROR, message, details),
 
+  // ---- Work 82: maker-checker (backend/docs/maker-checker.md) ----
+
+  approvalNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Approval request not found.'),
+
+  /** The checker is the maker. */
+  approvalSelfDecision: () =>
+    new ApiException(
+      ErrorCode.MAKER_CHECKER_SELF_APPROVAL,
+      'A different administrator must decide a request you made.',
+    ),
+
+  /** The caller lacks the action's own permission (maker or checker). */
+  approvalPermissionMissing: (permission: string) =>
+    new ApiException(ErrorCode.FORBIDDEN, 'You do not have the permission this action needs.', {
+      permission,
+    }),
+
+  approvalExpired: (approvalId: string) =>
+    new ApiException(ErrorCode.APPROVAL_EXPIRED, 'This request has expired.', { approvalId }),
+
+  approvalAlreadyDecided: (approvalId: string, status: string) =>
+    new ApiException(ErrorCode.APPROVAL_ALREADY_DECIDED, 'This request has already been decided.', {
+      approvalId,
+      status,
+    }),
+
+  /** Another maker already has an open request for the same action and target. */
+  approvalAlreadyPending: (approvalId: string) =>
+    new ApiException(
+      ErrorCode.CONFLICT,
+      'A request for this action is already waiting for approval.',
+      { approvalId },
+    ),
+
+  /** The maker reused an idempotency key for a different request. */
+  approvalIdempotencyConflict: () =>
+    new ApiException(
+      ErrorCode.IDEMPOTENCY_CONFLICT,
+      'This idempotency key was already used for a different request.',
+    ),
+
+  /** Approved, but the owning module refused to run it. */
+  approvalActionFailed: (approvalId: string, cause: { code: string; message: string }) =>
+    new ApiException(
+      ErrorCode.RESOLUTION_ACTION_FAILED,
+      'The action was approved but could not be carried out.',
+      { approvalId, cause },
+    ),
+
+  unknownApprovalAction: (actionType: string) =>
+    new ApiException(ErrorCode.VALIDATION_ERROR, `Unknown action type ${actionType}.`, {
+      actionType,
+    }),
+
   /** No notification suppression with that id — unknown, or already removed (module-13 Work 19). */
   suppressionNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Suppression not found.'),
 

@@ -172,6 +172,11 @@ export const PERMISSIONS: Array<{
   // `provider:verify:any`, which decides verification. Read only — it grants no pharmacy, licence,
   // branch, listing or stock action. ADMIN only.
   { key: 'pharmacy:read:any', resource: 'pharmacy', action: 'read', scope: 'any' },
+  // Module 16 Work 82 — seeing the maker-checker queue (`/admin/approvals`). Read and decide share
+  // the route; *deciding* a request also needs that action's own permission (e.g.
+  // `finance:refund:any`), checked in the command, and never one's own request. ADMIN and
+  // FINANCE_OFFICER, the two roles whose actions go behind it.
+  { key: 'approval:read:any', resource: 'approval', action: 'read', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -314,6 +319,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'finance:refund:any',
     'finance:settlement:any',
     'finance:report:any',
+    // Module 16 Work 82 — the maker-checker queue.
+    'approval:read:any',
   ],
   ADMIN: [
     'auth:login',
@@ -354,6 +361,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'driver:read:any',
     // Module 16 Work 47 — pharmacy operations visibility.
     'pharmacy:read:any',
+    // Module 16 Work 82 — the maker-checker queue.
+    'approval:read:any',
   ],
   SUPER_ADMIN: ['*'],
 };

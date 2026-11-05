@@ -170,5 +170,41 @@ function requireJson(key: ConfigKey, raw: unknown): Record<string, unknown> | un
       key: key.path,
     });
   }
+  const { allowed } = key.definition;
+  if (allowed) {
+    return requireAllowedList(key, raw, allowed);
+  }
   return raw as Record<string, unknown> | unknown[];
+}
+
+/**
+ * A JSON key with `allowed` is a list drawn from a closed set (Work 82's
+ * `approvals.makerCheckerActions`): an array of distinct strings, each one allowed.
+ */
+function requireAllowedList(key: ConfigKey, raw: object, allowed: readonly string[]): string[] {
+  if (!Array.isArray(raw)) {
+    throw AdminErrors.configValidationFailed(`${key.path} must be a list.`, { key: key.path });
+  }
+  const items: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string' || item.trim() === '') {
+      throw AdminErrors.configValidationFailed(`${key.path} must be a list of names.`, {
+        key: key.path,
+      });
+    }
+    const value = item.trim();
+    if (!allowed.includes(value)) {
+      throw AdminErrors.configValidationFailed(`${key.path} does not allow ${value}.`, {
+        key: key.path,
+        allowed,
+      });
+    }
+    if (items.includes(value)) {
+      throw AdminErrors.configValidationFailed(`${key.path} lists ${value} twice.`, {
+        key: key.path,
+      });
+    }
+    items.push(value);
+  }
+  return items;
 }

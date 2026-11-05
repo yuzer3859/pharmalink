@@ -94,7 +94,8 @@ describe('Platform configuration (domain)', () => {
     });
 
     it('governs only namespaces that feature modules actually read', () => {
-      expect([...ConfigCatalogue.namespaces()].sort()).toEqual(['delivery', 'orders']);
+      // `approvals` since Work 82: `MakerCheckerGate` reads it through `IConfigPort`.
+      expect([...ConfigCatalogue.namespaces()].sort()).toEqual(['approvals', 'delivery', 'orders']);
     });
   });
 

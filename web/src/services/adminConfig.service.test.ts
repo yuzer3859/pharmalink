@@ -45,6 +45,16 @@ describe('parseConfigInput', () => {
     expect(parseConfigInput(of('JSON'), '{"a":[1,2]}')).toEqual({ ok: true, value: { a: [1, 2] } });
     expect(parseConfigInput(of('JSON'), '{a:1}').ok).toBe(false);
   });
+
+  it('JSON with allowed values: a list of distinct allowed names (Work 82)', () => {
+    const list = of('JSON', { allowed: ['A', 'B'] });
+    expect(parseConfigInput(list, '["A", "B"]')).toEqual({ ok: true, value: ['A', 'B'] });
+    expect(parseConfigInput(list, '[]')).toEqual({ ok: true, value: [] });
+    expect(parseConfigInput(list, '["C"]').ok).toBe(false);
+    expect(parseConfigInput(list, '["A", "A"]').ok).toBe(false);
+    expect(parseConfigInput(list, '{"A": true}').ok).toBe(false);
+    expect(parseConfigInput(of('JSON', { allowed: [] }), '["A"]')).toEqual({ ok: false, error: 'No values are allowed yet; enter [].' });
+  });
 });
 
 describe('formatConfigValue', () => {

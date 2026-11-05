@@ -13,6 +13,7 @@ import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
+import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
 import type { PermissionKey, PortalKey } from '@/types';
 
 export interface NavItem {
@@ -68,6 +69,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Pharmacies', path: 'pharmacies', icon: StorefrontRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Verifications', path: 'verifications', icon: VerifiedUserRoundedIcon, permission: 'verifications:view', section: OPS },
       { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
+      { label: 'Approvals', path: 'approvals', icon: HowToRegRoundedIcon, permission: 'approvals:view', section: OPS },
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
@@ -91,6 +93,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Pharmacies', path: 'pharmacies', icon: StorefrontRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Verifications', path: 'verifications', icon: VerifiedUserRoundedIcon, permission: 'verifications:view', section: OPS },
       { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
+      { label: 'Approvals', path: 'approvals', icon: HowToRegRoundedIcon, permission: 'approvals:view', section: OPS },
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
@@ -115,6 +118,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
     nav: [
       { label: 'Finance', path: 'finance', icon: AccountBalanceRoundedIcon, permission: 'finance:view', section: INSIGHTS },
       { label: 'COD disputes', path: 'cod-disputes', icon: GavelRoundedIcon, permission: 'finance:view', section: INSIGHTS },
+      { label: 'Approvals', path: 'approvals', icon: HowToRegRoundedIcon, permission: 'approvals:view', section: OPS },
     ],
   },
 };

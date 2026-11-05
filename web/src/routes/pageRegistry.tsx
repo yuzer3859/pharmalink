@@ -13,6 +13,7 @@ import { ConfigurationPage } from '@/features/configuration/ConfigurationPage';
 import { CatalogReviewPage } from '@/features/catalog/CatalogReviewPage';
 import { FinancePage } from '@/features/finance/FinancePage';
 import { CodDisputesPage } from '@/features/finance/CodDisputesPage';
+import { ApprovalsPage } from '@/features/approvals/ApprovalsPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -47,12 +48,14 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   'catalog-review': CatalogReviewPage,
   finance: FinancePage,
   'cod-disputes': CodDisputesPage,
+  approvals: ApprovalsPage,
 };
 
 // The Finance Officer's portal (Work 81): the same finance pages, nothing else.
 const FINANCE_PAGES: Record<string, ComponentType> = {
   finance: FinancePage,
   'cod-disputes': CodDisputesPage,
+  approvals: ApprovalsPage,
 };
 
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {

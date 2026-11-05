@@ -4,6 +4,7 @@ import { AppConfigService } from './app-config.service';
 import { ConfigOverrideRegistry } from './config-override.registry';
 import { CONFIG_PORT } from './config.port';
 import { PlatformConfigResolver } from './platform-config.resolver';
+import { approvalsConfig } from './approvals.config';
 import { deliveryConfig } from './delivery.config';
 import { validateEnv } from './env.validation';
 import { ordersConfig } from './orders.config';
@@ -19,7 +20,7 @@ import { redisConfig } from './redis.config';
       // Namespaced business parameters. `validate` only checks the flat environment; a `load`
       // factory is what actually gives `ConfigService` a value for a dotted key like
       // `orders.platformFeePercent`, which feature modules have been reading all along.
-      load: [ordersConfig, deliveryConfig, redisConfig],
+      load: [ordersConfig, deliveryConfig, redisConfig, approvalsConfig],
     }),
   ],
   providers: [

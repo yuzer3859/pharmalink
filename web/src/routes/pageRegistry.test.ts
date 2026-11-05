@@ -17,6 +17,7 @@ import { ConfigurationPage } from '@/features/configuration/ConfigurationPage';
 import { CatalogReviewPage } from '@/features/catalog/CatalogReviewPage';
 import { FinancePage } from '@/features/finance/FinancePage';
 import { CodDisputesPage } from '@/features/finance/CodDisputesPage';
+import { ApprovalsPage } from '@/features/approvals/ApprovalsPage';
 import { pageFor } from './pageRegistry';
 
 describe('pageFor', () => {
@@ -81,12 +82,12 @@ describe('pageFor', () => {
 });
 
 describe('the finance portal (Work 81)', () => {
-  it('offers Finance and COD disputes and nothing else, opening on Finance', () => {
-    expect(PORTALS.finance.nav.map((i) => i.path)).toEqual(['finance', 'cod-disputes']);
+  it('offers Finance, COD disputes and Approvals and nothing else, opening on Finance', () => {
+    expect(PORTALS.finance.nav.map((i) => i.path)).toEqual(['finance', 'cod-disputes', 'approvals']);
     expect(PORTALS.finance.landingPath).toBe('finance');
     expect(PORTALS.finance.basePath).toBe('/finance');
     // Only nav items become routes (AppRouter), so these are the only pages the portal can reach.
-    for (const item of PORTALS.finance.nav) expect(item.permission).toBe('finance:view');
+    expect(PORTALS.finance.nav.map((i) => i.permission)).toEqual(['finance:view', 'finance:view', 'approvals:view']);
   });
 
   it('routes its pages to the same finance pages the admin portals use', () => {
@@ -98,12 +99,23 @@ describe('the finance portal (Work 81)', () => {
     const paths = new Set(PORTALS.finance.nav.map((i) => i.path));
     const others = [...PORTALS.admin.nav, ...PORTALS.superadmin.nav, ...PORTALS.pharmacy.nav]
       .map((i) => i.path)
-      .filter((p) => p !== 'finance' && p !== 'cod-disputes');
+      .filter((p) => p !== 'finance' && p !== 'cod-disputes' && p !== 'approvals');
     for (const path of others) expect({ path, routed: paths.has(path) }).toEqual({ path, routed: false });
   });
 
   it('keeps every other portal opening on its dashboard', () => {
     for (const key of ['pharmacy', 'admin', 'superadmin'] as const) expect(PORTALS[key].landingPath).toBe('dashboard');
+  });
+});
+
+describe('pending approvals (Work 82)', () => {
+  it('routes Approvals in the admin, super admin and finance portals, behind approvals:view', () => {
+    for (const key of ['admin', 'superadmin', 'finance'] as const) {
+      expect(pageFor(key, 'approvals')).toBe(ApprovalsPage);
+      expect(PORTALS[key].nav.find((i) => i.path === 'approvals')?.permission).toBe('approvals:view');
+    }
+    expect(PORTALS.pharmacy.nav.some((i) => i.path === 'approvals')).toBe(false);
+    expect(pageFor('pharmacy', 'approvals')).toBeUndefined();
   });
 });
 

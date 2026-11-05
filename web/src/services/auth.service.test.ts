@@ -30,13 +30,15 @@ const FINANCE_GRANTS = [
   'finance:refund:any',
   'finance:settlement:any',
   'finance:report:any',
+  // Work 82
+  'approval:read:any',
 ];
 
 describe('toAuthUser: the Finance Officer portal (Work 81)', () => {
   it('sends a Finance Officer to the finance portal with finance pages and settlement actions only', () => {
     const authUser = toAuthUser(user('FINANCE_OFFICER', FINANCE_GRANTS));
     expect(authUser.portal).toBe('finance');
-    expect(authUser.permissions).toEqual(['finance:view', 'finance:settle']);
+    expect(authUser.permissions).toEqual(['finance:view', 'finance:settle', 'approvals:view']);
   });
 
   it('shows the finance pages without settlement actions when the account can only report', () => {
@@ -51,7 +53,7 @@ describe('toAuthUser: the Finance Officer portal (Work 81)', () => {
 
   it('never turns other finance-adjacent grants into admin pages', () => {
     const permissions = toAuthUser(user('FINANCE_OFFICER', [...FINANCE_GRANTS, 'audit:read:any', 'rbac:read', 'analytics:read'])).permissions;
-    expect(permissions).toEqual(['finance:view', 'finance:settle']);
+    expect(permissions).toEqual(['finance:view', 'finance:settle', 'approvals:view']);
   });
 
   it('keeps administrators in their own portals when they also hold the finance role', () => {
@@ -68,5 +70,14 @@ describe('toAuthUser: the Finance Officer portal (Work 81)', () => {
     }
     expect(failure).toBeInstanceOf(ApiError);
     expect((failure as ApiError).code).toBe('PORTAL_ACCESS_DENIED');
+  });
+});
+
+describe('toAuthUser: pending approvals (Work 82)', () => {
+  it('shows Approvals to an administrator or finance officer holding approval:read:any, and to nobody else', () => {
+    expect(toAuthUser(user('ADMIN', ['auth:login', 'approval:read:any'])).permissions).toContain('approvals:view');
+    expect(toAuthUser(user('ADMIN', ['auth:login', 'finance:report:any'])).permissions).not.toContain('approvals:view');
+    expect(toAuthUser(user('FINANCE_OFFICER', ['auth:login', 'approval:read:any'])).permissions).toEqual(['approvals:view']);
+    expect(toAuthUser(user('SUPER_ADMIN', ['*'])).permissions).toContain('approvals:view');
   });
 });
