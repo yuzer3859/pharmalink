@@ -141,15 +141,15 @@ async function walkReads(walk: Walk): Promise<void> {
   // One detail view per page that has a drawer.
   const audit = await walk.call<Page<{ id: string }>>('Audit Logs', 'list for detail', 'GET', `/admin/audit${q({ page: 1, size: 1 })}`);
   if (audit.data?.items[0]) await walk.call('Audit Logs', 'detail', 'GET', `/admin/audit/${audit.data.items[0].id}`);
-  const orders = await walk.call<Page<{ id: string }>>('Orders', 'list for detail', 'GET', `/admin/operations/orders${q({ page: 1, size: 1 })}`);
-  if (orders.data?.items[0]) await walk.call('Orders', 'detail', 'GET', `/admin/operations/orders/${orders.data.items[0].id}`);
+  const orders = await walk.call<Page<{ orderId: string }>>('Orders', 'list for detail', 'GET', `/admin/operations/orders${q({ page: 1, size: 1 })}`);
+  if (orders.data?.items[0]) await walk.call('Orders', 'detail', 'GET', `/admin/operations/orders/${orders.data.items[0].orderId}`);
   const listings = await walk.call<Page<{ id?: string; listingId?: string }>>('Inventory', 'list for detail', 'GET', `/admin/operations/inventory/listings${q({ page: 1, size: 1 })}`);
   const listing = listings.data?.items[0];
   if (listing) await walk.call('Inventory', 'detail', 'GET', `/admin/operations/inventory/listings/${listing.listingId ?? listing.id}`);
-  const payments = await walk.call<Page<{ id: string }>>('Finance', 'list for detail', 'GET', `/admin/finance/payments${q({ page: 1, size: 1 })}`);
-  if (payments.data?.items[0]) await walk.call('Finance', 'payment detail', 'GET', `/admin/finance/payments/${payments.data.items[0].id}`);
-  const settlements = await walk.call<Page<{ id: string }>>('Finance', 'list for detail', 'GET', `/admin/finance/settlements${q({ page: 1, size: 1 })}`);
-  if (settlements.data?.items[0]) await walk.call('Finance', 'settlement detail', 'GET', `/admin/finance/settlements/${settlements.data.items[0].id}`);
+  const payments = await walk.call<Page<{ paymentId: string }>>('Finance', 'list for detail', 'GET', `/admin/finance/payments${q({ page: 1, size: 1 })}`);
+  if (payments.data?.items[0]) await walk.call('Finance', 'payment detail', 'GET', `/admin/finance/payments/${payments.data.items[0].paymentId}`);
+  const settlements = await walk.call<Page<{ settlementId: string }>>('Finance', 'list for detail', 'GET', `/admin/finance/settlements${q({ page: 1, size: 1 })}`);
+  if (settlements.data?.items[0]) await walk.call('Finance', 'settlement detail', 'GET', `/admin/finance/settlements/${settlements.data.items[0].settlementId}`);
 }
 
 async function walkAccounts(walk: Walk): Promise<void> {
@@ -237,7 +237,7 @@ async function walkCatalogue(walk: Walk, round: WalkRound): Promise<void> {
       'Catalogue review',
       `find ${product.nameEn}`,
       'GET',
-      `/admin/catalog/review${q({ q: product.nameEn, status: 'all', page: 1, size: 20 })}`,
+      `/admin/catalog/review${q({ q: product.nameEn, status: product.outcome, page: 1, size: 20 })}`,
     );
     const row = page.data?.items.find((i) => i.nameEn === product.nameEn);
     if (!row || row.status !== product.outcome) {
@@ -257,8 +257,8 @@ async function walkCatalogue(walk: Walk, round: WalkRound): Promise<void> {
 
 async function walkCodDispute(walk: Walk, round: WalkRound): Promise<void> {
   const fixture = FIXTURE_ORDERS.find((o) => o.key === `codDisputed${roundSuffix(round)}`)!;
-  const orders = await walk.call<Page<{ id: string }>>('Orders', `find ${fixture.orderNumber}`, 'GET', `/admin/operations/orders${q({ orderNumber: fixture.orderNumber, page: 1, size: 5 })}`);
-  const orderId = orders.data?.items[0]?.id;
+  const orders = await walk.call<Page<{ orderId: string }>>('Orders', `find ${fixture.orderNumber}`, 'GET', `/admin/operations/orders${q({ orderNumber: fixture.orderNumber, page: 1, size: 5 })}`);
+  const orderId = orders.data?.items[0]?.orderId;
   if (!orderId) return walk.missing('COD disputes', `resolve ${fixture.orderNumber}`, 'the order');
   const disputes = await walk.call<Page<{ dispute: { id: string; status: string } }>>('COD disputes', `find ${fixture.orderNumber}`, 'GET', `/admin/cod-disputes${q({ orderId, page: 1, size: 5 })}`);
   const open = disputes.data?.items.find((i) => i.dispute.status === 'OPEN');
@@ -280,10 +280,10 @@ async function walkConfiguration(walk: Walk): Promise<void> {
   if (!setting) return walk.missing('Configuration', 'publish / rollback', 'a configuration setting');
   const path = `/admin/config/${encodeURIComponent(setting.namespace)}/${encodeURIComponent(setting.key)}`;
   const body = { valueType: setting.valueType, value: setting.effectiveValue, reason: 'Staging walk: republished unchanged.' };
-  const first = await walk.call<{ version?: number; activeVersion?: number }>('Configuration', `publish ${setting.namespace}.${setting.key}`, 'PUT', path, body);
+  const first = await walk.call<{ config?: { version: number } }>('Configuration', `publish ${setting.namespace}.${setting.key}`, 'PUT', path, body);
   await walk.call('Configuration', `publish ${setting.namespace}.${setting.key} again`, 'PUT', path, body);
   await walk.call('Configuration', `history ${setting.namespace}.${setting.key}`, 'GET', `${path}/history`);
-  const toVersion = first.data?.version ?? first.data?.activeVersion;
+  const toVersion = first.data?.config?.version;
   if (toVersion === undefined) return walk.missing('Configuration', 'rollback', 'the version number of the first publication');
   await walk.call('Configuration', `rollback ${setting.namespace}.${setting.key} to v${toVersion}`, 'POST', `${path}/rollback`, {
     toVersion,

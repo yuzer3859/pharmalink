@@ -5,6 +5,7 @@ import type { SessionRequest } from './auth.service';
 
 const PHARMACY = {
   pharmacyId: '0b6c1f8e-2d3a-4b5c-8d9e-0f1a2b3c4d5e',
+  displayName: 'Bole Pharmacy',
   transactingStatus: 'PENDING',
   licenseStatus: 'VALID',
   licenseExpiresAt: '2027-11-02T00:00:00.000Z',

@@ -6,7 +6,7 @@ import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 
 type User = RegisteredUser & Tokens;
 type Listings = { total: number; enabled: number; disabled: number; inStock: number; outOfStock: number; customerPurchasable: number; customerUnpurchasable: number };
-type Item = { pharmacyId: string; transactingStatus: string; licenseStatus: string; licenseExpiresAt: string | null; eligible: boolean; createdAt: string; updatedAt: string; branches: { total: number; active: number }; listings: Listings };
+type Item = { pharmacyId: string; displayName: string; transactingStatus: string; licenseStatus: string; licenseExpiresAt: string | null; eligible: boolean; createdAt: string; updatedAt: string; branches: { total: number; active: number }; listings: Listings };
 type Page = { items: Item[]; total: number; page: number; size: number };
 const BASE = '/admin/operations/pharmacies';
 
@@ -45,7 +45,7 @@ describe('Admin pharmacy operations (e2e)', () => {
     const org = await ctx.prisma.organization.create({ data: { type: 'PHARMACY', name: `Org ${randomUUID()}`, status: 'ACTIVE', ownerUserId: owner.id, licenseNumber: 'LIC-SECRET-77' } });
     const p = await ctx.prisma.pharmacy.create({
       data: {
-        organizationId: org.id, displayName: 'Bole Secret Pharmacy', transactingStatus: o.status as never, licenseStatus: (o.license ?? 'VALID') as never,
+        organizationId: org.id, displayName: 'Bole Pharmacy', transactingStatus: o.status as never, licenseStatus: (o.license ?? 'VALID') as never,
         licenseExpiresAt: o.expires ?? null, createdAt: t(o.minutesAgo), deletedAt: o.deleted ? t(1) : null,
       },
     });
@@ -181,14 +181,17 @@ describe('Admin pharmacy operations (e2e)', () => {
     await get('/admin/analytics/overview').expect(200);
   });
 
-  it('privacy: no name, owner, contact, address, coordinates or licence number', async () => {
+  it('privacy: the public display name only; no owner, contact, address, coordinates or licence number', async () => {
     const s = await seedSet();
-    const raw = JSON.stringify([await list(), ...(await Promise.all([s.a, s.b].map((p) => get(`${BASE}/${p.id}`)))).map((r) => r.body)]);
+    const listed = await list();
+    // Work 80: the storefront name customers see is shown, so operators can tell pharmacies apart.
+    expect(listed.items.every((i) => i.displayName === 'Bole Pharmacy')).toBe(true);
+    const raw = JSON.stringify([listed, ...(await Promise.all([s.a, s.b].map((p) => get(`${BASE}/${p.id}`)))).map((r) => r.body)]);
     const orgs = await ctx.prisma.organization.findMany();
-    for (const secret of ['Bole Secret', 'LIC-SECRET', 'Africa Ave', '+251911000111', '9.0312', '38.7421', s.a.ownerId, s.a.ownerPhone!, ...orgs.map((o) => o.id)]) {
+    for (const secret of ['LIC-SECRET', 'Africa Ave', '+251911000111', '9.0312', '38.7421', s.a.ownerId, s.a.ownerPhone!, ...orgs.map((o) => o.id)]) {
       expect({ secret: secret.slice(0, 10), found: raw.includes(secret) }).toEqual({ secret: secret.slice(0, 10), found: false });
     }
-    expect(raw).not.toMatch(/displayName|organizationId|owner|licenseNumber|address|phone|lat"|lng"|catalogProductId|price/i);
+    expect(raw).not.toMatch(/organizationId|owner|licenseNumber|address|phone|lat"|lng"|catalogProductId|price/i);
   });
 
   it('read-only: pharmacies, branches, listings, batches, reservations, audit and outbox unchanged; other methods are 404', async () => {
