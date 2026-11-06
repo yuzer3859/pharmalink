@@ -7,6 +7,7 @@ import {
 } from '../../../payment/application/ports/inbound/refund-admin.port';
 import { AdminErrors } from '../../domain/errors';
 import { MakerCheckerActionRegistry } from '../../domain/maker-checker/maker-checker-action';
+import { DisputeService } from '../../application/disputes/dispute.service';
 
 /** Work 84's action type (also `MAKER_CHECKER_ACTION_TYPES`). */
 export const REFUND_HIGH_VALUE_ACTION = 'REFUND_HIGH_VALUE';
@@ -44,6 +45,7 @@ export class RefundActions implements OnModuleInit {
   constructor(
     private readonly registry: MakerCheckerActionRegistry,
     @Inject(REFUND_ADMIN_PORT) private readonly refunds: IRefundAdminPort,
+    private readonly disputes: DisputeService,
   ) {}
 
   onModuleInit(): void {
@@ -78,6 +80,10 @@ export class RefundActions implements OnModuleInit {
           actorPermissions: ctx.actorPermissions,
           makerCheckerApprovalId: ctx.approvalId,
         });
+        // Work 86: a refund ordered as a dispute's resolution completes that case.
+        if (typeof payload.disputeCaseId === 'string' && ctx.approvalId) {
+          await this.disputes.completeRefund(payload.disputeCaseId, ctx.approvalId, ctx.actorUserId, { ...refund });
+        }
         return { ...refund };
       },
     });

@@ -38,6 +38,8 @@ import { PrismaFulfillmentRepository } from './infrastructure/persistence/prisma
 import { PrismaOrderRepository } from './infrastructure/persistence/prisma-order.repository';
 import { ORDER_ANALYTICS_READ_PORT } from './application/ports/inbound/order-analytics-read.port';
 import { ORDER_OPERATIONS_READ_PORT } from './application/ports/inbound/order-operations-read.port';
+import { ORDER_OWNERSHIP_READ_PORT } from './application/ports/inbound/order-ownership-read.port';
+import { PrismaOrderOwnershipReadAdapter } from './infrastructure/persistence/prisma-order-ownership-read.adapter';
 import { PrismaOrderOperationsReadAdapter } from './infrastructure/persistence/prisma-order-operations-read.adapter';
 import { ORDER_BACKLOG_SUMMARY_READ_PORT } from './application/ports/inbound/order-backlog-summary-read.port';
 import { PrismaOrderBacklogSummaryReadAdapter } from './infrastructure/persistence/prisma-order-backlog-summary-read.adapter';
@@ -112,6 +114,8 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     // paged and filtered, and one order with its fulfillments — no customer data, no write. These
     // read ports (with Work 41's below) are the only things this module exports.
     { provide: ORDER_OPERATIONS_READ_PORT, useClass: PrismaOrderOperationsReadAdapter },
+    // Work 86: dispute intake checks that the order is the complainant's.
+    { provide: ORDER_OWNERSHIP_READ_PORT, useClass: PrismaOrderOwnershipReadAdapter },
     // Module 16 Work 41 — order backlog summary: counts and timestamps from one SQL statement, terminal
     // set from `OrderStatusPolicy.isTerminal`. No order, customer or amount crosses it.
     { provide: ORDER_BACKLOG_SUMMARY_READ_PORT, useClass: PrismaOrderBacklogSummaryReadAdapter },
@@ -169,6 +173,6 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PrepareFulfillmentCommand,
     MarkReadyCommand,
   ],
-  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT, ORDER_OPERATIONS_READ_PORT, ORDER_BACKLOG_SUMMARY_READ_PORT, FULFILLMENT_OPERATIONS_READ_PORT, ORDER_CANCELLATION_OPERATIONS_READ_PORT, DECLINE_RECOVERY_READ_PORT],
+  exports: [ORDER_ANALYTICS_READ_PORT, ORDER_RECIPIENT_READ_PORT, ORDER_OPERATIONS_READ_PORT, ORDER_BACKLOG_SUMMARY_READ_PORT, FULFILLMENT_OPERATIONS_READ_PORT, ORDER_CANCELLATION_OPERATIONS_READ_PORT, DECLINE_RECOVERY_READ_PORT, ORDER_OWNERSHIP_READ_PORT],
 })
 export class OrdersModule {}

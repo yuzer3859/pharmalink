@@ -184,12 +184,19 @@ export const PERMISSIONS: Array<{
   // Module 16 Work 85 — asking for, approving and using a read-only support "view as" session.
   // ADMIN only (SUPER_ADMIN by wildcard); a second administrator always approves.
   { key: 'support:impersonate:any', resource: 'support', action: 'impersonate', scope: 'any' },
+  // Module 16 Work 86 — general disputes (§9.6's `dispute:manage`). Working cases: ADMIN and
+  // FINANCE_OFFICER (a refund resolution also needs finance:refund:any). Opening and following one's
+  // own: CUSTOMER.
+  { key: 'dispute:manage:any', resource: 'dispute', action: 'manage', scope: 'any' },
+  { key: 'dispute:create:own', resource: 'dispute', action: 'create', scope: 'own' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   CUSTOMER: [
     'auth:login',
+    // Module 16 Work 86 — opening and following one's own disputes.
+    'dispute:create:own',
     'profile:read:own',
     'notification:read:own',
     'notification:manage:own',
@@ -330,6 +337,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'approval:read:any',
     // Module 07 Work 83 — payouts and payout destinations.
     'finance:payout:any',
+    // Module 16 Work 86 — disputes.
+    'dispute:manage:any',
   ],
   ADMIN: [
     'auth:login',
@@ -374,6 +383,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'approval:read:any',
     // Module 16 Work 85 — support "view as".
     'support:impersonate:any',
+    // Module 16 Work 86 — disputes.
+    'dispute:manage:any',
   ],
   SUPER_ADMIN: ['*'],
 };

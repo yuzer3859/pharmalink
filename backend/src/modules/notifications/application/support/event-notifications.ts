@@ -4,6 +4,7 @@ import type {
   LicenseExpiredPayload,
   ProviderDecisionPayload,
 } from '../../../identity/domain/events';
+import type { DisputeUpdatedPayload } from '../../../admin/domain/events';
 import type {
   OrderAcceptedPayload,
   OrderCancelledPayload,
@@ -90,6 +91,13 @@ export const EventNotifications = {
     recipientUserId: p.userId,
     templateCode: NotificationTemplateCode.ACCOUNT_SUSPENDED,
     data: {},
+  }),
+
+  /** Work 86: the complainant hears about every change they can see. */
+  disputeUpdated: (p: DisputeUpdatedPayload): NotificationIntent => ({
+    recipientUserId: p.userId,
+    templateCode: NotificationTemplateCode.DISPUTE_UPDATED,
+    data: { caseNumber: p.caseNumber, status: p.status, change: p.change },
   }),
 
   /** Work 85: the account holder is told; who it was stays in the audit log. */

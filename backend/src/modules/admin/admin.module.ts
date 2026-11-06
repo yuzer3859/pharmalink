@@ -84,6 +84,9 @@ import { SettlementPayoutActions } from './infrastructure/maker-checker/settleme
 import { RefundActions } from './infrastructure/maker-checker/refund.actions';
 import { ImpersonationActions } from './infrastructure/maker-checker/impersonation.actions';
 import { AdminImpersonationController } from './interface/controllers/admin-impersonation.controller';
+import { DisputeService } from './application/disputes/dispute.service';
+import { DISPUTE_REPOSITORY, PrismaDisputeRepository } from './infrastructure/persistence/prisma-dispute.repository';
+import { AdminDisputesController, CustomerDisputesController } from './interface/controllers/disputes.controllers';
 import { AdminRefundController } from './interface/controllers/admin-refund.controller';
 import {
   GetApprovalQuery,
@@ -266,6 +269,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     RefundActions,
     // Work 85 — support "view as", over Module 01's IDENTITY_IMPERSONATION_PORT.
     ImpersonationActions,
+    // Work 86 — general disputes.
+    { provide: DISPUTE_REPOSITORY, useClass: PrismaDisputeRepository },
+    DisputeService,
 
     // Work 02 — verification management. No repository of its own: everything goes through the
     // port Module 01 exports.
@@ -436,6 +442,9 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminRefundController,
     // Work 85 — support impersonation.
     AdminImpersonationController,
+    // Work 86 — general disputes: the admin desk and the customer's own.
+    AdminDisputesController,
+    CustomerDisputesController,
   ],
   // Nothing is exported. No other module calls into Admin — they read configuration through
   // `IConfigPort`, which is `SharedModule`'s, and an exported port here would be a coupling that
