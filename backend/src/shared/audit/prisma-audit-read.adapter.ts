@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AuditLog as PrismaAuditLog, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  AuditActivityPage,
   AuditPage,
   AuditRecordView,
   AuditResourceTrailFilter,
@@ -65,5 +66,17 @@ export class PrismaAuditReadAdapter implements IAuditReadPort {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
     return rows.map(toView);
+  }
+
+  async activityOf(actorUserIds: string[], from: Date, to: Date, limit: number): Promise<AuditActivityPage> {
+    if (actorUserIds.length === 0) return { items: [], truncated: false };
+    const rows = await this.prisma.auditLog.findMany({
+      where: { actorUserId: { in: actorUserIds }, createdAt: { gte: from, lt: to } },
+      select: { id: true, actorUserId: true, action: true, resourceType: true, resourceId: true, ip: true, createdAt: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+    });
+    const items = rows.slice(0, limit).map((r) => ({ ...r, actorUserId: r.actorUserId as string }));
+    return { items, truncated: rows.length > limit };
   }
 }

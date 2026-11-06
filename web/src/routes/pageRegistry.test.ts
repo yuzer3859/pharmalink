@@ -4,6 +4,7 @@ import { OrdersPage } from '@/features/orders/OrdersPage';
 import { AdminInventoryPage } from '@/features/inventory/AdminInventoryPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { AuditPage } from '@/features/audit/AuditPage';
+import { AdminActivityPage } from '@/features/audit/AdminActivityPage';
 import { AdminAnalyticsPage, AdminDashboardPage } from '@/features/analytics/AdminOverviewPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
@@ -138,5 +139,14 @@ describe('landingUrl (Work 81)', () => {
       const landing = PORTALS[key].landingPath;
       expect({ key, routed: PORTALS[key].nav.some((i) => i.path === landing) }).toEqual({ key, routed: true });
     }
+  });
+});
+
+describe('admin activity (Work 88)', () => {
+  it('is a Super Admin page only', () => {
+    expect(pageFor('superadmin', 'admin-activity')).toBe(AdminActivityPage);
+    expect(PORTALS.superadmin.nav.find((i) => i.path === 'admin-activity')?.permission).toBe('staff:monitor');
+    expect(PORTALS.admin.nav.some((i) => i.path === 'admin-activity')).toBe(false);
+    expect(PORTALS.finance.nav.some((i) => i.path === 'admin-activity')).toBe(false);
   });
 });

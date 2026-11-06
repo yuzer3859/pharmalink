@@ -30,6 +30,8 @@ import {
   IdentityAdminPortAdapter,
 } from './application/ports/inbound/identity-admin.port';
 import { IDENTITY_ANALYTICS_READ_PORT } from './application/ports/inbound/identity-analytics-read.port';
+import { IDENTITY_STAFF_READ_PORT } from './application/ports/inbound/identity-staff-read.port';
+import { PrismaIdentityStaffReadAdapter } from './infrastructure/persistence/prisma-identity-staff-read.adapter';
 import { IDENTITY_CONTACT_READ_PORT } from './application/ports/inbound/identity-contact-read.port';
 import { IDENTITY_LANGUAGE_READ_PORT } from './application/ports/inbound/identity-language-read.port';
 import { NOTIFICATION_PORT } from './application/ports/notification.port';
@@ -245,6 +247,8 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     // Inbound read contract for Module 16's operational dashboard (module-16 Work 08): account
     // counts by status and primary role, aggregated in PostgreSQL. No row crosses it.
     { provide: IDENTITY_ANALYTICS_READ_PORT, useClass: PrismaIdentityAnalyticsReadAdapter },
+    // Work 88 — who holds a platform role, for Module 16's admin activity monitoring.
+    { provide: IDENTITY_STAFF_READ_PORT, useClass: PrismaIdentityStaffReadAdapter },
     // Inbound read contract for Module 13's notification rendering (module-13 Work 01): one
     // user's `preferredLanguage`, nothing else.
     { provide: IDENTITY_LANGUAGE_READ_PORT, useClass: PrismaIdentityLanguageReadAdapter },
@@ -301,6 +305,8 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     // Work 85.
     IDENTITY_IMPERSONATION_PORT,
     IDENTITY_ANALYTICS_READ_PORT,
+    // Work 88.
+    IDENTITY_STAFF_READ_PORT,
     IDENTITY_LANGUAGE_READ_PORT,
     IDENTITY_CONTACT_READ_PORT,
   ],
