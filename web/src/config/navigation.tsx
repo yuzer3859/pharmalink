@@ -125,6 +125,8 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'COD disputes', path: 'cod-disputes', icon: GavelRoundedIcon, permission: 'finance:view', section: INSIGHTS },
       { label: 'Approvals', path: 'approvals', icon: HowToRegRoundedIcon, permission: 'approvals:view', section: OPS },
       { label: 'Disputes', path: 'disputes', icon: ForumRoundedIcon, permission: 'disputes:manage', section: OPS },
+      // Work 90: payment and refund reports.
+      { label: 'Reports', path: 'reports', icon: SummarizeRoundedIcon, permission: 'reports:view', section: INSIGHTS },
     ],
   },
 };

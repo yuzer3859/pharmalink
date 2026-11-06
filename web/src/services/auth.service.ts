@@ -271,6 +271,11 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('finance:refund:any')) result.add('finance:refund');
     // Work 86: the dispute desk.
     if (has('dispute:manage:any')) result.add('disputes:manage');
+    // Work 90: payment and refund reports (report:generate:any with finance:report:any).
+    if (has('report:generate:any')) {
+      result.add('reports:view');
+      result.add('reports:export');
+    }
     result.delete('dashboard:view');
   }
 
@@ -283,7 +288,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('order:read:any')) result.add('orders:view');
     // Inventory operations are read-only for administrators (GET /admin/operations/inventory/listings).
     if (has('pharmacy:read:any')) result.add('inventory:view');
-    if (has('finance:report:any')) {
+    // Work 90: CSV reports (POST /admin/reports, report:generate:any; each type its own read permission).
+    if (has('report:generate:any')) {
       result.add('reports:view');
       result.add('reports:export');
     }

@@ -36,13 +36,15 @@ const FINANCE_GRANTS = [
   'finance:payout:any',
   // Work 86
   'dispute:manage:any',
+  // Work 90
+  'report:generate:any',
 ];
 
 describe('toAuthUser: the Finance Officer portal (Work 81)', () => {
   it('sends a Finance Officer to the finance portal with finance pages and settlement actions only', () => {
     const authUser = toAuthUser(user('FINANCE_OFFICER', FINANCE_GRANTS));
     expect(authUser.portal).toBe('finance');
-    expect(authUser.permissions).toEqual(['finance:view', 'finance:settle', 'approvals:view', 'finance:payout', 'finance:refund', 'disputes:manage']);
+    expect(authUser.permissions).toEqual(['reports:view', 'reports:export', 'finance:view', 'finance:settle', 'approvals:view', 'finance:payout', 'finance:refund', 'disputes:manage']);
   });
 
   it('shows the finance pages without settlement actions when the account can only report', () => {
@@ -57,7 +59,7 @@ describe('toAuthUser: the Finance Officer portal (Work 81)', () => {
 
   it('never turns other finance-adjacent grants into admin pages', () => {
     const permissions = toAuthUser(user('FINANCE_OFFICER', [...FINANCE_GRANTS, 'audit:read:any', 'rbac:read', 'analytics:read'])).permissions;
-    expect(permissions).toEqual(['finance:view', 'finance:settle', 'approvals:view', 'finance:payout', 'finance:refund', 'disputes:manage']);
+    expect(permissions).toEqual(['reports:view', 'reports:export', 'finance:view', 'finance:settle', 'approvals:view', 'finance:payout', 'finance:refund', 'disputes:manage']);
   });
 
   it('keeps administrators in their own portals when they also hold the finance role', () => {

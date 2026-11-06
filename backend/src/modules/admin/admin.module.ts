@@ -106,6 +106,11 @@ import { ANALYTICS_SNAPSHOT_REPOSITORY } from './application/ports/analytics-sna
 import { AnalyticsSnapshotService } from './application/analytics/analytics-snapshot.service';
 import { AdminActivityService } from './application/activity/admin-activity.service';
 import { PreviewVerificationDocumentCommand } from './application/commands/preview-verification-document.command';
+import { ReportService } from './application/reports/report.service';
+import { REPORT_JOB_REPOSITORY } from './application/ports/report-job.repository.port';
+import { PrismaReportJobRepository } from './infrastructure/persistence/prisma-report-job.repository';
+import { ReportWorkerJob } from './infrastructure/jobs/report-worker.job';
+import { AdminReportsController } from './interface/controllers/admin-reports.controller';
 import { AdminActivityController } from './interface/controllers/admin-activity.controller';
 import { PrismaApprovalRequestRepository } from './infrastructure/persistence/prisma-approval-request.repository';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
@@ -339,6 +344,10 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminActivityService,
     // Work 89 — signed, audited previews of verification documents.
     PreviewVerificationDocumentCommand,
+    // Work 90 — asynchronous CSV reports.
+    { provide: REPORT_JOB_REPOSITORY, useClass: PrismaReportJobRepository },
+    ReportService,
+    ReportWorkerJob,
     // Work 25 — inventory operations view, over Module 04's and Module 03's read ports.
     GetInventoryOperationsOverviewQuery,
 
@@ -415,6 +424,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminFinanceController,
     AdminAnalyticsController,
     AdminActivityController,
+    AdminReportsController,
     AdminOperationsController,
     AdminCatalogReviewController,
     AdminCatalogApprovalController,
