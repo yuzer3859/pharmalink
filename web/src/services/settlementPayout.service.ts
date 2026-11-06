@@ -69,8 +69,8 @@ export function createSettlementPayoutService(request: SessionRequest, key: () =
 export const settlementPayoutService = createSettlementPayoutService(authService.request);
 
 /** What to tell the operator after a gated action. */
-export function gatedMessage(result: GatedOutcome, done: string): string {
+export function gatedMessage(result: GatedOutcome, done: string, approver = 'finance officer'): string {
   return result.outcome === 'MAKER_CHECKER_PENDING'
-    ? 'Sent for approval. A different finance officer must approve it on the Approvals page.'
+    ? `Sent for approval. A different ${approver} must approve it on the Approvals page.`
     : done;
 }

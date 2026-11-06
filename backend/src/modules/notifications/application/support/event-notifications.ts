@@ -1,5 +1,6 @@
 import type {
   AccountStatusChangedPayload,
+  ImpersonationStartedPayload,
   LicenseExpiredPayload,
   ProviderDecisionPayload,
 } from '../../../identity/domain/events';
@@ -88,6 +89,13 @@ export const EventNotifications = {
   accountSuspended: (p: AccountStatusChangedPayload): NotificationIntent => ({
     recipientUserId: p.userId,
     templateCode: NotificationTemplateCode.ACCOUNT_SUSPENDED,
+    data: {},
+  }),
+
+  /** Work 85: the account holder is told; who it was stays in the audit log. */
+  accountImpersonated: (p: ImpersonationStartedPayload): NotificationIntent => ({
+    recipientUserId: p.userId,
+    templateCode: NotificationTemplateCode.ACCOUNT_IMPERSONATED,
     data: {},
   }),
 

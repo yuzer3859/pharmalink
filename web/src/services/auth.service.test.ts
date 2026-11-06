@@ -92,3 +92,11 @@ describe('toAuthUser: payouts (Work 83)', () => {
     expect(toAuthUser(user('SUPER_ADMIN', ['*'])).permissions).toContain('finance:payout');
   });
 });
+
+describe('toAuthUser: support view (Work 85)', () => {
+  it('offers the support view only with support:impersonate:any, and never in the finance portal', () => {
+    expect(toAuthUser(user('ADMIN', ['auth:login', 'support:impersonate:any'])).permissions).toContain('support:impersonate');
+    expect(toAuthUser(user('ADMIN', ['auth:login', 'rbac:read'])).permissions).not.toContain('support:impersonate');
+    expect(toAuthUser(user('FINANCE_OFFICER', ['finance:report:any', 'support:impersonate:any'])).permissions).not.toContain('support:impersonate');
+  });
+});

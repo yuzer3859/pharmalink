@@ -15,6 +15,8 @@ export enum NotificationTemplateCode {
   PROVIDER_LICENSE_EXPIRED = 'PROVIDER_LICENSE_EXPIRED',
   ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED',
   ACCOUNT_REACTIVATED = 'ACCOUNT_REACTIVATED',
+  // Work 85: a support administrator viewed the account, read-only.
+  ACCOUNT_IMPERSONATED = 'ACCOUNT_IMPERSONATED',
   ORDER_PLACED = 'ORDER_PLACED',
   ORDER_ACCEPTED = 'ORDER_ACCEPTED',
   ORDER_READY = 'ORDER_READY',
@@ -127,6 +129,19 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     render: {
       en: () => ({ title: 'Account reactivated', body: 'Your account is active again.' }),
       am: () => ({ title: 'መለያዎ እንደገና ነቅቷል', body: 'መለያዎ እንደገና ንቁ ሆኗል።' }),
+    },
+  },
+  [NotificationTemplateCode.ACCOUNT_IMPERSONATED]: {
+    category: NotificationCategory.SECURITY,
+    render: {
+      en: () => ({
+        title: 'Support viewed your account',
+        body: 'A PharmaLink support administrator is viewing your account for up to 15 minutes, read-only. Nothing can be changed. Contact support if you did not ask for help.',
+      }),
+      am: () => ({
+        title: 'የድጋፍ ሰራተኛ መለያዎን እየተመለከተ ነው',
+        body: 'የPharmaLink የድጋፍ አስተዳዳሪ መለያዎን ለ15 ደቂቃ ያህል ለንባብ ብቻ እየተመለከተ ነው። ምንም ሊቀየር አይችልም። እርዳታ ካልጠየቁ የደንበኞች አገልግሎትን ያነጋግሩ።',
+      }),
     },
   },
   [NotificationTemplateCode.ORDER_PLACED]: {

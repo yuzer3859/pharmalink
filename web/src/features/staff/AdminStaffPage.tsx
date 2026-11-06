@@ -38,6 +38,7 @@ import {
 } from '@/services/adminAccounts.service';
 import { humanizeStatus } from '@/services/adminAnalytics.service';
 import { formatDateTime } from '@/utils/format';
+import { SupportViewPanel } from './SupportViewPanel';
 import type { AccountStatus, AdminAccount, AdminAccountDetail, PrimaryRole } from '@/types';
 
 const SUSPENDABLE: AccountStatus[] = ['ACTIVE', 'PENDING_VERIFICATION'];
@@ -172,6 +173,8 @@ function AccountDrawer({ userId, onClose }: { userId: string | null; onClose: ()
                 ) : null}
               </Stack>
             ) : null}
+
+            <SupportViewPanel userId={account.userId} />
 
             <Divider />
             <Typography variant="subtitle2">Roles ({account.roles.length})</Typography>

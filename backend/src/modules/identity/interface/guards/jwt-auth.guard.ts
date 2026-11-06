@@ -1,10 +1,11 @@
-import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { ApiException } from '../../../../shared/errors/api-exception';
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { IPermVersionStore, PERM_VERSION_STORE } from '../../application/ports/perm-version.port';
 import { ITokenService, TOKEN_SERVICE } from '../../application/ports/token.service';
+import { ImpersonationService } from '../../application/services/impersonation.service';
 import { IdentityErrors } from '../../domain/errors';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
@@ -28,6 +29,8 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     @Inject(TOKEN_SERVICE) private readonly tokenService: ITokenService,
     @Inject(PERM_VERSION_STORE) private readonly permVersions: IPermVersionStore,
+    // Work 85. Optional only for hand-built guard fixtures; the app always provides it.
+    @Optional() private readonly impersonation?: ImpersonationService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,7 +57,13 @@ export class JwtAuthGuard implements CanActivate {
     if (state.permVersion !== claims.permVersion) {
       throw IdentityErrors.permissionsChanged();
     }
-    if (state.mfaRequired && claims.mfa !== true) {
+    if (claims.imp) {
+      // A "view as" token: no service may honour it without this check (Work 85).
+      if (!this.impersonation) {
+        throw IdentityErrors.tokenInvalid();
+      }
+      await this.impersonation.checkRequest(claims, request.method, request.originalUrl ?? request.url);
+    } else if (state.mfaRequired && claims.mfa !== true) {
       throw IdentityErrors.mfaRequired();
     }
 

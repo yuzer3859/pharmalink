@@ -20,7 +20,7 @@ Status key:
 | 9.1 | Document preview in the review | BLOCKED | Needs a document-storage read path (signed URLs); documents are references only |
 | 9.2 | Account search, detail, suspend, reinstate (`/admin/accounts`) | COMPLETE | |
 | 9.2 | Role assignment and revocation (`/admin/accounts/:id/roles`, `/admin/roles`) | COMPLETE | |
-| 9.2 | Impersonation | DEFERRED | Requires maker-checker (below); intentionally absent |
+| 9.2 | Impersonation (`/admin/accounts/:id/impersonate`, `/admin/impersonation-sessions`) | COMPLETE | Work 85 ([impersonation.md](../backend/docs/impersonation.md)): read-only "view as", always two administrators, never a platform account, 15-minute token with no refresh, revoked on end, the holder notified, every request audited with both identities. Accounts drawer: request, start, read-only view, end |
 | 9.3 | Catalogue moderation (`/admin/catalog/review`: queue, submit, approve, reject, resubmit, history, summary) | COMPLETE | |
 | 9.3 | Review moderation (hide, remove, restore) | BLOCKED | Module 15 (ratings and reviews) is not implemented |
 | 9.3 | Unified flagged-content view | BLOCKED | Same: no flag sources exist yet |

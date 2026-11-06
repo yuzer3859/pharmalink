@@ -243,6 +243,13 @@ export enum ErrorCode {
   // Work 84: a manual refund above `approvals.highValueRefundThreshold` asked for without a second
   // officer's approval. Use `POST /admin/finance/payments/{id}/refunds`, which records the request.
   REFUND_APPROVAL_REQUIRED = 'REFUND_APPROVAL_REQUIRED',
+  // Work 85 — support impersonation (backend/docs/impersonation.md).
+  // The account may not be viewed as its holder: a platform account, oneself, or not active.
+  IMPERSONATION_NOT_ALLOWED = 'IMPERSONATION_NOT_ALLOWED',
+  // A "view as" token tried to change something. It can only read.
+  IMPERSONATION_READ_ONLY = 'IMPERSONATION_READ_ONLY',
+  // The session was already started, ended, or expired.
+  IMPERSONATION_SESSION_CLOSED = 'IMPERSONATION_SESSION_CLOSED',
 
   // Module 01 — administrator MFA (Work 66, backend/docs/admin-mfa.md). `AUTH_MFA_REQUIRED` above
   // already names "this session needs MFA"; these two name the MFA step's own failures, so the
@@ -414,6 +421,9 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCode.PAYOUT_BENEFICIARY_REQUIRED]: 422,
   [ErrorCode.PAYOUT_DECLINED]: 422,
   [ErrorCode.REFUND_APPROVAL_REQUIRED]: 409,
+  [ErrorCode.IMPERSONATION_NOT_ALLOWED]: 403,
+  [ErrorCode.IMPERSONATION_READ_ONLY]: 403,
+  [ErrorCode.IMPERSONATION_SESSION_CLOSED]: 409,
 
   // Module 01 — administrator MFA (Work 66).
   [ErrorCode.AUTH_MFA_CHALLENGE_INVALID]: 401,
