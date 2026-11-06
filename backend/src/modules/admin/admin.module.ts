@@ -106,6 +106,9 @@ import { ANALYTICS_SNAPSHOT_REPOSITORY } from './application/ports/analytics-sna
 import { AnalyticsSnapshotService } from './application/analytics/analytics-snapshot.service';
 import { AdminActivityService } from './application/activity/admin-activity.service';
 import { PreviewVerificationDocumentCommand } from './application/commands/preview-verification-document.command';
+import { ReviewsModule } from '../reviews/reviews.module';
+import { FlaggedContentService } from './application/moderation/flagged-content.service';
+import { AdminModerationController } from './interface/controllers/admin-moderation.controller';
 import { ReportService } from './application/reports/report.service';
 import { REPORT_JOB_REPOSITORY } from './application/ports/report-job.repository.port';
 import { PrismaReportJobRepository } from './infrastructure/persistence/prisma-report-job.repository';
@@ -243,6 +246,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     CatalogModule,
     PharmacyInventoryModule,
     OrdersModule,
+    // Work 91: REVIEW_MODERATION_PORT.
+    ReviewsModule,
     // Module 13: NOTIFICATION_SUPPRESSION_ADMIN_PORT (Work 19), NOTIFICATION_DELIVERY_ADMIN_PORT (Work 20),
     // NOTIFICATION_DELIVERY_RETRY_PORT (Work 21), NOTIFICATION_DELIVERY_HEALTH_PORT (Work 22),
     // NOTIFICATION_DELIVERY_LEASE_RELEASE_PORT (Work 23) and NOTIFICATION_DELIVERY_CHANNEL_HEALTH_PORT (Work 24).
@@ -348,6 +353,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     { provide: REPORT_JOB_REPOSITORY, useClass: PrismaReportJobRepository },
     ReportService,
     ReportWorkerJob,
+    // Work 91 — review moderation and the unified flagged-content view.
+    FlaggedContentService,
     // Work 25 — inventory operations view, over Module 04's and Module 03's read ports.
     GetInventoryOperationsOverviewQuery,
 
@@ -425,6 +432,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminAnalyticsController,
     AdminActivityController,
     AdminReportsController,
+    AdminModerationController,
     AdminOperationsController,
     AdminCatalogReviewController,
     AdminCatalogApprovalController,

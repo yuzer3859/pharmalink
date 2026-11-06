@@ -1,4 +1,5 @@
 import { AdminEventType, DisputeUpdatedPayload } from '../../../admin/domain/events';
+import { ReviewEventType, ReviewModeratedPayload } from '../../../reviews/domain/events';
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { DomainEvent } from '../../../../shared/events/domain-event';
 import { EVENT_BUS, IEventBus } from '../../../../shared/events/event-bus.service';
@@ -115,6 +116,7 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.on<AccountStatusChangedPayload>(IdentityEventType.AccountReactivated, EventNotifications.accountReactivated);
     this.on<ImpersonationStartedPayload>(IdentityEventType.ImpersonationStarted, EventNotifications.accountImpersonated);
     this.on<DisputeUpdatedPayload>(AdminEventType.DisputeUpdated, EventNotifications.disputeUpdated);
+    this.on<ReviewModeratedPayload>(ReviewEventType.ReviewModerated, EventNotifications.reviewModerated);
     this.on<OrderPlacedPayload>(OrdersEventType.OrderPlaced, EventNotifications.orderPlaced);
     this.on<WalletMovementPayload>(WalletEventType.WalletCredited, EventNotifications.walletCredited);
     this.on<WalletMovementPayload>(WalletEventType.WalletDebited, EventNotifications.walletDebited);

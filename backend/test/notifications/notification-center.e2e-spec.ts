@@ -519,7 +519,7 @@ describe('In-app notification center (e2e)', () => {
       for (const file of sources()) {
         for (const m of readFileSync(file, 'utf8').matchAll(/from '((?:\.\.\/)+(?!shared\/)[^.'][^']*)'/g)) {
           const target = m[1].replace(/^(\.\.\/)+/, '');
-          if (!target.startsWith('notifications/') && /^(identity|profiles|catalog|pharmacy-inventory|prescription-matching|orders|payment|delivery|admin)\//.test(target)) {
+          if (!target.startsWith('notifications/') && /^(identity|profiles|catalog|pharmacy-inventory|prescription-matching|orders|payment|delivery|admin|reviews)\//.test(target)) {
             imports.add(target);
           }
         }
@@ -550,6 +550,8 @@ describe('In-app notification center (e2e)', () => {
         'prescription-matching/application/ports/inbound/prescription-recipient-read.port',
         'prescription-matching/domain/events',
         'prescription-matching/prescription-matching.module',
+        // Work 91: the review moderation event (ReviewModerated → REVIEW_MODERATED).
+        'reviews/domain/events',
       ]);
     });
   });

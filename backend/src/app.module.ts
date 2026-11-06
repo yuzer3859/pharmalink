@@ -1,3 +1,4 @@
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { SharedModule } from './shared/shared.module';
@@ -36,6 +37,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     PaymentModule,
     DeliveryModule,
     AdminModule,
+    ReviewsModule,
     NotificationsModule,
   ],
   providers: [

@@ -611,7 +611,7 @@ describe('Admin operational analytics (e2e)', () => {
       const imports = new Set<string>();
       for (const file of sources()) {
         for (const m of readFileSync(file, 'utf8').matchAll(
-          /from '([^']*(?:identity|catalog|pharmacy-inventory|orders|delivery|payment)\/[^']*)'/g,
+          /from '([^']*(?:identity|catalog|pharmacy-inventory|orders|delivery|payment|reviews)\/[^']*)'/g,
         )) {
           imports.add(m[1].replace(/^(\.\.\/)+/, ''));
         }
@@ -692,6 +692,9 @@ describe('Admin operational analytics (e2e)', () => {
         // Work 52: inventory reservation visibility (admin-stock-reservation-operations.e2e-spec.ts).
         'pharmacy-inventory/application/ports/inbound/stock-reservation-operations-read.port',
         'pharmacy-inventory/pharmacy-inventory.module',
+        // Work 91: review moderation and the flagged-content view.
+        'reviews/application/ports/inbound/review-moderation.port',
+        'reviews/reviews.module',
       ]);
     });
   });
