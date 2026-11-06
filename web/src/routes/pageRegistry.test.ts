@@ -5,6 +5,8 @@ import { AdminInventoryPage } from '@/features/inventory/AdminInventoryPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { AuditPage } from '@/features/audit/AuditPage';
 import { AdminActivityPage } from '@/features/audit/AdminActivityPage';
+import { AdminReportsPage } from '@/features/reports/AdminReportsPage';
+import { ReportsPage } from '@/features/reports/ReportsPage';
 import { AdminAnalyticsPage, AdminDashboardPage } from '@/features/analytics/AdminOverviewPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
@@ -85,11 +87,12 @@ describe('pageFor', () => {
 
 describe('the finance portal (Work 81)', () => {
   it('offers Finance, COD disputes and Approvals and nothing else, opening on Finance', () => {
-    expect(PORTALS.finance.nav.map((i) => i.path)).toEqual(['finance', 'cod-disputes', 'approvals', 'disputes']);
+    // Work 90 added Reports (payment and refund CSVs).
+    expect(PORTALS.finance.nav.map((i) => i.path)).toEqual(['finance', 'cod-disputes', 'approvals', 'disputes', 'reports']);
     expect(PORTALS.finance.landingPath).toBe('finance');
     expect(PORTALS.finance.basePath).toBe('/finance');
     // Only nav items become routes (AppRouter), so these are the only pages the portal can reach.
-    expect(PORTALS.finance.nav.map((i) => i.permission)).toEqual(['finance:view', 'finance:view', 'approvals:view', 'disputes:manage']);
+    expect(PORTALS.finance.nav.map((i) => i.permission)).toEqual(['finance:view', 'finance:view', 'approvals:view', 'disputes:manage', 'reports:view']);
   });
 
   it('routes its pages to the same finance pages the admin portals use', () => {
@@ -101,7 +104,7 @@ describe('the finance portal (Work 81)', () => {
     const paths = new Set(PORTALS.finance.nav.map((i) => i.path));
     const others = [...PORTALS.admin.nav, ...PORTALS.superadmin.nav, ...PORTALS.pharmacy.nav]
       .map((i) => i.path)
-      .filter((p) => p !== 'finance' && p !== 'cod-disputes' && p !== 'approvals' && p !== 'disputes');
+      .filter((p) => p !== 'finance' && p !== 'cod-disputes' && p !== 'approvals' && p !== 'disputes' && p !== 'reports');
     for (const path of others) expect({ path, routed: paths.has(path) }).toEqual({ path, routed: false });
   });
 
@@ -148,5 +151,12 @@ describe('admin activity (Work 88)', () => {
     expect(PORTALS.superadmin.nav.find((i) => i.path === 'admin-activity')?.permission).toBe('staff:monitor');
     expect(PORTALS.admin.nav.some((i) => i.path === 'admin-activity')).toBe(false);
     expect(PORTALS.finance.nav.some((i) => i.path === 'admin-activity')).toBe(false);
+  });
+});
+
+describe('reports (Work 90)', () => {
+  it('routes the real Reports page in the admin, super admin and finance portals, and keeps the pharmacy one', () => {
+    for (const portal of ['admin', 'superadmin', 'finance'] as const) expect(pageFor(portal, 'reports')).toBe(AdminReportsPage);
+    expect(pageFor('pharmacy', 'reports')).toBe(ReportsPage);
   });
 });

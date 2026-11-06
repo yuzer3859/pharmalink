@@ -361,3 +361,48 @@ model DisputeMessage {
   @@index([caseId, createdAt])
   @@map("dispute_messages")
 }
+
+// ---------------------------------------------------------------------------
+// Work 90 — reports (module-16 §9.5, F-AD-23/24; backend/docs/reports.md)
+// ---------------------------------------------------------------------------
+
+enum ReportType {
+  PAYMENTS
+  REFUNDS
+  ORDERS
+  AUDIT
+  ANALYTICS_DAILY
+}
+
+enum ReportStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// One requested CSV export. Built in the background; the file lives in document storage
+/// (`storageRef`, namespace `reports`), never in this row.
+model ReportJob {
+  id                String       @id @default(uuid())
+  type              ReportType
+  status            ReportStatus @default(QUEUED)
+  params            Json
+  requestedByUserId String
+  idempotencyKey    String
+  rowCount          Int?
+  bytes             Int?
+  truncated         Boolean      @default(false)
+  storageRef        String?
+  error             String?
+  attempts          Int          @default(0)
+  createdAt         DateTime     @default(now())
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  expiresAt         DateTime?
+
+  @@unique([requestedByUserId, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([requestedByUserId, createdAt])
+  @@map("report_jobs")
+}

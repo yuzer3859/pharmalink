@@ -192,6 +192,9 @@ export const PERMISSIONS: Array<{
   // Module 16 Work 88 — admin activity and anomaly monitoring. SUPER_ADMIN only (by wildcard): the
   // view watches administrators, so no administrator role is granted it.
   { key: 'staff:monitor:any', resource: 'staff', action: 'monitor', scope: 'any' },
+  // Module 16 Work 90 — asynchronous CSV reports. ADMIN and FINANCE_OFFICER (SUPER_ADMIN by
+  // wildcard); each report type also needs that data's own read permission.
+  { key: 'report:generate:any', resource: 'report', action: 'generate', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -342,6 +345,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'finance:payout:any',
     // Module 16 Work 86 — disputes.
     'dispute:manage:any',
+    // Work 90: reports (each type also needs its own read permission).
+    'report:generate:any',
   ],
   ADMIN: [
     'auth:login',
@@ -388,6 +393,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'support:impersonate:any',
     // Module 16 Work 86 — disputes.
     'dispute:manage:any',
+    // Work 90: reports (each type also needs its own read permission).
+    'report:generate:any',
   ],
   SUPER_ADMIN: ['*'],
 };

@@ -42,7 +42,7 @@ Status key:
 
 Signing in (with administrator MFA) uses the real API. Before Work 69 every data page used an
 in-memory seed (`web/src/services/mock/seed.ts`). After Work 74, every admin and super admin page
-except Reports uses the real API; the seed now serves only the pharmacy portal and Reports. Works 75–78
+except Reports uses the real API; the seed now serves only the pharmacy portal and Reports (since Work 90 the admin, super admin and finance Reports page uses the real API too). Works 75–78
 added the pages the portal lacked: verifications, configuration, catalogue review, finance and COD
 disputes.
 
@@ -56,7 +56,7 @@ disputes.
 | Dashboard, Analytics | `/admin/analytics/overview` | COMPLETE (Work 73): admin portals show the platform snapshot (account, pharmacy, order, fulfillment, delivery, catalogue breakdowns and the COD cash summary). Since Work 87 the Analytics page also draws trend charts (orders, accounts and pharmacies, delivery, COD cash) over 7, 30 or 90 days from daily snapshots, with a "Snapshot now" button. The pharmacy portal keeps its own pages |
 | Staff (admin portals) | `/admin/accounts` | COMPLETE (Work 74): Accounts page, server-paged, exact phone/e-mail, status and primary-role filters; detail drawer with suspend (required reason) and reinstate, role assignment (organisation id for ORG roles) and revocation |
 | Roles | `/admin/roles`, `/admin/accounts/:id/roles` | COMPLETE (Work 74): read-only role catalogue with permissions; roles come from the RBAC seed and have no edit API. Assignment is on the Accounts page |
-| Reports | none | BLOCKED: no reporting API exists |
+| Reports | `/admin/reports` | COMPLETE (Work 90, [reports.md](../backend/docs/reports.md)): asynchronous CSV reports (payments, refunds, orders, audit trail, daily analytics) built in the background through each owner's read port, stored in document storage, downloaded through a five-minute signed, audited link, kept seven days. Each type needs its own read permission, so the finance portal offers payments and refunds. Settlement and reconciliation reports wait for a settlement list port. The pharmacy portal keeps its own page |
 | Verifications queue | `/admin/verifications` | COMPLETE (Work 75): queue (status, type, waiting time), review drawer, approve (licence number and future expiry required for a pharmacy licence) and reject with a reason. Since Work 89 each uploaded document has a Preview button (a signed link opened in a new tab, audited); reference-only documents are marked as such |
 | Configuration and feature flags | `/admin/config`, `/admin/feature-flags` | COMPLETE (Work 76): Super Admin Configuration page: settings with effective value and source, typed publish with range/allowed checks and an audited reason, version history with restore; feature flags with confirmed toggles |
 | Catalogue review | `/admin/catalog/review` | COMPLETE (Work 77): queue with summary (waiting count, oldest, lifetime approvals and rejections), name/status/type filters, product drawer with review history, and the decisions the server allows (submit, approve, reject with reason, return to review) |
