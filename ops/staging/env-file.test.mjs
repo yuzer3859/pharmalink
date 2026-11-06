@@ -18,6 +18,7 @@ import {
   generateOtpHashSecret,
   otpHashSecretProblem,
   parseEnvText,
+  s3SecretProblem,
   validateEnvValues,
 } from './env-file.mjs';
 
@@ -30,7 +31,7 @@ const generatedText = () => {
   return appendMissingEnvValues(Buffer.from(fillEnvTemplate(EXAMPLE, values), 'utf8'), addable).bytes.toString('utf8');
 };
 const generatedFile = () => parseEnvText(generatedText());
-const SECRET_KEYS = ['POSTGRES_PASSWORD', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MASTER_ENCRYPTION_KEY', 'OTP_HASH_SECRET', 'ADMIN_MFA_ENCRYPTION_KEY'];
+const SECRET_KEYS = ['POSTGRES_PASSWORD', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MASTER_ENCRYPTION_KEY', 'OTP_HASH_SECRET', 'ADMIN_MFA_ENCRYPTION_KEY', 'S3_SECRET_ACCESS_KEY'];
 const noValueIn = (problems, env) => {
   for (const key of SECRET_KEYS) {
     if (env[key] && env[key].length >= 8) assert.ok(!problems.join('\n').includes(env[key]), `a problem message contains the value of ${key}`);
@@ -105,7 +106,11 @@ test('values the stack controls are rejected in the env file, including OTP_STOR
     const { problems } = validateEnvValues({ ...generatedFile(), [key]: 'x' });
     assert.deepEqual(problems, [`${key} must not be set in backend/.env.staging; compose.staging.yml sets it (use BACKEND_HOST_PORT for the host port)`]);
   }
-  assert.deepEqual(COMPOSE_CONTROLLED, ['DATABASE_URL', 'REDIS_URL', 'NODE_ENV', 'PORT', 'OTP_STORE']);
+  assert.deepEqual(COMPOSE_CONTROLLED, [
+    'DATABASE_URL', 'REDIS_URL', 'NODE_ENV', 'PORT', 'OTP_STORE',
+    // Work 89: the stack's MinIO.
+    'DOCUMENT_STORAGE', 'S3_ENDPOINT', 'S3_PUBLIC_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_FORCE_PATH_STYLE', 'S3_CREATE_BUCKET',
+  ]);
 });
 
 test('the existing checks still apply', () => {
@@ -334,7 +339,9 @@ test('CLI: --check writes nothing and fails while the key is missing', () => {
 
 test('CLI: an invalid present key is reported, never replaced, and its value is not printed', () => {
   const invalid = 'aW52YWxpZC1rZXktdGhhdC1pcy1sb25nLWVub3VnaA';
-  const original = Buffer.from(`${preWork68File()}ADMIN_MFA_ENCRYPTION_KEY=${invalid}\n`, 'utf8');
+  // A valid S3_SECRET_ACCESS_KEY (Work 89) too, so nothing is missing and only the invalid key is in play.
+  const s3 = '0123456789abcdef'.repeat(3);
+  const original = Buffer.from(`${preWork68File()}ADMIN_MFA_ENCRYPTION_KEY=${invalid}\nS3_SECRET_ACCESS_KEY=${s3}\n`, 'utf8');
   withTempEnv(original, (file) => {
     const res = runScript(file);
     assert.equal(res.status, 1);
@@ -376,5 +383,35 @@ test('compose.staging.yml gives backend and tools the env file and never overrid
     const block = service(name);
     assert.match(block, /env_file:\n\s*- path: \.\/backend\/\.env\.staging\n\s*required: true/, `${name} does not load backend/.env.staging`);
     assert.ok(!block.includes('ADMIN_MFA_ENCRYPTION_KEY'), `${name} overrides ADMIN_MFA_ENCRYPTION_KEY`);
+  }
+});
+
+// --- S3_SECRET_ACCESS_KEY (Work 89) ----------------------------------------------------------
+
+test('generation: S3_SECRET_ACCESS_KEY is 48 hex characters, dedicated, fresh each run, and addable', () => {
+  const values = generateEnvValues();
+  assert.match(values.S3_SECRET_ACCESS_KEY, /^[0-9a-f]{48}$/);
+  assert.equal(s3SecretProblem(values.S3_SECRET_ACCESS_KEY, [values.POSTGRES_PASSWORD]), null);
+  assert.equal(new Set(Array.from({ length: 20 }, () => generateEnvValues().S3_SECRET_ACCESS_KEY)).size, 20);
+  assert.ok(ADDABLE_SECRETS.includes('S3_SECRET_ACCESS_KEY'));
+  assert.equal(generatedFile().S3_SECRET_ACCESS_KEY.length, 48);
+});
+
+test('validation: S3_SECRET_ACCESS_KEY must be present, long, alphanumeric and dedicated, and is never echoed', () => {
+  const env = generatedFile();
+  delete env.S3_SECRET_ACCESS_KEY;
+  assert.ok(validateEnvValues(env).problems.some((p) => p.includes('S3_SECRET_ACCESS_KEY') && p.includes('ensure-env-secrets')));
+  for (const bad of ['short1', 'x'.repeat(31), 'a'.repeat(32) + '!']) {
+    const problems = validateEnvValues({ ...generatedFile(), S3_SECRET_ACCESS_KEY: bad }).problems;
+    assert.ok(problems.some((p) => p.includes('S3_SECRET_ACCESS_KEY')), bad);
+    assert.ok(!problems.join(' ').includes(bad));
+  }
+  const copy = generatedFile();
+  assert.ok(validateEnvValues({ ...copy, S3_SECRET_ACCESS_KEY: copy.JWT_ACCESS_SECRET }).problems.some((p) => p.includes('dedicated')));
+});
+
+test('the stack sets its own storage settings: an env file that sets them is refused', () => {
+  for (const key of ['DOCUMENT_STORAGE', 'S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID']) {
+    assert.ok(validateEnvValues({ ...generatedFile(), [key]: 'x' }).problems.some((p) => p.startsWith(key)), key);
   }
 });

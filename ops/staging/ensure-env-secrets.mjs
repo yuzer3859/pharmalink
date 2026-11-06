@@ -27,6 +27,9 @@ import {
   assignedKeys,
   emailProviderState,
   generateAdminMfaKey,
+  generateS3Secret,
+  s3OtherSecrets,
+  s3SecretProblem,
   parseEnvText,
   validateEnvValues,
 } from './env-file.mjs';
@@ -48,6 +51,7 @@ function valuesFor(missing, env) {
   const values = {};
   for (const key of missing) {
     if (key === 'ADMIN_MFA_ENCRYPTION_KEY') values[key] = generateAdminMfaKey(adminMfaOtherSecrets(env), randomBytes);
+    if (key === 'S3_SECRET_ACCESS_KEY') values[key] = generateS3Secret(randomBytes);
   }
   return values;
 }
@@ -67,7 +71,12 @@ function addMissing(original) {
   if (!bytes.subarray(0, original.length).equals(original)) fail('internal error: existing content would change; nothing written');
   const next = parseEnvText(bytes.toString('utf8'));
   for (const key of added) {
-    const problem = key === 'ADMIN_MFA_ENCRYPTION_KEY' ? adminMfaKeyProblem(next[key], adminMfaOtherSecrets(next)) : null;
+    const problem =
+      key === 'ADMIN_MFA_ENCRYPTION_KEY'
+        ? adminMfaKeyProblem(next[key], adminMfaOtherSecrets(next))
+        : key === 'S3_SECRET_ACCESS_KEY'
+          ? s3SecretProblem(next[key], s3OtherSecrets(next))
+          : null;
     if (problem) fail(`generated ${key} would be invalid (${problem}); nothing written`);
   }
 
@@ -99,6 +108,8 @@ function report() {
   const env = parseEnvText(readFileSync(ENV_FILE, 'utf8'));
   const mfaProblem = adminMfaKeyProblem(env.ADMIN_MFA_ENCRYPTION_KEY, adminMfaOtherSecrets(env));
   log(`ADMIN_MFA_ENCRYPTION_KEY valid (base64 of 32 bytes, dedicated): ${mfaProblem ? `FAIL (${mfaProblem})` : 'PASS'}`);
+  const s3Problem = s3SecretProblem(env.S3_SECRET_ACCESS_KEY, s3OtherSecrets(env));
+  log(`S3_SECRET_ACCESS_KEY valid (MinIO, 32+ letters/digits, dedicated): ${s3Problem ? `FAIL (${s3Problem})` : 'PASS'}`);
   const email = emailProviderState(env);
   log(`e-mail provider (RESEND_API_KEY, RESEND_FROM_EMAIL): ${email.configured ? 'configured' : `not configured${email.problem ? ` (${email.problem})` : ''}`}`);
   const { problems } = validateEnvValues(env, ENV_FILE);

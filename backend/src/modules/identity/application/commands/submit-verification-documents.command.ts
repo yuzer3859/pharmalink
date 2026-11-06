@@ -1,5 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { AuditService } from '../../../../shared/audit/audit.service';
+import {
+  ALLOWED_DOCUMENT_CONTENT_TYPES,
+  DOC_REF_PREFIX,
+  DOCUMENT_STORAGE_PORT,
+  IDocumentStoragePort,
+  MAX_DOCUMENT_BYTES,
+  parseDocumentRef,
+} from '../../../../shared/storage/document-storage.port';
 import { VerificationDocument, VerificationRequest } from '../../domain/entities/verification-request.entity';
 import { VerificationType } from '../../domain/enums';
 import { IdentityErrors } from '../../domain/errors';
@@ -47,11 +55,13 @@ export class SubmitVerificationDocumentsCommand {
     @Inject(ORGANIZATION_REPOSITORY) private readonly organizations: IOrganizationRepository,
     @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
     private readonly audit: AuditService,
+    @Optional() @Inject(DOCUMENT_STORAGE_PORT) private readonly storage?: IDocumentStoragePort,
   ) {}
 
   async execute(
     input: SubmitVerificationDocumentsInput,
   ): Promise<SubmitVerificationDocumentsResult> {
+    await this.checkUploads(input);
     if (input.type === VerificationType.PHARMACY_LICENSE) {
       return this.submitPharmacyLicense(input);
     }
@@ -81,6 +91,16 @@ export class SubmitVerificationDocumentsCommand {
     });
 
     return toResult(request);
+  }
+
+  /**
+   * Uploaded files (`doc:` references, Work 89) must be the caller's and must exist. Any other
+   * reference is the text-only form that predates uploads: still accepted, never previewable.
+   */
+  private async checkUploads(input: SubmitVerificationDocumentsInput): Promise<void> {
+    for (const d of input.documents) {
+      if (d.storageRef.startsWith(DOC_REF_PREFIX)) await checkUpload(this.storage, input.userId, d.storageRef);
+    }
   }
 
   private async submitPharmacyLicense(
@@ -147,6 +167,20 @@ export class SubmitVerificationDocumentsCommand {
         await new Promise((resolve) => setTimeout(resolve, SUBMISSION_BACKOFF_MS * round * (0.5 + Math.random())));
       }
     }
+  }
+}
+
+/** A `doc:` reference names a file this person uploaded (Work 89); check it is theirs and is there. */
+async function checkUpload(storage: IDocumentStoragePort | undefined, userId: string, storageRef: string): Promise<void> {
+  const ref = parseDocumentRef(storageRef);
+  if (!ref || ref.namespace !== 'verification' || ref.ownerId !== userId) {
+    throw IdentityErrors.validation('A document reference is not one of your uploads.', { storageRef });
+  }
+  if (!storage?.available) throw IdentityErrors.validation('Document uploads are not available.');
+  const info = await storage.describe(ref);
+  if (!info) throw IdentityErrors.validation('A document was not uploaded yet.', { storageRef });
+  if (!(ALLOWED_DOCUMENT_CONTENT_TYPES as readonly string[]).includes(info.contentType) || info.bytes > MAX_DOCUMENT_BYTES || info.bytes === 0) {
+    throw IdentityErrors.validation('An uploaded document is not an accepted file.', { storageRef });
   }
 }
 

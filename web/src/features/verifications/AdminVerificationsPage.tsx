@@ -18,6 +18,8 @@ import {
   VERIFICATION_PAGE_SIZES,
   VERIFICATION_STATUSES,
   VERIFICATION_TYPES,
+  adminVerificationsService,
+  previewErrorMessage,
   verificationErrorMessage,
 } from '@/services/adminVerifications.service';
 import { humanizeStatus } from '@/services/adminAnalytics.service';
@@ -145,12 +147,14 @@ function ReviewDrawer({ id, onClose }: { id: string | null; onClose: () => void 
             {request.rejectReason ? <Field label="Reject reason" value={request.rejectReason} /> : null}
             <Divider />
             <Typography variant="subtitle2">Documents ({request.documents.length})</Typography>
-            <Alert severity="warning">
-              Document preview is not available yet: the platform stores document references only. Review the originals through
-              your document process.
-            </Alert>
+            {request.documents.some((d) => !d.previewable) ? (
+              <Alert severity="info">
+                Documents marked "reference only" were submitted before uploads existed: there is no file to preview. Review those originals
+                through your document process.
+              </Alert>
+            ) : null}
             {request.documents.map((d, i) => (
-              <Field key={`${d.kind}-${i}`} label={humanizeStatus(d.kind)} value={d.expiresAt ? `expires ${formatDate(d.expiresAt)}` : 'reference on file'} />
+              <DocumentRow key={`${d.kind}-${i}`} requestId={request.requestId} index={i} document={d} />
             ))}
             <Divider />
             {request.status === 'PENDING' && can('verifications:manage') ? <Decide key={request.requestId} request={request} onDone={onClose} /> : null}
@@ -158,6 +162,44 @@ function ReviewDrawer({ id, onClose }: { id: string | null; onClose: () => void 
         ) : null}
       </Box>
     </Drawer>
+  );
+}
+
+/**
+ * One document of the request (Work 89). "Preview" asks the server for a five-minute signed link,
+ * which the server audits, and opens it in a new tab; the link is not kept.
+ */
+function DocumentRow({ requestId, index, document }: { requestId: string; index: number; document: VerificationDetail['documents'][number] }) {
+  const [state, setState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const detail = document.expiresAt ? `expires ${formatDate(document.expiresAt)}` : document.previewable ? 'file on record' : 'reference only';
+  const open = async () => {
+    // Opened first, synchronously, so the browser does not treat it as an unrequested pop-up.
+    const tab = window.open('about:blank', '_blank', 'noopener=no');
+    setState({ busy: true, error: null });
+    try {
+      const preview = await adminVerificationsService.previewDocument(requestId, index);
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = preview.url;
+      }
+      setState({ busy: false, error: null });
+    } catch (err) {
+      tab?.close();
+      setState({ busy: false, error: previewErrorMessage(err) });
+    }
+  };
+  return (
+    <Stack spacing={0.5}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+        <Field label={humanizeStatus(document.kind)} value={detail} />
+        {document.previewable ? (
+          <Button size="small" variant="outlined" onClick={open} disabled={state.busy}>
+            Preview
+          </Button>
+        ) : null}
+      </Stack>
+      {state.error ? <Alert severity="error">{state.error}</Alert> : null}
+    </Stack>
   );
 }
 

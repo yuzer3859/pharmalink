@@ -7,6 +7,7 @@ import {
   endOfDayIso,
   formatAge,
   isValidRejectReason,
+  previewErrorMessage,
   verificationErrorMessage,
   verificationQuery,
 } from './adminVerifications.service';
@@ -96,5 +97,21 @@ describe('adminVerificationsService', () => {
     });
     await svc.reject('r1', '  Blurred document ');
     expect(request).toHaveBeenLastCalledWith('/admin/verifications/r1/reject', { method: 'POST', body: { reason: 'Blurred document' } });
+  });
+});
+
+describe('document preview (Work 89)', () => {
+  it('asks for a signed link to one document by index', async () => {
+    const request = vi.fn().mockResolvedValue({ url: 'http://127.0.0.1:9100/x', kind: 'DRIVING_LICENSE', contentType: 'application/pdf', expiresAt: '' });
+    const svc = createAdminVerificationsService(request as never);
+    await svc.previewDocument('req 1', 2);
+    expect(request).toHaveBeenCalledWith('/admin/verifications/req%201/documents/2/preview', { method: 'POST', body: {} });
+  });
+
+  it('explains why a preview failed', () => {
+    expect(previewErrorMessage(new ApiError(409, 'DOCUMENT_NOT_STORED', 'x'))).toBe('There is no stored file for this document.');
+    expect(previewErrorMessage(new ApiError(503, 'DEPENDENCY_UNAVAILABLE', 'x'))).toBe('Document storage is not available right now.');
+    expect(previewErrorMessage(new ApiError(403, 'FORBIDDEN', 'x'))).toBe('Your account is not allowed to do this.');
+    expect(previewErrorMessage(new Error('boom'))).toBe('The preview could not be opened.');
   });
 });

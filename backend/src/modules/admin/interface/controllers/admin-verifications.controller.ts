@@ -1,9 +1,10 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { RequirePermissions } from '../../../../shared/rbac/permissions.decorator';
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { CurrentUser } from '../../../identity/interface/decorators/current-user.decorator';
 import { ApproveVerificationCommand } from '../../application/commands/approve-verification.command';
+import { PreviewVerificationDocumentCommand } from '../../application/commands/preview-verification-document.command';
 import { RejectVerificationCommand } from '../../application/commands/reject-verification.command';
 import { GetVerificationQuery } from '../../application/queries/get-verification.query';
 import { ListVerificationQueueQuery } from '../../application/queries/list-verification-queue.query';
@@ -70,6 +71,7 @@ export class AdminVerificationsController {
     private readonly getOne: GetVerificationQuery,
     private readonly approve: ApproveVerificationCommand,
     private readonly reject: RejectVerificationCommand,
+    private readonly preview: PreviewVerificationDocumentCommand,
   ) {}
 
   @Get()
@@ -93,6 +95,23 @@ export class AdminVerificationsController {
   @RequirePermissions('verification:queue:read')
   async detail(@Param('id') id: string): Promise<VerificationDetailResponse> {
     return toVerificationDetailResponse(await this.getOne.execute(id));
+  }
+
+  /**
+   * Work 89: a five-minute signed link to one document, audited. POST because it issues a
+   * credential and writes an audit entry. `DOCUMENT_NOT_STORED` (409) for a reference-only document.
+   */
+  @Post(':id/documents/:index/preview')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('verification:queue:read')
+  async previewDocument(
+    @CurrentUser() reviewer: AuthenticatedPrincipal,
+    @Param('id') id: string,
+    @Param('index', new ParseIntPipe()) index: number,
+    @Req() req: Request,
+  ) {
+    const p = await this.preview.execute({ requestId: id, index, reviewerId: reviewer.userId, ip: req.ip ?? null });
+    return { kind: p.kind, contentType: p.contentType, url: p.url, expiresAt: p.expiresAt.toISOString() };
   }
 
   @Post(':id/approve')

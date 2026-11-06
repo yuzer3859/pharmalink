@@ -21,6 +21,7 @@ import { RevokeUserRoleCommand } from './application/commands/revoke-user-role.c
 import { SetRolePermissionsCommand } from './application/commands/set-role-permissions.command';
 import { SubmitFaydaVerificationCommand } from './application/commands/submit-fayda-verification.command';
 import { SubmitVerificationDocumentsCommand } from './application/commands/submit-verification-documents.command';
+import { RequestDocumentUploadCommand } from './application/commands/request-document-upload.command';
 import { SuspendUserCommand } from './application/commands/suspend-user.command';
 import { UpdateProfileCommand } from './application/commands/update-profile.command';
 import { VerifyOtpCommand } from './application/commands/verify-otp.command';
@@ -231,6 +232,8 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     // Verification / Fayda (§9, §11.6, §11.7)
     SubmitFaydaVerificationCommand,
     SubmitVerificationDocumentsCommand,
+    // Work 89 — signed upload links for verification documents.
+    RequestDocumentUploadCommand,
     GetVerificationStatusQuery,
     ListVerificationQueueQuery,
     ApproveVerificationCommand,

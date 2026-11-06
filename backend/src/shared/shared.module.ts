@@ -9,6 +9,7 @@ import { AuditModule } from './audit/audit.module';
 import { RbacModule } from './rbac/rbac.module';
 import { RedisModule } from './redis/redis.module';
 import { EmailModule } from './email/email.module';
+import { DocumentStorageModule } from './storage/document-storage.module';
 
 /**
  * Aggregates all Phase-0 cross-cutting infrastructure. Every submodule is @Global, so importing
@@ -28,6 +29,7 @@ import { EmailModule } from './email/email.module';
     RbacModule,
     RedisModule,
     EmailModule,
+    DocumentStorageModule,
   ],
   exports: [
     AppConfigModule,
@@ -40,6 +42,7 @@ import { EmailModule } from './email/email.module';
     RbacModule,
     RedisModule,
     EmailModule,
+    DocumentStorageModule,
   ],
 })
 export class SharedModule {}

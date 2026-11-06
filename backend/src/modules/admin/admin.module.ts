@@ -105,6 +105,7 @@ import { PrismaAnalyticsSnapshotRepository } from './infrastructure/persistence/
 import { ANALYTICS_SNAPSHOT_REPOSITORY } from './application/ports/analytics-snapshot.repository.port';
 import { AnalyticsSnapshotService } from './application/analytics/analytics-snapshot.service';
 import { AdminActivityService } from './application/activity/admin-activity.service';
+import { PreviewVerificationDocumentCommand } from './application/commands/preview-verification-document.command';
 import { AdminActivityController } from './interface/controllers/admin-activity.controller';
 import { PrismaApprovalRequestRepository } from './infrastructure/persistence/prisma-approval-request.repository';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
@@ -336,6 +337,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AnalyticsSnapshotJob,
     // Work 88 — admin activity and anomaly monitoring, over Module 01's staff port and the audit read port.
     AdminActivityService,
+    // Work 89 — signed, audited previews of verification documents.
+    PreviewVerificationDocumentCommand,
     // Work 25 — inventory operations view, over Module 04's and Module 03's read ports.
     GetInventoryOperationsOverviewQuery,
 

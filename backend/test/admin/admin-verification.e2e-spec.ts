@@ -46,7 +46,7 @@ interface QueueBody {
 }
 
 interface DetailBody extends QueueItem {
-  documents: Array<{ kind: string; storageRef: string; expiresAt: string | null }>;
+  documents: Array<{ kind: string; storageRef: string; expiresAt: string | null; previewable: boolean }>;
   hasFaydaId: boolean;
   reviewerId: string | null;
   rejectReason: string | null;
@@ -333,8 +333,8 @@ describe('Admin verification management (e2e)', () => {
       const view = body(await detail(admin.accessToken, requestId).expect(200)) as unknown as DetailBody;
       expect(view.requestId).toBe(requestId);
       expect(view.documents).toEqual([
-        { kind: 'DRIVING_LICENSE', storageRef: 'enc://verification/drv-licence-1', expiresAt: null },
-        { kind: 'VEHICLE_REGISTRATION', storageRef: 'enc://verification/drv-reg-1', expiresAt: null },
+        { kind: 'DRIVING_LICENSE', storageRef: 'enc://verification/drv-licence-1', expiresAt: null, previewable: false },
+        { kind: 'VEHICLE_REGISTRATION', storageRef: 'enc://verification/drv-reg-1', expiresAt: null, previewable: false },
       ]);
       expect(view.hasFaydaId).toBe(false);
       expect(view.applicant).toEqual({

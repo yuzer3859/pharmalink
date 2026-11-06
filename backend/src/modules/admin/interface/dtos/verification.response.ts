@@ -1,3 +1,4 @@
+import { DOC_REF_PREFIX } from '../../../../shared/storage/document-storage.port';
 import {
   PaginatedResult,
   VerificationDecisionResult,
@@ -40,6 +41,8 @@ export interface VerificationDocumentResponse {
   /** Module 01's opaque storage reference, as stored. Not a URL; nothing here can fetch it. */
   storageRef: string;
   expiresAt: string | null;
+  /** Work 89: an uploaded file the review can preview (`POST …/documents/{index}/preview`). */
+  previewable: boolean;
 }
 
 export interface VerificationDetailResponse extends VerificationQueueItemResponse {
@@ -107,6 +110,7 @@ export function toVerificationDetailResponse(
       kind: d.kind,
       storageRef: d.storageRef,
       expiresAt: d.expiresAt,
+      previewable: d.storageRef.startsWith(DOC_REF_PREFIX),
     })),
     hasFaydaId: view.hasFaydaId,
     reviewerId: view.reviewerId,

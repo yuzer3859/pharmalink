@@ -1,6 +1,8 @@
 import { INestApplicationContext } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { AuditService } from '../../shared/audit/audit.service';
+import { DOCUMENT_STORAGE_PORT, IDocumentStoragePort } from '../../shared/storage/document-storage.port';
+import { seedSampleDocument } from './sample-document';
 import { ApproveCatalogProductCommand } from '../../modules/admin/application/commands/approve-catalog-product.command';
 import { ApproveVerificationCommand } from '../../modules/admin/application/commands/approve-verification.command';
 import { RejectCatalogProductCommand } from '../../modules/admin/application/commands/reject-catalog-product.command';
@@ -189,8 +191,11 @@ export class StagingSeeder {
         type: VerificationType.PHARMACY_LICENSE,
         organizationId,
         documents: [
-          { kind: 'BUSINESS_LICENSE', storageRef: `staging-seed/${fixture.key}/business-license.pdf` },
-          { kind: 'PHARMACIST_CERTIFICATE', storageRef: `staging-seed/${fixture.key}/pharmacist-certificate.pdf` },
+          { kind: 'BUSINESS_LICENSE', storageRef: await this.sampleDoc(ownerId, 'BUSINESS_LICENSE', `staging-seed/${fixture.key}/business-license.pdf`) },
+          {
+            kind: 'PHARMACIST_CERTIFICATE',
+            storageRef: await this.sampleDoc(ownerId, 'PHARMACIST_CERTIFICATE', `staging-seed/${fixture.key}/pharmacist-certificate.pdf`),
+          },
         ],
       });
       requestId = submitted.requestId;
@@ -291,11 +296,24 @@ export class StagingSeeder {
         await this.app.get(SubmitVerificationDocumentsCommand).execute({
           userId,
           type,
-          documents: kinds.map((kind) => ({ kind, storageRef: `staging-seed/${key}/${kind.toLowerCase()}.pdf` })),
+          documents: await Promise.all(
+            kinds.map(async (kind) => ({ kind, storageRef: await this.sampleDoc(userId, kind, `staging-seed/${key}/${kind.toLowerCase()}.pdf`) })),
+          ),
         });
         this.note(true, `verification ${type} (${round})`);
       }
     }
+  }
+
+  /** Work 89: a stored sample PDF (previewable in the review), or the old text reference without storage. */
+  private sampleDoc(ownerId: string, kind: string, fallbackRef: string): Promise<string> {
+    let storage: IDocumentStoragePort | null = null;
+    try {
+      storage = this.app.get<IDocumentStoragePort>(DOCUMENT_STORAGE_PORT, { strict: false });
+    } catch {
+      storage = null;
+    }
+    return seedSampleDocument(storage, ownerId, kind.replace(/_/g, ' ').toLowerCase(), fallbackRef);
   }
 
   /** The COD driver: documents approved by the operator, a profile, on shift and online. */
@@ -308,8 +326,11 @@ export class StagingSeeder {
         userId: driver,
         type: VerificationType.DRIVER_DOCS,
         documents: [
-          { kind: 'DRIVING_LICENSE', storageRef: 'staging-seed/driverCod/driving_license.pdf' },
-          { kind: 'VEHICLE_REGISTRATION', storageRef: 'staging-seed/driverCod/vehicle_registration.pdf' },
+          { kind: 'DRIVING_LICENSE', storageRef: await this.sampleDoc(driver, 'DRIVING_LICENSE', 'staging-seed/driverCod/driving_license.pdf') },
+          {
+            kind: 'VEHICLE_REGISTRATION',
+            storageRef: await this.sampleDoc(driver, 'VEHICLE_REGISTRATION', 'staging-seed/driverCod/vehicle_registration.pdf'),
+          },
         ],
       });
       docs = await this.prisma.verificationRequest.findUniqueOrThrow({ where: { id: submitted.requestId } });
