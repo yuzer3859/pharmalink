@@ -79,6 +79,8 @@ import {
   VerifyPayoutBeneficiaryCommand,
 } from './application/commands/payout-beneficiary.commands';
 import { SETTLEMENT_PAYOUT_PORT } from './application/ports/inbound/settlement-payout.port';
+import { REFUND_ADMIN_PORT } from './application/ports/inbound/refund-admin.port';
+import { RefundAdminPortAdapter } from './application/ports/inbound/refund-admin.port.adapter';
 import { SettlementPayoutPortAdapter } from './application/ports/inbound/settlement-payout.port.adapter';
 import { PAYOUT_PROVIDER_PORT } from './application/ports/outbound/payout-provider.port';
 import { PAYOUT_REPOSITORY } from './domain/repositories/payout.repository';
@@ -216,6 +218,8 @@ import { WalletController } from './interface/controllers/wallet.controller';
     RegisterPayoutBeneficiaryCommand,
     VerifyPayoutBeneficiaryCommand,
     { provide: SETTLEMENT_PAYOUT_PORT, useClass: SettlementPayoutPortAdapter },
+    // Work 84 — manual refunds through Admin's maker-checker.
+    { provide: REFUND_ADMIN_PORT, useClass: RefundAdminPortAdapter },
     ProviderPayableService,
     ProviderScopeService,
     RunSettlementCommand,
@@ -318,6 +322,8 @@ import { WalletController } from './interface/controllers/wallet.controller';
     PAYMENT_RECIPIENT_READ_PORT,
     // Work 83: Admin's maker-checker executors and payout routes.
     SETTLEMENT_PAYOUT_PORT,
+    // Work 84: high-value refunds through maker-checker.
+    REFUND_ADMIN_PORT,
   ],
 })
 export class PaymentModule {}

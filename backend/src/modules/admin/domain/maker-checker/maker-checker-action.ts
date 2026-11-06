@@ -36,6 +36,11 @@ export interface MakerCheckerAction<P extends Record<string, unknown> = Record<s
    * anyone is asked to approve it.
    */
   describe(payload: P): { entityId: string; summary: string };
+  /**
+   * Work 84: whether *this* request needs a checker, when the action is listed. Absent = every
+   * request does. A high-value refund answers by its amount against the threshold.
+   */
+  needsApproval?(payload: P): Promise<boolean>;
   /** Runs the action through the owning module. Returns what the checker should see as the outcome. */
   execute(payload: P, context: MakerCheckerExecutionContext): Promise<Record<string, unknown>>;
 }

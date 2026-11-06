@@ -37,6 +37,9 @@ export const AdminErrors = {
 
   payoutBeneficiaryNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Payout beneficiary not found.'),
 
+  /** Work 84. */
+  paymentNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Payment not found.'),
+
   /** The checker is the maker. */
   approvalSelfDecision: () =>
     new ApiException(

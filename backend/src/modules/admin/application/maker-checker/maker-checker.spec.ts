@@ -474,7 +474,7 @@ describe('Maker-checker (Work 82)', () => {
       expect(ConfigCatalogue.find('approvals', 'makerCheckerActions')).toMatchObject({
         type: ConfigValueType.JSON,
         // Work 83's registered types.
-        allowed: ['SETTLEMENT_APPROVE', 'SETTLEMENT_PAYOUT', 'PAYOUT_BENEFICIARY_VERIFY'],
+        allowed: ['SETTLEMENT_APPROVE', 'SETTLEMENT_PAYOUT', 'PAYOUT_BENEFICIARY_VERIFY', 'REFUND_HIGH_VALUE'],
       });
       expect(ConfigCatalogue.find('approvals', 'ttlHours')).toMatchObject({
         type: ConfigValueType.INTEGER,
@@ -503,7 +503,7 @@ describe('Maker-checker (Work 82)', () => {
 
     it('parses APPROVALS_MAKER_CHECKER_ACTIONS and fails on an unregistered type', () => {
       // Unset or blank: every registered money action needs a checker (Work 83's secure default).
-      const all = ['SETTLEMENT_APPROVE', 'SETTLEMENT_PAYOUT', 'PAYOUT_BENEFICIARY_VERIFY'];
+      const all = ['SETTLEMENT_APPROVE', 'SETTLEMENT_PAYOUT', 'PAYOUT_BENEFICIARY_VERIFY', 'REFUND_HIGH_VALUE'];
       expect(readMakerCheckerActions({})).toEqual(all);
       expect(readMakerCheckerActions({ [APPROVALS_MAKER_CHECKER_ACTIONS_ENV]: ' ' })).toEqual(all);
       expect(readMakerCheckerActions({ [APPROVALS_MAKER_CHECKER_ACTIONS_ENV]: 'none' })).toEqual([]);

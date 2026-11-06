@@ -48,6 +48,21 @@ export function createSettlementPayoutService(request: SessionRequest, key: () =
       }),
     verifyBeneficiary: (beneficiaryId: string, reason?: string) =>
       gated(`/admin/finance/payout-beneficiaries/${enc(beneficiaryId)}/verify`, reason),
+
+    /**
+     * Work 84: a manual refund (`finance:refund:any`). Carried out now at or below the high-value
+     * threshold, otherwise `MAKER_CHECKER_PENDING`. No amount = everything still refundable.
+     */
+    refund: (paymentId: string, input: { amount?: number; reason: string; destination: 'ORIGINAL' | 'WALLET' }) =>
+      request<GatedOutcome>(`/admin/finance/payments/${enc(paymentId)}/refunds`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': key() },
+        body: {
+          ...(input.amount !== undefined ? { amount: input.amount } : {}),
+          reason: input.reason.trim(),
+          destination: input.destination,
+        },
+      }),
   };
 }
 

@@ -84,6 +84,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'finance:settle',
   'approvals:view',
   'finance:payout',
+  'finance:refund',
   'settings:manage',
 ];
 
@@ -263,6 +264,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('approval:read:any')) result.add('approvals:view');
     // Work 83: payouts and payout destinations (finance:payout:any).
     if (has('finance:payout:any')) result.add('finance:payout');
+    // Work 84: manual refunds (finance:refund:any).
+    if (has('finance:refund:any')) result.add('finance:refund');
     result.delete('dashboard:view');
   }
 
@@ -306,6 +309,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('approval:read:any')) result.add('approvals:view');
     // Work 83: payouts and payout destinations (finance:payout:any; Super Admin by wildcard).
     if (has('finance:payout:any')) result.add('finance:payout');
+    // Work 84: manual refunds (finance:refund:any; Super Admin by wildcard).
+    if (has('finance:refund:any')) result.add('finance:refund');
   }
 
   return ALL_PORTAL_PERMISSIONS.filter((permission) => result.has(permission));

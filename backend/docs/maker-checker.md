@@ -58,6 +58,31 @@ runs the action, and it runs through the owning module's own command. Works 83 (
 10. **Payloads hold what the executor needs and nothing secret** — ids, amounts, a reason. They are
     shown to the checker, because the checker must see what they approve.
 
+## Registered actions
+
+| Action | Owner | Permission | Gated | Work |
+| --- | --- | --- | --- | --- |
+| `SETTLEMENT_APPROVE` | Module 07 | `finance:settlement:any` | always, when listed | 83 ([settlement-payout.md](settlement-payout.md)) |
+| `SETTLEMENT_PAYOUT` | Module 07 | `finance:payout:any` | always, when listed | 83 |
+| `PAYOUT_BENEFICIARY_VERIFY` | Module 07 | `finance:payout:any` | always, when listed | 83 |
+| `REFUND_HIGH_VALUE` | Module 07 | `finance:refund:any` | only above `approvals.highValueRefundThreshold` | 84 |
+
+All four are listed by default. An action may answer per request whether it needs a checker
+(`needsApproval`); the gate asks only when the action is listed.
+
+## High-value refunds (Work 84)
+
+- `POST /admin/finance/payments/{id}/refunds` (`finance:refund:any`, `Idempotency-Key`): a manual
+  refund from the finance portal. At or below the threshold it runs at once (200); above it, 202
+  `MAKER_CHECKER_PENDING` and a second finance officer decides on the Approvals page.
+- `approvals.highValueRefundThreshold`: santim, default 1,000,000 (10,000 birr; the owner asked for
+  the recommended default), bounds 1 to 2,147,483,647, `APPROVALS_HIGH_VALUE_REFUND_THRESHOLD`.
+  "Amount omitted" means everything still refundable, and the decision uses that amount.
+- Module 07's own `POST /payments/{id}/refunds` refuses a single-actor refund above the threshold
+  (`REFUND_APPROVAL_REQUIRED`, 409) inside the refund's own reservation, before anything is written.
+  Only the maker-checker executor can pass the approval through, so no route skips it.
+- The refund's `approvedBy` is the checker; its idempotency key is `approval:<id>`.
+
 ## Known limits
 
 - A Super Admin can change `approvals.makerCheckerActions` alone (config publishing is itself a

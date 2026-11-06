@@ -35,7 +35,9 @@ import {
 import {
   MAKER_CHECKER_ACTION_TYPES,
   MAX_APPROVALS_TTL_HOURS,
+  MAX_HIGH_VALUE_REFUND_THRESHOLD,
   MIN_APPROVALS_TTL_HOURS,
+  MIN_HIGH_VALUE_REFUND_THRESHOLD,
 } from '../../../../shared/config/approvals.config';
 import { ConfigValueType } from '../enums';
 
@@ -383,6 +385,15 @@ const DEFINITIONS: readonly ConfigKeyDefinition[] = [
     min: MIN_APPROVALS_TTL_HOURS,
     max: MAX_APPROVALS_TTL_HOURS,
     description: 'How many hours a maker-checker request waits for a checker before it expires.',
+  },
+  {
+    namespace: 'approvals',
+    key: 'highValueRefundThreshold',
+    type: ConfigValueType.INTEGER,
+    min: MIN_HIGH_VALUE_REFUND_THRESHOLD,
+    max: MAX_HIGH_VALUE_REFUND_THRESHOLD,
+    description:
+      'A manual refund above this amount, in santim, needs a second finance officer (when REFUND_HIGH_VALUE is listed).',
   },
 ];
 

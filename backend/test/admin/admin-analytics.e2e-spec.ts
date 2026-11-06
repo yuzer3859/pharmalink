@@ -660,6 +660,8 @@ describe('Admin operational analytics (e2e)', () => {
         'orders/application/ports/inbound/order-operations-read.port',
         'orders/orders.module',
         'payment/application/ports/inbound/finance-oversight.port',
+        // Work 84: high-value refunds for maker-checker.
+        'payment/application/ports/inbound/refund-admin.port',
         // Work 83: settlement approval and payout for maker-checker.
         'payment/application/ports/inbound/settlement-payout.port',
         'payment/payment.module',
