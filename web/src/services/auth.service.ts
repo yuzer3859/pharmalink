@@ -86,6 +86,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'finance:payout',
   'finance:refund',
   'support:impersonate',
+  'disputes:manage',
   'settings:manage',
 ];
 
@@ -267,6 +268,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('finance:payout:any')) result.add('finance:payout');
     // Work 84: manual refunds (finance:refund:any).
     if (has('finance:refund:any')) result.add('finance:refund');
+    // Work 86: the dispute desk.
+    if (has('dispute:manage:any')) result.add('disputes:manage');
     result.delete('dashboard:view');
   }
 
@@ -314,6 +317,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('finance:refund:any')) result.add('finance:refund');
     // Work 85: support "view as" (support:impersonate:any).
     if (has('support:impersonate:any')) result.add('support:impersonate');
+    // Work 86: the dispute desk (dispute:manage:any).
+    if (has('dispute:manage:any')) result.add('disputes:manage');
   }
 
   return ALL_PORTAL_PERMISSIONS.filter((permission) => result.has(permission));

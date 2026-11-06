@@ -17,6 +17,8 @@ export enum NotificationTemplateCode {
   ACCOUNT_REACTIVATED = 'ACCOUNT_REACTIVATED',
   // Work 85: a support administrator viewed the account, read-only.
   ACCOUNT_IMPERSONATED = 'ACCOUNT_IMPERSONATED',
+  // Work 86: something the complainant can see changed on their dispute.
+  DISPUTE_UPDATED = 'DISPUTE_UPDATED',
   ORDER_PLACED = 'ORDER_PLACED',
   ORDER_ACCEPTED = 'ORDER_ACCEPTED',
   ORDER_READY = 'ORDER_READY',
@@ -129,6 +131,19 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     render: {
       en: () => ({ title: 'Account reactivated', body: 'Your account is active again.' }),
       am: () => ({ title: 'መለያዎ እንደገና ነቅቷል', body: 'መለያዎ እንደገና ንቁ ሆኗል።' }),
+    },
+  },
+  [NotificationTemplateCode.DISPUTE_UPDATED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: `Dispute ${String(d.caseNumber)} updated`,
+        body: d.change === 'MESSAGE' ? 'Support replied to your dispute.' : `Your dispute is now ${String(d.status).toLowerCase().replace(/_/g, ' ')}.`,
+      }),
+      am: (d) => ({
+        title: `ቅሬታ ${String(d.caseNumber)} ተዘምኗል`,
+        body: d.change === 'MESSAGE' ? 'የድጋፍ ቡድኑ ለቅሬታዎ መልስ ሰጥቷል።' : 'የቅሬታዎ ሁኔታ ተቀይሯል።',
+      }),
     },
   },
   [NotificationTemplateCode.ACCOUNT_IMPERSONATED]: {

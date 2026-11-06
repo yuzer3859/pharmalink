@@ -37,6 +37,15 @@ export const AdminErrors = {
 
   payoutBeneficiaryNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Payout beneficiary not found.'),
 
+  /** Work 86. A case that does not exist or is not the caller's. */
+  disputeNotFound: () => new ApiException(ErrorCode.DISPUTE_NOT_FOUND, 'Dispute not found.'),
+  /** The order does not exist or is not the complainant's (the same answer, so nothing leaks). */
+  disputeOrderNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Order not found.'),
+  disputeAlreadyOpen: (caseNumber: string) =>
+    new ApiException(ErrorCode.CONFLICT, 'A dispute about this is already open.', { caseNumber }),
+  disputeInvalidTransition: (from: string, to: string) =>
+    new ApiException(ErrorCode.INVALID_DISPUTE_STATE_TRANSITION, `A ${from} dispute cannot become ${to}.`, { from, to }),
+
   /** Work 84. */
   paymentNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Payment not found.'),
 

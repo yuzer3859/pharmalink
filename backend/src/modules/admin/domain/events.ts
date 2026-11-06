@@ -13,6 +13,8 @@ export const AdminEventType = {
   FeatureFlagToggled: 'admin.feature_flag.toggled',
   ApprovalRequested: 'admin.approval.requested',
   ApprovalDecided: 'admin.approval.decided',
+  DisputeOpened: 'admin.dispute.opened',
+  DisputeUpdated: 'admin.dispute.updated',
 } as const;
 
 export type AdminEventType = (typeof AdminEventType)[keyof typeof AdminEventType];
@@ -125,4 +127,31 @@ export function approvalDecidedEvent(
     aggregateId: payload.approvalId,
     payload,
   });
+}
+
+/** Work 86. */
+export interface DisputeOpenedPayload {
+  caseId: string;
+  caseNumber: string;
+  type: string;
+  orderId: string;
+  userId: string;
+}
+
+/** Work 86: something the complainant can see changed (status, or a message from support). */
+export interface DisputeUpdatedPayload {
+  caseId: string;
+  caseNumber: string;
+  /** The complainant. */
+  userId: string;
+  status: string;
+  change: 'STATUS' | 'MESSAGE';
+}
+
+export function disputeOpenedEvent(payload: DisputeOpenedPayload): DomainEvent<DisputeOpenedPayload> {
+  return createDomainEvent({ type: AdminEventType.DisputeOpened, aggregateType: 'DisputeCase', aggregateId: payload.caseId, payload });
+}
+
+export function disputeUpdatedEvent(payload: DisputeUpdatedPayload): DomainEvent<DisputeUpdatedPayload> {
+  return createDomainEvent({ type: AdminEventType.DisputeUpdated, aggregateType: 'DisputeCase', aggregateId: payload.caseId, payload });
 }

@@ -18,6 +18,7 @@ import { CatalogReviewPage } from '@/features/catalog/CatalogReviewPage';
 import { FinancePage } from '@/features/finance/FinancePage';
 import { CodDisputesPage } from '@/features/finance/CodDisputesPage';
 import { ApprovalsPage } from '@/features/approvals/ApprovalsPage';
+import { DisputesPage } from '@/features/disputes/DisputesPage';
 import { pageFor } from './pageRegistry';
 
 describe('pageFor', () => {
@@ -83,11 +84,11 @@ describe('pageFor', () => {
 
 describe('the finance portal (Work 81)', () => {
   it('offers Finance, COD disputes and Approvals and nothing else, opening on Finance', () => {
-    expect(PORTALS.finance.nav.map((i) => i.path)).toEqual(['finance', 'cod-disputes', 'approvals']);
+    expect(PORTALS.finance.nav.map((i) => i.path)).toEqual(['finance', 'cod-disputes', 'approvals', 'disputes']);
     expect(PORTALS.finance.landingPath).toBe('finance');
     expect(PORTALS.finance.basePath).toBe('/finance');
     // Only nav items become routes (AppRouter), so these are the only pages the portal can reach.
-    expect(PORTALS.finance.nav.map((i) => i.permission)).toEqual(['finance:view', 'finance:view', 'approvals:view']);
+    expect(PORTALS.finance.nav.map((i) => i.permission)).toEqual(['finance:view', 'finance:view', 'approvals:view', 'disputes:manage']);
   });
 
   it('routes its pages to the same finance pages the admin portals use', () => {
@@ -99,7 +100,7 @@ describe('the finance portal (Work 81)', () => {
     const paths = new Set(PORTALS.finance.nav.map((i) => i.path));
     const others = [...PORTALS.admin.nav, ...PORTALS.superadmin.nav, ...PORTALS.pharmacy.nav]
       .map((i) => i.path)
-      .filter((p) => p !== 'finance' && p !== 'cod-disputes' && p !== 'approvals');
+      .filter((p) => p !== 'finance' && p !== 'cod-disputes' && p !== 'approvals' && p !== 'disputes');
     for (const path of others) expect({ path, routed: paths.has(path) }).toEqual({ path, routed: false });
   });
 
@@ -116,6 +117,16 @@ describe('pending approvals (Work 82)', () => {
     }
     expect(PORTALS.pharmacy.nav.some((i) => i.path === 'approvals')).toBe(false);
     expect(pageFor('pharmacy', 'approvals')).toBeUndefined();
+  });
+});
+
+describe('disputes (Work 86)', () => {
+  it('routes Disputes in the admin, super admin and finance portals, behind disputes:manage', () => {
+    for (const key of ['admin', 'superadmin', 'finance'] as const) {
+      expect(pageFor(key, 'disputes')).toBe(DisputesPage);
+      expect(PORTALS[key].nav.find((i) => i.path === 'disputes')?.permission).toBe('disputes:manage');
+    }
+    expect(PORTALS.pharmacy.nav.some((i) => i.path === 'disputes')).toBe(false);
   });
 });
 

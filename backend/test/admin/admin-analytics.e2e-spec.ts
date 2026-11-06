@@ -660,6 +660,8 @@ describe('Admin operational analytics (e2e)', () => {
         'orders/application/ports/inbound/order-cancellation-operations-read.port',
         // Work 35: order operations visibility (admin-order-operations.e2e-spec.ts).
         'orders/application/ports/inbound/order-operations-read.port',
+        // Work 86: dispute intake checks the order is the complainant's.
+        'orders/application/ports/inbound/order-ownership-read.port',
         'orders/orders.module',
         'payment/application/ports/inbound/finance-oversight.port',
         // Work 84: high-value refunds for maker-checker.

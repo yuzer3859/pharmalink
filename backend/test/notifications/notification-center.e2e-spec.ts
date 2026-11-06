@@ -525,6 +525,8 @@ describe('In-app notification center (e2e)', () => {
         }
       }
       expect([...imports].sort()).toEqual([
+        // Work 86: the dispute event contract (DisputeUpdated → DISPUTE_UPDATED).
+        'admin/domain/events',
         'delivery/application/ports/inbound/driver-recipient-read.port',
         'delivery/delivery.module',
         'delivery/domain/events',

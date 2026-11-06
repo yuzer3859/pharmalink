@@ -280,3 +280,84 @@ model DashboardMetric {
   @@index([metricKey, windowStart])
   @@map("dashboard_metrics")
 }
+
+// ---------------------------------------------------------------------------
+// Work 86 — general disputes (module-16 §7, §9.6, §11.4, BRULE-50; backend/docs/disputes.md)
+// ---------------------------------------------------------------------------
+
+enum DisputeStatus {
+  OPEN
+  INVESTIGATING
+  ESCALATED
+  /// A resolution that needs a second officer (a high-value refund) is waiting for them.
+  RESOLUTION_PENDING
+  RESOLVED
+  CLOSED
+}
+
+/// APPOINTMENT (module-16 §5) is out of scope with Modules 09–12.
+enum DisputeType {
+  ORDER
+  DELIVERY
+  PAYMENT
+  CONTENT
+}
+
+enum DisputePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+/// A complaint about a customer's order, its delivery or its payment, handled as one case with a
+/// thread, an SLA and a recorded outcome. Remedies run through the owning module (BRULE-50).
+model DisputeCase {
+  id                String          @id @default(uuid())
+  /// `DSP-YYYYMMDD-XXXXXX`, shown to the customer.
+  caseNumber        String          @unique
+  type              DisputeType
+  /// Always `ORDER` today: every intake refers to the customer's order.
+  transactionType   String
+  transactionId     String
+  complainantUserId String
+  /// Who opened it: the customer, or an administrator on their behalf.
+  openedByUserId    String
+  subject           String
+  description       String
+  status            DisputeStatus   @default(OPEN)
+  priority          DisputePriority @default(NORMAL)
+  assignedAdminId   String?
+  /// `{ action, notes, refund?, approvalId? }`, written once at resolution.
+  resolution        Json?
+  pendingApprovalId String?
+  slaDueAt          DateTime
+  openedAt          DateTime        @default(now())
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  updatedAt         DateTime        @default(now()) @updatedAt
+
+  messages DisputeMessage[]
+
+  @@index([status, slaDueAt])
+  @@index([complainantUserId, openedAt])
+  @@index([transactionType, transactionId])
+  @@map("dispute_cases")
+}
+
+/// The case thread. `internal` notes are visible to administrators only.
+model DisputeMessage {
+  id           String   @id @default(uuid())
+  caseId       String
+  senderUserId String
+  /// CUSTOMER or ADMIN.
+  senderRole   String
+  body         String
+  internal     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  case DisputeCase @relation(fields: [caseId], references: [id])
+
+  @@index([caseId, createdAt])
+  @@map("dispute_messages")
+}

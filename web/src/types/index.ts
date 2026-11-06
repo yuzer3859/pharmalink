@@ -27,6 +27,7 @@ export type PermissionKey =
   | 'finance:payout'
   | 'finance:refund'
   | 'support:impersonate'
+  | 'disputes:manage'
   | 'settings:manage';
 
 export interface AuthUser {
