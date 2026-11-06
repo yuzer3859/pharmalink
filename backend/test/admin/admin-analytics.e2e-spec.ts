@@ -469,7 +469,8 @@ describe('Admin operational analytics (e2e)', () => {
   });
 
   describe('read-only', () => {
-    it('exposes nothing but GET /overview under /admin/analytics', async () => {
+    // Work 87 added GET /metrics, GET /timeseries and POST /snapshots (test/admin/admin-analytics-timeseries.e2e-spec.ts).
+    it('exposes nothing else under /admin/analytics', async () => {
       for (const [method, path] of [
         ['post', '/overview'],
         ['put', '/overview'],
@@ -481,7 +482,9 @@ describe('Admin operational analytics (e2e)', () => {
         ['get', '/delivery'],
         ['get', '/pharmacies'],
         ['get', '/snapshots'],
-        ['post', '/snapshots'],
+        ['delete', '/snapshots'],
+        ['post', '/timeseries'],
+        ['post', '/metrics'],
       ] as const) {
         const res = await request(ctx.server)[method](`/admin/analytics${path}`).set(...auth(admin.accessToken)).send({});
         expect({ method, path, status: res.status }).toEqual({ method, path, status: 404 });

@@ -1,13 +1,25 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post, Query, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { RequirePermissions } from '../../../../shared/rbac/permissions.decorator';
+import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
+import { CurrentUser } from '../../../identity/interface/decorators/current-user.decorator';
+import { AnalyticsSnapshotService } from '../../application/analytics/analytics-snapshot.service';
 import { GetAnalyticsOverviewQuery } from '../../application/queries/get-analytics-overview.query';
+import { AnalyticsTimeseriesQueryDto } from '../dtos/analytics-timeseries.dto';
 import { AnalyticsOverviewResponse, toAnalyticsOverviewResponse } from '../dtos/analytics.response';
 
 /**
  * Operational analytics (module-16 §9.7, F-AD-23/24) — the control plane's **read-only** view of
  * measurable marketplace activity.
  *
- *     GET /admin/analytics/overview   accounts, catalogue, providers, orders, delivery, COD — now
+ *     GET  /admin/analytics/overview     accounts, catalogue, providers, orders, delivery, COD — now
+ *     GET  /admin/analytics/metrics      the metric keys daily snapshots hold (Work 87)
+ *     GET  /admin/analytics/timeseries   ?metrics=a,b&from=YYYY-MM-DD&to=YYYY-MM-DD (Work 87)
+ *     POST /admin/analytics/snapshots    take today's snapshot now; replaces today's values (Work 87)
+ *
+ * Work 87 adds the time series from daily snapshots (backend/docs/analytics-timeseries.md). The
+ * notes below on one route and read-only describe the overview; the one write Work 87 adds is to
+ * Admin's own read model (`dashboard_metrics`), never to an owner's table, and is audited.
  *
  * ## One route, on purpose
  *
@@ -43,10 +55,31 @@ import { AnalyticsOverviewResponse, toAnalyticsOverviewResponse } from '../dtos/
 @Controller('admin/analytics')
 @RequirePermissions('analytics:read')
 export class AdminAnalyticsController {
-  constructor(private readonly overview: GetAnalyticsOverviewQuery) {}
+  constructor(
+    private readonly overview: GetAnalyticsOverviewQuery,
+    private readonly snapshots: AnalyticsSnapshotService,
+  ) {}
 
   @Get('overview')
   async getOverview(): Promise<AnalyticsOverviewResponse> {
     return toAnalyticsOverviewResponse(await this.overview.execute());
+  }
+
+  @Get('metrics')
+  async listMetrics(): Promise<{ metrics: string[] }> {
+    return { metrics: await this.snapshots.listMetrics() };
+  }
+
+  @Get('timeseries')
+  async timeseries(@Query() q: AnalyticsTimeseriesQueryDto) {
+    return this.snapshots.timeseries({ metrics: q.metrics.split(','), from: q.from, to: q.to });
+  }
+
+  /** Idempotent by construction: a second run the same day replaces that day's values. */
+  @Post('snapshots')
+  @HttpCode(HttpStatus.OK)
+  async takeSnapshot(@CurrentUser() user: AuthenticatedPrincipal, @Req() req: Request) {
+    const result = await this.snapshots.snapshot({ userId: user.userId, ip: req.ip ?? null });
+    return { day: result.day, metrics: result.metrics, takenAt: result.takenAt.toISOString() };
   }
 }
