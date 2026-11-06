@@ -749,9 +749,10 @@ export interface KpiMetric {
   format: 'number' | 'currency' | 'percent';
 }
 
+/** `null` is a day with no data point: the line breaks there rather than dropping to zero. */
 export interface TimeSeriesPoint {
   period: string;
-  [series: string]: string | number;
+  [series: string]: string | number | null;
 }
 
 export interface CategoryDatum {

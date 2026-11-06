@@ -10,6 +10,7 @@ import { StatCard } from '@/components/common/StatCard';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { CategoryBarChart, DistributionPieChart } from '@/components/charts/Charts';
 import { EmptyState } from '@/components/common/EmptyState';
+import { AnalyticsTrends } from './AnalyticsTrends';
 import { useAuth } from '@/context/AuthContext';
 import { usePortal } from '@/hooks/usePortal';
 import { adminAnalyticsService, toChartData } from '@/services/adminAnalytics.service';
@@ -40,10 +41,10 @@ function Breakdown({ title, data, kind = 'bar', color }: { title: string; data: 
 
 /**
  * Platform overview for the admin portals (`GET /admin/analytics/overview`, `analytics:read`):
- * current counts per area and the COD cash summary. A snapshot, not a trend: the API has no time
- * series, so the page draws none.
+ * current counts per area and the COD cash summary. With `trends` (the Analytics page), also the
+ * daily-snapshot time series below it (Work 87).
  */
-export function AdminOverviewPage({ title = 'Overview' }: { title?: string }) {
+export function AdminOverviewPage({ title = 'Overview', trends = false }: { title?: string; trends?: boolean }) {
   const portal = usePortal();
   const theme = useTheme();
   const { can } = useAuth();
@@ -168,6 +169,8 @@ export function AdminOverviewPage({ title = 'Overview' }: { title?: string }) {
           />
         </Grid>
       </Grid>
+
+      {trends && <AnalyticsTrends />}
     </>
   );
 }
@@ -177,5 +180,5 @@ export function AdminDashboardPage() {
 }
 
 export function AdminAnalyticsPage() {
-  return <AdminOverviewPage title="Analytics" />;
+  return <AdminOverviewPage title="Analytics" trends />;
 }

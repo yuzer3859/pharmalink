@@ -100,6 +100,10 @@ import { ADMIN_UNIT_OF_WORK } from './application/ports/unit-of-work.port';
 import { APPROVAL_REQUEST_REPOSITORY } from './domain/maker-checker/approval-request.repository';
 import { MakerCheckerActionRegistry } from './domain/maker-checker/maker-checker-action';
 import { ApprovalExpiryJob } from './infrastructure/jobs/approval-expiry.job';
+import { AnalyticsSnapshotJob } from './infrastructure/jobs/analytics-snapshot.job';
+import { PrismaAnalyticsSnapshotRepository } from './infrastructure/persistence/prisma-analytics-snapshot.repository';
+import { ANALYTICS_SNAPSHOT_REPOSITORY } from './application/ports/analytics-snapshot.repository.port';
+import { AnalyticsSnapshotService } from './application/analytics/analytics-snapshot.service';
 import { PrismaApprovalRequestRepository } from './infrastructure/persistence/prisma-approval-request.repository';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { ConfigOverrideLoader } from './infrastructure/config/config-override.loader';
@@ -160,8 +164,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
  * totals through `FINANCE_OVERSIGHT_PORT` and Module 08's COD summary through
  * `COD_FINANCE_READ_PORT`, and moves nothing. Work 08 counts — accounts, catalogue, providers,
  * orders, delivery jobs and drivers — through one read port per owning module, and keeps no
- * snapshot table of its own (the design's `analytics_snapshots` stays unused: the counts are
- * `GROUP BY`s the owners run on demand). Work 09 lists catalogue products by lifecycle status
+ * snapshot table of its own (the counts are `GROUP BY`s the owners run on demand); Work 87 adds
+ * daily snapshots of those counts to Admin's read model `dashboard_metrics` for time series. Work 09 lists catalogue products by lifecycle status
  * through `CATALOG_ADMIN_READ_PORT` and changes none: Module 03 has no proposal workflow, and
  * the status transition stays on Module 03's own audited route. Everything else the design
  * lists — impersonation, moderation, payouts, the cross-module `DisputeCase`, KPI/period
@@ -324,6 +328,10 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
 
     // Work 08 — operational analytics, read-only, over six owner read ports.
     GetAnalyticsOverviewQuery,
+    // Work 87 — daily snapshots of the overview and their time series (backend/docs/analytics-timeseries.md).
+    { provide: ANALYTICS_SNAPSHOT_REPOSITORY, useClass: PrismaAnalyticsSnapshotRepository },
+    AnalyticsSnapshotService,
+    AnalyticsSnapshotJob,
     // Work 25 — inventory operations view, over Module 04's and Module 03's read ports.
     GetInventoryOperationsOverviewQuery,
 
