@@ -18,6 +18,11 @@ export interface AccessTokenClaims {
   mfa?: true;
   /** JWT ID for token rotation/denylist if ever needed. */
   jti?: string;
+  /**
+   * Work 85: present only on a support "view as" token. `sid` is the impersonation session, `act`
+   * the administrator using it. `JwtAuthGuard` checks the session and refuses every write.
+   */
+  imp?: { sid: string; act: string };
 }
 
 export interface AccessTokenResult {

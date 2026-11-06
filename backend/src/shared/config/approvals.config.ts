@@ -18,12 +18,14 @@ import { registerAs } from '@nestjs/config';
  *
  * Work 83: settlement approval, payout and payout-destination verification (Module 07).
  * Work 84: manual refunds above `approvals.highValueRefundThreshold` (Module 07).
+ * Work 85: support "view as" sessions (Module 01). Unlisting it makes impersonation impossible.
  */
 export const MAKER_CHECKER_ACTION_TYPES: readonly string[] = [
   'SETTLEMENT_APPROVE',
   'SETTLEMENT_PAYOUT',
   'PAYOUT_BENEFICIARY_VERIFY',
   'REFUND_HIGH_VALUE',
+  'IMPERSONATION_START',
 ];
 
 /**

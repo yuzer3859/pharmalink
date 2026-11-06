@@ -645,6 +645,8 @@ describe('Admin operational analytics (e2e)', () => {
         'delivery/delivery.module',
         'identity/application/ports/inbound/identity-admin.port',
         'identity/application/ports/inbound/identity-analytics-read.port',
+        // Work 85: support impersonation.
+        'identity/application/ports/inbound/identity-impersonation.port',
         'identity/identity.module',
         'identity/interface/decorators/current-user.decorator',
         // Work 55: pharmacy-decline recovery view (decline-recovery.e2e-spec.ts).

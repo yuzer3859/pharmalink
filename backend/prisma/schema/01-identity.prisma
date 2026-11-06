@@ -439,3 +439,41 @@ model Consent {
 
   @@map("consents")
 }
+
+// ---------------------------------------------------------------------------
+// Work 85 — support impersonation (module-16 F-AD-08, backend/docs/impersonation.md)
+// ---------------------------------------------------------------------------
+
+enum ImpersonationStatus {
+  /// A second administrator approved it; the requester has not started it yet.
+  AUTHORIZED
+  /// A read-only token was issued; it works until `expiresAt` or until ended.
+  ACTIVE
+  ENDED
+  /// Authorized but never started in time, or ran past `expiresAt`.
+  EXPIRED
+}
+
+/// One approved "view as" session. Read-only, short-lived, never for a platform account, and every
+/// request made under it is audited with both identities.
+model ImpersonationSession {
+  id                String              @id @default(uuid())
+  targetUserId      String
+  requestedByUserId String
+  approvedByUserId  String
+  /// The maker-checker request that approved it (Work 82); one session per approval.
+  approvalId        String              @unique
+  reason            String
+  status            ImpersonationStatus @default(AUTHORIZED)
+  /// The requester must start it before this; afterwards it is EXPIRED.
+  redeemBy          DateTime
+  startedAt         DateTime?
+  expiresAt         DateTime?
+  endedAt           DateTime?
+  endedByUserId     String?
+  createdAt         DateTime            @default(now())
+
+  @@index([requestedByUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@map("impersonation_sessions")
+}

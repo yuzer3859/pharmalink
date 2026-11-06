@@ -166,6 +166,16 @@ export const IdentityErrors = {
       { from, to },
     ),
 
+  // ---- Work 85: support impersonation ----
+  impersonationNotAllowed: (reason: string) =>
+    new ApiException(ErrorCode.IMPERSONATION_NOT_ALLOWED, 'This account cannot be viewed as its holder.', { reason }),
+  impersonationReadOnly: () =>
+    new ApiException(ErrorCode.IMPERSONATION_READ_ONLY, 'A support view can only read; it cannot change anything.'),
+  impersonationSessionNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Impersonation session not found.'),
+  impersonationTargetNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'User not found.'),
+  impersonationSessionClosed: (status: string) =>
+    new ApiException(ErrorCode.IMPERSONATION_SESSION_CLOSED, 'This support session can no longer be started.', { status }),
+
   validation: (message: string, details?: unknown) =>
     new ApiException(ErrorCode.VALIDATION_ERROR, message, details),
 

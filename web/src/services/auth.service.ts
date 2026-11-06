@@ -85,6 +85,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'approvals:view',
   'finance:payout',
   'finance:refund',
+  'support:impersonate',
   'settings:manage',
 ];
 
@@ -311,6 +312,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('finance:payout:any')) result.add('finance:payout');
     // Work 84: manual refunds (finance:refund:any; Super Admin by wildcard).
     if (has('finance:refund:any')) result.add('finance:refund');
+    // Work 85: support "view as" (support:impersonate:any).
+    if (has('support:impersonate:any')) result.add('support:impersonate');
   }
 
   return ALL_PORTAL_PERMISSIONS.filter((permission) => result.has(permission));

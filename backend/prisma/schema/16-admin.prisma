@@ -23,6 +23,8 @@ enum ApprovalEntityType {
   ROLE_GRANT
   CONTENT_TAKEDOWN
   CONFIG_CHANGE
+  /// Work 85: a support "view as" session.
+  IMPERSONATION
 }
 
 enum TicketStatus {

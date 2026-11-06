@@ -181,6 +181,9 @@ export const PERMISSIONS: Array<{
   // §15.3: disbursement never shares a permission with generation). FINANCE_OFFICER only;
   // SUPER_ADMIN by wildcard, and even then a second officer decides through maker-checker.
   { key: 'finance:payout:any', resource: 'finance', action: 'payout', scope: 'any' },
+  // Module 16 Work 85 — asking for, approving and using a read-only support "view as" session.
+  // ADMIN only (SUPER_ADMIN by wildcard); a second administrator always approves.
+  { key: 'support:impersonate:any', resource: 'support', action: 'impersonate', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -369,6 +372,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'pharmacy:read:any',
     // Module 16 Work 82 — the maker-checker queue.
     'approval:read:any',
+    // Module 16 Work 85 — support "view as".
+    'support:impersonate:any',
   ],
   SUPER_ADMIN: ['*'],
 };

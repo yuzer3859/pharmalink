@@ -16,7 +16,27 @@ export const IdentityEventType = {
   LicenseExpired: 'identity.license.expired',
   SessionsRevoked: 'identity.sessions.revoked',
   RefreshTokenReuseDetected: 'identity.refresh.reuse_detected',
+  // Work 85: a support administrator started a read-only "view as" session on the account.
+  ImpersonationStarted: 'identity.impersonation.started',
 } as const;
+
+/** Work 85. Who it was is in the audit log, not here: the account holder is told that, not by whom. */
+export interface ImpersonationStartedPayload {
+  userId: string;
+  sessionId: string;
+  expiresAt: string;
+}
+
+export function impersonationStartedEvent(
+  payload: ImpersonationStartedPayload,
+): DomainEvent<ImpersonationStartedPayload> {
+  return createDomainEvent({
+    type: IdentityEventType.ImpersonationStarted,
+    aggregateType: 'User',
+    aggregateId: payload.userId,
+    payload,
+  });
+}
 
 export interface UserRegisteredPayload {
   userId: string;

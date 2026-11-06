@@ -118,6 +118,8 @@ import { AuthController } from './interface/controllers/auth.controller';
 import { UsersController } from './interface/controllers/users.controller';
 import { UserRegisteredHandler } from './interface/events/user-registered.handler';
 import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
+import { ImpersonationService } from './application/services/impersonation.service';
+import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identity-impersonation.port';
 
 /**
  * Identity module composition root (module-01 §12). Wires every port to its Phase-0-slice
@@ -237,6 +239,9 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     // Inbound contract for Module 16's verification administration (ADR-002). A facade over the
     // commands above; nothing decides outside the aggregate.
     { provide: IDENTITY_ADMIN_PORT, useClass: IdentityAdminPortAdapter },
+    // Work 85 — support impersonation: the service (also used by JwtAuthGuard) and its inbound port.
+    ImpersonationService,
+    { provide: IDENTITY_IMPERSONATION_PORT, useExisting: ImpersonationService },
     // Inbound read contract for Module 16's operational dashboard (module-16 Work 08): account
     // counts by status and primary role, aggregated in PostgreSQL. No row crosses it.
     { provide: IDENTITY_ANALYTICS_READ_PORT, useClass: PrismaIdentityAnalyticsReadAdapter },
@@ -293,6 +298,8 @@ import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
     TOKEN_SERVICE,
     PERM_VERSION_STORE,
     IDENTITY_ADMIN_PORT,
+    // Work 85.
+    IDENTITY_IMPERSONATION_PORT,
     IDENTITY_ANALYTICS_READ_PORT,
     IDENTITY_LANGUAGE_READ_PORT,
     IDENTITY_CONTACT_READ_PORT,

@@ -3,6 +3,7 @@ import { DomainEvent } from '../../../../shared/events/domain-event';
 import { EVENT_BUS, IEventBus } from '../../../../shared/events/event-bus.service';
 import {
   AccountStatusChangedPayload,
+  ImpersonationStartedPayload,
   IdentityEventType,
   LicenseExpiredPayload,
   ProviderDecisionPayload,
@@ -111,6 +112,7 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.on<LicenseExpiredPayload>(IdentityEventType.LicenseExpired, EventNotifications.licenseExpired);
     this.on<AccountStatusChangedPayload>(IdentityEventType.AccountSuspended, EventNotifications.accountSuspended);
     this.on<AccountStatusChangedPayload>(IdentityEventType.AccountReactivated, EventNotifications.accountReactivated);
+    this.on<ImpersonationStartedPayload>(IdentityEventType.ImpersonationStarted, EventNotifications.accountImpersonated);
     this.on<OrderPlacedPayload>(OrdersEventType.OrderPlaced, EventNotifications.orderPlaced);
     this.on<WalletMovementPayload>(WalletEventType.WalletCredited, EventNotifications.walletCredited);
     this.on<WalletMovementPayload>(WalletEventType.WalletDebited, EventNotifications.walletDebited);
