@@ -42,7 +42,8 @@ describe('Admin audit explorer (application)', () => {
 
   beforeEach(() => {
     // Work 33 added `trailOf` (one resource's trail); Work 05's queries never call it.
-    port = { search: jest.fn(), findById: jest.fn(), trailOf: jest.fn() };
+    // Work 88 added `activityOf` (admin activity monitoring).
+    port = { search: jest.fn(), findById: jest.fn(), trailOf: jest.fn(), activityOf: jest.fn() };
   });
 
   describe('ListAuditQuery', () => {

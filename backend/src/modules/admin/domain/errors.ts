@@ -46,6 +46,9 @@ export const AdminErrors = {
   disputeInvalidTransition: (from: string, to: string) =>
     new ApiException(ErrorCode.INVALID_DISPUTE_STATE_TRANSITION, `A ${from} dispute cannot become ${to}.`, { from, to }),
 
+  /** Work 88. Not a holder of a platform role (or no such user): the same answer. */
+  staffMemberNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Staff member not found.'),
+
   /** Work 84. */
   paymentNotFound: () => new ApiException(ErrorCode.NOT_FOUND, 'Payment not found.'),
 

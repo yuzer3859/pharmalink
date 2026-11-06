@@ -37,6 +37,9 @@ class Audit implements IAuditReadPort {
   async findById(): Promise<never> {
     throw new Error('not used by the review history');
   }
+  async activityOf(): Promise<never> {
+    throw new Error('not used by the review history');
+  }
   async trailOf(f: AuditResourceTrailFilter) {
     this.filters.push(f);
     return this.rows

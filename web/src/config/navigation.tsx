@@ -8,6 +8,7 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
+import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded';
 import VerifiedUserRoundedIcon from '@mui/icons-material/VerifiedUserRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded';
@@ -106,6 +107,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Staff', path: 'staff', icon: GroupsRoundedIcon, permission: 'staff:view', section: ADMIN },
       { label: 'Roles', path: 'roles', icon: AdminPanelSettingsRoundedIcon, permission: 'roles:view', section: ADMIN },
       { label: 'Audit Logs', path: 'audit', icon: FactCheckRoundedIcon, permission: 'audit:view', section: ADMIN },
+      { label: 'Admin activity', path: 'admin-activity', icon: MonitorHeartRoundedIcon, permission: 'staff:monitor', section: ADMIN },
       { label: 'Configuration', path: 'configuration', icon: TuneRoundedIcon, permission: 'settings:manage', section: ADMIN },
     ],
   },

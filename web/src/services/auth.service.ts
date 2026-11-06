@@ -87,6 +87,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'finance:refund',
   'support:impersonate',
   'disputes:manage',
+  'staff:monitor',
   'settings:manage',
 ];
 
@@ -319,6 +320,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('support:impersonate:any')) result.add('support:impersonate');
     // Work 86: the dispute desk (dispute:manage:any).
     if (has('dispute:manage:any')) result.add('disputes:manage');
+    // Work 88: admin activity monitoring (staff:monitor:any; Super Admin by wildcard).
+    if (has('staff:monitor:any')) result.add('staff:monitor');
   }
 
   return ALL_PORTAL_PERMISSIONS.filter((permission) => result.has(permission));

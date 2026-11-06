@@ -42,6 +42,26 @@ export interface AuditResourceTrailFilter {
   resourceId: string;
 }
 
+/**
+ * One entry as activity monitoring reads it (module-16 Work 88): no `context`, which is free-form
+ * and may hold personal data the counts do not need, and no hash metadata.
+ */
+export interface AuditActivityView {
+  id: string;
+  actorUserId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  ip: string | null;
+  createdAt: Date;
+}
+
+export interface AuditActivityPage {
+  items: AuditActivityView[];
+  /** More entries matched than `limit`; the reader must say so rather than under-count. */
+  truncated: boolean;
+}
+
 export interface AuditPage {
   items: AuditRecordView[];
   total: number;
@@ -73,4 +93,9 @@ export interface IAuditReadPort {
    * resourceId)` index; nothing else is loaded.
    */
   trailOf(filter: AuditResourceTrailFilter): Promise<AuditRecordView[]>;
+  /**
+   * The entries of the given actors in [`from`, `to`), oldest first, at most `limit` of them
+   * (module-16 Work 88's admin activity monitoring). Served by the `actorUserId` index.
+   */
+  activityOf(actorUserIds: string[], from: Date, to: Date, limit: number): Promise<AuditActivityPage>;
 }

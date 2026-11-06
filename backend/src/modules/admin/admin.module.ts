@@ -104,6 +104,8 @@ import { AnalyticsSnapshotJob } from './infrastructure/jobs/analytics-snapshot.j
 import { PrismaAnalyticsSnapshotRepository } from './infrastructure/persistence/prisma-analytics-snapshot.repository';
 import { ANALYTICS_SNAPSHOT_REPOSITORY } from './application/ports/analytics-snapshot.repository.port';
 import { AnalyticsSnapshotService } from './application/analytics/analytics-snapshot.service';
+import { AdminActivityService } from './application/activity/admin-activity.service';
+import { AdminActivityController } from './interface/controllers/admin-activity.controller';
 import { PrismaApprovalRequestRepository } from './infrastructure/persistence/prisma-approval-request.repository';
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { ConfigOverrideLoader } from './infrastructure/config/config-override.loader';
@@ -332,6 +334,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     { provide: ANALYTICS_SNAPSHOT_REPOSITORY, useClass: PrismaAnalyticsSnapshotRepository },
     AnalyticsSnapshotService,
     AnalyticsSnapshotJob,
+    // Work 88 — admin activity and anomaly monitoring, over Module 01's staff port and the audit read port.
+    AdminActivityService,
     // Work 25 — inventory operations view, over Module 04's and Module 03's read ports.
     GetInventoryOperationsOverviewQuery,
 
@@ -407,6 +411,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminCodDisputesController,
     AdminFinanceController,
     AdminAnalyticsController,
+    AdminActivityController,
     AdminOperationsController,
     AdminCatalogReviewController,
     AdminCatalogApprovalController,

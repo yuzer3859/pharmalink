@@ -189,6 +189,9 @@ export const PERMISSIONS: Array<{
   // own: CUSTOMER.
   { key: 'dispute:manage:any', resource: 'dispute', action: 'manage', scope: 'any' },
   { key: 'dispute:create:own', resource: 'dispute', action: 'create', scope: 'own' },
+  // Module 16 Work 88 — admin activity and anomaly monitoring. SUPER_ADMIN only (by wildcard): the
+  // view watches administrators, so no administrator role is granted it.
+  { key: 'staff:monitor:any', resource: 'staff', action: 'monitor', scope: 'any' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
