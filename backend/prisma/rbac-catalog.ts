@@ -195,6 +195,8 @@ export const PERMISSIONS: Array<{
   // Module 16 Work 90 — asynchronous CSV reports. ADMIN and FINANCE_OFFICER (SUPER_ADMIN by
   // wildcard); each report type also needs that data's own read permission.
   { key: 'report:generate:any', resource: 'report', action: 'generate', scope: 'any' },
+  // Module 15 Work 91 — writing, editing and reporting reviews of one's own completed orders.
+  { key: 'review:create:own', resource: 'review', action: 'create', scope: 'own' },
 ];
 
 /** Role -> permission keys, mirroring the "Roles" column of module-01 §6.2. */
@@ -203,6 +205,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'auth:login',
     // Module 16 Work 86 — opening and following one's own disputes.
     'dispute:create:own',
+    // Work 91: reviews of one's own completed orders.
+    'review:create:own',
     'profile:read:own',
     'notification:read:own',
     'notification:manage:own',

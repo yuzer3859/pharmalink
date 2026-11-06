@@ -256,6 +256,12 @@ export enum ErrorCode {
   // Work 89 — document storage. The reference was submitted as text only (before uploads existed),
   // so there is no stored file to preview.
   DOCUMENT_NOT_STORED = 'DOCUMENT_NOT_STORED',
+  // Work 91 — Module 15 reviews (module-15 §8's representative errors).
+  TRANSACTION_NOT_ELIGIBLE = 'TRANSACTION_NOT_ELIGIBLE',
+  ALREADY_REVIEWED = 'ALREADY_REVIEWED',
+  EDIT_WINDOW_CLOSED = 'EDIT_WINDOW_CLOSED',
+  REVIEW_NOT_FOUND = 'REVIEW_NOT_FOUND',
+  INVALID_MODERATION_TRANSITION = 'INVALID_MODERATION_TRANSITION',
 
   // Module 01 — administrator MFA (Work 66, backend/docs/admin-mfa.md). `AUTH_MFA_REQUIRED` above
   // already names "this session needs MFA"; these two name the MFA step's own failures, so the
@@ -433,6 +439,11 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCode.DISPUTE_NOT_FOUND]: 404,
   [ErrorCode.INVALID_DISPUTE_STATE_TRANSITION]: 409,
   [ErrorCode.DOCUMENT_NOT_STORED]: 409,
+  [ErrorCode.TRANSACTION_NOT_ELIGIBLE]: 422,
+  [ErrorCode.ALREADY_REVIEWED]: 409,
+  [ErrorCode.EDIT_WINDOW_CLOSED]: 409,
+  [ErrorCode.REVIEW_NOT_FOUND]: 404,
+  [ErrorCode.INVALID_MODERATION_TRANSITION]: 409,
 
   // Module 01 — administrator MFA (Work 66).
   [ErrorCode.AUTH_MFA_CHALLENGE_INVALID]: 401,

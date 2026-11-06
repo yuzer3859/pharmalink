@@ -29,6 +29,7 @@ export type PermissionKey =
   | 'support:impersonate'
   | 'disputes:manage'
   | 'staff:monitor'
+  | 'reviews:moderate'
   | 'settings:manage';
 
 export interface AuthUser {

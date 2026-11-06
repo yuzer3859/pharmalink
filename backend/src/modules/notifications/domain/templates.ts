@@ -19,6 +19,8 @@ export enum NotificationTemplateCode {
   ACCOUNT_IMPERSONATED = 'ACCOUNT_IMPERSONATED',
   // Work 86: something the complainant can see changed on their dispute.
   DISPUTE_UPDATED = 'DISPUTE_UPDATED',
+  // Work 91: a moderator hid, removed or restored the recipient's review.
+  REVIEW_MODERATED = 'REVIEW_MODERATED',
   ORDER_PLACED = 'ORDER_PLACED',
   ORDER_ACCEPTED = 'ORDER_ACCEPTED',
   ORDER_READY = 'ORDER_READY',
@@ -143,6 +145,29 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
       am: (d) => ({
         title: `ቅሬታ ${String(d.caseNumber)} ተዘምኗል`,
         body: d.change === 'MESSAGE' ? 'የድጋፍ ቡድኑ ለቅሬታዎ መልስ ሰጥቷል።' : 'የቅሬታዎ ሁኔታ ተቀይሯል።',
+      }),
+    },
+  },
+  [NotificationTemplateCode.REVIEW_MODERATED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Your review was moderated',
+        body:
+          d.move === 'restore'
+            ? 'Your review is visible again.'
+            : d.move === 'remove'
+              ? 'Your review was removed because it breaks the review policy.'
+              : 'Your review was hidden while it breaks the review policy.',
+      }),
+      am: (d) => ({
+        title: 'ግምገማዎ ተገምግሟል',
+        body:
+          d.move === 'restore'
+            ? 'ግምገማዎ እንደገና ይታያል።'
+            : d.move === 'remove'
+              ? 'ግምገማዎ የግምገማ ደንቡን ስለሚጥስ ተወግዷል።'
+              : 'ግምገማዎ የግምገማ ደንቡን ስለሚጥስ ተደብቋል።',
       }),
     },
   },

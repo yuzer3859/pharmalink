@@ -8,6 +8,7 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
+import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded';
 import VerifiedUserRoundedIcon from '@mui/icons-material/VerifiedUserRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
@@ -73,6 +74,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
       { label: 'Approvals', path: 'approvals', icon: HowToRegRoundedIcon, permission: 'approvals:view', section: OPS },
       { label: 'Disputes', path: 'disputes', icon: ForumRoundedIcon, permission: 'disputes:manage', section: OPS },
+      { label: 'Moderation', path: 'moderation', icon: FlagRoundedIcon, permission: 'reviews:moderate', section: OPS },
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
@@ -98,6 +100,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
       { label: 'Approvals', path: 'approvals', icon: HowToRegRoundedIcon, permission: 'approvals:view', section: OPS },
       { label: 'Disputes', path: 'disputes', icon: ForumRoundedIcon, permission: 'disputes:manage', section: OPS },
+      { label: 'Moderation', path: 'moderation', icon: FlagRoundedIcon, permission: 'reviews:moderate', section: OPS },
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },

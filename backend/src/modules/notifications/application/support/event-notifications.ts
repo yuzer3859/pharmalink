@@ -5,6 +5,7 @@ import type {
   ProviderDecisionPayload,
 } from '../../../identity/domain/events';
 import type { DisputeUpdatedPayload } from '../../../admin/domain/events';
+import type { ReviewModeratedPayload } from '../../../reviews/domain/events';
 import type {
   OrderAcceptedPayload,
   OrderCancelledPayload,
@@ -98,6 +99,13 @@ export const EventNotifications = {
     recipientUserId: p.userId,
     templateCode: NotificationTemplateCode.DISPUTE_UPDATED,
     data: { caseNumber: p.caseNumber, status: p.status, change: p.change },
+  }),
+
+  /** Work 91: the review's author hears that a moderator acted on it; never who, never the reason. */
+  reviewModerated: (p: ReviewModeratedPayload): NotificationIntent => ({
+    recipientUserId: p.userId,
+    templateCode: NotificationTemplateCode.REVIEW_MODERATED,
+    data: { move: p.move },
   }),
 
   /** Work 85: the account holder is told; who it was stays in the audit log. */

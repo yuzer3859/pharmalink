@@ -88,6 +88,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'support:impersonate',
   'disputes:manage',
   'staff:monitor',
+  'reviews:moderate',
   'settings:manage',
 ];
 
@@ -328,6 +329,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('dispute:manage:any')) result.add('disputes:manage');
     // Work 88: admin activity monitoring (staff:monitor:any; Super Admin by wildcard).
     if (has('staff:monitor:any')) result.add('staff:monitor');
+    // Work 91: review moderation and the flagged-content view (review:moderate:any).
+    if (has('review:moderate:any')) result.add('reviews:moderate');
   }
 
   return ALL_PORTAL_PERMISSIONS.filter((permission) => result.has(permission));

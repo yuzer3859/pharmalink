@@ -22,8 +22,8 @@ Status key:
 | 9.2 | Role assignment and revocation (`/admin/accounts/:id/roles`, `/admin/roles`) | COMPLETE | |
 | 9.2 | Impersonation (`/admin/accounts/:id/impersonate`, `/admin/impersonation-sessions`) | COMPLETE | Work 85 ([impersonation.md](../backend/docs/impersonation.md)): read-only "view as", always two administrators, never a platform account, 15-minute token with no refresh, revoked on end, the holder notified, every request audited with both identities. Accounts drawer: request, start, read-only view, end |
 | 9.3 | Catalogue moderation (`/admin/catalog/review`: queue, submit, approve, reject, resubmit, history, summary) | COMPLETE | |
-| 9.3 | Review moderation (hide, remove, restore) | BLOCKED | Module 15 (ratings and reviews) is not implemented |
-| 9.3 | Unified flagged-content view | BLOCKED | Same: no flag sources exist yet |
+| 9.3 | Review moderation (hide, remove, restore) | COMPLETE | Work 91 ([reviews.md](../backend/docs/reviews.md)) built Module 15's minimum (verified-purchase pharmacy reviews, one per order and pharmacy, 14-day edits, reports, automatic holding of links, e-mail addresses and phone numbers, the rating aggregate) and moderation through `REVIEW_MODERATION_PORT`: hide, remove, restore with a reason, logged, audited, reports resolved, the author notified. Portal: Moderation page (admin, super admin) |
+| 9.3 | Unified flagged-content view | COMPLETE | Work 91: `GET /admin/moderation/flagged` — reviews held by reports or rules (Module 15), catalogue products awaiting review (Module 03), open content disputes (Work 86), oldest first, each linked to its queue |
 | 9.4 | Versioned configuration with history and rollback (`/admin/config`) | COMPLETE | |
 | 9.4 | Feature flags (`/admin/feature-flags`) | COMPLETE | |
 | 9.5 | Finance overview, payments, refunds (read) (`/admin/finance`) | COMPLETE | Read-only by design of this surface |

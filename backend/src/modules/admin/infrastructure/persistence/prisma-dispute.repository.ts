@@ -17,6 +17,8 @@ export interface DisputeSearch {
   complainantUserId?: string;
   transactionId?: string;
   overdueAt?: Date;
+  /** Work 91: only cases not yet resolved or closed. */
+  openOnly?: boolean;
 }
 
 /** `dispute_cases` and `dispute_messages` (Work 86). Admin's own tables. */
@@ -68,6 +70,7 @@ export class PrismaDisputeRepository {
       ...(filter.assignedAdminId ? { assignedAdminId: filter.assignedAdminId } : {}),
       ...(filter.complainantUserId ? { complainantUserId: filter.complainantUserId } : {}),
       ...(filter.transactionId ? { transactionId: filter.transactionId } : {}),
+      ...(filter.openOnly ? { status: { notIn: [DisputeStatus.RESOLVED, DisputeStatus.CLOSED] } } : {}),
       ...(filter.overdueAt
         ? { slaDueAt: { lt: filter.overdueAt }, status: { notIn: [DisputeStatus.RESOLVED, DisputeStatus.CLOSED] } }
         : {}),
