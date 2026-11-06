@@ -1,3 +1,4 @@
+import { resolveDocumentStorage } from '../storage/document-storage.config';
 import { plainToInstance } from 'class-transformer';
 import {
   IsEnum,
@@ -767,6 +768,8 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       otherSecrets: [validated.JWT_ACCESS_SECRET, validated.JWT_REFRESH_SECRET, validated.MASTER_ENCRYPTION_KEY],
     });
     readMakerCheckerActions(config);
+    // Work 89: DOCUMENT_STORAGE and, for s3, its S3_* settings (memory is refused in production).
+    resolveDocumentStorage((key) => (key === 'NODE_ENV' ? validated.NODE_ENV : config[key]));
     resolveAdminMfaKey({
       nodeEnv: validated.NODE_ENV,
       key: validated.ADMIN_MFA_ENCRYPTION_KEY,

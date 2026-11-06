@@ -253,6 +253,9 @@ export enum ErrorCode {
   // Work 86 — general disputes. §9's own `DISPUTE_NOT_FOUND`, and the case's state refusing a change.
   DISPUTE_NOT_FOUND = 'DISPUTE_NOT_FOUND',
   INVALID_DISPUTE_STATE_TRANSITION = 'INVALID_DISPUTE_STATE_TRANSITION',
+  // Work 89 — document storage. The reference was submitted as text only (before uploads existed),
+  // so there is no stored file to preview.
+  DOCUMENT_NOT_STORED = 'DOCUMENT_NOT_STORED',
 
   // Module 01 — administrator MFA (Work 66, backend/docs/admin-mfa.md). `AUTH_MFA_REQUIRED` above
   // already names "this session needs MFA"; these two name the MFA step's own failures, so the
@@ -429,6 +432,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCode.IMPERSONATION_SESSION_CLOSED]: 409,
   [ErrorCode.DISPUTE_NOT_FOUND]: 404,
   [ErrorCode.INVALID_DISPUTE_STATE_TRANSITION]: 409,
+  [ErrorCode.DOCUMENT_NOT_STORED]: 409,
 
   // Module 01 — administrator MFA (Work 66).
   [ErrorCode.AUTH_MFA_CHALLENGE_INVALID]: 401,

@@ -37,6 +37,28 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # Work 89: verification documents (backend/docs/document-storage.md). This stack's own MinIO, in
+  # this compose project only; it never touches a MinIO running elsewhere on the machine. Published
+  # on 127.0.0.1 (default port 9100, not 9000) because a reviewer's browser opens the signed
+  # preview links directly. The root password is S3_SECRET_ACCESS_KEY, which
+  # `node ops/staging/ensure-env-secrets.mjs` adds to backend/.env.staging (never shown).
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: pharmalink-staging
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?run node ops/staging/ensure-env-secrets.mjs to add S3_SECRET_ACCESS_KEY}
+    volumes:
+      - miniodata:/data
+    ports:
+      - "127.0.0.1:${MINIO_HOST_PORT:-9100}:9000"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -57,12 +79,22 @@ services:
       # stops `docker compose` before anything starts.
       OTP_STORE: redis
       OTP_HASH_SECRET: ${OTP_HASH_SECRET:?set OTP_HASH_SECRET in backend/.env.staging}
+      # Work 89: documents in this stack's MinIO. Signed links carry the browser-reachable address.
+      DOCUMENT_STORAGE: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://127.0.0.1:${MINIO_HOST_PORT:-9100}
+      S3_BUCKET: pharmalink-documents
+      S3_ACCESS_KEY_ID: pharmalink-staging
+      S3_FORCE_PATH_STYLE: "true"
+      S3_CREATE_BUCKET: "true"
     ports:
       - "127.0.0.1:${BACKEND_HOST_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -92,11 +124,22 @@ services:
       NODE_ENV: development
       OTP_STORE: redis
       OTP_HASH_SECRET: ${OTP_HASH_SECRET:?set OTP_HASH_SECRET in backend/.env.staging}
+      # Work 89: the seed stores sample documents in this stack's MinIO.
+      DOCUMENT_STORAGE: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://127.0.0.1:${MINIO_HOST_PORT:-9100}
+      S3_BUCKET: pharmalink-documents
+      S3_ACCESS_KEY_ID: pharmalink-staging
+      S3_FORCE_PATH_STYLE: "true"
+      S3_CREATE_BUCKET: "true"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  miniodata:

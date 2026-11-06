@@ -6,14 +6,35 @@ import { randomBytes } from 'node:crypto';
 
 // compose.staging.yml sets these for the backend itself, so a value in the env file would be
 // silently overridden. They are rejected so nobody believes the stack used the value they wrote.
-export const COMPOSE_CONTROLLED = ['DATABASE_URL', 'REDIS_URL', 'NODE_ENV', 'PORT', 'OTP_STORE'];
+export const COMPOSE_CONTROLLED = [
+  'DATABASE_URL', 'REDIS_URL', 'NODE_ENV', 'PORT', 'OTP_STORE',
+  // Work 89: the stack's own MinIO (compose.staging.yml); only its secret lives in the env file.
+  'DOCUMENT_STORAGE', 'S3_ENDPOINT', 'S3_PUBLIC_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_FORCE_PATH_STYLE', 'S3_CREATE_BUCKET',
+];
 
-export const REQUIRED_SECRETS = ['POSTGRES_PASSWORD', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MASTER_ENCRYPTION_KEY', 'OTP_HASH_SECRET', 'ADMIN_MFA_ENCRYPTION_KEY'];
+export const REQUIRED_SECRETS = ['POSTGRES_PASSWORD', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MASTER_ENCRYPTION_KEY', 'OTP_HASH_SECRET', 'ADMIN_MFA_ENCRYPTION_KEY', 'S3_SECRET_ACCESS_KEY'];
 
 // Keys ensure-env-secrets.mjs may add to an existing env file when they are missing (Work 68).
 // Only keys whose absence is safe to fill with a fresh random value: nothing has been encrypted
 // under a key that never existed. A key that is present is never replaced.
-export const ADDABLE_SECRETS = ['ADMIN_MFA_ENCRYPTION_KEY'];
+// S3_SECRET_ACCESS_KEY (Work 89) is the stack's MinIO password: missing means MinIO was never
+// started with one, so a fresh value is safe (the MinIO data volume starts with it).
+export const ADDABLE_SECRETS = ['ADMIN_MFA_ENCRYPTION_KEY', 'S3_SECRET_ACCESS_KEY'];
+
+/** Returns a problem description for an unusable S3_SECRET_ACCESS_KEY, or null. Never the value. */
+export function s3SecretProblem(secret, otherSecrets = []) {
+  const value = typeof secret === 'string' ? secret.trim() : '';
+  if (!value) return 'S3_SECRET_ACCESS_KEY is missing';
+  if (!/^[A-Za-z0-9]{32,}$/.test(value)) return 'S3_SECRET_ACCESS_KEY must be at least 32 letters/digits';
+  if (otherSecrets.some((other) => typeof other === 'string' && other.trim() === value)) return 'S3_SECRET_ACCESS_KEY must be a dedicated secret';
+  return null;
+}
+
+/** A fresh S3_SECRET_ACCESS_KEY: 24 CSPRNG bytes as hex (48 characters). */
+export const generateS3Secret = (random = randomBytes) => random(24).toString('hex');
+
+/** The secrets S3_SECRET_ACCESS_KEY must not copy. */
+export const s3OtherSecrets = (env) => [env.POSTGRES_PASSWORD, env.JWT_ACCESS_SECRET, env.JWT_REFRESH_SECRET, env.MASTER_ENCRYPTION_KEY, env.OTP_HASH_SECRET, env.ADMIN_MFA_ENCRYPTION_KEY];
 
 // Mirrors assertOtpHashSecret in backend/src/shared/config/otp.config.ts (Work 60), which the
 // backend applies again at boot. Kept here so a bad file fails before anything is built.
@@ -82,6 +103,7 @@ export function generateEnvValues(random = randomBytes) {
   };
   values.OTP_HASH_SECRET = generateOtpHashSecret([values.JWT_ACCESS_SECRET, values.JWT_REFRESH_SECRET, values.MASTER_ENCRYPTION_KEY], random);
   values.ADMIN_MFA_ENCRYPTION_KEY = generateAdminMfaKey(adminMfaOtherSecrets(values), random);
+  values.S3_SECRET_ACCESS_KEY = generateS3Secret(random);
   return values;
 }
 
@@ -165,6 +187,10 @@ export function validateEnvValues(env, fileLabel = 'backend/.env.staging') {
   }
   if (env.ADMIN_MFA_ENCRYPTION_KEY && !env.ADMIN_MFA_ENCRYPTION_KEY.includes('REPLACE_ME')) {
     const problem = adminMfaKeyProblem(env.ADMIN_MFA_ENCRYPTION_KEY, adminMfaOtherSecrets(env));
+    if (problem) problems.push(problem);
+  }
+  if (env.S3_SECRET_ACCESS_KEY && !env.S3_SECRET_ACCESS_KEY.includes('REPLACE_ME')) {
+    const problem = s3SecretProblem(env.S3_SECRET_ACCESS_KEY, s3OtherSecrets(env));
     if (problem) problems.push(problem);
   }
   for (const key of COMPOSE_CONTROLLED) {

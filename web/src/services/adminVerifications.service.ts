@@ -82,11 +82,27 @@ export function verificationErrorMessage(error: unknown, fallback: string): stri
   return `${error.message}${error.requestId ? ` (request ${error.requestId})` : ''}`;
 }
 
+/** Why a document preview failed, in the reviewer's words (Work 89). */
+export function previewErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'DOCUMENT_NOT_STORED') return 'There is no stored file for this document.';
+    if (error.status === 503) return 'Document storage is not available right now.';
+  }
+  return verificationErrorMessage(error, 'The preview could not be opened.');
+}
+
 /** Seconds as a short age: `45m`, `5h`, `3d`. */
 export function formatAge(seconds: number): string {
   if (seconds < 3600) return `${Math.max(0, Math.floor(seconds / 60))}m`;
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h`;
   return `${Math.floor(seconds / 86_400)}d`;
+}
+
+export interface DocumentPreview {
+  kind: string;
+  contentType: string;
+  url: string;
+  expiresAt: string;
 }
 
 export function createAdminVerificationsService(request: SessionRequest) {
@@ -108,6 +124,14 @@ export function createAdminVerificationsService(request: SessionRequest) {
     /** `provider:verify:any`. */
     reject(id: string, reason: string): Promise<VerificationDecision> {
       return request<VerificationDecision>(`${path(id)}/reject`, { method: 'POST', body: { reason: reason.trim() } });
+    },
+
+    /**
+     * Work 89: a five-minute signed link to one document (`verification:queue:read`). Each one the
+     * server issues is audited; the link itself is never stored.
+     */
+    previewDocument(id: string, index: number): Promise<DocumentPreview> {
+      return request<DocumentPreview>(`${path(id)}/documents/${index}/preview`, { method: 'POST', body: {} });
     },
   };
 }

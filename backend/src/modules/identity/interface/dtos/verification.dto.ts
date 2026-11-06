@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
@@ -88,4 +89,14 @@ export class RejectVerificationDto {
   @MinLength(3)
   @MaxLength(500)
   reason!: string;
+}
+
+/** `POST /verification/documents/uploads` (Work 89): what will be uploaded. Checked by the command. */
+export class RequestDocumentUploadDto {
+  @IsString()
+  @MaxLength(100)
+  contentType!: string;
+
+  @IsInt()
+  bytes!: number;
 }

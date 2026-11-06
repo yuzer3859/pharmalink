@@ -422,7 +422,8 @@ export interface VerificationQueuePage {
 
 export interface VerificationDetail extends VerificationQueueItem {
   /** Document references only: the API has no preview or download. */
-  documents: Array<{ kind: string; storageRef: string; expiresAt: string | null }>;
+  /** `previewable`: an uploaded file (Work 89); otherwise a text-only reference with nothing to show. */
+  documents: Array<{ kind: string; storageRef: string; expiresAt: string | null; previewable: boolean }>;
   hasFaydaId: boolean;
   reviewerId: string | null;
   rejectReason: string | null;

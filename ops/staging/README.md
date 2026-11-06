@@ -21,6 +21,7 @@ A **local-only** Docker Compose stack for the PharmaLink backend, plus a script 
 |---|---|---|---|
 | `postgres` | `postgres:16` | private network only | database `pharmalink_staging`, user `pharmalink`; data in the project's `pgdata` volume |
 | `redis` | `redis:7` | private network only | no persistence; holds caches and this stack's live OTP challenges |
+| `minio` | `minio/minio:RELEASE.2025-04-22T22-12-26Z` | `127.0.0.1:${MINIO_HOST_PORT:-9100}` only | Work 89: verification documents (`backend/docs/document-storage.md`); data in the project's `miniodata` volume; root password `S3_SECRET_ACCESS_KEY` |
 | `backend` | built from `backend/` (`runtime`) | `127.0.0.1:${BACKEND_HOST_PORT:-3000}` only | `OTP_STORE=redis`; health check on `GET /health/ready`; exactly one instance |
 | `tools` | built from `backend/` (`tools`) | none | profile `tools`: never started by `up`; run explicitly for migrations, the seed and the OTP smoke test |
 
@@ -36,6 +37,15 @@ The backend and the `tools` service both set **`OTP_STORE=redis`** in `compose.s
 - **This Redis is not a production Redis:** no authentication, TLS, persistence, replication, backup or recovery. A restart drops live challenges, and users request a new code.
 
 Migrations and the seed are **not** part of the backend's start command. They are explicit one-off steps, so a restart can never migrate a database by surprise.
+
+### Document storage: this stack's MinIO (Work 89)
+
+The backend and `tools` set `DOCUMENT_STORAGE=s3` and point at the `minio` service, which belongs to this compose project only. It never uses a MinIO container from another project on the machine.
+- **Port.** It is published on `127.0.0.1:9100` (not 9000, to avoid clashing with a MinIO you may already run). A reviewer's browser opens the signed preview links there, so the backend signs them for `http://127.0.0.1:${MINIO_HOST_PORT:-9100}`.
+- **Bucket.** `pharmalink-documents` is created by the backend at start-up.
+- **Password.** `S3_SECRET_ACCESS_KEY` in `backend/.env.staging` is MinIO's root password and the backend's key. An env file from before Work 89 lacks it, and `docker compose` then stops before starting anything (`${S3_SECRET_ACCESS_KEY:?…}`). Add it the same way as the MFA key: `node ops/staging/ensure-env-secrets.mjs`. It generates a value, never prints it, and never replaces one that is present.
+- **Seed.** The seed stores a labelled sample PDF ("staging sample — not a real document") for each seeded verification document, so the review's Preview works.
+- **Root credentials.** The backend uses MinIO's root credentials, which is acceptable for a local rehearsal only.
 
 ## Prerequisites
 
@@ -82,7 +92,7 @@ node ops/staging/ensure-env-secrets.mjs           # add the key if it is missing
 
 The key reaches the backend and the `tools` containers through the `env_file` both services already load; `compose.staging.yml` doesn't override it. Containers read the env file when they are created, so recreate a running backend afterwards (`up -d backend`); `run --rm tools` always starts fresh.
 
-`backend/.env.staging` is gitignored (`backend/.gitignore`: `.env.*`, with only `.env.example` re-included). Never commit it, and never put production credentials or working provider keys in it. Do **not** set `DATABASE_URL`, `REDIS_URL`, `NODE_ENV`, `PORT` or `OTP_STORE` there: the rehearsal rejects them, because the stack sets them itself (`BACKEND_HOST_PORT` changes the host-side port).
+`backend/.env.staging` is gitignored (`backend/.gitignore`: `.env.*`, with only `.env.example` re-included). Never commit it, and never put production credentials or working provider keys in it. Do **not** set `DATABASE_URL`, `REDIS_URL`, `NODE_ENV`, `PORT`, `OTP_STORE`, `DOCUMENT_STORAGE` or any `S3_*` setting other than `S3_SECRET_ACCESS_KEY` there: the rehearsal rejects them, because the stack sets them itself (`BACKEND_HOST_PORT` changes the host-side port).
 
 ## Run the rehearsal
 
