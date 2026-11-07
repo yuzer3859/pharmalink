@@ -28,6 +28,7 @@ function build() {
     updateLineFulfillment: jest.fn(),
     createInvoice: jest.fn(),
     findInvoiceByOrderId: jest.fn().mockResolvedValue(invoiceSnapshot()),
+    listUnpaidPrepaid: jest.fn(),
   };
   const query = new GetOrderInvoiceQuery(orders);
   return { query, orders };

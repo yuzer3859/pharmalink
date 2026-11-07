@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { CONFIG_PORT, IConfigPort } from '../../../../shared/config/config.port';
+import { ApiException } from '../../../../shared/errors/api-exception';
 import { ErrorCode } from '../../../../shared/errors/error-codes';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
 import {
@@ -25,6 +26,12 @@ import {
   COUPON_PORT,
   ICouponPort,
 } from '../../../payment/application/ports/inbound/coupon.port';
+import {
+  IPaymentAuthorizationPort,
+  PAYMENT_AUTHORIZATION_PORT,
+} from '../../../payment/application/ports/inbound/payment-authorization.port';
+import { PaymentMethod } from '../../../payment/domain/enums';
+import { PrepaidPaymentService } from '../services/prepaid-payment.service';
 import { OrdersErrors } from '../../domain/errors';
 import { orderPaidEvent, orderPlacedEvent } from '../../domain/events';
 import {
@@ -63,6 +70,33 @@ export interface CheckoutInput {
    * a second `APPLIED` redemption on an order inside its own transaction regardless.
    */
   couponCode?: string;
+  /**
+   * Work 95: pay now through a gateway instead of cash on delivery. Absent means COD, exactly as
+   * before. `method` is a gateway method; `token` is the gateway's opaque token, never card data.
+   */
+  payment?: PrepaidPaymentInput;
+}
+
+/** Gateway methods a customer may prepay with (COD and wallet are not gateway payments). */
+export const PREPAID_METHODS = ['TELEBIRR', 'CARD', 'BANK_TRANSFER', 'CROSS_BORDER'] as const;
+export type PrepaidMethod = (typeof PREPAID_METHODS)[number];
+
+export interface PrepaidPaymentInput {
+  method: PrepaidMethod;
+  token?: string | null;
+  returnUrl?: string | null;
+}
+
+export interface CheckoutPaymentResult {
+  paymentId: string;
+  status: string;
+  /** Where to send the customer for a hosted/redirect flow; the order stays `PENDING_PAYMENT`. */
+  providerRedirect: string | null;
+}
+
+/** The authorization's idempotency key: one payment per order, so a checkout replay re-uses it. */
+export function prepaidPaymentKey(orderId: string): string {
+  return `checkout-${orderId}`;
 }
 
 export interface CheckoutResult {
@@ -73,6 +107,8 @@ export interface CheckoutResult {
   /** `true` when this call returned an already-committed order from a prior/concurrent attempt
    * with the same `idempotencyKey` (§4/§13.5), rather than placing a new one. */
   replay: boolean;
+  /** Work 95: the prepaid payment, or `null` for cash on delivery. */
+  payment?: CheckoutPaymentResult | null;
 }
 
 interface ResolvedLine {
@@ -159,6 +195,8 @@ export class CheckoutCommand {
     @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
+    @Inject(PAYMENT_AUTHORIZATION_PORT) private readonly payments: IPaymentAuthorizationPort,
+    private readonly prepaid: PrepaidPaymentService,
   ) {}
 
   async execute(input: CheckoutInput): Promise<CheckoutResult> {
@@ -168,7 +206,13 @@ export class CheckoutCommand {
       if (existing.customerUserId !== input.customerUserId) {
         throw OrdersErrors.idempotencyConflict();
       }
-      return this.loadCheckoutResult(existing, true);
+      const replayed = await this.loadCheckoutResult(existing, true);
+      // Work 95: a replay of a prepaid checkout whose payment never resolved (a crash, or an
+      // unknown gateway outcome) re-drives the same authorization; Module 07 replays it by key.
+      if (input.payment && !existing.isCod && existing.status === 'PENDING_PAYMENT') {
+        return this.payPrepaid(input, replayed);
+      }
+      return replayed;
     }
 
     // Step 2 — load + validate the cart.
@@ -343,8 +387,11 @@ export class CheckoutCommand {
     // `CONFIRMED` reservation as readily as a `HELD` one, so no new compensation capability is
     // needed. Re-confirming an already-`CONFIRMED` reservation is a no-op in Module 04, so a
     // retried checkout is safe.
+    // Work 95: a prepaid order keeps its holds `HELD` (and so under the TTL) until the payment is
+    // authorized; `PrepaidPaymentService.onAuthorized` confirms them then.
+    const prepaid = Boolean(input.payment);
     try {
-      for (const reservationId of reservationIds) {
+      for (const reservationId of prepaid ? [] : reservationIds) {
         await this.inventory.confirm({ reservationId });
       }
     } catch (err) {
@@ -377,7 +424,7 @@ export class CheckoutCommand {
             matchRequestId: findResult.matchRequest.id,
             deliverySlot: input.deliverySlot ?? null,
             idempotencyKey: input.idempotencyKey,
-            isCod: true,
+            isCod: !prepaid,
             placedAt: new Date(),
           },
           {
@@ -433,18 +480,20 @@ export class CheckoutCommand {
           tx,
         );
 
-        await this.orders.updateStatus(
-          order.id,
-          { status: 'PAID' },
-          {
-            fromStatus: 'PENDING_PAYMENT',
-            toStatus: 'PAID',
-            event: 'COD_CONFIRMED',
-            actorUserId: input.customerUserId,
-            actorRole: 'CUSTOMER',
-          },
-          tx,
-        );
+        if (!prepaid) {
+          await this.orders.updateStatus(
+            order.id,
+            { status: 'PAID' },
+            {
+              fromStatus: 'PENDING_PAYMENT',
+              toStatus: 'PAID',
+              event: 'COD_CONFIRMED',
+              actorUserId: input.customerUserId,
+              actorRole: 'CUSTOMER',
+            },
+            tx,
+          );
+        }
 
         await this.carts.markConverted(cart!.id, tx);
 
@@ -467,7 +516,9 @@ export class CheckoutCommand {
           }),
           tx as never,
         );
-        await this.outbox.write(orderPaidEvent({ orderId: order.id, paymentId: null }), tx as never);
+        if (!prepaid) {
+          await this.outbox.write(orderPaidEvent({ orderId: order.id, paymentId: null }), tx as never);
+        }
 
         const finalOrder = (await this.orders.findById(order.id, tx)) as OrderSnapshot;
         return { order: finalOrder, lines, fulfillment, invoice, replay: false };
@@ -484,7 +535,10 @@ export class CheckoutCommand {
         await this.redeemCoupon(input, placed, discountTotal, reservationIds);
       }
 
-      return placed;
+      if (prepaid) {
+        return this.payPrepaid(input, placed);
+      }
+      return { ...placed, payment: null };
     } catch (err) {
       if (isUniqueConstraintViolation(err)) {
         const winner = await this.orders.findByIdempotencyKey(input.idempotencyKey);
@@ -710,6 +764,58 @@ export class CheckoutCommand {
   /** Best-effort compensation (§4's failure/compensation table) — Module 04's reservation TTL
    * sweeper self-heals any stragglers regardless (ADR-007/ADR-014), mirroring
    * `CancelOrderCommand`/`RematchCommand`'s identical `Promise.allSettled` release pattern. */
+  /**
+   * Work 95: saga step 7 for a prepaid order, after the order is committed `PENDING_PAYMENT`
+   * (module-06 §6). The authorization runs outside every transaction (ADR-014), keyed by the order
+   * so a replay never opens a second payment.
+   *  - `AUTHORIZED` → step 8 (`PrepaidPaymentService.onAuthorized`): reservations confirmed, `PAID`.
+   *  - Declined (`PAYMENT_AUTH_FAILED`) → compensation: the order is cancelled, its stock released
+   *    and its coupon reversed; the decline is returned with the `orderId` added to its details.
+   *  - `INITIATED` with a redirect → the order waits; the webhook's `payment.authorized` or
+   *    `payment.failed` finishes it (`PaymentOutcomeHandler`), or `UnpaidOrderReconciler` cancels it.
+   *  - An unknown outcome (gateway unreachable) is returned as the error it is; the order waits the
+   *    same way, and a checkout replay re-drives the authorization.
+   */
+  private async payPrepaid(input: CheckoutInput, placed: CheckoutResult): Promise<CheckoutResult> {
+    const payment = input.payment!;
+    const orderId = placed.order.id;
+    let authorized;
+    try {
+      authorized = await this.payments.authorize({
+        customerUserId: input.customerUserId,
+        orderId,
+        method: payment.method as PaymentMethod,
+        providerToken: payment.token ?? null,
+        returnUrl: payment.returnUrl ?? null,
+        idempotencyKey: prepaidPaymentKey(orderId),
+      });
+    } catch (err) {
+      if (err instanceof ApiException && err.code === ErrorCode.PAYMENT_AUTH_FAILED) {
+        await this.prepaid.onFailed({ orderId });
+        const details = err.details && typeof err.details === 'object' ? (err.details as Record<string, unknown>) : {};
+        throw new ApiException(err.code, err.message, { ...details, orderId });
+      }
+      throw err;
+    }
+
+    if (authorized.status === 'AUTHORIZED') {
+      await this.prepaid.onAuthorized({ orderId, paymentId: authorized.paymentId });
+    } else if (authorized.status === 'FAILED') {
+      // A replayed, already-declined authorization: make sure the compensation ran.
+      await this.prepaid.onFailed({ orderId });
+    }
+    const order = (await this.orders.findById(orderId)) ?? placed.order;
+    return {
+      ...placed,
+      order,
+      payment: {
+        paymentId: authorized.paymentId,
+        status: authorized.status,
+        providerRedirect: authorized.providerRedirect ?? null,
+      },
+    };
+  }
+
   private async releaseReservations(reservationIds: string[], reason: string): Promise<void> {
     await Promise.allSettled(
       reservationIds.map((reservationId) => this.inventory.release({ reservationId, reason })),

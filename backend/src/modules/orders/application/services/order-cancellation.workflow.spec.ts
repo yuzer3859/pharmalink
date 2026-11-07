@@ -85,8 +85,13 @@ function build(status = 'ACCEPTED') {
   const uow = { run: jest.fn((work: (tx: unknown) => Promise<unknown>) => work({ tx: true })) };
   const audit = { record: jest.fn(async () => ({ id: 'a', hash: 'h' })) };
   const outbox = { write: jest.fn(async () => undefined) };
-  const workflow = new OrderCancellationWorkflow(orders, requests, inventory, coupons, uow as never, audit as never, outbox as never);
-  return { workflow, orders, requests, inventory, coupons, audit, outbox, calls, setStatus: (s: string) => (current = { ...current, status: s as OrderSnapshot['status'] }) };
+  const payments = { void: jest.fn(async () => { calls.push('void'); return {}; }) };
+  const workflow = new OrderCancellationWorkflow(orders, requests, inventory, coupons, uow as never, audit as never, outbox as never, payments as never);
+  return {
+    workflow, orders, requests, inventory, coupons, audit, outbox, payments, calls,
+    setStatus: (s: string) => (current = { ...current, status: s as OrderSnapshot['status'] }),
+    setPayment: (paymentId: string) => (current = { ...current, paymentId }),
+  };
 }
 
 const start = (w: OrderCancellationWorkflow) => w.start({ orderId: 'order-1', customerUserId: 'customer-1', reason: 'Changed my mind' });
@@ -103,6 +108,20 @@ describe('OrderCancellationWorkflow (Work 55)', () => {
     expect(only(t.requests).completedAt).toBeInstanceOf(Date);
     expect(t.audit.record).toHaveBeenCalledTimes(1);
     expect(t.outbox.write).toHaveBeenCalledTimes(1);
+  });
+
+  it('a COD order (no payment) voids nothing (Work 95)', async () => {
+    const t = build();
+    await start(t.workflow);
+    expect(t.payments.void).not.toHaveBeenCalled();
+  });
+
+  it('a paid prepaid order: its authorization is voided before the coupon is reversed (Work 95)', async () => {
+    const t = build('PAID');
+    t.setPayment('payment-9');
+    expect(await start(t.workflow)).toBe('COMPLETED');
+    expect(t.calls).toEqual(['release', 'order:CANCELLED', 'void', 'coupon']);
+    expect(t.payments.void).toHaveBeenCalledWith({ paymentId: 'payment-9', actorUserId: expect.any(String), reason: 'order-cancelled' });
   });
 
   it('the original customer and reason are the initiator; the processor is audit context', async () => {
