@@ -127,6 +127,17 @@ export const FIXTURE_ACCOUNTS: readonly FixtureAccount[] = [
     signIn: false,
     purpose: 'Holds the pending DOCTOR_LICENSE verification',
   },
+  {
+    // Work 92: added after the Work 80 walk had decided every pending request, so the document
+    // preview (Work 89) has stored documents to open. No walk round acts on it.
+    key: 'driverPreview', round: null,
+    email: null,
+    phone: '+251910000107',
+    primaryRole: 'DRIVER',
+    roleKey: 'DRIVER',
+    signIn: false,
+    purpose: 'Holds a pending DRIVER_DOCS verification with stored documents, for the document preview',
+  },
   // Super Admin walk round: the same one-shot verification holders, with their own numbers.
   { key: 'customerFaydaSuperAdmin', round: 'superAdmin', email: null, phone: '+251910000203', primaryRole: 'CUSTOMER', roleKey: null, signIn: false, purpose: 'Holds the pending FAYDA verification (Super Admin walk)' },
   { key: 'driverPendingSuperAdmin', round: 'superAdmin', email: null, phone: '+251910000205', primaryRole: 'DRIVER', roleKey: 'DRIVER', signIn: false, purpose: 'Holds the pending DRIVER_DOCS verification (Super Admin walk)' },

@@ -100,6 +100,13 @@ Before this section, redeploy the stack with the Work 89 MinIO. The steps are in
 add permissions) and `npm run staging:seed`. Then run the scripted walk again (§3); it now also
 loads every page below. For Admin, *Admin activity* answering `403` is expected.
 
+Learned at the Work 92 redeploy:
+- **Rebuild `tools` as well.** `up -d --build` builds only the services it starts, and `tools` sits
+  behind a profile. Without `docker compose ... --profile tools build tools`, `migrate deploy` and the seeds run the
+  old code and report nothing pending.
+- **Migrate before the new backend starts,** or restart it afterwards. Otherwise its background
+  jobs log errors about missing tables (`report_jobs`) until then.
+
 1. **Refund above the threshold (Work 84).** **A** (`finance@`): Finance → a captured payment →
    *Refund* more than 10,000 birr. The portal says it was sent for approval. **B**
    (`finance.checker@`): Approvals → *Approve*. The refund appears on the payment.
@@ -112,8 +119,9 @@ loads every page below. For Admin, *Admin activity* answering `403` is expected.
    today's point.
 5. **Admin activity (Work 88).** Super Admin: Admin activity → 7 days. Every staff account is
    listed with its actions; open one to see its entries. Audit Logs shows `ADMIN_ACTIVITY_VIEWED`.
-6. **Document preview (Work 89).** Admin: Verifications → a seeded pending request → *Preview* on a
-   document. A new tab shows the one-page "staging sample — not a real document" PDF, served from
+6. **Document preview (Work 89).** Admin: Verifications → the pending DRIVER_DOCS request of
+   `+251910000107` (fixture `driverPreview`, added in Work 92 because the Work 80 walk decided every
+   earlier request, whose documents predate storage) → *Preview* on a document. A new tab shows the one-page "staging sample — not a real document" PDF, served from
    `127.0.0.1:9100`. Audit Logs shows `VERIFICATION_DOCUMENT_PREVIEWED`.
 7. **Reports (Work 90).** Finance officer: Reports → *Payments* for the last 30 days → *Request
    report*. Within seconds it is `succeeded`; *Download CSV* opens the file. Admin: an *Audit

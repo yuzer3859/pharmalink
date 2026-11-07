@@ -96,6 +96,7 @@ export class StagingSeeder {
     for (const account of FIXTURE_ACCOUNTS) await this.ensureAccount(account);
     for (const org of FIXTURE_ORGANIZATIONS) await this.ensureOrganization(org);
     await this.ensurePendingPersonVerifications();
+    await this.ensurePreviewVerification();
     await this.ensureDriverReady();
     for (const product of FIXTURE_PRODUCTS) await this.ensureProduct(product);
     for (const order of FIXTURE_ORDERS) await this.ensureOrder(order);
@@ -303,6 +304,30 @@ export class StagingSeeder {
         this.note(true, `verification ${type} (${round})`);
       }
     }
+  }
+
+  /**
+   * Work 92: one pending DRIVER_DOCS request whose documents are stored, so the document preview
+   * can be opened on a stack whose earlier requests were all decided. Left pending by the walk.
+   */
+  private async ensurePreviewVerification(): Promise<void> {
+    const userId = this.account('driverPreview');
+    const type = VerificationType.DRIVER_DOCS;
+    if (await this.prisma.verificationRequest.findFirst({ where: { userId, type } })) {
+      this.note(false, 'verification DRIVER_DOCS (document preview)');
+      return;
+    }
+    await this.app.get(SubmitVerificationDocumentsCommand).execute({
+      userId,
+      type,
+      documents: await Promise.all(
+        ['DRIVING_LICENSE', 'VEHICLE_REGISTRATION'].map(async (kind) => ({
+          kind,
+          storageRef: await this.sampleDoc(userId, kind, `staging-seed/driverPreview/${kind.toLowerCase()}.pdf`),
+        })),
+      ),
+    });
+    this.note(true, 'verification DRIVER_DOCS (document preview)');
   }
 
   /** Work 89: a stored sample PDF (previewable in the review), or the old text reference without storage. */
