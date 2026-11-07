@@ -6,6 +6,10 @@ import { ErrorCode } from '../../../../shared/errors/error-codes';
 import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
 import { COUPON_PORT, ICouponPort } from '../../../payment/application/ports/inbound/coupon.port';
+import {
+  IPaymentAuthorizationPort,
+  PAYMENT_AUTHORIZATION_PORT,
+} from '../../../payment/application/ports/inbound/payment-authorization.port';
 import { IInventoryPort, INVENTORY_PORT } from '../../../pharmacy-inventory/application/ports/inbound/inventory.port';
 import { OrderStatus } from '../../domain/enums';
 import { OrdersErrors } from '../../domain/errors';
@@ -77,6 +81,7 @@ export class OrderCancellationWorkflow {
     @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
+    @Inject(PAYMENT_AUTHORIZATION_PORT) private readonly payments: IPaymentAuthorizationPort,
   ) {
     this.logger.setContext(OrderCancellationWorkflow.name);
   }
@@ -207,6 +212,17 @@ export class OrderCancellationWorkflow {
   }
 
   private async reverseCoupon(request: CancellationRequestSnapshot, owner: string, by: CancellationProcessor): Promise<CancellationPhase> {
+    // Work 95: a prepaid order's authorization is released with the order (module-06 §6 step 8's
+    // compensation). Idempotent in Module 07: an already-voided payment answers as a replay. A COD
+    // order, or one whose payment never succeeded, has no `paymentId` and skips this.
+    const order = await this.orders.findById(request.orderId);
+    if (order?.paymentId) {
+      await this.payments.void({
+        paymentId: order.paymentId,
+        actorUserId: request.customerUserId,
+        reason: by === 'REQUEST' ? 'order-cancelled' : 'order-cancelled (recovered)',
+      });
+    }
     try {
       await this.coupons.reverse({
         orderId: request.orderId,

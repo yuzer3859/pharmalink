@@ -12,8 +12,8 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 
 | Criterion (roadmap §3, Phase 1) | Today | Missing |
 |---|---|---|
-| Browse → cart → (Rx verify) → checkout → pay → assign driver → deliver → PoD → settle | Each step exists on the backend and is tested on its own. Checkout is cash on delivery only. | Online payment in checkout (G1), capture (G2), settlement of the paid order (G3). No test runs the whole chain (G9). |
-| Saga compensation: a payment failure releases the stock reservation | Not possible: no order ever waits for a payment. Cancellation releases reservations (tested). | G1 |
+| Browse → cart → (Rx verify) → checkout → pay → assign driver → deliver → PoD → settle | Each step exists on the backend and is tested on its own. Checkout takes cash on delivery or a gateway prepayment (Work 95). | Online payment in checkout (G1), capture (G2), settlement of the paid order (G3). No test runs the whole chain (G9). |
+| Saga compensation: a payment failure releases the stock reservation | **Done (Work 95):** a decline cancels the order and releases its stock and coupon (`test/orders/prepaid-checkout.e2e-spec.ts`) | Staging walk (Work 103) |
 | Ledger balances reconcile in a test | The ledger repository and the reconciliation report are tested. COD orders never reach the ledger (G4). | A test across a full paid order (G9) |
 | Minimal Module 14 search (Postgres FTS over catalogue and pharmacies) | The schema has `search_documents` and other read-model tables, but no code fills or reads them. The catalogue's own list uses trigram indexes. | G5 |
 | Minimal Module 16 (pharmacy verification, product proposals) | COMPLETE: `module-16-implementation-status.md` | — |
@@ -34,14 +34,14 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 
 | # | Gap | Evidence | Fix |
 |---|---|---|---|
-| G1 | No prepaid checkout, so no saga compensation | `checkout.command.ts` header ("every order `isCod = true`"). No module outside 07 consumes a `payment.*` event. | Work 95 |
+| G1 | No prepaid checkout, so no saga compensation | `checkout.command.ts` header ("every order `isCod = true`"). No module outside 07 consumes a `payment.*` event. | **Done, Work 95:** prepaid checkout with compensation, redirect outcomes by event, and an unpaid-order timeout (`backend/docs/prepaid-checkout.md`) |
 | G2 | No capture at fulfilment, so a prepaid order would never post `CAPTURE` to the ledger | module-07 §11.3 ("Orders OrderReady → capture"); no caller of `CapturePaymentCommand` outside its controller | Work 96 |
 | G3 | Payments never reach `SETTLED` after the payout | module-07 §6/§15; Work 83 marks only the statement `PAID` | Work 96 |
 | G4 | COD money never reaches the ledger, so COD sales are missing from settlements and reconciliation | `record-cod-collection.command.ts` ("does not move money"), `record-cod-remittance.command.ts` | Work 97 |
 | G5 | No search | `prisma/schema/14-search.prisma` has tables but no module | Works 98, 99 |
 | G6 | The customer app's cart, checkout, payment, orders, tracking and PoD are prototypes | Mock inventory below | Works 100–102 |
 | G7 | Rx upload stores no file | `UploadPrescriptionDto.fileRef` is any string up to 500 characters | Work 101 (backend part first) |
-| G8 | `orders.paymentId` is never written | `orderPaidEvent({ paymentId: null })` in `checkout.command.ts` | Work 95 |
+| G8 | `orders.paymentId` is never written | `orderPaidEvent({ paymentId: null })` in `checkout.command.ts` | **Done, Work 95:** set when a prepaid order is paid. COD orders have no payment row, so theirs stays null. |
 | G9 | No end-to-end test of the whole chain, compensation, or reconciliation over a real order | `backend/test/` has per-module specs only | Work 103 |
 | G10 | **Production safety:** with no other gateway configured, `MockPaymentProvider` authorises every gateway payment, production included. It also cannot decline, so compensation cannot be shown on staging. | `payment.module.ts` binds `PAYMENT_PROVIDER_PORT` to `MockPaymentProvider` unconditionally | **Done, Work 94:** the mock is unavailable in production, so gateway payments fail closed; the `test-decline` token declines outside production (`backend/docs/test-payment-gateway.md`) |
 | G13 | Proof-of-delivery photos and signatures are kept in process memory, lost on restart. This is safe only while `delivery.podRequirement` stays `NONE`. Work 89's document storage is now a real place for them. | `in-memory-proof-artifact.storage.ts`; found during Work 94 | Work 102 (backend part first) |

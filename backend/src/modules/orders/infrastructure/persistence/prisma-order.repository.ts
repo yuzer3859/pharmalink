@@ -149,6 +149,15 @@ export class PrismaOrderRepository implements IOrderRepository {
     return (tx as Prisma.TransactionClient) ?? this.prisma;
   }
 
+  async listUnpaidPrepaid(cutoff: Date, limit: number, tx?: unknown): Promise<OrderSnapshot[]> {
+    const rows = await this.client(tx).order.findMany({
+      where: { isCod: false, status: 'PENDING_PAYMENT', placedAt: { lt: cutoff } },
+      orderBy: { placedAt: 'asc' },
+      take: limit,
+    });
+    return rows.map(toOrderSnapshot);
+  }
+
   async findById(id: string, tx?: unknown): Promise<OrderSnapshot | null> {
     const row = await this.client(tx).order.findUnique({ where: { id } });
     return row ? toOrderSnapshot(row) : null;
@@ -241,6 +250,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         cancelledAt: update.cancelledAt,
         cancelReason: update.cancelReason,
         matchRequestId: update.matchRequestId,
+        paymentId: update.paymentId,
       },
     });
     await client.orderStatusHistory.create({

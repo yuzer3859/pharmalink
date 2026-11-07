@@ -62,6 +62,10 @@ export class CheckoutController {
       // Only the code. Which pharmacy it is scored against, which lines are eligible and what the
       // discount is worth are all decided server-side (ADR-020) — the DTO carries none of them.
       couponCode: dto.couponCode,
+      // Work 95: gateway prepayment; absent means cash on delivery.
+      payment: dto.payment
+        ? { method: dto.payment.method, token: dto.payment.token ?? null, returnUrl: dto.payment.returnUrl ?? null }
+        : undefined,
     });
 
     return toCheckoutResponse(result);
