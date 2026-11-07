@@ -106,7 +106,7 @@ to #44, each with focused unit and e2e tests, red checks, and all four CI checks
 | 90 | Asynchronous CSV reports | #43 |
 | 91 | Reviews minimum, moderation and the flagged-content view | #44 |
 
-**Full local run** (once, at close-out, on `main` plus this Work's walk and walkthrough changes):
+**Full local run** (once, at close-out, on `main` plus this Work's walk and walkthrough changes; the later seed fixture was covered by its own e2e and a red check):
 
 | Suite | Result |
 |---|---|
@@ -117,12 +117,26 @@ to #44, each with focused unit and e2e tests, red checks, and all four CI checks
 | Web unit (Vitest) | 21 files, 125 tests passed |
 | Staging env scripts (`node --test`) | 26 tests passed |
 
-**Not yet verified live.** The staging stack ran Work 80's build when Works 81 to 91 merged, so
-those pages are verified by tests and CI, not by a click-through. The scripted walk
-(`npm run staging:walk`) now also reads the routes of Works 82 to 91. The click-through steps are in
-[admin-walkthrough.md §6](../ops/staging/admin-walkthrough.md). Both need the stack redeployed with
-MinIO (§6 lists the steps) and the owner's own passwords and MFA codes. Until the owner runs them,
-Works 81 to 91 are complete in code but not signed off on staging.
+**Staging redeployed (2026-11-07).** The stack now runs this Work's code with MinIO. All 41
+migrations are applied, the RBAC catalogue has 14 roles and 74 permissions, and the baseline seed
+ran. Checks that need no sign-in passed:
+- `/health/ready` and MinIO's health answer 200.
+- The public pharmacy rating answers 200.
+- `/admin/moderation/flagged` refuses an anonymous caller with 401.
+- The backend logged no errors after its restart.
+
+The redeploy found two problems, both fixed in this Work:
+- **MinIO image.** The Work 89 image can no longer be pulled, because MinIO stopped publishing
+  community images. The stack now uses the official image by digest, overridable with
+  `MINIO_IMAGE`.
+- **Nothing to preview.** No seeded request could be previewed, so a new `driverPreview` fixture
+  holds a pending request with stored documents.
+
+**Not yet verified live.** Works 81 to 91 are verified by tests and CI, not yet by a click-through.
+The scripted walk (`npm run staging:walk`) now also reads the routes of Works 82 to 91. The
+click-through steps are in [admin-walkthrough.md §6](../ops/staging/admin-walkthrough.md). Both need
+the owner's own passwords and MFA codes. Until the owner runs them, Works 81 to 91 are complete in
+code but not signed off on staging.
 
 **Known limits, recorded rather than built:**
 - No backend action suspends an organisation; only accounts are suspended.
