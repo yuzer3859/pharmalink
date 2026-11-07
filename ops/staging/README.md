@@ -21,7 +21,7 @@ A **local-only** Docker Compose stack for the PharmaLink backend, plus a script 
 |---|---|---|---|
 | `postgres` | `postgres:16` | private network only | database `pharmalink_staging`, user `pharmalink`; data in the project's `pgdata` volume |
 | `redis` | `redis:7` | private network only | no persistence; holds caches and this stack's live OTP challenges |
-| `minio` | `minio/minio:RELEASE.2025-04-22T22-12-26Z` | `127.0.0.1:${MINIO_HOST_PORT:-9100}` only | Work 89: verification documents (`backend/docs/document-storage.md`); data in the project's `miniodata` volume; root password `S3_SECRET_ACCESS_KEY` |
+| `minio` | `${MINIO_IMAGE}`, default `quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z` pinned by digest | `127.0.0.1:${MINIO_HOST_PORT:-9100}` only | Work 89: verification documents (`backend/docs/document-storage.md`); data in the project's `miniodata` volume; root password `S3_SECRET_ACCESS_KEY`. MinIO no longer publishes pullable community images (found at the Work 92 redeploy), so the default must already be in the local image cache; otherwise set `MINIO_IMAGE` to a MinIO build you can pull |
 | `backend` | built from `backend/` (`runtime`) | `127.0.0.1:${BACKEND_HOST_PORT:-3000}` only | `OTP_STORE=redis`; health check on `GET /health/ready`; exactly one instance |
 | `tools` | built from `backend/` (`tools`) | none | profile `tools`: never started by `up`; run explicitly for migrations, the seed and the OTP smoke test |
 

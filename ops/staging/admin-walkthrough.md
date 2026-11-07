@@ -92,3 +92,41 @@ anything else pays.
 5. **A** — *Pay out*. **B** — Approvals → the `Settlement payout` request → *Approve*. The statement
    is `PAID` with one attempt `PAID`; Audit Logs shows `SETTLEMENT_APPROVED`, `PAYOUT_INITIATED`,
    `SETTLEMENT_PAID` and the approval entries with both officers.
+
+## 6. Works 84–91 (Work 92 close-out)
+
+Before this section, redeploy the stack with the Work 89 MinIO. The steps are in
+`ops/staging/README.md`, "Document storage". Also re-run `npm run prisma:seed` (Works 88, 90 and 91
+add permissions) and `npm run staging:seed`. Then run the scripted walk again (§3); it now also
+loads every page below. For Admin, *Admin activity* answering `403` is expected.
+
+Learned at the Work 92 redeploy:
+- **Rebuild `tools` as well.** `up -d --build` builds only the services it starts, and `tools` sits
+  behind a profile. Without `docker compose ... --profile tools build tools`, `migrate deploy` and the seeds run the
+  old code and report nothing pending.
+- **Migrate before the new backend starts,** or restart it afterwards. Otherwise its background
+  jobs log errors about missing tables (`report_jobs`) until then.
+
+1. **Refund above the threshold (Work 84).** **A** (`finance@`): Finance → a captured payment →
+   *Refund* more than 10,000 birr. The portal says it was sent for approval. **B**
+   (`finance.checker@`): Approvals → *Approve*. The refund appears on the payment.
+2. **Support view (Work 85).** Super Admin: Staff → an account → *Request support view*. A second
+   administrator approves it in Approvals, and the requester starts it. The view is read-only, and
+   the account holder gets an "account viewed by support" notice.
+3. **Disputes (Work 86).** Admin: Disputes → open a case for a seeded order, write a support reply
+   and an internal note, then *Resolve* with *No action*. The case is `RESOLVED`.
+4. **Analytics trends (Work 87).** Admin: Analytics → *Snapshot now*. The four trend charts show
+   today's point.
+5. **Admin activity (Work 88).** Super Admin: Admin activity → 7 days. Every staff account is
+   listed with its actions; open one to see its entries. Audit Logs shows `ADMIN_ACTIVITY_VIEWED`.
+6. **Document preview (Work 89).** Admin: Verifications → the pending DRIVER_DOCS request of
+   `+251910000107` (fixture `driverPreview`, added in Work 92 because the Work 80 walk decided every
+   earlier request, whose documents predate storage) → *Preview* on a document. A new tab shows the one-page "staging sample — not a real document" PDF, served from
+   `127.0.0.1:9100`. Audit Logs shows `VERIFICATION_DOCUMENT_PREVIEWED`.
+7. **Reports (Work 90).** Finance officer: Reports → *Payments* for the last 30 days → *Request
+   report*. Within seconds it is `succeeded`; *Download CSV* opens the file. Admin: an *Audit
+   trail* report the same way.
+8. **Moderation (Work 91).** Admin: Moderation. The flagged view lists catalogue products awaiting
+   review and any content disputes. Customer reviews need a delivered order (the customer app),
+   so the review queue may be empty on a fresh seed.
+

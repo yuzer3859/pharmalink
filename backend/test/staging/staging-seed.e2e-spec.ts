@@ -7,6 +7,7 @@ import {
   FIXTURE_ORGANIZATIONS,
   FIXTURE_PRODUCTS,
 } from '../../src/cli/staging-seed/fixtures';
+import { DOCUMENT_STORAGE_PORT, IDocumentStoragePort, parseDocumentRef } from '../../src/shared/storage/document-storage.port';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 
 /**
@@ -104,8 +105,23 @@ describe('Staging seed (e2e)', () => {
   it('leaves a pending verification of every type', async () => {
     const pending = await ctx.prisma.verificationRequest.groupBy({ by: ['type'], where: { status: 'PENDING' }, _count: true });
     const byType = Object.fromEntries(pending.map((p) => [p.type, p._count]));
-    // Two of each: one per walk round (Admin, Super Admin).
-    expect(byType).toEqual({ PHARMACY_LICENSE: 4, FAYDA: 2, DRIVER_DOCS: 2, DOCTOR_LICENSE: 2 });
+    // Two of each: one per walk round (Admin, Super Admin), plus the document-preview holder (Work 92).
+    expect(byType).toEqual({ PHARMACY_LICENSE: 4, FAYDA: 2, DRIVER_DOCS: 3, DOCTOR_LICENSE: 2 });
+  });
+
+  it('leaves a pending request whose documents are stored, for the document preview (Work 92)', async () => {
+    const holder = FIXTURE_ACCOUNTS.find((a) => a.key === 'driverPreview')!;
+    const user = await ctx.prisma.user.findFirstOrThrow({ where: { phone: holder.phone! } });
+    const request = await ctx.prisma.verificationRequest.findFirstOrThrow({ where: { userId: user.id, type: 'DRIVER_DOCS' } });
+    expect(request.status).toBe('PENDING');
+    const storage = ctx.app.get<IDocumentStoragePort>(DOCUMENT_STORAGE_PORT, { strict: false });
+    const docs = request.documents as Array<{ kind: string; storageRef: string }>;
+    expect(docs.map((d) => d.kind)).toEqual(['DRIVING_LICENSE', 'VEHICLE_REGISTRATION']);
+    for (const doc of docs) {
+      const ref = parseDocumentRef(doc.storageRef);
+      expect(ref?.ownerId).toBe(user.id);
+      expect(await storage.describe(ref!)).toEqual(expect.objectContaining({ contentType: 'application/pdf' }));
+    }
   });
 
   it('leaves a product in every catalogue status', async () => {
