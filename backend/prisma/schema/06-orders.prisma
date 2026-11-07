@@ -91,6 +91,8 @@ model Order {
   grandTotal          Int           @default(0)
   currency            String        @default("ETB")
   paymentId           String?
+  /// Work 96: when the prepaid payment was captured at fulfilment. NULL for COD and not-yet-ready orders.
+  paymentCapturedAt   DateTime?
   matchRequestId      String?
   deliverySlot        String?
   idempotencyKey      String        @unique

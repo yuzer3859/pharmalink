@@ -63,6 +63,9 @@ import { OrderCancellationWorkflow } from './application/services/order-cancella
 import { PrepaidPaymentService } from './application/services/prepaid-payment.service';
 import { PaymentOutcomeHandler } from './interface/events/payment-outcome.handler';
 import { UnpaidOrderReconciler } from './infrastructure/scheduling/unpaid-order.reconciler';
+import { PrepaidCaptureService } from './application/services/prepaid-capture.service';
+import { OrderReadyCaptureHandler } from './interface/events/order-ready-capture.handler';
+import { PaymentCaptureReconciler } from './infrastructure/scheduling/payment-capture.reconciler';
 import { ORDER_CANCELLATION_REQUEST_REPOSITORY } from './domain/repositories/order-cancellation-request.repository';
 import { PrismaOrderCancellationRequestRepository } from './infrastructure/persistence/prisma-order-cancellation-request.repository';
 import { FULFILLMENT_OPERATIONS_READ_PORT } from './application/ports/inbound/fulfillment-operations-read.port';
@@ -144,6 +147,10 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PrepaidPaymentService,
     PaymentOutcomeHandler,
     UnpaidOrderReconciler,
+    // Work 96: capture at fulfilment (order.ready) and its retry sweep.
+    PrepaidCaptureService,
+    OrderReadyCaptureHandler,
+    PaymentCaptureReconciler,
     // Module 16 Work 55 — open cancellations (pending / needing attention), explicit columns only.
     { provide: ORDER_CANCELLATION_OPERATIONS_READ_PORT, useClass: PrismaOrderCancellationOperationsReadAdapter },
     // Work 55 — pharmacy-decline recovery: derived candidates, the confirmation reconciler, its view.

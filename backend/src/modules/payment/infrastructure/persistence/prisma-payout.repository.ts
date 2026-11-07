@@ -38,6 +38,22 @@ export class PrismaPayoutRepository implements IPayoutRepository {
     };
   }
 
+  async settleStatementPayments(settlementId: string, at: Date, tx?: unknown): Promise<string[]> {
+    const client = this.client(tx);
+    const lines = await client.payoutLine.findMany({
+      where: { settlementId, sourceRefType: 'payment', sourceRefId: { not: null } },
+      select: { sourceRefId: true },
+    });
+    const ids = [...new Set(lines.map((l) => l.sourceRefId as string))];
+    if (ids.length === 0) return [];
+    const captured = await client.payment.findMany({ where: { id: { in: ids }, status: 'CAPTURED' }, select: { id: true } });
+    const settled = captured.map((p) => p.id);
+    if (settled.length > 0) {
+      await client.payment.updateMany({ where: { id: { in: settled }, status: 'CAPTURED' }, data: { status: 'SETTLED', updatedAt: at } });
+    }
+    return settled;
+  }
+
   async transitionSettlement(
     settlementId: string,
     from: SettlementStatus[],

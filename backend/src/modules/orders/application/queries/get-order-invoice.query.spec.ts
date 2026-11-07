@@ -29,6 +29,9 @@ function build() {
     createInvoice: jest.fn(),
     findInvoiceByOrderId: jest.fn().mockResolvedValue(invoiceSnapshot()),
     listUnpaidPrepaid: jest.fn(),
+    listUncapturedPrepaid: jest.fn(),
+    isPaymentCaptured: jest.fn(),
+    markPaymentCaptured: jest.fn(),
   };
   const query = new GetOrderInvoiceQuery(orders);
   return { query, orders };

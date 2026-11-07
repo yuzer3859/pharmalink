@@ -19,13 +19,15 @@ const LEGAL: ReadonlyArray<[PaymentStatus, PaymentStatus]> = [
   [PaymentStatus.CAPTURED, PaymentStatus.PARTIALLY_REFUNDED],
   // ADR-018: a further refund exhausts the remainder.
   [PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED],
+  // Work 96: a payment paid out to the pharmacy can still be refunded; the next statement claws it back.
+  [PaymentStatus.SETTLED, PaymentStatus.REFUNDED],
+  [PaymentStatus.SETTLED, PaymentStatus.PARTIALLY_REFUNDED],
 ];
 
 const ALL = Object.values(PaymentStatus);
 
 // `PARTIALLY_REFUNDED` is deliberately absent: ADR-018 gives it an outgoing edge to `REFUNDED`.
 const TERMINAL = [
-  PaymentStatus.SETTLED,
   PaymentStatus.FAILED,
   PaymentStatus.VOIDED,
   PaymentStatus.REFUNDED,
@@ -97,9 +99,12 @@ describe('PaymentStatusPolicy (§6)', () => {
     ).toBe(false);
   });
 
-  it('still does not model SETTLED -> REFUNDED (§6 defines no way back out of a payout)', () => {
+  it('models SETTLED -> REFUNDED, and still not SETTLED -> CAPTURED (Work 96)', () => {
     expect(
       PaymentStatusPolicy.isLegalTransition(PaymentStatus.SETTLED, PaymentStatus.REFUNDED),
+    ).toBe(true);
+    expect(
+      PaymentStatusPolicy.isLegalTransition(PaymentStatus.SETTLED, PaymentStatus.CAPTURED),
     ).toBe(false);
   });
 

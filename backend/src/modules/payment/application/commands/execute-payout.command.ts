@@ -302,6 +302,10 @@ export class ExecutePayoutCommand {
         { paidAt },
         tx,
       );
+      // Work 96 (§6 `CAPTURED -> SETTLED`, BRULE-23): the payments this statement pays out are
+      // settled with it, in the same transaction. A payment already partially refunded keeps that
+      // status; its refund is the more informative fact, and the payout lines still record it.
+      const settledPaymentIds = await this.payouts.settleStatementPayments(attempt.settlementId, paidAt, tx);
       await this.audit.record(
         {
           actorUserId,
@@ -316,6 +320,7 @@ export class ExecutePayoutCommand {
             currency: attempt.currency,
             ledgerReference: reference,
             alreadyPaid: answer.outcome === PayoutOutcome.ALREADY_PAID,
+            settledPaymentCount: settledPaymentIds.length,
           },
         },
         tx,

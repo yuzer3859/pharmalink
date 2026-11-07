@@ -178,7 +178,8 @@ describe('Payment — legal transitions (§6)', () => {
     payment.capture(NOW);
     payment.settle(later);
     expect(payment.status).toBe(PaymentStatus.SETTLED);
-    expect(payment.isTerminal).toBe(true);
+    // Work 96: no longer terminal; a settled payment can still be refunded (clawed back).
+    expect(payment.isTerminal).toBe(false);
   });
 
   it('INITIATED -> FAILED records the reason', () => {
@@ -293,12 +294,20 @@ describe('Payment — illegal transitions (§6)', () => {
     expectRejected(() => payment.markRefunded());
   });
 
-  it('a SETTLED payment cannot be refunded (§6 defines no such transition)', () => {
-    const payment = initiate();
-    payment.authorize(NOW);
-    payment.capture(NOW);
-    payment.settle();
-    expectRejected(() => payment.markRefunded());
+  it('a SETTLED payment can still be refunded, in full or in part (Work 96)', () => {
+    const full = initiate();
+    full.authorize(NOW);
+    full.capture(NOW);
+    full.settle();
+    full.markRefunded();
+    expect(full.status).toBe(PaymentStatus.REFUNDED);
+
+    const part = initiate();
+    part.authorize(NOW);
+    part.capture(NOW);
+    part.settle();
+    part.markPartiallyRefunded();
+    expect(part.status).toBe(PaymentStatus.PARTIALLY_REFUNDED);
   });
 
   it('rejects an empty failure reason without changing state', () => {
