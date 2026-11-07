@@ -42,8 +42,11 @@ services:
   # on 127.0.0.1 (default port 9100, not 9000) because a reviewer's browser opens the signed
   # preview links directly. The root password is S3_SECRET_ACCESS_KEY, which
   # `node ops/staging/ensure-env-secrets.mjs` adds to backend/.env.staging (never shown).
+  # MinIO no longer publishes pullable community images (Docker Hub's minio/minio is gone and
+  # quay.io/minio/minio now answers 401), so the default is the official image by tag and digest,
+  # used from the local image cache. Set MINIO_IMAGE to any S3-compatible MinIO build you can pull.
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z@sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d}
     command: ["server", "/data"]
     environment:
       MINIO_ROOT_USER: pharmalink-staging
