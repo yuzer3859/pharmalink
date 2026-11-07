@@ -135,6 +135,17 @@ async function walkReads(walk: Walk): Promise<void> {
     ['COD disputes', `/admin/cod-disputes${q({ page: 1, size: 20 })}`],
     ['Configuration', '/admin/config'],
     ['Configuration', '/admin/feature-flags'],
+    // Works 82–91 (Work 92 close-out): every page added since the Work 80 walk. A Super Admin-only
+    // page (Admin activity) is expected to answer 403 for Admin.
+    ['Approvals', `/admin/approvals${q({ page: 1, size: 20 })}`],
+    ['Disputes', `/admin/disputes${q({ page: 1, size: 20 })}`],
+    ['Analytics trends', '/admin/analytics/metrics'],
+    ['Analytics trends', `/admin/analytics/timeseries${q({ metrics: 'orders.orders.total,accounts.total' })}`],
+    ['Admin activity', '/admin/admins/activity'],
+    ['Reports', '/admin/reports/types'],
+    ['Reports', `/admin/reports${q({ page: 1, size: 20 })}`],
+    ['Moderation', '/admin/moderation/flagged'],
+    ['Moderation', `/admin/reviews${q({ needsAttention: 'true', page: 1, size: 20 })}`],
   ];
   for (const [page, path] of reads) await walk.call(page, 'load', 'GET', path);
 

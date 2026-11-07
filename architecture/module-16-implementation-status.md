@@ -86,6 +86,50 @@ Admin, then clicked through every admin page; both matched. What the walk did:
 The first walk found one gap, fixed in the same Work: pharmacy rows carried no name, so an
 operator could not tell which pharmacy they were activating.
 
+## Close-out (Work 92, 2026-11-07)
+
+Every row above is COMPLETE in code, for backend and portal. Works 80 to 91 were merged as PRs #33
+to #44, each with focused unit and e2e tests, red checks, and all four CI checks green.
+
+| Work | What | PR |
+|---|---|---|
+| 80 | Staging verification baseline and scripted walk | #33 |
+| 81 | Finance Officer portal | #34 |
+| 82 | Maker-checker approvals (NFR-SEC-06) | #35 |
+| 83 | Settlement run, approve and pay (fake gateway only) | #36 |
+| 84 | High-value refund approval | #37 |
+| 85 | Read-only support impersonation through maker-checker | #38 |
+| 86 | General disputes | #39 |
+| 87 | Analytics time series from daily snapshots | #40 |
+| 88 | Admin activity and anomaly monitoring | #41 |
+| 89 | Verification document upload and audited preview (MinIO in the staging stack only) | #42 |
+| 90 | Asynchronous CSV reports | #43 |
+| 91 | Reviews minimum, moderation and the flagged-content view | #44 |
+
+**Full local run** (once, at close-out, on `main` plus this Work's walk and walkthrough changes):
+
+| Suite | Result |
+|---|---|
+| Backend type-check, lint | exit 0, exit 0 |
+| Backend unit (Jest) | 273 suites, 3,962 tests passed |
+| Backend e2e (Jest, testcontainers) | 168 suites, 2,347 tests passed |
+| Web type-check, lint, build | exit 0, exit 0, exit 0 |
+| Web unit (Vitest) | 21 files, 125 tests passed |
+| Staging env scripts (`node --test`) | 26 tests passed |
+
+**Not yet verified live.** The staging stack ran Work 80's build when Works 81 to 91 merged, so
+those pages are verified by tests and CI, not by a click-through. The scripted walk
+(`npm run staging:walk`) now also reads the routes of Works 82 to 91. The click-through steps are in
+[admin-walkthrough.md §6](../ops/staging/admin-walkthrough.md). Both need the stack redeployed with
+MinIO (§6 lists the steps) and the owner's own passwords and MFA codes. Until the owner runs them,
+Works 81 to 91 are complete in code but not signed off on staging.
+
+**Known limits, recorded rather than built:**
+- No backend action suspends an organisation; only accounts are suspended.
+- The Amharic copy of new notifications was written by Claude and needs native review.
+- `orders.paymentId` is never written, and payments never reach `SETTLED` (Module 07 gap, found
+  during this mission; tracked for the Phase 1 close-out).
+
 ## Outside Module 16
 
 The pharmacy portal's own pages (inventory, orders, staff, roles for pharmacy staff) still use the
