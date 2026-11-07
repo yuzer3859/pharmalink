@@ -24,6 +24,8 @@ import { CATALOG_ANALYTICS_READ_PORT } from './application/ports/inbound/catalog
 import { PrismaCatalogAnalyticsReadAdapter } from './infrastructure/persistence/prisma-catalog-analytics-read.adapter';
 import { CATALOG_ADMIN_READ_PORT } from './application/ports/inbound/catalog-admin-read.port';
 import { PrismaCatalogAdminReadAdapter } from './infrastructure/persistence/prisma-catalog-admin-read.adapter';
+import { CATALOG_SEARCH_SOURCE_PORT } from './application/ports/inbound/catalog-search-source.port';
+import { PrismaCatalogSearchSourceAdapter } from './infrastructure/persistence/prisma-catalog-search-source.adapter';
 import {
   CATALOG_REVIEW_APPROVAL_PORT,
   CatalogReviewApprovalPortAdapter,
@@ -70,6 +72,8 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     // in one lifecycle status, paged, each with the transitions `ProductStatusPolicy` allows.
     // Read-only — the status writer stays `ChangeProductStatusCommand` behind this module's route.
     { provide: CATALOG_ADMIN_READ_PORT, useClass: PrismaCatalogAdminReadAdapter },
+    // Work 98: Module 14's read of searchable products.
+    { provide: CATALOG_SEARCH_SOURCE_PORT, useClass: PrismaCatalogSearchSourceAdapter },
     // Inbound approval contract for Module 16's catalogue review (module-16 Work 28): PENDING_REVIEW
     // -> ACTIVE only, through `ChangeProductStatusCommand` itself — not a second status writer.
     { provide: CATALOG_REVIEW_APPROVAL_PORT, useClass: CatalogReviewApprovalPortAdapter },
@@ -111,6 +115,7 @@ import { CatalogController } from './interface/controllers/catalog.controller';
     ListManufacturersQuery,
   ],
   exports: [
+    CATALOG_SEARCH_SOURCE_PORT,
     CATALOG_ANALYTICS_READ_PORT,
     CATALOG_ADMIN_READ_PORT,
     CATALOG_REVIEW_APPROVAL_PORT,

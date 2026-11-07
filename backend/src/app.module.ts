@@ -1,3 +1,4 @@
+import { SearchModule } from './modules/search/search.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
@@ -38,6 +39,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     DeliveryModule,
     AdminModule,
     ReviewsModule,
+    // Work 98: Module 14 minimal search.
+    SearchModule,
     NotificationsModule,
   ],
   providers: [

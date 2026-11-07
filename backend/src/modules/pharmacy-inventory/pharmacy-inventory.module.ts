@@ -1,3 +1,5 @@
+import { PHARMACY_SEARCH_SOURCE_PORT } from './application/ports/inbound/pharmacy-search-source.port';
+import { PrismaPharmacySearchSourceAdapter } from './infrastructure/persistence/prisma-pharmacy-search-source.adapter';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ActivatePharmacyCommand } from './application/commands/activate-pharmacy.command';
@@ -150,6 +152,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     // Inbound read contract for Module 13's pharmacy notifications (module-13 Work 07): a
     // pharmacy's organization owner `userId`, via the existing `IIdentityPort` owner read.
     { provide: PHARMACY_RECIPIENT_READ_PORT, useClass: PharmacyRecipientReadPortAdapter },
+    // Work 98: Module 14's read of purchasable offers and pharmacies.
+    { provide: PHARMACY_SEARCH_SOURCE_PORT, useClass: PrismaPharmacySearchSourceAdapter },
 
     // Scheduling
     LicenseExpirySweeper,
@@ -157,6 +161,7 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
   ],
   exports: [
     INVENTORY_PORT,
+    PHARMACY_SEARCH_SOURCE_PORT,
     GetAvailabilityQuery,
     PHARMACY_ANALYTICS_READ_PORT,
     PHARMACY_RECIPIENT_READ_PORT,

@@ -23,6 +23,7 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "admin:bootstrap-super-admin": "ts-node src/cli/bootstrap-super-admin.ts",
     "staging:seed": "ts-node src/cli/seed-staging.ts",
+    "search:reindex": "ts-node src/cli/search-reindex.ts",
     "staging:set-password": "ts-node src/cli/set-staging-password.ts",
     "staging:walk": "ts-node src/cli/staging-walk.ts",
     "maintenance:backfill-delivery-job-refs": "ts-node prisma/maintenance/backfill-fulfillment-delivery-job-ids.ts"
