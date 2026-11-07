@@ -16,6 +16,7 @@ function build() {
     updateLineFulfillment: jest.fn(),
     createInvoice: jest.fn(),
     findInvoiceByOrderId: jest.fn(),
+    listUnpaidPrepaid: jest.fn(),
   };
   const query = new ListOrdersQuery(orders);
   return { query, orders };

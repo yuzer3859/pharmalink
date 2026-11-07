@@ -60,6 +60,9 @@ import { DeclineRecoveryReadService } from './application/services/decline-recov
 import { ORDER_CANCELLATION_OPERATIONS_READ_PORT } from './application/ports/inbound/order-cancellation-operations-read.port';
 import { PrismaOrderCancellationOperationsReadAdapter } from './infrastructure/persistence/prisma-order-cancellation-operations-read.adapter';
 import { OrderCancellationWorkflow } from './application/services/order-cancellation.workflow';
+import { PrepaidPaymentService } from './application/services/prepaid-payment.service';
+import { PaymentOutcomeHandler } from './interface/events/payment-outcome.handler';
+import { UnpaidOrderReconciler } from './infrastructure/scheduling/unpaid-order.reconciler';
 import { ORDER_CANCELLATION_REQUEST_REPOSITORY } from './domain/repositories/order-cancellation-request.repository';
 import { PrismaOrderCancellationRequestRepository } from './infrastructure/persistence/prisma-order-cancellation-request.repository';
 import { FULFILLMENT_OPERATIONS_READ_PORT } from './application/ports/inbound/fulfillment-operations-read.port';
@@ -137,6 +140,10 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     { provide: ORDER_CANCELLATION_REQUEST_REPOSITORY, useClass: PrismaOrderCancellationRequestRepository },
     OrderCancellationWorkflow,
     OrderCancellationReconciler,
+    // Work 95: the prepaid checkout saga's payment steps (in-request and by event) and its timeout.
+    PrepaidPaymentService,
+    PaymentOutcomeHandler,
+    UnpaidOrderReconciler,
     // Module 16 Work 55 — open cancellations (pending / needing attention), explicit columns only.
     { provide: ORDER_CANCELLATION_OPERATIONS_READ_PORT, useClass: PrismaOrderCancellationOperationsReadAdapter },
     // Work 55 — pharmacy-decline recovery: derived candidates, the confirmation reconciler, its view.

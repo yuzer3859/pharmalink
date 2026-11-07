@@ -39,11 +39,13 @@ export interface CheckoutResponse {
   /** `true` when the `idempotencyKey` replayed an already-placed order instead of creating one
    * (§4/§13.5) — the client can distinguish "your retry was absorbed" from "a new order". */
   replay: boolean;
+  /** Work 95: the prepaid payment (`null` for cash on delivery). Never the gateway token. */
+  payment: { paymentId: string; status: string; providerRedirect: string | null } | null;
 }
 
 /** Pure mapping, no business logic — keeps the controller free of shape-building. */
 export function toCheckoutResponse(result: CheckoutResult): CheckoutResponse {
-  const { order, lines, fulfillment, invoice, replay } = result;
+  const { order, lines, fulfillment, invoice, replay, payment } = result;
   return {
     orderId: order.id,
     orderNumber: order.orderNumber,
@@ -67,5 +69,6 @@ export function toCheckoutResponse(result: CheckoutResult): CheckoutResponse {
       requiresRx: line.requiresRx,
     })),
     replay,
+    payment: payment ?? null,
   };
 }

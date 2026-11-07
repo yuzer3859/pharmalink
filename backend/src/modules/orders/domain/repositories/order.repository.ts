@@ -164,6 +164,8 @@ export interface OrderStatusUpdate {
   cancelledAt?: Date | null;
   cancelReason?: string | null;
   matchRequestId?: string | null;
+  /** Work 95: set once, when a prepaid order's authorization is applied (`PENDING_PAYMENT -> PAID`). */
+  paymentId?: string | null;
 }
 
 /** Data required to move one `OrderLine` from a declined `Fulfillment` onto the pharmacy a
@@ -242,6 +244,8 @@ export interface IOrderRepository {
     tx?: unknown,
   ): Promise<void>;
   findStatusHistory(orderId: string, tx?: unknown): Promise<OrderStatusHistoryEntrySnapshot[]>;
+  /** Work 95: prepaid orders still `PENDING_PAYMENT` that were placed before `cutoff`, oldest first. */
+  listUnpaidPrepaid(cutoff: Date, limit: number, tx?: unknown): Promise<OrderSnapshot[]>;
 
   createLines(
     orderId: string,

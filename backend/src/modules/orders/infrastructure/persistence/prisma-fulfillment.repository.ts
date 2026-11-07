@@ -88,6 +88,10 @@ export class PrismaFulfillmentRepository implements IFulfillmentRepository {
     const where: Prisma.FulfillmentWhereInput = {
       pharmacyId: { in: criteria.pharmacyIds },
       status: criteria.status,
+      // Work 95: a prepaid order is the pharmacy's to see only once its payment is recorded; one
+      // awaiting payment, or cancelled because it was never paid, is not. COD orders are paid at
+      // placement, as before.
+      order: { OR: [{ isCod: true }, { paymentId: { not: null } }] },
     };
     const [items, total] = await Promise.all([
       client.fulfillment.findMany({

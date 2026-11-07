@@ -303,15 +303,18 @@ describe('Payment notifications (e2e)', () => {
     it('creating and reading payment notifications appends no audit entry of Module 13’s', async () => {
       const { paymentId } = await capturedPayment(customerA);
       await refundPayment(paymentId);
-      const beforeDrain = await ctx.prisma.auditLog.findMany({ orderBy: { createdAt: 'asc' } });
+      // Since Work 95, Module 06 reacts to `payment.authorized` too (it pays the order and audits
+      // `ORDER_PAID`). That entry is Module 06's, not Module 13's, so it is left out of the comparison.
+      const notOrders = { resourceType: { not: 'Order' } };
+      const beforeDrain = await ctx.prisma.auditLog.findMany({ where: notOrders, orderBy: { createdAt: 'asc' } });
       await ctx.drainOutbox();
-      expect(await ctx.prisma.auditLog.findMany({ orderBy: { createdAt: 'asc' } })).toEqual(beforeDrain);
+      expect(await ctx.prisma.auditLog.findMany({ where: notOrders, orderBy: { createdAt: 'asc' } })).toEqual(beforeDrain);
 
       const items = await paymentItems(customerA.accessToken);
       await request(ctx.server).get('/notifications/unread-count').set(...auth(customerA.accessToken)).expect(200);
       await request(ctx.server).post(`/notifications/${items[0].id}/read`).set(...auth(customerA.accessToken)).send({}).expect(200);
       await request(ctx.server).post('/notifications/read-all').set(...auth(customerA.accessToken)).send({}).expect(200);
-      expect(await ctx.prisma.auditLog.findMany({ orderBy: { createdAt: 'asc' } })).toEqual(beforeDrain);
+      expect(await ctx.prisma.auditLog.findMany({ where: notOrders, orderBy: { createdAt: 'asc' } })).toEqual(beforeDrain);
     });
   });
 

@@ -1,12 +1,16 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsIn,
   IsOptional,
   IsString,
+  IsUrl,
   IsUUID,
   Matches,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { PREPAID_METHODS, PrepaidMethod } from '../../application/commands/checkout.command';
 
 /**
  * `POST /checkout` request body (`06-orders-spec.md` §9.2/§287, Slice 1 COD-only).
@@ -46,6 +50,25 @@ export class CheckoutQuoteDto {
   @IsString()
   @MaxLength(64)
   deliverySlot?: string;
+}
+
+/**
+ * Work 95: pay now through a gateway (module-06 §6 step 7). The same rules as
+ * `POST /payments/authorize`: an opaque gateway token, never card data (BRULE-26).
+ */
+export class CheckoutPaymentDto {
+  @IsIn(PREPAID_METHODS)
+  method!: PrepaidMethod;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  token?: string;
+
+  @IsOptional()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2048)
+  returnUrl?: string;
 }
 
 export class CheckoutDto {
@@ -93,4 +116,10 @@ export class CheckoutDto {
     message: 'couponCode may contain only letters, digits, hyphens and underscores.',
   })
   couponCode?: string;
+
+  /** Work 95: absent means cash on delivery, exactly as before. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CheckoutPaymentDto)
+  payment?: CheckoutPaymentDto;
 }

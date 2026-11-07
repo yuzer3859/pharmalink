@@ -38,6 +38,7 @@ function build() {
     updateLineFulfillment: jest.fn().mockResolvedValue(undefined),
     createInvoice: jest.fn(),
     findInvoiceByOrderId: jest.fn(),
+    listUnpaidPrepaid: jest.fn(),
   };
   const identity: jest.Mocked<IIdentityPort> = {
     getUserOrganizationIds: jest.fn(),
