@@ -39,10 +39,13 @@ model SearchDocument {
   attributes    Json?
   status        ProjectionStatus @default(ACTIVE)
   sourceVersion Int              @default(0)
+  /// Work 98: full-text vector (English + Amharic names), maintained by the search projector in raw SQL.
+  searchTsv     Unsupported("tsvector")?
   updatedAt     DateTime         @updatedAt
   createdAt     DateTime         @default(now())
 
   @@unique([entityType, entityId, locale])
+  @@index([searchTsv], type: Gin)
   @@index([entityType, isAvailable])
   @@index([city, entityType])
   @@map("search_documents")
@@ -113,4 +116,26 @@ model SavedSearch {
 
   @@index([userId])
   @@map("saved_searches")
+}
+
+/// Work 98: Search-owned projection of Module 04's purchasable offers, one row per (product, branch).
+/// Rebuilt from `PHARMACY_SEARCH_SOURCE_PORT` on every relevant event; never authoritative.
+model SearchOffer {
+  id           String   @id @default(uuid())
+  productId    String
+  pharmacyId   String
+  pharmacyName String
+  branchId     String
+  branchName   String
+  city         String?
+  lat          Float?
+  lng          Float?
+  price        Int
+  currency     String   @default("ETB")
+  sellable     Int
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@unique([productId, branchId])
+  @@index([pharmacyId])
+  @@map("search_offers")
 }
