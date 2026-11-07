@@ -1,3 +1,4 @@
+import { AppConfigService } from '../../src/shared/config/app-config.service';
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
@@ -42,7 +43,7 @@ const DIRTY_DECLINE = 'Declined for card 4111 1111 1111 1111 api_key=sk_live_SEC
  * prescribes exactly this wrapper for the failure branch.
  */
 class ScriptedGateway implements IPaymentProviderPort {
-  private readonly shipped = new MockPaymentProvider();
+  private readonly shipped = new MockPaymentProvider({ isProduction: false } as AppConfigService);
   readonly key = 'mock';
   nextAuthorize: ProviderAuthorizationResult | null = null;
 

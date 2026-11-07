@@ -1,3 +1,4 @@
+import { AppConfigService } from '../../../../shared/config/app-config.service';
 import { IConfigPort } from '../../../../shared/config/config.port';
 import { ApiException } from '../../../../shared/errors/api-exception';
 import { ErrorCode } from '../../../../shared/errors/error-codes';
@@ -13,6 +14,11 @@ import { MockPaymentProvider } from './mock-payment-provider.adapter';
 import { PaymentProviderRegistry } from './payment-provider.registry';
 import { TelebirrAdapter } from './telebirr/telebirr.adapter';
 import { TelebirrConfig, TELEBIRR_CONFIG_KEYS } from './telebirr/telebirr.config';
+
+/** The stand-in gateway, outside production unless told otherwise (Work 94). */
+function mockProvider(isProduction = false): MockPaymentProvider {
+  return new MockPaymentProvider({ isProduction } as AppConfigService);
+}
 
 function configWith(values: Record<string, string> = {}): IConfigPort {
   return {
@@ -92,7 +98,7 @@ function expectApiError(fn: () => unknown, code: ErrorCode): ApiException {
 
 describe('PaymentProviderRegistry — resolution by method', () => {
   it('resolves the mock provider for the gateway methods it serves', () => {
-    const registry = registryWith(new MockPaymentProvider());
+    const registry = registryWith(mockProvider());
 
     for (const method of [
       PaymentMethod.TELEBIRR,
@@ -107,7 +113,7 @@ describe('PaymentProviderRegistry — resolution by method', () => {
   it.each([PaymentMethod.COD, PaymentMethod.WALLET])(
     'refuses %s — no gateway authorizes it',
     (method) => {
-      const registry = registryWith(new MockPaymentProvider());
+      const registry = registryWith(mockProvider());
       const error = expectApiError(
         () => registry.forMethod(method),
         ErrorCode.VALIDATION_ERROR,
@@ -120,7 +126,7 @@ describe('PaymentProviderRegistry — resolution by method', () => {
     // Ordering matters: the mock supports every gateway method, so if it were consulted first a
     // configured production gateway would never receive traffic.
     const real = new StubGateway('real-telebirr', [PaymentMethod.TELEBIRR]);
-    const registry = new PaymentProviderRegistry(new MockPaymentProvider(), real as never);
+    const registry = new PaymentProviderRegistry(mockProvider(), real as never);
 
     expect(registry.forMethod(PaymentMethod.TELEBIRR).key).toBe('real-telebirr');
     // Methods the real gateway does not claim still fall through to the stand-in.
@@ -129,7 +135,7 @@ describe('PaymentProviderRegistry — resolution by method', () => {
 
   it('skips an unavailable gateway rather than routing to it', () => {
     const unavailable = new StubGateway('offline', [PaymentMethod.TELEBIRR], false);
-    const registry = new PaymentProviderRegistry(new MockPaymentProvider(), unavailable as never);
+    const registry = new PaymentProviderRegistry(mockProvider(), unavailable as never);
 
     expect(registry.forMethod(PaymentMethod.TELEBIRR).key).toBe('mock');
     expect(registry.availableKeys()).not.toContain('offline');
@@ -150,7 +156,7 @@ describe('PaymentProviderRegistry — resolution by method', () => {
       [TELEBIRR_CONFIG_KEYS.webhookSecret]: 'webhook-secret',
     };
     // Even fully configured, the contract is not implemented, so it must not receive traffic.
-    const registry = registryWith(new MockPaymentProvider(), configured);
+    const registry = registryWith(mockProvider(), configured);
 
     expect(registry.availableKeys()).toEqual(['mock']);
     expect(registry.forMethod(PaymentMethod.TELEBIRR).key).toBe('mock');
@@ -159,14 +165,14 @@ describe('PaymentProviderRegistry — resolution by method', () => {
 
 describe('PaymentProviderRegistry — resolution by recorded key', () => {
   it('resolves the gateway a payment was authorized through', () => {
-    const registry = registryWith(new MockPaymentProvider());
+    const registry = registryWith(mockProvider());
     expect(registry.forKey('mock').key).toBe('mock');
     expect(registry.forKey('MOCK').key).toBe('mock');
     expect(registry.forKey('  mock  ').key).toBe('mock');
   });
 
   it.each([null, undefined, ''])('refuses a payment with no recorded provider (%p)', (key) => {
-    const registry = registryWith(new MockPaymentProvider());
+    const registry = registryWith(mockProvider());
     const error = expectApiError(
       () => registry.forKey(key as string | null | undefined),
       ErrorCode.DEPENDENCY_UNAVAILABLE,
@@ -175,7 +181,7 @@ describe('PaymentProviderRegistry — resolution by recorded key', () => {
   });
 
   it('refuses an unregistered gateway rather than substituting another', () => {
-    const registry = registryWith(new MockPaymentProvider());
+    const registry = registryWith(mockProvider());
     const error = expectApiError(
       () => registry.forKey('some-gateway-we-removed'),
       ErrorCode.DEPENDENCY_UNAVAILABLE,
@@ -186,7 +192,7 @@ describe('PaymentProviderRegistry — resolution by recorded key', () => {
   it('refuses a registered but unavailable gateway — only it can capture its own authorization', () => {
     // This is the case that matters: a payment authorized through Telebirr must never be captured
     // through the mock because Telebirr is offline.
-    const registry = registryWith(new MockPaymentProvider());
+    const registry = registryWith(mockProvider());
     const error = expectApiError(
       () => registry.forKey('telebirr'),
       ErrorCode.DEPENDENCY_UNAVAILABLE,
@@ -195,11 +201,11 @@ describe('PaymentProviderRegistry — resolution by recorded key', () => {
   });
 
   it('lists only usable gateways', () => {
-    expect(registryWith(new MockPaymentProvider()).availableKeys()).toEqual(['mock']);
+    expect(registryWith(mockProvider()).availableKeys()).toEqual(['mock']);
   });
 
   it('never leaks a credential value through a resolution error', () => {
-    const registry = registryWith(new MockPaymentProvider(), {
+    const registry = registryWith(mockProvider(), {
       [TELEBIRR_CONFIG_KEYS.apiSecret]: 'super-secret-value',
       [TELEBIRR_CONFIG_KEYS.webhookSecret]: 'super-secret-webhook',
     });
@@ -214,5 +220,27 @@ describe('PaymentProviderRegistry — resolution by recorded key', () => {
       expect(serialized).not.toContain('super-secret-value');
       expect(serialized).not.toContain('super-secret-webhook');
     }
+  });
+});
+
+describe('PaymentProviderRegistry — the stand-in gateway in production (Work 94)', () => {
+  it('routes no gateway method to it: production without a real gateway fails closed', () => {
+    const registry = registryWith(mockProvider(true));
+    expect(registry.availableKeys()).toEqual([]);
+    const error = expectApiError(() => registry.forMethod(PaymentMethod.TELEBIRR), ErrorCode.VALIDATION_ERROR);
+    expect(error.details).toMatchObject({ field: 'method', method: PaymentMethod.TELEBIRR, provider: 'none' });
+  });
+
+  it('will not capture, void or refund an earlier mock payment', () => {
+    const registry = registryWith(mockProvider(true));
+    const error = expectApiError(() => registry.forKey('mock'), ErrorCode.DEPENDENCY_UNAVAILABLE);
+    expect(error.details).toMatchObject({ reason: 'not_available' });
+  });
+
+  it('still lets an available real gateway serve its own method in production', () => {
+    const real = new StubGateway('real-telebirr', [PaymentMethod.TELEBIRR]);
+    const registry = new PaymentProviderRegistry(mockProvider(true), real as never);
+    expect(registry.forMethod(PaymentMethod.TELEBIRR).key).toBe('real-telebirr');
+    expectApiError(() => registry.forMethod(PaymentMethod.CARD), ErrorCode.VALIDATION_ERROR);
   });
 });

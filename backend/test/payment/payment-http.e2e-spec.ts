@@ -123,6 +123,20 @@ describe('Payment HTTP API (e2e)', () => {
     expect(row.provider).toBe('mock');
   });
 
+  it('declines through the shipped test gateway for the test token, recording the failure (Work 94)', async () => {
+    const { customer, orderId } = await customerWithOrder();
+
+    const response = await authorize(customer.accessToken, orderId, { token: 'test-decline' }).expect(402);
+    expect(response.body.error.code).toBe('PAYMENT_AUTH_FAILED');
+    expect(response.body.error.message).toBe('Declined by the test gateway.');
+
+    const row = await ctx.prisma.payment.findFirstOrThrow({ where: { orderId } });
+    expect(row).toMatchObject({ status: 'FAILED', provider: 'mock', failureReason: 'Declined by the test gateway.' });
+    const audit = await ctx.prisma.auditLog.findFirstOrThrow({ where: { action: 'PAYMENT_AUTH_FAILED', resourceId: row.id } });
+    expect(audit.context).toMatchObject({ failureCode: 'test_decline' });
+    expect(await ctx.prisma.outbox.count({ where: { eventType: 'payment.failed', aggregateId: row.id } })).toBe(1);
+  });
+
   it('returns an async redirect without marking the payment authorized', async () => {
     const { customer, orderId } = await customerWithOrder();
 

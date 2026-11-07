@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AppConfigService } from '../../../../shared/config/app-config.service';
 import { PaymentMethod } from '../../domain/enums';
 import {
   IPaymentProviderPort,
@@ -26,6 +27,14 @@ const GATEWAY_METHODS: ReadonlySet<PaymentMethod> = new Set([
 ]);
 
 /**
+ * The test-mode decline (Work 94). Authorizing with this `token` outside production declines
+ * deterministically, so a staging walk and the e2e suites can drive the saga's compensation
+ * through the real wiring. It is a fixed public string, not a secret, and has no effect in
+ * production, where this provider never serves at all.
+ */
+export const TEST_DECLINE_TOKEN = 'test-decline';
+
+/**
  * `MockPaymentProvider` (§10's own `infrastructure/providers/` listing) — a deterministic,
  * in-process stand-in for a real gateway. It performs **no network I/O whatsoever**.
  *
@@ -38,15 +47,18 @@ const GATEWAY_METHODS: ReadonlySet<PaymentMethod> = new Set([
  * Behaviour, chosen to make both §6 authorization branches reachable without a test override:
  *  - a request carrying a `returnUrl` is treated as a hosted/redirect flow and returns `PENDING`
  *    with a redirect, so the async path is real rather than hypothetical;
+ *  - the token `TEST_DECLINE_TOKEN` declines (`FAILED`), so the failure branch and the saga's
+ *    compensation are reachable on a staging stack too (Work 94);
  *  - anything else authorizes synchronously.
  *
- * It never returns `FAILED` on its own — a decline is not something a stub should decide. Tests
- * that need the failure branch bind their own scripted double to `PAYMENT_PROVIDER_PORT`.
+ * It never declines on its own: only the explicit test token does. Tests that need other failure
+ * shapes still bind their own scripted double to `PAYMENT_PROVIDER_PORT`.
  *
- * **This is not a production adapter.** Telebirr, bank, card and cross-border adapters are the
- * provider-adapter task; each will implement this same port, and the strategy selection that
- * picks between several bound providers by method arrives with them. Until then exactly one
- * provider is bound and `supports()` is the whole capability check.
+ * **It never serves in production (Work 94, fail closed).** `isAvailable()` is false when
+ * `NODE_ENV=production`, so the registry neither routes a new payment to it nor resolves an
+ * existing `mock` payment for capture, void or refund. A production deployment without a real
+ * gateway therefore refuses gateway payments (`UNSUPPORTED_PAYMENT_METHOD`) instead of
+ * "authorizing" money nobody holds. Before Work 94 it was bound unconditionally.
  *
  * PCI (BRULE-26): it receives no card data — only the opaque `providerToken` the port allows —
  * and it neither stores nor logs anything.
@@ -55,14 +67,30 @@ const GATEWAY_METHODS: ReadonlySet<PaymentMethod> = new Set([
 export class MockPaymentProvider implements IPaymentProviderPort {
   readonly key = 'mock';
 
+  constructor(private readonly config: AppConfigService) {}
+
   supports(method: PaymentMethod): boolean {
     return GATEWAY_METHODS.has(method);
+  }
+
+  /** Never in production: a stand-in gateway must not hold or move real customers' money. */
+  isAvailable(): boolean {
+    return !this.config.isProduction;
   }
 
   async authorize(request: ProviderAuthorizationRequest): Promise<ProviderAuthorizationResult> {
     // Derived from our own `paymentId`, which is exactly how a real gateway's idempotency works:
     // re-authorizing the same payment yields the same reference rather than a second hold.
     const providerRef = `mock-auth-${request.paymentId}`;
+
+    if (request.providerToken === TEST_DECLINE_TOKEN) {
+      return {
+        outcome: 'FAILED',
+        providerRef,
+        failureReason: 'Declined by the test gateway.',
+        failureCode: 'test_decline',
+      };
+    }
 
     if (request.returnUrl) {
       return {
