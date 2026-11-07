@@ -180,6 +180,10 @@ class InMemoryWebhookRepository implements IWebhookRepository {
 }
 
 class InMemoryLedgerRepository implements ILedgerRepository {
+  async listAccountsByType(): Promise<never[]> {
+    return [];
+  }
+
   readonly accounts = new Map<string, LedgerAccountProps>();
   readonly postings: PostedLedgerTransaction[] = [];
   constructor(private readonly log: CallLog = []) {}

@@ -311,6 +311,10 @@ class FakeLedgerRepository {
 }
 
 class FakeSettlementRepository implements ISettlementRepository {
+  async findLatestFor(): Promise<null> {
+    return null;
+  }
+
   readonly settlements = new Map<string, SettlementProps>();
   readonly lines = new Map<string, SettlementLineProps[]>();
 

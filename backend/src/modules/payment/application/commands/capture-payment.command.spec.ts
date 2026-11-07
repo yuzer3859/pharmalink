@@ -149,6 +149,10 @@ class InMemoryPaymentRepository implements IPaymentRepository {
  * `LedgerTransactionDraft` inside `LedgerService`, so postings are validated for real).
  */
 class InMemoryLedgerRepository implements ILedgerRepository {
+  async listAccountsByType(): Promise<never[]> {
+    return [];
+  }
+
   readonly accounts = new Map<string, LedgerAccountProps>();
   readonly postings: PostedLedgerTransaction[] = [];
   postCalls = 0;

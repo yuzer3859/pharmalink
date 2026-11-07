@@ -9,6 +9,7 @@ import { deliveryConfig } from './delivery.config';
 import { validateEnv } from './env.validation';
 import { ordersConfig } from './orders.config';
 import { redisConfig } from './redis.config';
+import { settlementConfig } from './settlement.config';
 
 @Global()
 @Module({
@@ -20,7 +21,7 @@ import { redisConfig } from './redis.config';
       // Namespaced business parameters. `validate` only checks the flat environment; a `load`
       // factory is what actually gives `ConfigService` a value for a dotted key like
       // `orders.platformFeePercent`, which feature modules have been reading all along.
-      load: [ordersConfig, deliveryConfig, redisConfig, approvalsConfig],
+      load: [ordersConfig, deliveryConfig, redisConfig, approvalsConfig, settlementConfig],
     }),
   ],
   providers: [

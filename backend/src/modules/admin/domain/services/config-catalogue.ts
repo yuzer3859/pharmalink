@@ -39,6 +39,12 @@ import {
   MIN_APPROVALS_TTL_HOURS,
   MIN_HIGH_VALUE_REFUND_THRESHOLD,
 } from '../../../../shared/config/approvals.config';
+import {
+  MAX_SETTLEMENT_AUTO_RUN_MIN_AMOUNT,
+  MAX_SETTLEMENT_AUTO_RUN_PERIOD_DAYS,
+  MIN_SETTLEMENT_AUTO_RUN_MIN_AMOUNT,
+  MIN_SETTLEMENT_AUTO_RUN_PERIOD_DAYS,
+} from '../../../../shared/config/settlement.config';
 import { ConfigValueType } from '../enums';
 
 /**
@@ -102,6 +108,28 @@ export interface ConfigKeyDefinition {
  *   `IConfigPort` today, so there is nothing to govern and nothing to get wrong.
  */
 const DEFINITIONS: readonly ConfigKeyDefinition[] = [
+  // -------------------------------------------------------------------------------------------
+  // Module 07 — Settlement triggers (Work 97, owner's decision 2026-11-07)
+  // -------------------------------------------------------------------------------------------
+  {
+    namespace: 'settlement',
+    key: 'autoRunMinAmount',
+    type: ConfigValueType.INTEGER,
+    min: MIN_SETTLEMENT_AUTO_RUN_MIN_AMOUNT,
+    max: MAX_SETTLEMENT_AUTO_RUN_MIN_AMOUNT,
+    description:
+      'Generate a pharmacy settlement statement once its unsettled payable reaches this many santim (0 turns the amount trigger off). Approval and payout still need two officers.',
+  },
+  {
+    namespace: 'settlement',
+    key: 'autoRunPeriodDays',
+    type: ConfigValueType.INTEGER,
+    min: MIN_SETTLEMENT_AUTO_RUN_PERIOD_DAYS,
+    max: MAX_SETTLEMENT_AUTO_RUN_PERIOD_DAYS,
+    description:
+      'Generate a pharmacy settlement statement once this many days have passed since its last one (0 turns the period trigger off). Approval and payout still need two officers.',
+  },
+
   // -------------------------------------------------------------------------------------------
   // Module 06 — Orders
   // -------------------------------------------------------------------------------------------

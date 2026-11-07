@@ -146,6 +146,8 @@ export const SettlementCalculator = {
           promotionExpenseDelta += debit - credit;
           break;
         case LedgerAccountType.GATEWAY_CLEARING:
+        // Work 97: COD cash handed to PharmaLink is customer cash collected too.
+        case LedgerAccountType.COD_CLEARING:
           customerCashDelta += debit - credit;
           break;
         default:

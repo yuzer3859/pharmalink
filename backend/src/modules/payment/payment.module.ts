@@ -71,6 +71,10 @@ import { PrismaRefundRepository } from './infrastructure/persistence/prisma-refu
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { PrismaWebhookRepository } from './infrastructure/persistence/prisma-webhook.repository';
 import { MockPaymentProvider } from './infrastructure/providers/mock-payment-provider.adapter';
+import { CodAccountingService } from './application/services/cod-accounting.service';
+import { SettlementAutoRunService } from './application/services/settlement-auto-run.service';
+import { CodRemittedHandler } from './interface/events/cod-remitted.handler';
+import { SettlementAutoRunJob } from './infrastructure/jobs/settlement-auto-run.job';
 import { AppConfigService } from '../../shared/config/app-config.service';
 import { ApproveSettlementCommand } from './application/commands/approve-settlement.command';
 import { ExecutePayoutCommand } from './application/commands/execute-payout.command';
@@ -265,6 +269,11 @@ import { WalletController } from './interface/controllers/wallet.controller';
     // §11.3 capture accounting, shared by the capture command and the capture webhook, and
     // §11.4 refund accounting, which reverses whatever that capture actually posted.
     CaptureAccountingService,
+    // Work 97: COD sales posted when the cash reaches PharmaLink; automatic statement triggers.
+    CodAccountingService,
+    CodRemittedHandler,
+    SettlementAutoRunService,
+    SettlementAutoRunJob,
     RefundAccountingService,
     // §11.6 wallet accounting — the wallet's counterpart to the two above. It owns the
     // CUSTOMER_WALLET account resolution, the derived balance and both wallet postings; no

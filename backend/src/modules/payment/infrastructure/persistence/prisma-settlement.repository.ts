@@ -84,6 +84,11 @@ export class PrismaSettlementRepository implements ISettlementRepository {
     return (tx as Prisma.TransactionClient) ?? this.prisma;
   }
 
+  async findLatestFor(pharmacyId: string, currency: string, tx?: unknown): Promise<SettlementProps | null> {
+    const row = await this.client(tx).settlement.findFirst({ where: { pharmacyId, currency }, orderBy: { periodEnd: 'desc' } });
+    return row ? toSettlementProps(row) : null;
+  }
+
   async findByIdentity(
     identity: SettlementIdentity,
     tx?: unknown,

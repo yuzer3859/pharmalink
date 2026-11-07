@@ -260,6 +260,10 @@ class FakeRefundRepository implements IRefundRepository {
  * assertion rather than a hopeful one.
  */
 class FakeLedgerRepository implements ILedgerRepository {
+  async listAccountsByType(): Promise<never[]> {
+    return [];
+  }
+
   readonly accounts = new Map<string, LedgerAccountProps>();
   readonly transactions = new Map<string, LedgerTransactionProps>();
   readonly entries: LedgerEntryProps[] = [];

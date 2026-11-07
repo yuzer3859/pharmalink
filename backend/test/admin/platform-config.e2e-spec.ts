@@ -340,8 +340,8 @@ describe('Platform configuration (e2e)', () => {
       for (const forbidden of ['SECRET', 'PASSWORD', 'JWT_', 'TELEBIRR', 'DATABASE_URL', 'redis']) {
         expect(serialized).not.toContain(forbidden);
       }
-      // Only the governable namespaces appear (`approvals` since Work 82).
-      expect([...new Set(items.map((i) => i.namespace))].sort()).toEqual(['approvals', 'delivery', 'orders']);
+      // Only the governable namespaces appear (`approvals` since Work 82, `settlement` since Work 97).
+      expect([...new Set(items.map((i) => i.namespace))].sort()).toEqual(['approvals', 'delivery', 'orders', 'settlement']);
     });
 
     it('serves the environment’s value for a secret even while overrides exist', async () => {
