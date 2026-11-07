@@ -108,7 +108,8 @@ export class SearchQueryService {
       ? Prisma.sql`AND o."lat" IS NOT NULL AND o."lng" IS NOT NULL AND ${distanceSql(Prisma.sql`o."lat"`, Prisma.sql`o."lng"`, geo)} <= ${geo.radiusKm * 1000}`
       : Prisma.empty;
     const nearest = geo ? Prisma.sql`MIN(${distanceSql(Prisma.sql`o."lat"`, Prisma.sql`o."lng"`, geo)})` : Prisma.sql`NULL::double precision`;
-    const rank = tsq ? Prisma.sql`ts_rank(d."searchTsv", to_tsquery('simple', ${tsq}))` : Prisma.sql`0`;
+    // Without text there is no relevance to order by. (A bare `0` would be read as a column position.)
+    const byRank = tsq ? Prisma.sql`ts_rank(d."searchTsv", to_tsquery('simple', ${tsq})) DESC,` : Prisma.empty;
     const availability = Prisma.sql`
       LEFT JOIN LATERAL (
         SELECT COUNT(DISTINCT o."branchId")::int AS "pharmacyCount", MIN(o."price") AS "minPrice", ${nearest} AS "nearest"
@@ -124,7 +125,7 @@ export class SearchQueryService {
       SELECT d."entityId", d."attributes", d."currency", a."pharmacyCount", a."minPrice", a."nearest"
       FROM "search_documents" d ${availability}
       WHERE ${whereSql}
-      ORDER BY (a."pharmacyCount" > 0) DESC, ${rank} DESC, d."title" ASC
+      ORDER BY (a."pharmacyCount" > 0) DESC, ${byRank} d."title" ASC
       LIMIT ${input.size} OFFSET ${offset}`);
     const [{ total }] = await this.prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`
       SELECT COUNT(*)::int AS total FROM "search_documents" d ${availability} WHERE ${whereSql}`);
@@ -178,8 +179,8 @@ export class SearchQueryService {
     const dist = input.geo ? distanceSql(Prisma.sql`d."latitude"`, Prisma.sql`d."longitude"`, input.geo) : Prisma.sql`NULL::double precision`;
     if (input.geo) where.push(Prisma.sql`d."latitude" IS NOT NULL AND ${dist} <= ${input.geo.radiusKm * 1000}`);
     const whereSql = Prisma.join(where, ' AND ');
-    const rank = tsq ? Prisma.sql`ts_rank(d."searchTsv", to_tsquery('simple', ${tsq}))` : Prisma.sql`0`;
-    const order = input.geo ? Prisma.sql`ORDER BY ${dist} ASC, d."title" ASC` : Prisma.sql`ORDER BY ${rank} DESC, d."title" ASC`;
+    const byRank = tsq ? Prisma.sql`ts_rank(d."searchTsv", to_tsquery('simple', ${tsq})) DESC,` : Prisma.empty;
+    const order = input.geo ? Prisma.sql`ORDER BY ${dist} ASC, d."title" ASC` : Prisma.sql`ORDER BY ${byRank} d."title" ASC`;
     const offset = (input.page - 1) * input.size;
     const rows = await this.prisma.$queryRaw<
       Array<{ entityId: string; title: string; description: string | null; city: string | null; ratingAvg: number | null; distanceMeters: number | null }>
