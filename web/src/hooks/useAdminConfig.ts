@@ -50,5 +50,14 @@ export function useConfigActions() {
       },
       onError: (error) => notify(configErrorMessage(error, 'The flag could not be changed.'), 'error'),
     }),
+    createFlag: useMutation({
+      mutationFn: (v: { key: string; enabled: boolean; description?: string }) =>
+        adminConfigService.createFlag(v.key, v.enabled, v.description),
+      onSuccess: (result) => {
+        qc.invalidateQueries({ queryKey: ['admin-flags'] });
+        notify(result.created ? `${result.flag.key} added (${result.flag.enabled ? 'on' : 'off'}).` : `${result.flag.key} already existed; no change.`);
+      },
+      onError: (error) => notify(configErrorMessage(error, 'The flag could not be added.'), 'error'),
+    }),
   };
 }
