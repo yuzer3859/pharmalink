@@ -1,3 +1,4 @@
+import { AppConfigService } from '../../src/shared/config/app-config.service';
 import { randomUUID } from 'crypto';
 import request from 'supertest';
 import {
@@ -37,7 +38,7 @@ import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
  * exposes nothing it should not.
  */
 class ScriptedGateway implements IPaymentProviderPort {
-  private readonly shipped = new MockPaymentProvider();
+  private readonly shipped = new MockPaymentProvider({ isProduction: false } as AppConfigService);
   /** The shipped key, so payments record `mock` and routing is identical to production. */
   readonly key = 'mock';
   readonly refundRequests: ProviderRefundRequest[] = [];

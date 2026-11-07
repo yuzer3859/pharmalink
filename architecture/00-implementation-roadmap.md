@@ -79,7 +79,7 @@ Epics (in order):
 
 **Exit criteria (DoD):** end-to-end happy path — browse → add to cart → (Rx verify if needed) → checkout → pay → assign driver → deliver → PoD → settle. Saga compensation tested (payment failure releases stock reservation). Ledger balances reconcile in a test.
 
-**Status:** tracked in [phase-1-status.md](phase-1-status.md) (audit Work 93, 2026-11-07: gaps G1–G12 and the Work plan 94–104).
+**Status:** tracked in [phase-1-status.md](phase-1-status.md) (audit Work 93, 2026-11-07: gaps G1–G13 and the Work plan 94–104).
 
 ### Phase 2 — Healthcare Services
 **Modules:** 09 Provider Directory → 10 Doctor/Appointment → 11 Diagnostics → 12 Consultation/Records.

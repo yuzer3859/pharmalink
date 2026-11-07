@@ -43,7 +43,8 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 | G7 | Rx upload stores no file | `UploadPrescriptionDto.fileRef` is any string up to 500 characters | Work 101 (backend part first) |
 | G8 | `orders.paymentId` is never written | `orderPaidEvent({ paymentId: null })` in `checkout.command.ts` | Work 95 |
 | G9 | No end-to-end test of the whole chain, compensation, or reconciliation over a real order | `backend/test/` has per-module specs only | Work 103 |
-| G10 | **Production safety:** with no other gateway configured, `MockPaymentProvider` authorises every gateway payment, production included. It also cannot decline, so compensation cannot be shown on staging. | `payment.module.ts` binds `PAYMENT_PROVIDER_PORT` to `MockPaymentProvider` unconditionally | Work 94 |
+| G10 | **Production safety:** with no other gateway configured, `MockPaymentProvider` authorises every gateway payment, production included. It also cannot decline, so compensation cannot be shown on staging. | `payment.module.ts` binds `PAYMENT_PROVIDER_PORT` to `MockPaymentProvider` unconditionally | **Done, Work 94:** the mock is unavailable in production, so gateway payments fail closed; the `test-decline` token declines outside production (`backend/docs/test-payment-gateway.md`) |
+| G13 | Proof-of-delivery photos and signatures are kept in process memory, lost on restart. This is safe only while `delivery.podRequirement` stays `NONE`. Work 89's document storage is now a real place for them. | `in-memory-proof-artifact.storage.ts`; found during Work 94 | Work 102 (backend part first) |
 | G11 | The customer app has no CI job | `.github/workflows` has `backend-ci.yml` and `web-ci.yml` only; `app/` has 4 Vitest files | Work 99 |
 | G12 | Amharic copy written by Claude needs native review (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED`) | `module-16-implementation-status.md` | Owner (not code) |
 
@@ -90,6 +91,6 @@ Already on the real API, with Vitest and RTL tests: `auth/*`, `catalog/*`, and t
 | 99 | App: CI job, search UI, Doctors and Diagnostics as "coming later" (G5, G11) |
 | 100 | App: cart, checkout, fake-gateway payment (G6) |
 | 101 | Rx upload through document storage, pharmacist preview, app Rx upload (G7) |
-| 102 | App: orders, status, live tracking, PoD (G6) |
+| 102 | PoD artifacts in document storage; app: orders, status, live tracking, PoD (G6, G13) |
 | 103 | Phase 1 e2e suite (whole chain, compensation, reconciliation); scripted pharmacy and driver actors; live walk (G9) |
 | 104 | Close-out: this file and the roadmap |
