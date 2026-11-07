@@ -115,6 +115,9 @@ function build() {
     createInvoice: jest.fn().mockResolvedValue(createdInvoice),
     findInvoiceByOrderId: jest.fn().mockResolvedValue(createdInvoice),
     listUnpaidPrepaid: jest.fn(),
+    listUncapturedPrepaid: jest.fn(),
+    isPaymentCaptured: jest.fn(),
+    markPaymentCaptured: jest.fn(),
   };
 
   const fulfillments: jest.Mocked<IFulfillmentRepository> = {

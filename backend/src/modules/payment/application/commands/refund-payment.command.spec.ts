@@ -666,7 +666,6 @@ describe('RefundPaymentCommand — eligibility', () => {
     ['VOIDED', PaymentStatus.VOIDED],
     ['FAILED', PaymentStatus.FAILED],
     ['EXPIRED', PaymentStatus.EXPIRED],
-    ['SETTLED', PaymentStatus.SETTLED],
   ])('refuses a refund of a %s payment — money was never captured or is out of reach', async (
     _label,
     status,

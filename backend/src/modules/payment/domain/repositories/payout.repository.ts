@@ -73,6 +73,12 @@ export interface SettlementPayoutState {
 export interface IPayoutRepository {
   findSettlementState(settlementId: string, tx?: unknown): Promise<SettlementPayoutState | null>;
 
+  /**
+   * Work 96: `CAPTURED -> SETTLED` for every payment whose capture this statement pays out (its
+   * payout lines with source `payment`). Returns the ids actually moved; a second call moves none.
+   */
+  settleStatementPayments(settlementId: string, at: Date, tx?: unknown): Promise<string[]>;
+
   /** `from → to` with the extra columns; `false` when the settlement was not in one of `from`. */
   transitionSettlement(
     settlementId: string,

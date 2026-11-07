@@ -158,6 +158,30 @@ export class PrismaOrderRepository implements IOrderRepository {
     return rows.map(toOrderSnapshot);
   }
 
+  async listUncapturedPrepaid(statuses: string[], limit: number, tx?: unknown): Promise<Array<{ id: string; paymentId: string }>> {
+    const rows = await this.client(tx).order.findMany({
+      where: {
+        isCod: false,
+        paymentId: { not: null },
+        paymentCapturedAt: null,
+        status: { in: statuses as PrismaOrder['status'][] },
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: limit,
+      select: { id: true, paymentId: true },
+    });
+    return rows.map((r) => ({ id: r.id, paymentId: r.paymentId as string }));
+  }
+
+  async isPaymentCaptured(orderId: string, tx?: unknown): Promise<boolean> {
+    const row = await this.client(tx).order.findUnique({ where: { id: orderId }, select: { paymentCapturedAt: true } });
+    return Boolean(row?.paymentCapturedAt);
+  }
+
+  async markPaymentCaptured(orderId: string, at: Date, tx?: unknown): Promise<void> {
+    await this.client(tx).order.updateMany({ where: { id: orderId, paymentCapturedAt: null }, data: { paymentCapturedAt: at } });
+  }
+
   async findById(id: string, tx?: unknown): Promise<OrderSnapshot | null> {
     const row = await this.client(tx).order.findUnique({ where: { id } });
     return row ? toOrderSnapshot(row) : null;

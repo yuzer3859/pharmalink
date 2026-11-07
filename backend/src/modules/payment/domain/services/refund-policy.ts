@@ -18,6 +18,8 @@ import { Money } from '../value-objects/money.vo';
 const REFUNDABLE_STATUSES: ReadonlySet<PaymentStatus> = new Set([
   PaymentStatus.CAPTURED,
   PaymentStatus.PARTIALLY_REFUNDED,
+  // Work 96: paid out to the pharmacy; the refund is clawed back on its next statement.
+  PaymentStatus.SETTLED,
 ]);
 
 /** What `RefundPolicy` decided about a request that passed every check. */

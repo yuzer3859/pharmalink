@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { AuthorizePaymentCommand } from '../../src/modules/payment/application/commands/authorize-payment.command';
+import { RefundInitiator, RefundPaymentCommand } from '../../src/modules/payment/application/commands/refund-payment.command';
 import { CapturePaymentCommand } from '../../src/modules/payment/application/commands/capture-payment.command';
 import {
   IPaymentProviderPort,
@@ -276,6 +277,45 @@ describe('Settlement approval and payout (e2e)', () => {
     const view = body(await request(ctx.server).get(`${FIN}/settlements/${s.id}/payout`).set(...auth(maker.accessToken)).expect(200));
     expect(view).toMatchObject({ settlement: { status: 'PAID' } });
     expect(JSON.stringify(view)).not.toContain('idempotencyKey');
+  });
+
+  it('settles the statement payments with it, and a settled payment can still be refunded, clawed back next time (Work 96)', async () => {
+    const s = await approved();
+    const paymentIds = (await ctx.prisma.payoutLine.findMany({ where: { settlementId: s.id, sourceRefType: 'payment' } })).map((l) => l.sourceRefId as string);
+    expect(paymentIds).toHaveLength(1);
+    expect((await ctx.prisma.payment.findUniqueOrThrow({ where: { id: paymentIds[0] } })).status).toBe('CAPTURED');
+
+    await verifiedBeneficiary();
+    const asked = await post(maker.accessToken, `${FIN}/settlements/${s.id}/pay`).expect(202);
+    await decide(checker.accessToken, (body(asked).approval as { id: string }).id).expect(200);
+
+    expect((await ctx.prisma.payment.findUniqueOrThrow({ where: { id: paymentIds[0] } })).status).toBe('SETTLED');
+    const audit = await ctx.prisma.auditLog.findFirstOrThrow({ where: { action: 'SETTLEMENT_PAID', resourceId: s.id } });
+    expect(audit.context).toMatchObject({ settledPaymentCount: 1 });
+
+    const refund = await ctx.app.get(RefundPaymentCommand).execute({
+      paymentId: paymentIds[0],
+      amount: 2_000,
+      idempotencyKey: `refund-${randomUUID()}`,
+      initiator: RefundInitiator.MANUAL,
+      actorUserId: maker.userId,
+      actorPermissions: ['finance:refund:any'],
+      reason: 'Damaged on arrival, after the payout',
+    });
+    expect(refund).toMatchObject({ paymentStatus: 'PARTIALLY_REFUNDED' });
+
+    const next = body(
+      await request(ctx.server)
+        .post(`${FIN}/settlements/run`)
+        .set(...auth(maker.accessToken))
+        // The next period: the same period would replay the paid statement (its identity).
+        .send({ pharmacyId: owner.pharmacyId, periodStart: '2020-01-01T00:00:00.000Z', periodEnd: '2030-01-02T00:00:00.000Z' })
+        .expect(200),
+    ).settlement as { settlementId: string };
+    expect(next.settlementId).not.toBe(s.id);
+    const clawback = await ctx.prisma.settlement.findUniqueOrThrow({ where: { id: next.settlementId } });
+    expect(clawback.refundClawback).toBeGreaterThan(0);
+    expect(clawback.netAmount).toBeLessThan(0);
   });
 
   it('records a decline as FAILED with no posting', async () => {

@@ -246,6 +246,12 @@ export interface IOrderRepository {
   findStatusHistory(orderId: string, tx?: unknown): Promise<OrderStatusHistoryEntrySnapshot[]>;
   /** Work 95: prepaid orders still `PENDING_PAYMENT` that were placed before `cutoff`, oldest first. */
   listUnpaidPrepaid(cutoff: Date, limit: number, tx?: unknown): Promise<OrderSnapshot[]>;
+  /** Work 96: prepaid orders handed to fulfilment (`READY` or later) whose payment is not yet captured, oldest first. */
+  listUncapturedPrepaid(statuses: string[], limit: number, tx?: unknown): Promise<Array<{ id: string; paymentId: string }>>;
+  /** Work 96: whether the order's payment capture is already recorded. */
+  isPaymentCaptured(orderId: string, tx?: unknown): Promise<boolean>;
+  /** Work 96: records the capture once; a second call changes nothing. */
+  markPaymentCaptured(orderId: string, at: Date, tx?: unknown): Promise<void>;
 
   createLines(
     orderId: string,

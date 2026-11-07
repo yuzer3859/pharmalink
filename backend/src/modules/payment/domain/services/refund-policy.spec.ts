@@ -87,15 +87,11 @@ describe('RefundPolicy (BRULE-24)', () => {
     expect(result.remainingAfter.amountMinor).toBe(6_000);
   });
 
-  it('permits a refund only from CAPTURED and PARTIALLY_REFUNDED', () => {
-    expect(RefundPolicy.refundableStatuses().sort()).toEqual(
-      [PaymentStatus.CAPTURED, PaymentStatus.PARTIALLY_REFUNDED].sort(),
-    );
+  it('permits a refund only from CAPTURED, PARTIALLY_REFUNDED and (Work 96) SETTLED', () => {
+    const allowed: PaymentStatus[] = [PaymentStatus.CAPTURED, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.SETTLED];
+    expect(RefundPolicy.refundableStatuses().sort()).toEqual([...allowed].sort());
     for (const status of Object.values(PaymentStatus)) {
-      const refundable = RefundPolicy.isRefundableStatus(status);
-      expect(refundable).toBe(
-        status === PaymentStatus.CAPTURED || status === PaymentStatus.PARTIALLY_REFUNDED,
-      );
+      expect(RefundPolicy.isRefundableStatus(status)).toBe(allowed.includes(status));
     }
   });
 
@@ -106,7 +102,6 @@ describe('RefundPolicy (BRULE-24)', () => {
     PaymentStatus.FAILED,
     PaymentStatus.EXPIRED,
     PaymentStatus.REFUNDED,
-    PaymentStatus.SETTLED,
   ])('rejects a refund of a %s payment before it does any arithmetic', (status) => {
     expect(codeOf(() => classify({ status, requested: 1 }))).toBe(ErrorCode.REFUND_NOT_ELIGIBLE);
   });

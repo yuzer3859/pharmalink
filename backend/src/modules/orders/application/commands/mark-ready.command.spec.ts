@@ -35,6 +35,9 @@ function build() {
     createInvoice: jest.fn(),
     findInvoiceByOrderId: jest.fn(),
     listUnpaidPrepaid: jest.fn(),
+    listUncapturedPrepaid: jest.fn(),
+    isPaymentCaptured: jest.fn(),
+    markPaymentCaptured: jest.fn(),
   };
   const identity: jest.Mocked<IIdentityPort> = {
     getUserOrganizationIds: jest.fn(),

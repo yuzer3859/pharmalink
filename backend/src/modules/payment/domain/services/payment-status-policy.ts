@@ -28,11 +28,13 @@ import { PaymentErrors } from '../errors';
  * *derived* remainder (captured − refunds actually completed), never from a refund's own
  * `FULL`/`PARTIAL` classification: a payment can reach zero through any sequence of partials.
  *
- * Everything else is terminal. In particular `SETTLED → REFUNDED` is still **not** modelled and
- * remains genuinely undefined: §6 describes no way back out of a payout batch, and refunding money
- * already paid to a pharmacy is a settlement clawback (§3.5 F-STL-03), not a payment refund.
- * `PARTIALLY_REFUNDED → SETTLED` is likewise still absent — an open question ADR-018 records and
- * leaves to the settlement task.
+ * `SETTLED → REFUNDED / PARTIALLY_REFUNDED` (Work 96): a payment paid out to a pharmacy can still
+ * be refunded to the customer. The refund's ledger posting reverses the provider payable, and the
+ * next settlement run nets it as that provider's `refundClawback` (§3.5 F-STL-03), so the money is
+ * recovered from the pharmacy rather than lost. Before Work 96 no payment ever reached `SETTLED`.
+ *
+ * Everything else is terminal. `PARTIALLY_REFUNDED → SETTLED` is still absent (ADR-018's open
+ * question): a partially refunded payment keeps that status when its statement is paid.
  */
 const LEGAL_TRANSITIONS: Record<PaymentStatus, ReadonlySet<PaymentStatus>> = {
   [PaymentStatus.INITIATED]: new Set([
@@ -51,7 +53,9 @@ const LEGAL_TRANSITIONS: Record<PaymentStatus, ReadonlySet<PaymentStatus>> = {
     PaymentStatus.PARTIALLY_REFUNDED,
   ]),
   [PaymentStatus.PARTIALLY_REFUNDED]: new Set([PaymentStatus.REFUNDED]),
-  [PaymentStatus.SETTLED]: new Set(),
+  // Work 96: a settled payment can still be refunded. The refund's ledger posting reverses the
+  // provider payable, and the next settlement run nets it as `refundClawback` (§3.5 F-STL-03).
+  [PaymentStatus.SETTLED]: new Set([PaymentStatus.REFUNDED, PaymentStatus.PARTIALLY_REFUNDED]),
   [PaymentStatus.FAILED]: new Set(),
   [PaymentStatus.VOIDED]: new Set(),
   [PaymentStatus.REFUNDED]: new Set(),
