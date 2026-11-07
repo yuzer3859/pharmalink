@@ -1,3 +1,4 @@
+import { LedgerAccountType } from '../../domain/enums';
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
@@ -115,6 +116,11 @@ export class PrismaLedgerRepository implements ILedgerRepository {
       where: { type: ref.type, ownerId: ref.ownerId, currency: ref.currency },
     });
     return row ? toAccountProps(row) : null;
+  }
+
+  async listAccountsByType(type: LedgerAccountType, tx?: unknown): Promise<LedgerAccountProps[]> {
+    const rows = await this.client(tx).ledgerAccount.findMany({ where: { type }, orderBy: { createdAt: 'asc' } });
+    return rows.map(toAccountProps);
   }
 
   async createAccount(ref: AccountRefKey, tx?: unknown): Promise<LedgerAccountProps> {

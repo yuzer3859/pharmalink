@@ -54,6 +54,8 @@ enum LedgerTransactionType {
   FEE
   ADJUSTMENT
   FX
+  /// Work 97: a COD sale, posted when the cash reaches PharmaLink (remittance).
+  COD_SALE
 }
 
 enum LedgerDirection {

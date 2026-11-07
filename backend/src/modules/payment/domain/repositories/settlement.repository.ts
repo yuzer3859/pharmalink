@@ -102,6 +102,8 @@ export interface ISettlementRepository {
   findByIdentity(identity: SettlementIdentity, tx?: unknown): Promise<SettlementProps | null>;
 
   findById(id: string, tx?: unknown): Promise<SettlementProps | null>;
+  /** Work 97: the pharmacy's statement with the latest `periodEnd` in this currency, or `null`. */
+  findLatestFor(pharmacyId: string, currency: string, tx?: unknown): Promise<SettlementProps | null>;
 
   /** A statement with every line, for a query or for reconciliation to re-check. */
   findWithLines(id: string, tx?: unknown): Promise<SettlementWithLines | null>;

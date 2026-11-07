@@ -82,6 +82,10 @@ async function codeOf(run: () => Promise<unknown>): Promise<string> {
 // ---------------------------------------------------------------------------------------------
 
 class FakeLedgerRepository implements ILedgerRepository {
+  async listAccountsByType(): Promise<never[]> {
+    return [];
+  }
+
   readonly accounts = new Map<string, LedgerAccountProps>();
   readonly transactions = new Map<string, LedgerTransactionProps>();
   readonly entries: LedgerEntryProps[] = [];

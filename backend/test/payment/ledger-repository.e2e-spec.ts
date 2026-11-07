@@ -568,6 +568,8 @@ describe('PrismaLedgerRepository + LedgerService (e2e)', () => {
           'sumEntriesByAccount',
           'findCachedBalance',
           'refreshCachedBalances',
+          // Work 97: the automatic settlement run lists the provider payable accounts. A read.
+          'listAccountsByType',
         ].sort(),
       );
 

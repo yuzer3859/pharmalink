@@ -1,4 +1,12 @@
 import { resolveDocumentStorage } from '../storage/document-storage.config';
+import {
+  DEFAULT_SETTLEMENT_AUTO_RUN_MIN_AMOUNT,
+  DEFAULT_SETTLEMENT_AUTO_RUN_PERIOD_DAYS,
+  MAX_SETTLEMENT_AUTO_RUN_MIN_AMOUNT,
+  MAX_SETTLEMENT_AUTO_RUN_PERIOD_DAYS,
+  MIN_SETTLEMENT_AUTO_RUN_MIN_AMOUNT,
+  MIN_SETTLEMENT_AUTO_RUN_PERIOD_DAYS,
+} from './settlement.config';
 import { plainToInstance } from 'class-transformer';
 import {
   IsEnum,
@@ -395,6 +403,20 @@ export class EnvironmentVariables {
   @Max(MAX_HIGH_VALUE_REFUND_THRESHOLD)
   @IsOptional()
   APPROVALS_HIGH_VALUE_REFUND_THRESHOLD: number = DEFAULT_HIGH_VALUE_REFUND_THRESHOLD;
+
+  /** Work 97: generate a statement once a pharmacy's unsettled payable reaches this many santim; 0 = off. Backs `settlement.autoRunMinAmount`. */
+  @IsInt()
+  @Min(MIN_SETTLEMENT_AUTO_RUN_MIN_AMOUNT)
+  @Max(MAX_SETTLEMENT_AUTO_RUN_MIN_AMOUNT)
+  @IsOptional()
+  SETTLEMENT_AUTO_RUN_MIN_AMOUNT: number = DEFAULT_SETTLEMENT_AUTO_RUN_MIN_AMOUNT;
+
+  /** Work 97: generate a statement once this many days have passed since the last; 0 = off. Backs `settlement.autoRunPeriodDays`. */
+  @IsInt()
+  @Min(MIN_SETTLEMENT_AUTO_RUN_PERIOD_DAYS)
+  @Max(MAX_SETTLEMENT_AUTO_RUN_PERIOD_DAYS)
+  @IsOptional()
+  SETTLEMENT_AUTO_RUN_PERIOD_DAYS: number = DEFAULT_SETTLEMENT_AUTO_RUN_PERIOD_DAYS;
 
   /**
    * How many delivery jobs one driver may hold at once (BRULE-28). Backs the

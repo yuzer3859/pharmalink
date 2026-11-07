@@ -1,3 +1,4 @@
+import { LedgerAccountType } from '../enums';
 import {
   LedgerAccountProps,
   LedgerEntryProps,
@@ -70,6 +71,8 @@ export interface ILedgerRepository {
   findAccountById(id: string, tx?: unknown): Promise<LedgerAccountProps | null>;
   /** Resolves an account by its natural key `(type, ownerId, currency)` (§7's unique index). */
   findAccountByRef(ref: AccountRefKey, tx?: unknown): Promise<LedgerAccountProps | null>;
+  /** Work 97: every account of one type (the automatic settlement run walks `PROVIDER_PAYABLE`). */
+  listAccountsByType(type: LedgerAccountType, tx?: unknown): Promise<LedgerAccountProps[]>;
   createAccount(ref: AccountRefKey, tx?: unknown): Promise<LedgerAccountProps>;
   /**
    * Opens the account if it does not exist yet, otherwise returns the existing one. Concurrency
