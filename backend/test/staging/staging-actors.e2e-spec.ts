@@ -1,4 +1,4 @@
-import { driver, pharmacist, pharmacy } from '../../src/cli/staging-actors';
+import { driver, pharmacist, pharmacy, verifyCustomer } from '../../src/cli/staging-actors';
 import { StagingSeeder } from '../../src/cli/staging-seed/staging-seeder';
 import { FIXTURE_ORGANIZATIONS } from '../../src/cli/staging-seed/fixtures';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
@@ -47,5 +47,27 @@ describe('Staging walk: marketplace seed and actors (Work 103, e2e)', () => {
     await expect(pharmacy(ctx.app, 'NO-SUCH-ORDER', log)).rejects.toThrow('No order NO-SUCH-ORDER.');
     await expect(driver(ctx.app, 'NO-SUCH-ORDER', log, 0)).rejects.toThrow('No order NO-SUCH-ORDER.');
     await expect(pharmacist(ctx.app, 'nobody@staging.pharmalink.test', log)).rejects.toThrow('No customer');
+  });
+
+  it('verify-customer verifies only a new customer, once, with an audit entry (Work 105)', async () => {
+    const log = () => undefined;
+    const email = 'walk.customer@staging.pharmalink.test';
+    // As sign-up leaves it: a CUSTOMER account holding the CUSTOMER role, waiting for its code.
+    const customerRole = await ctx.prisma.role.findUniqueOrThrow({ where: { key: 'CUSTOMER' } });
+    const created = await ctx.prisma.user.create({ data: { email, primaryRole: 'CUSTOMER', userRoles: { create: { roleId: customerRole.id } } } });
+    expect(created.status).toBe('PENDING_VERIFICATION');
+
+    await verifyCustomer(ctx.app, 'Walk.Customer@staging.pharmalink.test', log);
+
+    const after = await ctx.prisma.user.findUniqueOrThrow({ where: { id: created.id } });
+    expect(after.status).toBe('ACTIVE');
+    expect(after.emailVerifiedAt).not.toBeNull();
+    expect(await ctx.prisma.auditLog.count({ where: { action: 'staging.customer.email_verified', resourceId: created.id } })).toBe(1);
+
+    await expect(verifyCustomer(ctx.app, email, log)).rejects.toThrow('is not waiting for verification');
+    await expect(verifyCustomer(ctx.app, 'nobody@staging.pharmalink.test', log)).rejects.toThrow('No account');
+    const owner = FIXTURE_ORGANIZATIONS.find((o) => o.key === 'transacting')!;
+    const org = await ctx.prisma.organization.findFirstOrThrow({ where: { name: owner.legalName }, include: { owner: true } });
+    await expect(verifyCustomer(ctx.app, org.owner.email!, log)).rejects.toThrow('is not a customer account');
   });
 });

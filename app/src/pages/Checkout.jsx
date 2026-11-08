@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useCatalog } from '../catalog/catalogService'
 import { productName } from '../catalog/format'
 import { PAYMENT_METHODS, createOrdersService, newIdempotencyKey } from '../orders/ordersService'
+import { requestLocation } from '../search/searchService'
 
 const METHOD_ICONS = { COD: Wallet, TELEBIRR: Smartphone, CARD: CreditCard }
 
@@ -20,15 +21,30 @@ export function useOrders() {
 
 const money = (amount, currency = 'ETB') => formatMinorUnits(amount, currency) ?? '—'
 
-function AddressForm({ onSaved, orders }) {
+/**
+ * Work 105: a delivery address needs its map location (the backend requires `lat`/`lng` to route
+ * the driver and measure the distance), so the customer shares it from the browser, once, here.
+ * The location goes only into this address.
+ */
+export function AddressForm({ onSaved, orders, locate = requestLocation }) {
   const [form, setForm] = useState({ recipientName: '', recipientPhone: '', city: 'Addis Ababa', addressLine: '' })
+  const [location, setLocation] = useState({ status: 'none', point: null })
   const [state, setState] = useState({ saving: false, error: null })
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  async function useMyLocation() {
+    setLocation({ status: 'locating', point: null })
+    const point = await locate()
+    setLocation(point ? { status: 'found', point } : { status: 'refused', point: null })
+  }
   async function save(e) {
     e.preventDefault()
+    if (!location.point) {
+      setState({ saving: false, error: 'Share the delivery location first, so the driver can find you.' })
+      return
+    }
     setState({ saving: true, error: null })
     try {
-      const saved = await orders.addAddress(form)
+      const saved = await orders.addAddress({ ...form, ...location.point })
       setState({ saving: false, error: null })
       onSaved(saved)
     } catch (error) {
@@ -41,8 +57,18 @@ function AddressForm({ onSaved, orders }) {
       <Input aria-label="Recipient phone" placeholder="+2519…" value={form.recipientPhone} onChange={set('recipientPhone')} required />
       <Input aria-label="City" placeholder="City" value={form.city} onChange={set('city')} required />
       <Input aria-label="Street and building" placeholder="Street, building" value={form.addressLine} onChange={set('addressLine')} required />
+      <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+        <Button type="button" variant="secondary" onClick={useMyLocation} disabled={location.status === 'locating'}>
+          {location.status === 'locating' ? 'Finding your location…' : location.point ? 'Update my location' : 'Use my current location'}
+        </Button>
+        <span className="text-caption text-muted" aria-live="polite">
+          {location.status === 'found' && 'Location shared for this address.'}
+          {location.status === 'refused' && 'Your location is unavailable. Allow location access in the browser and try again.'}
+          {location.status === 'none' && 'The driver needs the delivery location.'}
+        </span>
+      </div>
       {state.error && <p role="alert" className="text-caption text-danger sm:col-span-2">{state.error}</p>}
-      <Button type="submit" variant="secondary" disabled={state.saving} className="sm:col-span-2">{state.saving ? 'Saving…' : 'Save address'}</Button>
+      <Button type="submit" variant="secondary" disabled={state.saving || !location.point} className="sm:col-span-2">{state.saving ? 'Saving…' : 'Save address'}</Button>
     </form>
   )
 }

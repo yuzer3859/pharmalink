@@ -138,6 +138,17 @@ export const FIXTURE_ACCOUNTS: readonly FixtureAccount[] = [
     signIn: false,
     purpose: 'Holds a pending DRIVER_DOCS verification with stored documents, for the document preview',
   },
+  {
+    // Work 105: dispatch never re-offers a job to a driver whose offer on it expired, so the Phase 1
+    // walk keeps a second approved driver for that case. `staging:actors -- driver` picks it.
+    key: 'driverWalkSpare', round: null,
+    email: null,
+    phone: '+251910000108',
+    primaryRole: 'DRIVER',
+    roleKey: 'DRIVER',
+    signIn: false,
+    purpose: 'Spare approved driver for the Phase 1 walk',
+  },
   // Super Admin walk round: the same one-shot verification holders, with their own numbers.
   { key: 'customerFaydaSuperAdmin', round: 'superAdmin', email: null, phone: '+251910000203', primaryRole: 'CUSTOMER', roleKey: null, signIn: false, purpose: 'Holds the pending FAYDA verification (Super Admin walk)' },
   { key: 'driverPendingSuperAdmin', round: 'superAdmin', email: null, phone: '+251910000205', primaryRole: 'DRIVER', roleKey: 'DRIVER', signIn: false, purpose: 'Holds the pending DRIVER_DOCS verification (Super Admin walk)' },

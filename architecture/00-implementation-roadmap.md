@@ -79,7 +79,7 @@ Epics (in order):
 
 **Exit criteria (DoD):** end-to-end happy path — browse → add to cart → (Rx verify if needed) → checkout → pay → assign driver → deliver → PoD → settle. Saga compensation tested (payment failure releases stock reservation). Ledger balances reconcile in a test.
 
-**Status (2026-11-08):** code complete. Works 93–104 close every code gap, and the exit criteria pass in `backend/test/phase1/marketplace.e2e-spec.ts`. The owner's live staging walk is pending. Evidence and open items: [phase-1-status.md](phase-1-status.md).
+**Status (2026-11-08):** code complete. Works 93–104 close every code gap, and the exit criteria pass in `backend/test/phase1/marketplace.e2e-spec.ts`. The owner walked it live on staging on 2026-11-08 (Work 105 fixed what the walk found). Evidence and open items: [phase-1-status.md](phase-1-status.md).
 
 ### Phase 2 — Healthcare Services
 **Modules:** 09 Provider Directory → 10 Doctor/Appointment → 11 Diagnostics → 12 Consultation/Records.

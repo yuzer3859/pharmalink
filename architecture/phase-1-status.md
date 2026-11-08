@@ -139,13 +139,35 @@ pharmacy from ETB 12.00, and `q=amoxicillin` with a location finds it about 1 km
 
 ### Live walk
 
-**Not yet done. It needs the owner.** `ops/staging/phase1-walkthrough.md` walks the same chain by
-hand: the customer app against staging, `npm run staging:actors` for the pharmacy and the driver,
-and the operations portal for settlement. It needs:
-- a customer sign-up with the owner's Resend address, and its e-mail code;
-- the Finance Officer sign-ins, with passwords and authenticator codes.
+**Walked on 2026-11-08 by the owner**, on staging at `main` 952396f plus the Work 105 fixes,
+following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+customer@gmail.com`.
 
-Record the date, order numbers and any deviation here when it is done.
+| Step | Result |
+|---|---|
+| Search, cart, Rx gate, prescription upload, pharmacist approval | As written |
+| `ORD-4489786b-ffb1-4d0c-9bd3-60dd41998ac1`: ORS and Amoxicillin (Rx), ETB 57.00, **cash on delivery** (the app's default method was left selected) | Pharmacy → ready → driver → proof of delivery → `DELIVERED`, job `COMPLETED`. Not settled: COD is payable only after remittance. |
+| `ORD-59edc41f-2bce-45ad-a8ba-141381faa608`: ORS, ETB 12.00, **Telebirr** (test gateway) | `AUTHORIZED` → `CAPTURED` at ready → delivered → statement (1 line, ETB 12.00) → approved → destination registered and verified → payout `PAID` → payment `SETTLED` |
+| Declined payment (`test-decline`) | As written: order cancelled, nothing charged, items back in the cart, stock unchanged |
+| Ledger | Debits equal credits (ETB 1,409.00 each). The walk's ETB 12.00 payable was paid out to zero. Bole's remaining ETB 745.00 is the seed's own draft statement for the admin walk. |
+| Finance reconciliation report (`staging:actors -- reconciliation all`, the same service as `GET /admin/finance/reconciliation`) | `CLEAN`, 0 discrepancies: 3 captured payments, 2 statements, 6 lines, 1 currency examined |
+
+**Deviations found, all fixed in Work 105 (#58) unless noted:**
+1. The owner's Resend address is the staging Super Admin, so it cannot be the customer, and
+   Resend's test sender refuses every other address. Added `staging:actors -- verify-customer`.
+2. The customer app reported *unexpected response* for a staff sign-in (an MFA challenge) and *e-mail
+   delivery is not set up* when Resend refused an address. Both messages mislead. **Open.**
+3. The checkout's new-address form never sent the map location the backend requires, so no new
+   address could be saved. The form now asks for the browser's location.
+4. The `driver` tool never put the walk driver online, so dispatch found nobody. It now does.
+5. Left online, the driver received the next job's offer from the backend itself, which expired
+   before the tool accepted it. Dispatch never re-offers to that driver, so the job stuck. The
+   tool now accepts at once, goes offline after, and the seed adds a spare walk driver.
+6. The operations portal has no "run statement" action, and the automatic run never triggers for
+   a walk-sized amount. Added `staging:actors -- statement now`. A portal action is **open**.
+7. The walkthrough left out setting the finance checker's password and registering and verifying
+   the pharmacy's payout destination. Added.
+8. The operations portal has no reconciliation page, although the report exists in the backend.
+   Added `staging:actors -- reconciliation all` (read-only). A portal page is **open**.
 
 ### Not built, or still open
 
@@ -154,6 +176,9 @@ Record the date, order numbers and any deviation here when it is done.
 | Amharic copy written by Claude (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED` notifications) (G12) | Needs a native speaker's review |
 | Pharmacy portal order, inventory and prescription pages (`web/`, still in-memory) | Follow-up for Modules 04 and 05. The walk uses `staging:actors` instead. |
 | Driver app | Not in Phase 1's code. The walk uses `staging:actors`. |
+| Customer app error messages for a staff sign-in and a refused e-mail address (live walk, deviation 2) | Open |
+| Portal action to run a settlement statement (live walk, deviation 6) | Open. The walk uses `staging:actors -- statement now`. |
+| Portal page for the finance reconciliation report (live walk, deviation 8) | Open. The walk uses `staging:actors -- reconciliation all`. |
 | Real payment gateway (Telebirr) | Fail-closed until its contract exists (Work 94). Staging uses the test gateway only. |
 | Payout destination rules (module-07 §15) | Still open in the design. The mock payout rail pays a verified beneficiary. |
 | COD corrections after a remittance | Not reflected in the COD sale posting. A finance adjustment. |
