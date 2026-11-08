@@ -62,5 +62,8 @@ export function createApiClient({ baseUrl, fetcher = (...args) => fetch(...args)
   return {
     get: (path, options) => request(path, { ...options, method: 'GET' }),
     post: (path, body, options) => request(path, { ...options, method: 'POST', body }),
+    // Work 100: the cart's quantity change and removal.
+    patch: (path, body, options) => request(path, { ...options, method: 'PATCH', body }),
+    delete: (path, options) => request(path, { ...options, method: 'DELETE' }),
   }
 }

@@ -55,6 +55,8 @@ export function AuthProvider({ service: provided, children }) {
       forgotPassword: (email) => service.forgotPassword(email),
       resetPassword: (input) => service.resetPassword(input),
       refreshUser: async () => signedIn(await service.fetchCustomer()),
+      // Work 100: signed-in API calls for the cart, checkout and orders.
+      request: (method, path, body) => service.request(method, path, body),
       logout: async () => {
         await service.logout()
         setState({ status: 'signedOut', user: null, expired: false })

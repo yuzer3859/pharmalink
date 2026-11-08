@@ -1,11 +1,57 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
+import { useOrders } from './Checkout'
 import { AlertTriangle, ArrowLeft, Ban, Pill, RefreshCw, ShieldAlert, Store, Thermometer } from 'lucide-react'
 import { Badge, Button, Card, Skeleton } from '../components/ui'
 import { formatMinorUnits } from '../lib/utils'
 import { useCatalog } from '../catalog/catalogService'
 import { categoryName, humanize, productName, strength, summarizeAvailability } from '../catalog/format'
 import { RxBadge } from './Medicines'
+
+/**
+ * Work 100: puts the product in the signed-in customer's cart (Module 06). A signed-out visitor is
+ * sent to log in and brought back here. Prices and stock are confirmed by the server at checkout.
+ */
+function AddToCart({ product }) {
+  const { status } = useAuth()
+  const orders = useOrders()
+  const location = useLocation()
+  const [quantity, setQuantity] = useState(1)
+  const [state, setState] = useState({ status: 'idle', error: null })
+  if (product.status && product.status !== 'ACTIVE') return null
+
+  async function add() {
+    setState({ status: 'adding', error: null })
+    try {
+      await orders.addToCart(product.id, quantity)
+      setState({ status: 'added', error: null })
+    } catch (error) {
+      setState({ status: 'idle', error: error?.message || 'It could not be added to your cart.' })
+    }
+  }
+
+  return (
+    <Card className="space-y-3 p-4">
+      {status !== 'signedIn' ? (
+        <Button as={Link} to="/login" state={{ from: location.pathname }} className="w-full">Log in to add to cart</Button>
+      ) : (
+        <>
+          <div className="flex items-center gap-3">
+            <label className="text-caption text-muted" htmlFor="qty">Quantity</label>
+            <input id="qty" type="number" min={1} max={99} value={quantity} onChange={(e) => setQuantity(Math.max(1, Math.min(99, Number(e.target.value) || 1)))} className="h-10 w-20 rounded-xl border border-border bg-surface px-3 text-body text-fg" />
+          </div>
+          <Button className="w-full" disabled={state.status === 'adding'} onClick={add}>{state.status === 'adding' ? 'Adding…' : 'Add to cart'}</Button>
+          {state.status === 'added' && (
+            <p role="status" className="text-caption text-success">Added. <Link to="/checkout" className="font-semibold underline">Go to checkout</Link></p>
+          )}
+          {state.error && <p role="alert" className="text-caption text-danger">{state.error}</p>}
+        </>
+      )}
+      {product.rxClassification === 'RX' && <p className="text-caption text-subtle">Prescription medicine: a pharmacist checks your prescription before it is sent.</p>}
+    </Card>
+  )
+}
 
 function safeBackLink(from) {
   return typeof from === 'string' && from.startsWith('/medicines') && !from.startsWith('//') ? from : '/medicines'
@@ -275,7 +321,8 @@ export default function MedicineDetail() {
           )}
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="space-y-4 lg:col-span-2">
+          <AddToCart product={p} />
           <Availability product={p} />
         </div>
       </div>

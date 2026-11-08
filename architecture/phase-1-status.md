@@ -52,13 +52,13 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 
 | File | Mock | Plan |
 |---|---|---|
-| `data/mock.js` | `cart`, `trackingSteps` (`doctors` and `diagnostics` removed in Work 99) | Deleted once nothing imports it (Works 100, 102) |
+| `data/mock.js` | `trackingSteps` only (`doctors` and `diagnostics` removed in Work 99, `cart` in Work 100) | Deleted in Work 102 |
 | `pages/Home.jsx` | "Upload Rx — coming soon" banner (the sample doctors were replaced by a "coming later" note in Work 99) | The Rx banner goes live (Work 101) |
 | `pages/Doctors.jsx` | None. **Done, Work 99:** a "coming later" page with no data. | — |
 | `pages/Diagnostics.jsx` | None. **Done, Work 99:** a "coming later" page with no data. | — |
-| `pages/Checkout.jsx` | `cart` from the mock, inline payment `methods`, a hard-coded address, `setTimeout` instead of an order | Real cart, quote, address, checkout and payment (Work 100) |
+| `pages/Checkout.jsx` | None. **Done, Work 100:** the real cart, addresses, the server quote, cash on delivery or a gateway payment, and a decline that offers to rebuild the cart. | — |
 | `pages/Tracking.jsx` | `trackingSteps`; hard-coded order number, pharmacy, driver, address and totals | Real order status, tracking WebSocket, PoD (Work 102) |
-| `pages/MedicineDetail.jsx` | None. No "add to cart" yet. | Add to cart (Work 100) |
+| `pages/MedicineDetail.jsx` | None. **Done, Work 100:** Add to cart (log in first when signed out). | — |
 | `pages/DesignSystem.jsx` | Static design samples (not product data) | Kept; not linked from the navigation |
 
 Already on the real API, with Vitest and RTL tests: `auth/*`, `catalog/*`, and the `Medicines`,
