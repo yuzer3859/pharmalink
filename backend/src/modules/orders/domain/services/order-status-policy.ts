@@ -30,8 +30,10 @@ const LEGAL_TRANSITIONS: Record<OrderStatus, ReadonlySet<OrderStatus>> = {
   [OrderStatus.PENDING_PAYMENT]: new Set([OrderStatus.PAID, OrderStatus.CANCELLED]),
   [OrderStatus.PAID]: new Set([OrderStatus.ACCEPTED, OrderStatus.CANCELLED]),
   [OrderStatus.ACCEPTED]: new Set([OrderStatus.READY, OrderStatus.CANCELLED]),
-  [OrderStatus.READY]: new Set(),
-  [OrderStatus.DISPATCHED]: new Set(),
+  // Work 103 (Phase 1 audit G14): Module 08's delivery advances the order: picked up -> DISPATCHED,
+  // delivered -> DELIVERED (OrderDeliveryProgressService). Before, READY was the ceiling.
+  [OrderStatus.READY]: new Set([OrderStatus.DISPATCHED]),
+  [OrderStatus.DISPATCHED]: new Set([OrderStatus.DELIVERED]),
   [OrderStatus.DELIVERED]: new Set(),
   [OrderStatus.COMPLETED]: new Set(),
   [OrderStatus.CANCELLED]: new Set(),

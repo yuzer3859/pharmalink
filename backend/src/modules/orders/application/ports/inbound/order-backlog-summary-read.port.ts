@@ -10,11 +10,11 @@ export { OrderStatus } from '../../../domain/enums';
  * one snapshot, `generatedAt` from the same clock. No amounts.
  *
  * - `byStatus` — the stored `OrderStatus`, every value in declaration order, zero-filled.
- * - `nonTerminalCount` — orders whose status is not terminal by `OrderStatusPolicy.isTerminal`:
- *   a status with a legal outgoing transition in Module 06's current graph. Today that is DRAFT,
- *   PENDING_PAYMENT, PAID and ACCEPTED. READY is Slice 1's reachable ceiling — nothing in Module 06
- *   moves an order past it yet — so READY, DISPATCHED, DELIVERED and COMPLETED are terminal there,
- *   with CANCELLED and REFUNDED. The set follows the policy if the graph grows.
+ * - `nonTerminalCount` — orders still in the pharmacy-side backlog, before the hand-off to
+ *   delivery: DRAFT, PENDING_PAYMENT, PAID and ACCEPTED. READY and everything after it (DISPATCHED,
+ *   DELIVERED, COMPLETED), with CANCELLED and REFUNDED, are outside it. Since Work 103 an order
+ *   moves past READY as its delivery progresses; that progress is Module 08's backlog, so this set
+ *   is named in the adapter rather than derived from the state machine.
  * - `oldestNonTerminalPlacedAt` / `oldestNonTerminalAgeSeconds` — the earliest `placedAt` (set when
  *   checkout submits the order) among non-terminal orders that have one, and whole seconds from it
  *   to `generatedAt` (floored, never negative). Both `null` when no non-terminal order has a

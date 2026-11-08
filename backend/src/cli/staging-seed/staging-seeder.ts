@@ -1,3 +1,5 @@
+import { UpdateProductCommand } from '../../modules/catalog/application/commands/update-product.command';
+import { CreateListingCommand } from '../../modules/pharmacy-inventory/application/commands/create-listing.command';
 import { INestApplicationContext } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { AuditService } from '../../shared/audit/audit.service';
@@ -99,6 +101,7 @@ export class StagingSeeder {
     await this.ensurePreviewVerification();
     await this.ensureDriverReady();
     for (const product of FIXTURE_PRODUCTS) await this.ensureProduct(product);
+    await this.ensureMarketplace();
     for (const order of FIXTURE_ORDERS) await this.ensureOrder(order);
     await this.ensureSettlement();
     await this.ensureFeatureFlag();
@@ -462,6 +465,50 @@ export class StagingSeeder {
       });
     }
     this.note(!existing, `product ${fixture.key}`);
+  }
+
+  /**
+   * Work 103: what a customer can buy in the Phase 1 walk. Seed Bole Pharmacy (transacting) stocks
+   * the OTC walk product and the Rx Amoxicillin at Bole Main, both with a catalogue price, and its
+   * owner also holds PHARMACIST there, so `npm run staging:actors -- pharmacist` can review a
+   * prescription for that pharmacy. Idempotent.
+   */
+  private async ensureMarketplace(): Promise<void> {
+    const org = this.orgs.get('transacting');
+    if (!org?.pharmacyId || !org.branchId) return;
+    const operator = this.account('operator');
+    const ownerId = (await this.prisma.organization.findUniqueOrThrow({ where: { id: org.organizationId } })).ownerUserId;
+
+    const role = await this.prisma.role.findUniqueOrThrow({ where: { key: 'PHARMACIST' } });
+    const hasRole = await this.prisma.userRole.findFirst({ where: { userId: ownerId, roleId: role.id, organizationId: org.organizationId } });
+    if (!hasRole) {
+      await this.prisma.userRole.create({ data: { userId: ownerId, roleId: role.id, organizationId: org.organizationId } });
+      await this.audit('staging.seed.role_granted', 'user', ownerId, { roleKey: 'PHARMACIST', organizationId: org.organizationId });
+    }
+    this.note(!hasRole, 'pharmacist role at Seed Bole Pharmacy');
+
+    for (const [key, price] of [['walkOtc', 1_200], ['active', 4_500]] as const) {
+      const productId = this.products.get(key);
+      if (!productId) continue;
+      const product = await this.prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      if (product.price === null) {
+        await this.app.get(UpdateProductCommand).execute({ actorUserId: operator, productId, price });
+      }
+      const listing = await this.prisma.inventoryListing.findFirst({ where: { branchId: org.branchId, catalogProductId: productId } });
+      if (!listing) {
+        await this.app.get(CreateListingCommand).execute({
+          actorUserId: ownerId,
+          pharmacyId: org.pharmacyId,
+          branchId: org.branchId,
+          catalogProductId: productId,
+          price,
+          batchNumber: `STG-WALK-${key}`,
+          initialQuantity: 200,
+          expiryDate: '2028-12-31',
+        });
+      }
+      this.note(!listing, `stock ${key} at Bole Main`);
+    }
   }
 
   // ---------------------------------------------------------------------------------------------

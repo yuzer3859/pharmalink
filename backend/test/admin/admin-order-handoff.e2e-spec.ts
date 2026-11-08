@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import request from 'supertest';
-import { OrderStatusPolicy } from '../../src/modules/orders/domain/services/order-status-policy';
+import { TERMINAL_ORDER_STATUSES } from '../../src/modules/orders/infrastructure/persistence/prisma-order-backlog-summary-read.adapter';
 import { OrderStatus } from '../../src/modules/orders/application/ports/inbound/order-backlog-summary-read.port';
 import { auth, body, createUserWithRole, RegisteredUser, Tokens } from '../support/fixtures';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
@@ -13,7 +13,7 @@ type Summary = {
   readyHandoff: { readyOrderCount: number; readyOrdersWithDeliveryJob: number; readyOrdersWithoutDeliveryJob: number };
 };
 const PATH = '/admin/operations/orders/summary';
-const NON_TERMINAL = (Object.values(OrderStatus) as string[]).filter((s) => !OrderStatusPolicy.isTerminal(s as OrderStatus));
+const NON_TERMINAL = (Object.values(OrderStatus) as string[]).filter((s) => !(TERMINAL_ORDER_STATUSES as readonly string[]).includes(s));
 
 /**
  * Module 16 Work 42 against real PostgreSQL: the READY-order delivery handoff split on
