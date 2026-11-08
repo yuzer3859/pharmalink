@@ -8,7 +8,8 @@ import Prescriptions from './pages/Prescriptions'
 import MedicineDetail from './pages/MedicineDetail'
 import Doctors from './pages/Doctors'
 import Diagnostics from './pages/Diagnostics'
-import Tracking from './pages/Tracking'
+import Orders from './pages/Orders'
+import OrderDetail from './pages/OrderDetail'
 import Checkout from './pages/Checkout'
 import DesignSystem from './pages/DesignSystem'
 import Register from './pages/auth/Register'
@@ -44,7 +45,10 @@ export default function App() {
           <Route path="/medicines/:id" element={<Page><MedicineDetail /></Page>} />
           <Route path="/doctors" element={<Page><Doctors /></Page>} />
           <Route path="/diagnostics" element={<Page><Diagnostics /></Page>} />
-          <Route path="/tracking" element={<Page><Tracking /></Page>} />
+          <Route path="/orders" element={<Page><RequireCustomer><Orders /></RequireCustomer></Page>} />
+          <Route path="/orders/:id" element={<Page><RequireCustomer><OrderDetail /></RequireCustomer></Page>} />
+          {/* Work 102: the old tracking prototype's address now opens the real orders. */}
+          <Route path="/tracking" element={<Page><RequireCustomer><Orders /></RequireCustomer></Page>} />
           <Route path="/checkout" element={<Page><RequireCustomer><Checkout /></RequireCustomer></Page>} />
           <Route path="/prescriptions" element={<Page><RequireCustomer><Prescriptions /></RequireCustomer></Page>} />
           <Route path="/design-system" element={<Page><DesignSystem /></Page>} />

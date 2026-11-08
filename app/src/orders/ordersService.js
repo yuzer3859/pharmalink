@@ -76,6 +76,22 @@ export function createOrdersService({ request }) {
     async order(orderId) {
       return request('GET', `/orders/${encodeURIComponent(orderId)}`)
     },
+    async orders() {
+      const data = await request('GET', '/orders?page=1&size=50')
+      if (!isRecord(data) || !Array.isArray(data.items)) throw malformed()
+      return data.items
+    },
+    /** The delivery's tracking snapshot; ApiError NOT_FOUND until a delivery job exists. */
+    async tracking(orderId) {
+      return request('GET', `/tracking/orders/${encodeURIComponent(orderId)}`)
+    },
+    async proofOfDelivery(jobId) {
+      return request('GET', `/delivery/jobs/${encodeURIComponent(jobId)}/proof-of-delivery`)
+    },
+    /** A 5-minute link to the delivery photograph or signature. */
+    async proofLink(jobId) {
+      return request('POST', `/delivery/jobs/${encodeURIComponent(jobId)}/proof-of-delivery/artifact`)
+    },
     /** After a decline: puts the cancelled order's products back in the cart. */
     async rebuildCart(lines) {
       for (const line of lines) await this.addToCart(line.catalogProductId, line.quantity)

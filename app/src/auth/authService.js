@@ -163,6 +163,12 @@ export function createAuthService({ api, storage = safeSessionStorage(), deviceI
     /** Work 100: a signed-in request (refreshes the session once on an expired access token). */
     request: (method, path, body) => authorized(method, path, body),
 
+    /** Work 102: the current access token (refreshed first when absent), for the tracking socket's handshake. */
+    async accessToken() {
+      if (!accessToken) await refresh()
+      return accessToken
+    },
+
     onSessionExpired(listener) {
       expiredListeners.add(listener)
       return () => expiredListeners.delete(listener)

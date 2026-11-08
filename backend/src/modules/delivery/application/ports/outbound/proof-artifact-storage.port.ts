@@ -64,4 +64,7 @@ export interface IProofArtifactStoragePort {
    * ever moving an image through itself.
    */
   describe(ref: string): Promise<Omit<StoredProofArtifact, 'ref'> | null>;
+
+  /** Work 102: a short-lived link to view a stored artifact, when the adapter can issue one. */
+  readUrl?(ref: string): Promise<{ url: string; expiresAt: Date } | null>;
 }

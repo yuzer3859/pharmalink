@@ -39,12 +39,12 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 | G3 | Payments never reach `SETTLED` after the payout | module-07 §6/§15; Work 83 marks only the statement `PAID` | **Done, Work 96:** a paid statement settles its payments; a settled payment can still be refunded and is clawed back |
 | G4 | COD money never reaches the ledger, so COD sales are missing from settlements and reconciliation | `record-cod-collection.command.ts` ("does not move money"), `record-cod-remittance.command.ts` | **Done, Work 97:** the COD sale is posted when the cash reaches PharmaLink, for the amount handed over; statements are generated automatically by amount or period (owner's decision 2026-11-07, `backend/docs/cod-ledger-and-settlement-triggers.md`) |
 | G5 | No search | `prisma/schema/14-search.prisma` has tables but no module | **Backend done, Work 98:** Postgres full-text search with nearby availability, kept in sync by events (`backend/docs/search.md`). **App UI done, Work 99:** the Search page, with Amharic or English text, an Rx/OTC filter, and "Near me" availability. |
-| G6 | The customer app's cart, checkout, payment, orders, tracking and PoD are prototypes | Mock inventory below | Works 100–102 |
+| G6 | The customer app's cart, checkout, payment, orders, tracking and PoD are prototypes | Mock inventory below | **Done, Works 100–102:** every customer flow uses the real API |
 | G7 | Rx upload stores no file | `UploadPrescriptionDto.fileRef` is any string up to 500 characters | **Done, Work 101:** files go to document storage through signed links and are checked before recording; the owner and the reviewing pharmacist get audited, access-logged read links; the app has a Prescriptions page (`backend/docs/prescription-files.md`) |
 | G8 | `orders.paymentId` is never written | `orderPaidEvent({ paymentId: null })` in `checkout.command.ts` | **Done, Work 95:** set when a prepaid order is paid. COD orders have no payment row, so theirs stays null. |
 | G9 | No end-to-end test of the whole chain, compensation, or reconciliation over a real order | `backend/test/` has per-module specs only | Work 103 |
 | G10 | **Production safety:** with no other gateway configured, `MockPaymentProvider` authorises every gateway payment, production included. It also cannot decline, so compensation cannot be shown on staging. | `payment.module.ts` binds `PAYMENT_PROVIDER_PORT` to `MockPaymentProvider` unconditionally | **Done, Work 94:** the mock is unavailable in production, so gateway payments fail closed; the `test-decline` token declines outside production (`backend/docs/test-payment-gateway.md`) |
-| G13 | Proof-of-delivery photos and signatures are kept in process memory, lost on restart. This is safe only while `delivery.podRequirement` stays `NONE`. Work 89's document storage is now a real place for them. | `in-memory-proof-artifact.storage.ts`; found during Work 94 | Work 102 (backend part first) |
+| G13 | Proof-of-delivery photos and signatures are kept in process memory, lost on restart. This is safe only while `delivery.podRequirement` stays `NONE`. Work 89's document storage is now a real place for them. | `in-memory-proof-artifact.storage.ts`; found during Work 94 | **Done, Work 102:** artifacts are kept in document storage when it is configured, and opened through an explicit, audited 5-minute link |
 | G11 | The customer app has no CI job | `.github/workflows` has `backend-ci.yml` and `web-ci.yml` only; `app/` has 4 Vitest files | **Done, Work 99:** `app-ci.yml` runs the app's Vitest suite and production build on every PR |
 | G12 | Amharic copy written by Claude needs native review (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED`) | `module-16-implementation-status.md` | Owner (not code) |
 
@@ -52,12 +52,12 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 
 | File | Mock | Plan |
 |---|---|---|
-| `data/mock.js` | `trackingSteps` only (`doctors` and `diagnostics` removed in Work 99, `cart` in Work 100) | Deleted in Work 102 |
+| `data/mock.js` | **Deleted, Work 102.** No sample data remains in `app/src`. | — |
 | `pages/Home.jsx` | None. **Done:** a "coming later" doctors note (Work 99); the Rx banner opens the Prescriptions page (Work 101). | — |
 | `pages/Doctors.jsx` | None. **Done, Work 99:** a "coming later" page with no data. | — |
 | `pages/Diagnostics.jsx` | None. **Done, Work 99:** a "coming later" page with no data. | — |
 | `pages/Checkout.jsx` | None. **Done, Work 100:** the real cart, addresses, the server quote, cash on delivery or a gateway payment, and a decline that offers to rebuild the cart. | — |
-| `pages/Tracking.jsx` | `trackingSteps`; hard-coded order number, pharmacy, driver, address and totals | Real order status, tracking WebSocket, PoD (Work 102) |
+| `pages/Tracking.jsx` | **Deleted, Work 102.** Replaced by `Orders.jsx` and `OrderDetail.jsx`: real orders, status history, live tracking over the WebSocket, and proof of delivery. `/tracking` opens the orders. | — |
 | `pages/MedicineDetail.jsx` | None. **Done, Work 100:** Add to cart (log in first when signed out). | — |
 | `pages/DesignSystem.jsx` | Static design samples (not product data) | Kept; not linked from the navigation |
 
