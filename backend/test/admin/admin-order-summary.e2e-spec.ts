@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { auth, body, createUserWithRole, RegisteredUser, Tokens } from '../support/fixtures';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
-import { OrderStatusPolicy } from '../../src/modules/orders/domain/services/order-status-policy';
+import { TERMINAL_ORDER_STATUSES } from '../../src/modules/orders/infrastructure/persistence/prisma-order-backlog-summary-read.adapter';
 import { OrderStatus } from '../../src/modules/orders/application/ports/inbound/order-backlog-summary-read.port';
 
 type User = RegisteredUser & Tokens;
@@ -13,7 +13,7 @@ type Summary = {
 const PATH = '/admin/operations/orders/summary';
 const STATUSES = Object.values(OrderStatus) as string[];
 /** Derived from Module 06's policy, never from status labels. */
-const NON_TERMINAL = STATUSES.filter((s) => !OrderStatusPolicy.isTerminal(s as OrderStatus));
+const NON_TERMINAL = STATUSES.filter((s) => !(TERMINAL_ORDER_STATUSES as readonly string[]).includes(s));
 
 /**
  * Module 16 Work 41 against real PostgreSQL: the order backlog and aging summary — counts and

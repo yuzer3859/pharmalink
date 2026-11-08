@@ -6,10 +6,21 @@ import {
   OrderBacklogSummary,
   OrderStatus,
 } from '../../application/ports/inbound/order-backlog-summary-read.port';
-import { OrderStatusPolicy } from '../../domain/services/order-status-policy';
-
-/** The terminal statuses, taken from the state machine rather than listed again. */
-export const TERMINAL_ORDER_STATUSES: readonly OrderStatus[] = Object.values(OrderStatus).filter((s) => OrderStatusPolicy.isTerminal(s));
+/**
+ * The statuses outside the order backlog: from the hand-off to delivery (`READY`) onward, plus
+ * `CANCELLED` and `REFUNDED`. Work 103 gave `READY` and `DISPATCHED` outgoing transitions (the
+ * order now follows its delivery), so the backlog is named here rather than derived from the state
+ * machine: it is the pharmacy-side backlog Works 41–43 defined, and its figures keep their meaning.
+ * Delivery progress is reported by Module 08's own backlog.
+ */
+export const TERMINAL_ORDER_STATUSES: readonly OrderStatus[] = [
+  OrderStatus.READY,
+  OrderStatus.DISPATCHED,
+  OrderStatus.DELIVERED,
+  OrderStatus.COMPLETED,
+  OrderStatus.CANCELLED,
+  OrderStatus.REFUNDED,
+];
 
 interface SummaryRow {
   generatedAt: Date;

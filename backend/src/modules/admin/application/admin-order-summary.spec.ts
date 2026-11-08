@@ -35,17 +35,19 @@ function fakePrisma(result: Row) {
 }
 
 describe('Admin order backlog summary (application)', () => {
-  describe('terminal classification — Module 06’s own', () => {
-    it('terminal = no legal outgoing transition in OrderStatusPolicy; derived per status, never from labels', () => {
-      for (const s of STATUSES) expect({ s, terminal: TERMINAL_ORDER_STATUSES.includes(s) }).toEqual({ s, terminal: OrderStatusPolicy.isTerminal(s) });
-      // Each non-terminal status really has a way forward; each terminal one has none.
-      for (const from of STATUSES) {
-        const out = STATUSES.filter((to) => OrderStatusPolicy.isLegalTransition(from, to));
-        expect({ from, hasOutgoing: out.length > 0 }).toEqual({ from, hasOutgoing: !TERMINAL_ORDER_STATUSES.includes(from) });
+  describe('terminal classification — the pharmacy-side backlog (Work 103)', () => {
+    it('the backlog ends at the hand-off to delivery; every status in it still has a way forward', () => {
+      // Work 103: READY and DISPATCHED now move on as the delivery progresses, so the set is named
+      // (before the hand-off) rather than derived from the state machine.
+      for (const from of STATUSES.filter((s) => !TERMINAL_ORDER_STATUSES.includes(s))) {
+        expect({ from, hasOutgoing: STATUSES.some((to) => OrderStatusPolicy.isLegalTransition(from, to)) }).toEqual({ from, hasOutgoing: true });
+      }
+      for (const s of ['DELIVERED', 'COMPLETED', 'CANCELLED', 'REFUNDED'] as const) {
+        expect({ s, terminal: OrderStatusPolicy.isTerminal(s as never) }).toEqual({ s, terminal: true });
       }
     });
 
-    it('today: DRAFT, PENDING_PAYMENT, PAID, ACCEPTED are non-terminal; READY (Slice 1’s ceiling) and later, CANCELLED, REFUNDED are terminal', () => {
+    it('today: DRAFT, PENDING_PAYMENT, PAID, ACCEPTED are in the backlog; READY (the hand-off) and later, CANCELLED, REFUNDED are not', () => {
       expect(STATUSES).toEqual(['DRAFT', 'PENDING_PAYMENT', 'PAID', 'ACCEPTED', 'READY', 'DISPATCHED', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'REFUNDED']);
       expect(STATUSES.filter((s) => !TERMINAL_ORDER_STATUSES.includes(s))).toEqual(['DRAFT', 'PENDING_PAYMENT', 'PAID', 'ACCEPTED']);
     });
