@@ -1,18 +1,19 @@
 import { Type } from 'class-transformer';
-import {
-  IsDateString,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Length,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
 import { PrescriptionStatus } from '../../domain/enums';
 
 const FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'] as const;
+
+/** Work 101: `POST /prescriptions/uploads`, a signed link to upload the customer's own file first. */
+export class RequestPrescriptionUploadDto {
+  @IsIn(FILE_TYPES)
+  contentType!: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(10 * 1024 * 1024)
+  bytes!: number;
+}
 
 /** `POST /prescriptions` (module-05 §5.1). */
 export class UploadPrescriptionDto {

@@ -2,7 +2,7 @@ import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home, Pill, Stethoscope, FlaskConical, Truck, Palette,
-  Search, Bell, Moon, Sun, ShoppingBag, Menu, X, ShieldAlert,
+  Search, Bell, Moon, Sun, ShoppingBag, Menu, X, ShieldAlert, Upload,
   LogIn, LogOut, UserPlus, UserRound,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -15,6 +15,7 @@ import { Avatar, Button, Input, Skeleton } from './ui'
 const nav = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/medicines', label: 'Medicines', icon: Pill },
+  { to: '/prescriptions', label: 'Prescriptions', icon: Upload },
   { to: '/doctors', label: 'Doctors', icon: Stethoscope },
   { to: '/diagnostics', label: 'Diagnostics', icon: FlaskConical },
   { to: '/tracking', label: 'Track order', icon: Truck },

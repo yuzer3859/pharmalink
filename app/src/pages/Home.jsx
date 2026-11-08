@@ -17,7 +17,7 @@ const quickActions = [
   { label: 'Find medicine', desc: 'Search nearby pharmacies', icon: Pill, to: '/search', tone: 'brand' },
   { label: 'Doctors', desc: 'Coming later', icon: Stethoscope, to: '/doctors', tone: 'accent' },
   { label: 'Lab & imaging', desc: 'Coming later', icon: FlaskConical, to: '/diagnostics', tone: 'violet' },
-  { label: 'Upload Rx', desc: 'Coming soon', icon: Upload, to: '/medicines', tone: 'success' },
+  { label: 'Upload Rx', desc: 'A pharmacist checks it', icon: Upload, to: '/prescriptions', tone: 'success' },
 ]
 
 const FEATURED_COUNT = 4
@@ -135,13 +135,13 @@ export default function Home() {
             <Upload className="h-7 w-7" />
           </div>
           <div className="flex-1">
-            <h3 className="text-h3 text-fg">Have a prescription? Upload is coming soon.</h3>
+            <h3 className="text-h3 text-fg">Have a prescription? Upload it.</h3>
             <p className="mt-1 text-body text-muted">
-              Prescription upload and pharmacist review are not available yet. You can already browse the catalog.
+              A licensed pharmacist checks it before prescription medicines are sent. A PDF or a clear photo is enough.
             </p>
           </div>
-          <Button as={Link} to="/medicines" variant="soft" size="md" className="shrink-0">
-            <Pill className="h-4 w-4" /> Browse medicines
+          <Button as={Link} to="/prescriptions" variant="soft" size="md" className="shrink-0">
+            <Upload className="h-4 w-4" /> Upload a prescription
           </Button>
         </Card>
       </section>

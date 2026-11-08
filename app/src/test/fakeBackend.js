@@ -44,7 +44,7 @@ export function fakeFetch(routes) {
   const fetcher = vi.fn(async (url, init = {}) => {
     const path = new URL(url).pathname
     const key = `${init.method ?? 'GET'} ${path}`
-    const request = { key, url, headers: init.headers ?? {}, body: init.body ? JSON.parse(init.body) : undefined }
+    const request = { key, url, headers: init.headers ?? {}, body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body }
     calls.push(request)
     let route = routes[key]
     if (Array.isArray(route)) {

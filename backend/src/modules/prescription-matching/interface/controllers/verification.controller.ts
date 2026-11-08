@@ -8,6 +8,7 @@ import { RequestClarificationCommand } from '../../application/commands/request-
 import { GetPrescriptionQuery } from '../../application/queries/get-prescription.query';
 import { GetVerificationQueueQuery } from '../../application/queries/get-verification-queue.query';
 import { ResolveCallerVerificationOrgQuery } from '../../application/queries/resolve-caller-verification-org.query';
+import { PrescriptionFileService } from '../../application/services/prescription-file.service';
 import {
   ApprovePrescriptionDto,
   RejectPrescriptionDto,
@@ -33,7 +34,16 @@ export class VerificationController {
     private readonly approvePrescription: ApprovePrescriptionCommand,
     private readonly rejectPrescription: RejectPrescriptionCommand,
     private readonly requestClarification: RequestClarificationCommand,
+    private readonly files: PrescriptionFileService,
   ) {}
+
+  /** Work 101: the reviewing pharmacist opens the prescription file (5-minute link, access-logged, audited). */
+  @Post(':id/file')
+  @RequirePermissions('prescription:verify')
+  @HttpCode(HttpStatus.OK)
+  file(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') id: string) {
+    return this.files.previewLink({ prescriptionId: id, userId: user.userId });
+  }
 
   @Get('queue')
   @RequirePermissions('prescription:verify')

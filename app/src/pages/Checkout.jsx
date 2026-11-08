@@ -304,7 +304,11 @@ export default function Checkout() {
                 <div className="flex justify-between border-t border-border pt-2 font-semibold"><dt>Total</dt><dd data-testid="grand-total">{money(totals.grandTotal, totals.currency)}</dd></div>
               </dl>
             )}
-            {rxBlocked && <Badge tone="warning">A prescription is needed for an item in your cart.</Badge>}
+            {rxBlocked && (
+              <p className="text-caption text-warning">
+                A prescription is needed for an item in your cart. <Link to="/prescriptions" className="font-semibold underline">Upload a prescription</Link>
+              </p>
+            )}
             <Button size="lg" className="w-full" disabled={!canPlace} onClick={place}>
               {placing ? 'Placing order…' : method === 'COD' ? 'Place order' : 'Pay and place order'}
             </Button>

@@ -6,7 +6,8 @@ import { ReuploadPrescriptionCommand } from '../../application/commands/reupload
 import { UploadPrescriptionCommand } from '../../application/commands/upload-prescription.command';
 import { GetPrescriptionQuery } from '../../application/queries/get-prescription.query';
 import { ListPrescriptionsQuery } from '../../application/queries/list-prescriptions.query';
-import { ListPrescriptionsQueryDto, ReuploadPrescriptionDto, UploadPrescriptionDto } from '../dtos/prescription.dto';
+import { ListPrescriptionsQueryDto, RequestPrescriptionUploadDto, ReuploadPrescriptionDto, UploadPrescriptionDto } from '../dtos/prescription.dto';
+import { PrescriptionFileService } from '../../application/services/prescription-file.service';
 
 /**
  * Prescriptions (customer — `prescription:upload:own`/`prescription:read:own`, module-05 §10.1,
@@ -22,11 +23,28 @@ export class PrescriptionController {
     private readonly reuploadPrescription: ReuploadPrescriptionCommand,
     private readonly getPrescription: GetPrescriptionQuery,
     private readonly listPrescriptions: ListPrescriptionsQuery,
+    private readonly files: PrescriptionFileService,
   ) {}
+
+  /** Work 101: a signed link to upload the prescription file to document storage first. */
+  @Post('uploads')
+  @RequirePermissions('prescription:upload:own')
+  requestUpload(@CurrentUser() user: AuthenticatedPrincipal, @Body() dto: RequestPrescriptionUploadDto) {
+    return this.files.requestUpload({ userId: user.userId, contentType: dto.contentType, bytes: dto.bytes });
+  }
+
+  /** Work 101: the owner opens their own prescription file (5-minute link, access-logged). */
+  @Post(':id/file')
+  @RequirePermissions('prescription:upload:own')
+  @HttpCode(HttpStatus.OK)
+  file(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') id: string) {
+    return this.files.previewLink({ prescriptionId: id, userId: user.userId });
+  }
 
   @Post()
   @RequirePermissions('prescription:upload:own')
-  upload(@CurrentUser() user: AuthenticatedPrincipal, @Body() dto: UploadPrescriptionDto) {
+  async upload(@CurrentUser() user: AuthenticatedPrincipal, @Body() dto: UploadPrescriptionDto) {
+    await this.files.assertUsable(user.userId, dto.fileRef, dto.fileType);
     return this.uploadPrescription.execute({
       customerUserId: user.userId,
       fileRef: dto.fileRef,
@@ -60,11 +78,12 @@ export class PrescriptionController {
   @Post(':id/reupload')
   @RequirePermissions('prescription:upload:own')
   @HttpCode(HttpStatus.OK)
-  reupload(
+  async reupload(
     @CurrentUser() user: AuthenticatedPrincipal,
     @Param('id') id: string,
     @Body() dto: ReuploadPrescriptionDto,
   ) {
+    await this.files.assertUsable(user.userId, dto.fileRef, dto.fileType);
     return this.reuploadPrescription.execute({
       prescriptionId: id,
       customerUserId: user.userId,
