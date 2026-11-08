@@ -82,7 +82,7 @@ and step 2 is unnecessary.
 
 ## 5. Checkout and pay
 
-Choose your address (or add one), then **Telebirr**. Leave the test token empty and choose **Pay
+Choose your address, or add one: a new address needs **Use my current location** (allow it in the browser), because delivery needs its map location. Then choose **Telebirr**. Leave the test token empty and choose **Pay
 and place order**. You see *Order placed* and *Payment approved*. Note the order number
 (`ORD-…`), then open **Follow your order**.
 
