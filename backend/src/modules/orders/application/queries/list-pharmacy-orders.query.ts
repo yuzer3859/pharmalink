@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { OrdersErrors } from '../../domain/errors';
 import { FulfillmentStatus } from '../../domain/enums';
-import {
-  FULFILLMENT_REPOSITORY,
-  FulfillmentSnapshot,
-  IFulfillmentRepository,
-} from '../../domain/repositories/fulfillment.repository';
 import { PagedResult } from '../../domain/repositories/order.repository';
+import {
+  IPharmacyOrderViewReadPort,
+  PHARMACY_ORDER_VIEW_READ_PORT,
+  PharmacyOrderView,
+} from '../ports/inbound/pharmacy-order-view-read.port';
 import { IDENTITY_PORT, IIdentityPort } from '../ports/outbound/identity.port';
 import { IPharmacyPort, PHARMACY_PORT } from '../ports/outbound/pharmacy.port';
 
@@ -17,50 +18,48 @@ export interface ListPharmacyOrdersInput {
 }
 
 /**
- * `GET /pharmacy/orders` (module-06 `06-orders-spec.md` §9.4) — the fulfillments belonging to the
- * caller's own pharmacies, paginated and optionally status-filtered.
+ * `GET /pharmacy/orders` (module-06 §9.4): the fulfilments of the actor's pharmacies.
  *
- * Scope is resolved entirely server-side from the authenticated `actorUserId`, in the same two
- * hops `assertFulfillmentOrgScope` uses, only in reverse:
- *  1. `IIdentityPort.getUserOrganizationIds()` -> the caller's **`Organization.id`**s (what
- *     `user_roles.organizationId` stores).
- *  2. `IPharmacyPort.findPharmacyIdsByOrganizationIds()` -> the **`Pharmacy.id`**s those
- *     organizations own, which is what `Fulfillment.pharmacyId` and therefore
- *     `IFulfillmentRepository.listByPharmacyIds()` are keyed by.
- *
- * Passing organization ids straight into `listByPharmacyIds` — as an earlier draft did — silently
- * returns nothing, since the two id spaces never overlap. The repository deliberately does not
- * resolve scope itself (§9.4's `ListFulfillmentsByPharmacyCriteria` doc) and the controller must
- * not either, so this query is the seam that joins them.
- *
- * A caller who belongs to no organization, or whose organizations own no pharmacy, gets an empty
- * page rather than an error: they are authorized to use the route (`order:fulfill:org`), they
- * simply own nothing. Neither case ever issues an unscoped query.
+ * Work 107: each item is the fulfilment as before (every earlier field unchanged), plus its order's
+ * header and the lines it carries, so the pharmacy portal can prepare an order from the list.
  */
 @Injectable()
 export class ListPharmacyOrdersQuery {
   constructor(
-    @Inject(FULFILLMENT_REPOSITORY) private readonly fulfillments: IFulfillmentRepository,
+    @Inject(PHARMACY_ORDER_VIEW_READ_PORT) private readonly views: IPharmacyOrderViewReadPort,
     @Inject(IDENTITY_PORT) private readonly identity: IIdentityPort,
     @Inject(PHARMACY_PORT) private readonly pharmacies: IPharmacyPort,
   ) {}
 
-  async execute(input: ListPharmacyOrdersInput): Promise<PagedResult<FulfillmentSnapshot>> {
-    const organizationIds = await this.identity.getUserOrganizationIds(input.actorUserId);
-    if (organizationIds.length === 0) {
-      return { items: [], total: 0 };
-    }
-
-    const pharmacyIds = await this.pharmacies.findPharmacyIdsByOrganizationIds(organizationIds);
-    if (pharmacyIds.length === 0) {
-      return { items: [], total: 0 };
-    }
-
-    return this.fulfillments.listByPharmacyIds({
-      pharmacyIds,
-      status: input.status,
-      page: input.page,
-      size: input.size,
-    });
+  async execute(input: ListPharmacyOrdersInput): Promise<PagedResult<PharmacyOrderView>> {
+    const pharmacyIds = await actorPharmacyIds(this.identity, this.pharmacies, input.actorUserId);
+    if (pharmacyIds.length === 0) return { items: [], total: 0 };
+    return this.views.list({ pharmacyIds, status: input.status, page: input.page, size: input.size });
   }
+}
+
+/**
+ * Work 107: `GET /pharmacy/orders/:fulfillmentId`, one fulfilment of the actor's pharmacies. Another
+ * pharmacy's fulfilment, or one not yet visible (an unpaid prepaid order), reads as not found.
+ */
+@Injectable()
+export class GetPharmacyOrderQuery {
+  constructor(
+    @Inject(PHARMACY_ORDER_VIEW_READ_PORT) private readonly views: IPharmacyOrderViewReadPort,
+    @Inject(IDENTITY_PORT) private readonly identity: IIdentityPort,
+    @Inject(PHARMACY_PORT) private readonly pharmacies: IPharmacyPort,
+  ) {}
+
+  async execute(input: { actorUserId: string; fulfillmentId: string }): Promise<PharmacyOrderView> {
+    const pharmacyIds = await actorPharmacyIds(this.identity, this.pharmacies, input.actorUserId);
+    const view = pharmacyIds.length === 0 ? null : await this.views.findById(input.fulfillmentId, pharmacyIds);
+    if (!view) throw OrdersErrors.notFound('Fulfillment not found.');
+    return view;
+  }
+}
+
+async function actorPharmacyIds(identity: IIdentityPort, pharmacies: IPharmacyPort, userId: string): Promise<string[]> {
+  const organizationIds = await identity.getUserOrganizationIds(userId);
+  if (organizationIds.length === 0) return [];
+  return pharmacies.findPharmacyIdsByOrganizationIds(organizationIds);
 }
