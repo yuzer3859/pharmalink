@@ -1,3 +1,4 @@
+import { PrescriptionFileService } from './application/services/prescription-file.service';
 import { Module } from '@nestjs/common';
 import { PharmacyInventoryModule } from '../pharmacy-inventory/pharmacy-inventory.module';
 import { ApprovePrescriptionCommand } from './application/commands/approve-prescription.command';
@@ -90,6 +91,8 @@ import { VerificationController } from './interface/controllers/verification.con
     RejectPrescriptionCommand,
     RequestClarificationCommand,
     GetPrescriptionQuery,
+    // Work 101: prescription files in document storage.
+    PrescriptionFileService,
     ListPrescriptionsQuery,
     GetVerificationQueueQuery,
     ResolveCallerVerificationOrgQuery,

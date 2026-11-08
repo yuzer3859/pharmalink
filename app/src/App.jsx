@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import Medicines from './pages/Medicines'
 import SearchPage from './pages/Search'
+import Prescriptions from './pages/Prescriptions'
 import MedicineDetail from './pages/MedicineDetail'
 import Doctors from './pages/Doctors'
 import Diagnostics from './pages/Diagnostics'
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/diagnostics" element={<Page><Diagnostics /></Page>} />
           <Route path="/tracking" element={<Page><Tracking /></Page>} />
           <Route path="/checkout" element={<Page><RequireCustomer><Checkout /></RequireCustomer></Page>} />
+          <Route path="/prescriptions" element={<Page><RequireCustomer><Prescriptions /></RequireCustomer></Page>} />
           <Route path="/design-system" element={<Page><DesignSystem /></Page>} />
           <Route path="/register" element={<Page><Register /></Page>} />
           <Route path="/verify-email" element={<Page><VerifyEmail /></Page>} />
