@@ -14,6 +14,8 @@ import { UpdateDriverLocationCommand } from '../modules/delivery/application/com
 import { DispatchOutcome } from '../modules/delivery/application/commands/dispatch-delivery-job.command';
 import { DeliveryJobStatus, DriverAvailability, PodType } from '../modules/delivery/domain/enums';
 import { userVerifiedEvent } from '../modules/identity/domain/events';
+import { RunSettlementCommand } from '../modules/payment/application/commands/run-settlement.command';
+import { FIRST_SETTLEMENT_PERIOD_START } from '../modules/payment/application/services/settlement-auto-run.service';
 import { IUserRepository, USER_REPOSITORY } from '../modules/identity/domain/repositories/user.repository';
 import { AuditService } from '../shared/audit/audit.service';
 import { OutboxService } from '../shared/outbox/outbox.service';
@@ -31,6 +33,7 @@ import { createStagingContext, StagingRefusedError } from './staging-seed/stagin
  *   npm run staging:actors -- verify-customer <e-mail>       mark a new customer's e-mail verified (Work 105)
  *   npm run staging:actors -- pharmacist <customer e-mail>   approve that customer's newest prescription
  *   npm run staging:actors -- pharmacy <order number>        accept, prepare, mark ready
+ *   npm run staging:actors -- statement now                 the walk pharmacy's statement, as the automatic run makes it (Work 105)
  *   npm run staging:actors -- driver <order number>          accept the job, pick up, deliver with proof
  *
  * Events these commands write are relayed by the running staging backend (capture at ready, the
@@ -202,12 +205,29 @@ async function deliver(app: INestApplicationContext, jobId: string, userId: stri
   log(`Order ${orderNumber}: delivered with proof of delivery.`);
 }
 
+/**
+ * Work 105: the operations portal has no "run statement" action, and the automatic run (Work 97)
+ * waits for an amount or a period the walk never reaches. This makes the walk pharmacy's next
+ * statement exactly as the automatic run does (from the last statement's end to now, no actor).
+ * Approving it and paying it out stay with the finance officers in the portal (maker-checker).
+ */
+export async function statement(app: INestApplicationContext, _now: string, log: Log): Promise<void> {
+  const prisma = app.get(PrismaService);
+  const { organizationId } = await walkPharmacy(prisma);
+  const pharmacy = await prisma.pharmacy.findUniqueOrThrow({ where: { organizationId } });
+  const currency = 'ETB';
+  const last = await prisma.settlement.findFirst({ where: { pharmacyId: pharmacy.id, currency }, orderBy: { periodEnd: 'desc' } });
+  const periodStart = last?.periodEnd ?? FIRST_SETTLEMENT_PERIOD_START;
+  const result = await app.get(RunSettlementCommand).execute({ pharmacyId: pharmacy.id, currency, periodStart, periodEnd: new Date(), actorUserId: null });
+  log(`Statement ${result.settlement.id} for ${WALK_PHARMACY.legalName}: ${result.settlement.status}, net payable ${result.settlement.netPayable} santim, ${result.lines.length} line(s).`);
+}
+
 async function main(): Promise<void> {
   declareCliProcess();
   const [role, target] = process.argv.slice(2);
-  const run = { 'verify-customer': verifyCustomer, pharmacist, pharmacy, driver }[role as 'verify-customer' | 'pharmacist' | 'pharmacy' | 'driver'];
+  const run = { 'verify-customer': verifyCustomer, pharmacist, pharmacy, driver, statement }[role as 'verify-customer' | 'pharmacist' | 'pharmacy' | 'driver' | 'statement'];
   if (!run || !target) {
-    console.error('Usage: npm run staging:actors -- verify-customer <e-mail> | pharmacist <customer e-mail> | pharmacy <order number> | driver <order number>');
+    console.error('Usage: npm run staging:actors -- verify-customer <e-mail> | pharmacist <customer e-mail> | pharmacy <order number> | driver <order number> | statement now');
     process.exitCode = EXIT_USAGE;
     return;
   }
