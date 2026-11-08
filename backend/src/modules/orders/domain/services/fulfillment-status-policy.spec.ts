@@ -9,6 +9,8 @@ describe('FulfillmentStatusPolicy', () => {
       [FulfillmentStatus.ACCEPTED, FulfillmentStatus.PREPARING],
       [FulfillmentStatus.ACCEPTED, FulfillmentStatus.CANCELLED],
       [FulfillmentStatus.PREPARING, FulfillmentStatus.READY],
+      [FulfillmentStatus.READY, FulfillmentStatus.DISPATCHED],
+      [FulfillmentStatus.DISPATCHED, FulfillmentStatus.DELIVERED],
     ])('allows %s -> %s', (from, to) => {
       expect(FulfillmentStatusPolicy.isLegalTransition(from, to)).toBe(true);
       expect(() => FulfillmentStatusPolicy.assertValidTransition(from, to)).not.toThrow();
@@ -22,7 +24,7 @@ describe('FulfillmentStatusPolicy', () => {
       [FulfillmentStatus.ACCEPTED, FulfillmentStatus.READY],
       [FulfillmentStatus.PREPARING, FulfillmentStatus.CANCELLED],
       [FulfillmentStatus.PREPARING, FulfillmentStatus.DISPATCHED],
-      [FulfillmentStatus.READY, FulfillmentStatus.DISPATCHED],
+      [FulfillmentStatus.READY, FulfillmentStatus.DELIVERED],
       [FulfillmentStatus.CANCELLED, FulfillmentStatus.ACCEPTED],
     ])('rejects %s -> %s', (from, to) => {
       expect(FulfillmentStatusPolicy.isLegalTransition(from, to)).toBe(false);
@@ -34,15 +36,13 @@ describe('FulfillmentStatusPolicy', () => {
 
   describe('terminal states (Slice-1 reachable graph)', () => {
     it.each([
-      FulfillmentStatus.READY,
-      FulfillmentStatus.DISPATCHED,
       FulfillmentStatus.DELIVERED,
       FulfillmentStatus.CANCELLED,
     ])('%s has no legal outgoing transition', (status) => {
       expect(FulfillmentStatusPolicy.isTerminal(status)).toBe(true);
     });
 
-    it.each([FulfillmentStatus.PENDING, FulfillmentStatus.ACCEPTED, FulfillmentStatus.PREPARING])(
+    it.each([FulfillmentStatus.PENDING, FulfillmentStatus.ACCEPTED, FulfillmentStatus.PREPARING, FulfillmentStatus.READY, FulfillmentStatus.DISPATCHED])(
       '%s is not terminal',
       (status) => {
         expect(FulfillmentStatusPolicy.isTerminal(status)).toBe(false);

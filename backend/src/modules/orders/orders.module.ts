@@ -1,3 +1,5 @@
+import { OrderDeliveryProgressService } from './application/services/order-delivery-progress.service';
+import { DeliveryProgressHandler } from './interface/events/delivery-progress.handler';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PharmacyInventoryModule } from '../pharmacy-inventory/pharmacy-inventory.module';
@@ -151,6 +153,9 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PrepaidCaptureService,
     OrderReadyCaptureHandler,
     PaymentCaptureReconciler,
+    // Work 103 (G14): the order follows its delivery.
+    OrderDeliveryProgressService,
+    DeliveryProgressHandler,
     // Module 16 Work 55 — open cancellations (pending / needing attention), explicit columns only.
     { provide: ORDER_CANCELLATION_OPERATIONS_READ_PORT, useClass: PrismaOrderCancellationOperationsReadAdapter },
     // Work 55 — pharmacy-decline recovery: derived candidates, the confirmation reconciler, its view.

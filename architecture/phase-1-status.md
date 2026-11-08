@@ -12,12 +12,12 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 
 | Criterion (roadmap §3, Phase 1) | Today | Missing |
 |---|---|---|
-| Browse → cart → (Rx verify) → checkout → pay → assign driver → deliver → PoD → settle | Each step exists on the backend and is tested on its own. Checkout takes cash on delivery or a gateway prepayment (Work 95). | Online payment in checkout (G1), capture (G2), settlement of the paid order (G3). No test runs the whole chain (G9). |
+| Browse → cart → (Rx verify) → checkout → pay → assign driver → deliver → PoD → settle | **Done (Work 103):** automated over the real stack in `test/phase1/marketplace.e2e-spec.ts`. The live staging walk is `ops/staging/phase1-walkthrough.md`. | Owner's live walk |
 | Saga compensation: a payment failure releases the stock reservation | **Done (Work 95):** a decline cancels the order and releases its stock and coupon (`test/orders/prepaid-checkout.e2e-spec.ts`) | Staging walk (Work 103) |
-| Ledger balances reconcile in a test | The ledger repository and the reconciliation report are tested. COD orders never reach the ledger (G4). | A test across a full paid order (G9) |
+| Ledger balances reconcile in a test | **Done (Work 103):** debits equal credits, the pharmacy payable is paid out to zero, and finance reconciliation reports `CLEAN` after a full paid order. COD sales post at handover (Work 97). | — |
 | Minimal Module 14 search (Postgres FTS over catalogue and pharmacies) | **Backend done (Work 98):** public `/search/medicines`, `/search/medicines/{id}/pharmacies`, `/search/pharmacies` | App UI (Work 99), staging walk (Work 103) |
 | Minimal Module 16 (pharmacy verification, product proposals) | COMPLETE: `module-16-implementation-status.md` | — |
-| Customer app on the real API for the whole happy path | Sign-up, e-mail OTP, login, password reset, catalogue list, product detail and availability are live. Cart, checkout, payment, Rx upload, orders, tracking and PoD are prototypes. | G6, G7 |
+| Customer app on the real API for the whole happy path | **Done (Works 99–102):** search, cart, Rx upload, checkout, gateway payment, orders, live tracking and PoD; no sample data remains in `app/src` | Owner's live walk |
 
 ## Epics against the code
 
@@ -42,7 +42,8 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 | G6 | The customer app's cart, checkout, payment, orders, tracking and PoD are prototypes | Mock inventory below | **Done, Works 100–102:** every customer flow uses the real API |
 | G7 | Rx upload stores no file | `UploadPrescriptionDto.fileRef` is any string up to 500 characters | **Done, Work 101:** files go to document storage through signed links and are checked before recording; the owner and the reviewing pharmacist get audited, access-logged read links; the app has a Prescriptions page (`backend/docs/prescription-files.md`) |
 | G8 | `orders.paymentId` is never written | `orderPaidEvent({ paymentId: null })` in `checkout.command.ts` | **Done, Work 95:** set when a prepaid order is paid. COD orders have no payment row, so theirs stays null. |
-| G9 | No end-to-end test of the whole chain, compensation, or reconciliation over a real order | `backend/test/` has per-module specs only | Work 103 |
+| G9 | No end-to-end test of the whole chain, compensation, or reconciliation over a real order | `backend/test/` has per-module specs only | **Done, Work 103:** `backend/test/phase1/marketplace.e2e-spec.ts` (the whole chain to `SETTLED`, compensation, reconciliation `CLEAN`); live walk in `ops/staging/phase1-walkthrough.md` |
+| G14 | An order never followed its delivery: it stayed `READY` after pickup and delivery ("deferred to Module 08", never wired) | `order-status-policy.ts` (`READY` had no outgoing transition); no Orders consumer of `delivery.order.*` | **Done, Work 103:** `delivery.order.picked_up` → `DISPATCHED`, `delivery.order.delivered` → `DELIVERED` (`OrderDeliveryProgressService`); found by the Phase 1 e2e |
 | G10 | **Production safety:** with no other gateway configured, `MockPaymentProvider` authorises every gateway payment, production included. It also cannot decline, so compensation cannot be shown on staging. | `payment.module.ts` binds `PAYMENT_PROVIDER_PORT` to `MockPaymentProvider` unconditionally | **Done, Work 94:** the mock is unavailable in production, so gateway payments fail closed; the `test-decline` token declines outside production (`backend/docs/test-payment-gateway.md`) |
 | G13 | Proof-of-delivery photos and signatures are kept in process memory, lost on restart. This is safe only while `delivery.podRequirement` stays `NONE`. Work 89's document storage is now a real place for them. | `in-memory-proof-artifact.storage.ts`; found during Work 94 | **Done, Work 102:** artifacts are kept in document storage when it is configured, and opened through an explicit, audited 5-minute link |
 | G11 | The customer app has no CI job | `.github/workflows` has `backend-ci.yml` and `web-ci.yml` only; `app/` has 4 Vitest files | **Done, Work 99:** `app-ci.yml` runs the app's Vitest suite and production build on every PR |

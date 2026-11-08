@@ -27,8 +27,9 @@ const LEGAL_TRANSITIONS: Record<FulfillmentStatus, ReadonlySet<FulfillmentStatus
     FulfillmentStatus.CANCELLED,
   ]),
   [FulfillmentStatus.PREPARING]: new Set([FulfillmentStatus.READY]),
-  [FulfillmentStatus.READY]: new Set(),
-  [FulfillmentStatus.DISPATCHED]: new Set(),
+  // Work 103 (G14): the fulfilment follows its delivery job.
+  [FulfillmentStatus.READY]: new Set([FulfillmentStatus.DISPATCHED]),
+  [FulfillmentStatus.DISPATCHED]: new Set([FulfillmentStatus.DELIVERED]),
   [FulfillmentStatus.DELIVERED]: new Set(),
   [FulfillmentStatus.CANCELLED]: new Set(),
 };
