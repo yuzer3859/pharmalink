@@ -8,7 +8,11 @@ import { AcceptJobOfferCommand } from '../modules/delivery/application/commands/
 import { AdvanceDeliveryJobCommand } from '../modules/delivery/application/commands/advance-delivery-job.command';
 import { CaptureProofOfDeliveryCommand } from '../modules/delivery/application/commands/capture-proof-of-delivery.command';
 import { DispatchDeliveryJobCommand } from '../modules/delivery/application/commands/dispatch-delivery-job.command';
-import { DeliveryJobStatus, PodType } from '../modules/delivery/domain/enums';
+import { ManageDriverShiftCommand } from '../modules/delivery/application/commands/manage-driver-shift.command';
+import { SetDriverAvailabilityCommand } from '../modules/delivery/application/commands/set-driver-availability.command';
+import { UpdateDriverLocationCommand } from '../modules/delivery/application/commands/update-driver-location.command';
+import { DispatchOutcome } from '../modules/delivery/application/commands/dispatch-delivery-job.command';
+import { DeliveryJobStatus, DriverAvailability, PodType } from '../modules/delivery/domain/enums';
 import { userVerifiedEvent } from '../modules/identity/domain/events';
 import { IUserRepository, USER_REPOSITORY } from '../modules/identity/domain/repositories/user.repository';
 import { AuditService } from '../shared/audit/audit.service';
@@ -125,7 +129,18 @@ export async function driver(app: INestApplicationContext, orderNumber: string, 
   }
   if (!job) throw new Error('No delivery job yet: is the order ready, and is the staging backend running?');
   if (job.status === DeliveryJobStatus.CREATED || job.status === DeliveryJobStatus.REASSIGNING) {
-    await app.get(DispatchDeliveryJobCommand).execute({ jobId: job.id, actorUserId: null });
+    // Work 105: dispatch only offers to a driver who is on shift, online and near the pickup, which
+    // the driver app does; the seeded driver starts offline, so do it here first.
+    await app.get(ManageDriverShiftCommand).start({ userId: user.id });
+    await app.get(SetDriverAvailabilityCommand).execute({ userId: user.id, availability: DriverAvailability.ONLINE });
+    if (job.pickupLat !== null && job.pickupLng !== null) {
+      await app.get(UpdateDriverLocationCommand).execute({ userId: user.id, lat: job.pickupLat, lng: job.pickupLng });
+    }
+    log('  driver on shift, online, at the pharmacy');
+    const dispatched = await app.get(DispatchDeliveryJobCommand).execute({ jobId: job.id, actorUserId: null });
+    if (dispatched.outcome === DispatchOutcome.NoCandidate) {
+      throw new Error('Dispatch found no eligible driver (online, on shift, in the service area, verified, under the job limit).');
+    }
   }
   if ((await prisma.deliveryJob.findUniqueOrThrow({ where: { id: job.id } })).status === DeliveryJobStatus.OFFERED) {
     await app.get(AcceptJobOfferCommand).execute({ userId: user.id, jobId: job.id });
