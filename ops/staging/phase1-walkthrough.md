@@ -153,7 +153,11 @@ PharmaLink (the owner's COD decision, Work 97), which the walk tools do not do.
 5. As **finance.checker@**, **Verify** the destination. A pharmacy's first destination is payable
    at once; only a changed one waits.
 6. As **finance@**, **Pay out**. The statement reads *PAID*, and the order's payment `SETTLED`.
-7. **Finance → Reconciliation** reads *CLEAN*.
+7. The finance reconciliation report has no portal page yet. Read it here (read-only, Work 105);
+   it reads `CLEAN, 0 discrepancy(ies)`:
+   ```sh
+   $D run --rm tools npm run staging:actors -- reconciliation all
+   ```
 
 Each sign-in needs your password and authenticator code; you type them yourself.
 

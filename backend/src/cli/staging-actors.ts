@@ -16,6 +16,7 @@ import { DeliveryJobStatus, DriverAvailability, PodType } from '../modules/deliv
 import { userVerifiedEvent } from '../modules/identity/domain/events';
 import { RunSettlementCommand } from '../modules/payment/application/commands/run-settlement.command';
 import { FIRST_SETTLEMENT_PERIOD_START } from '../modules/payment/application/services/settlement-auto-run.service';
+import { AccountingReconciliationService } from '../modules/payment/application/services/accounting-reconciliation.service';
 import { IUserRepository, USER_REPOSITORY } from '../modules/identity/domain/repositories/user.repository';
 import { AuditService } from '../shared/audit/audit.service';
 import { OutboxService } from '../shared/outbox/outbox.service';
@@ -34,6 +35,7 @@ import { createStagingContext, StagingRefusedError } from './staging-seed/stagin
  *   npm run staging:actors -- pharmacist <customer e-mail>   approve that customer's newest prescription
  *   npm run staging:actors -- pharmacy <order number>        accept, prepare, mark ready
  *   npm run staging:actors -- statement now                 the walk pharmacy's statement, as the automatic run makes it (Work 105)
+ *   npm run staging:actors -- reconciliation all              the finance reconciliation report, read-only (Work 105)
  *   npm run staging:actors -- driver <order number>          accept the job, pick up, deliver with proof
  *
  * Events these commands write are relayed by the running staging backend (capture at ready, the
@@ -222,12 +224,24 @@ export async function statement(app: INestApplicationContext, _now: string, log:
   log(`Statement ${result.settlement.id} for ${WALK_PHARMACY.legalName}: ${result.settlement.status}, net payable ${result.settlement.netPayable} santim, ${result.lines.length} line(s).`);
 }
 
+/**
+ * Work 105: the finance reconciliation report (`GET /admin/finance/reconciliation`) has no portal
+ * page yet, so the walk reads it here: the same service, read-only, printing what it found.
+ */
+export async function reconciliation(app: INestApplicationContext, _scope: string, log: Log): Promise<void> {
+  const report = await app.get(AccountingReconciliationService).run({});
+  const e = report.examined;
+  log(`Reconciliation: ${report.anomalies.length === 0 ? 'CLEAN' : 'DISCREPANCIES_FOUND'}, ${report.anomalies.length} discrepancy(ies).`);
+  log(`  examined ${e.capturedPayments} captured payment(s), ${e.settlements} statement(s), ${e.settlementLines} line(s), ${e.currencies} currency(ies)`);
+  for (const a of report.anomalies) log(`  ${a.kind} ${a.subject}: ${a.message}`);
+}
+
 async function main(): Promise<void> {
   declareCliProcess();
   const [role, target] = process.argv.slice(2);
-  const run = { 'verify-customer': verifyCustomer, pharmacist, pharmacy, driver, statement }[role as 'verify-customer' | 'pharmacist' | 'pharmacy' | 'driver' | 'statement'];
+  const run = { 'verify-customer': verifyCustomer, pharmacist, pharmacy, driver, statement, reconciliation }[role as 'verify-customer' | 'pharmacist' | 'pharmacy' | 'driver' | 'statement' | 'reconciliation'];
   if (!run || !target) {
-    console.error('Usage: npm run staging:actors -- verify-customer <e-mail> | pharmacist <customer e-mail> | pharmacy <order number> | driver <order number> | statement now');
+    console.error('Usage: npm run staging:actors -- verify-customer <e-mail> | pharmacist <customer e-mail> | pharmacy <order number> | driver <order number> | statement now | reconciliation all');
     process.exitCode = EXIT_USAGE;
     return;
   }

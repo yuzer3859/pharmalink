@@ -149,7 +149,7 @@ following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+custo
 | `ORD-59edc41f-2bce-45ad-a8ba-141381faa608`: ORS, ETB 12.00, **Telebirr** (test gateway) | `AUTHORIZED` → `CAPTURED` at ready → delivered → statement (1 line, ETB 12.00) → approved → destination registered and verified → payout `PAID` → payment `SETTLED` |
 | Declined payment (`test-decline`) | As written: order cancelled, nothing charged, items back in the cart, stock unchanged |
 | Ledger | Debits equal credits (ETB 1,409.00 each). The walk's ETB 12.00 payable was paid out to zero. Bole's remaining ETB 745.00 is the seed's own draft statement for the admin walk. |
-| Finance → Reconciliation in the portal | To be confirmed by the owner |
+| Finance reconciliation report (`staging:actors -- reconciliation all`, the same service as `GET /admin/finance/reconciliation`) | `CLEAN`, 0 discrepancies: 3 captured payments, 2 statements, 6 lines, 1 currency examined |
 
 **Deviations found, all fixed in Work 105 (#58) unless noted:**
 1. The owner's Resend address is the staging Super Admin, so it cannot be the customer, and
@@ -166,6 +166,8 @@ following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+custo
    a walk-sized amount. Added `staging:actors -- statement now`. A portal action is **open**.
 7. The walkthrough left out setting the finance checker's password and registering and verifying
    the pharmacy's payout destination. Added.
+8. The operations portal has no reconciliation page, although the report exists in the backend.
+   Added `staging:actors -- reconciliation all` (read-only). A portal page is **open**.
 
 ### Not built, or still open
 
@@ -176,6 +178,7 @@ following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+custo
 | Driver app | Not in Phase 1's code. The walk uses `staging:actors`. |
 | Customer app error messages for a staff sign-in and a refused e-mail address (live walk, deviation 2) | Open |
 | Portal action to run a settlement statement (live walk, deviation 6) | Open. The walk uses `staging:actors -- statement now`. |
+| Portal page for the finance reconciliation report (live walk, deviation 8) | Open. The walk uses `staging:actors -- reconciliation all`. |
 | Real payment gateway (Telebirr) | Fail-closed until its contract exists (Work 94). Staging uses the test gateway only. |
 | Payout destination rules (module-07 §15) | Still open in the design. The mock payout rail pays a verified beneficiary. |
 | COD corrections after a remittance | Not reflected in the COD sale posting. A finance adjustment. |
