@@ -100,8 +100,12 @@ export function createAuthService({ api, storage = safeSessionStorage(), deviceI
 
   async function authorized(method, path, body) {
     if (!accessToken) await refresh()
-    const send = () =>
-      method === 'GET' ? api.get(path, { accessToken }) : api.post(path, body, { accessToken })
+    const send = () => {
+      if (method === 'GET') return api.get(path, { accessToken })
+      if (method === 'PATCH') return api.patch(path, body, { accessToken })
+      if (method === 'DELETE') return api.delete(path, { accessToken })
+      return api.post(path, body, { accessToken })
+    }
     try {
       return await send()
     } catch (error) {
@@ -155,6 +159,9 @@ export function createAuthService({ api, storage = safeSessionStorage(), deviceI
 
   return {
     hasStoredSession: () => refreshToken !== null,
+
+    /** Work 100: a signed-in request (refreshes the session once on an expired access token). */
+    request: (method, path, body) => authorized(method, path, body),
 
     onSessionExpired(listener) {
       expiredListeners.add(listener)
