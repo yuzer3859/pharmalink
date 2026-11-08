@@ -590,6 +590,32 @@ describe('Proof of delivery (e2e)', () => {
       expect(serialized).not.toContain(s.driver.userId);
     });
 
+    describe('the photograph or signature itself (Work 102)', () => {
+      const artifactLink = (sc: Scenario, token: string) =>
+        request(ctx.server).post(`/delivery/jobs/${sc.jobId}/proof-of-delivery/artifact`).set(...auth(token));
+
+      it('is kept in document storage and opened through a 5-minute link, audited', async () => {
+        const s = await atTheDoor();
+        await submit(s, withPhoto()).expect(201);
+        const row = await ctx.prisma.proofOfDelivery.findUniqueOrThrow({ where: { jobId: s.jobId } });
+        expect(row.artifactRef).toMatch(/^doc:pod\//);
+
+        const link = body(await artifactLink(s, s.customer.accessToken).expect(200));
+        expect(link).toEqual({ url: expect.any(String), expiresAt: expect.any(String) });
+        const file = await request(ctx.server).get(new URL(link.url as string).pathname).expect(200);
+        expect(file.headers['content-type']).toContain('image/png');
+        expect(await ctx.prisma.auditLog.count({ where: { action: 'PROOF_OF_DELIVERY_VIEWED', resourceId: s.jobId } })).toBe(1);
+      });
+
+      it('is refused to a customer who does not own the order, and is 409 without a stored artifact', async () => {
+        const s = await atTheDoor();
+        await submit(s, confirmation).expect(201);
+        const stranger = await createUserWithRole(ctx, 'CUSTOMER');
+        await artifactLink(s, stranger.accessToken).expect(404);
+        expect(errorOf(await artifactLink(s, s.customer.accessToken).expect(409)).code).toBe(ErrorCode.DOCUMENT_NOT_STORED);
+      });
+    });
+
     it('answers 404 to a customer who does not own the order', async () => {
       const s = await atTheDoor();
       await submit(s, confirmation).expect(201);

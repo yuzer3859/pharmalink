@@ -1,4 +1,7 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { AuditService } from '../../../../shared/audit/audit.service';
+import { ApiException } from '../../../../shared/errors/api-exception';
+import { ErrorCode } from '../../../../shared/errors/error-codes';
 import { RequirePermissions } from '../../../../shared/rbac/permissions.decorator';
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { CurrentUser } from '../../../identity/interface/decorators/current-user.decorator';
@@ -70,6 +73,7 @@ export class ProofOfDeliveryController {
   constructor(
     private readonly capture: CaptureProofOfDeliveryCommand,
     private readonly read: GetProofOfDeliveryQuery,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -119,5 +123,27 @@ export class ProofOfDeliveryController {
   ): Promise<ProofOfDeliveryResponse> {
     const { view } = await this.read.byJobId(jobId, user.userId);
     return toProofOfDeliveryResponse(view);
+  }
+
+  /**
+   * Work 102: a 5-minute link to view the photograph or signature, for a caller entitled to the
+   * delivery (the same rule as the read above), asked for explicitly and audited. The read itself
+   * still carries no URL.
+   */
+  @Post(':id/proof-of-delivery/artifact')
+  @RequirePermissions('order:read:own')
+  @HttpCode(HttpStatus.OK)
+  async artifact(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') jobId: string) {
+    const link = await this.read.artifactLink(jobId, user.userId);
+    if (!link) {
+      throw new ApiException(ErrorCode.DOCUMENT_NOT_STORED, 'This delivery has no stored photograph or signature to open.');
+    }
+    await this.audit.record({
+      actorUserId: user.userId,
+      action: 'PROOF_OF_DELIVERY_VIEWED',
+      resourceType: 'DeliveryJob',
+      resourceId: jobId,
+    });
+    return link;
   }
 }

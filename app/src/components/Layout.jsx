@@ -18,7 +18,7 @@ const nav = [
   { to: '/prescriptions', label: 'Prescriptions', icon: Upload },
   { to: '/doctors', label: 'Doctors', icon: Stethoscope },
   { to: '/diagnostics', label: 'Diagnostics', icon: FlaskConical },
-  { to: '/tracking', label: 'Track order', icon: Truck },
+  { to: '/orders', label: 'My orders', icon: Truck },
   { to: '/design-system', label: 'Design system', icon: Palette },
 ]
 

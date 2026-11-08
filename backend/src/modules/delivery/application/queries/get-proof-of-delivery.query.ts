@@ -149,6 +149,24 @@ export class GetProofOfDeliveryQuery {
     };
   }
 
+  /**
+   * Work 102: a 5-minute link to view the artifact, asked for explicitly and separately from the
+   * read above (which never carries a URL). The same entitlement decides; `null` when there is no
+   * stored artifact or the storage cannot issue links. The caller audits the issue.
+   */
+  async artifactLink(jobId: string, userId: string): Promise<{ url: string; expiresAt: string } | null> {
+    const { view } = await this.byJobId(jobId, userId);
+    if (!view.artifact?.available) return null;
+    const proof = await this.proofs.findByJobId(view.jobId);
+    if (!proof?.artifactRef || !this.storage.readUrl) return null;
+    try {
+      const link = await this.storage.readUrl(proof.artifactRef);
+      return link ? { url: link.url, expiresAt: link.expiresAt.toISOString() } : null;
+    } catch {
+      return null;
+    }
+  }
+
   private async describe(ref: string): Promise<Omit<StoredProofArtifact, 'ref'> | null> {
     try {
       return await this.storage.describe(ref);

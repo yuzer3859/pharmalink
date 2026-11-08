@@ -1,3 +1,5 @@
+import { DOCUMENT_STORAGE_PORT, IDocumentStoragePort } from '../../shared/storage/document-storage.port';
+import { DocumentStorageProofArtifacts } from './infrastructure/storage/document-proof-artifact.storage';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppConfigService } from '../../shared/config/app-config.service';
@@ -315,7 +317,15 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     // `NONE`: nothing on the platform demands a stored artifact, so nothing depends on an adapter
     // that cannot survive a restart. Raising a requirement to `ARTIFACT` and binding a real
     // provider are the same decision, and the wiring makes that explicit rather than incidental.
-    { provide: PROOF_ARTIFACT_STORAGE_PORT, useClass: InMemoryProofArtifactStorage },
+    // Work 102 (G13): with document storage configured (Work 89; MinIO on staging), artifacts are
+    // kept there and survive a restart. Without it (local development with nothing configured)
+    // the in-process adapter remains, safe while every PoD requirement defaults to `NONE`.
+    {
+      provide: PROOF_ARTIFACT_STORAGE_PORT,
+      inject: [DOCUMENT_STORAGE_PORT],
+      useFactory: (documents: IDocumentStoragePort) =>
+        documents.available ? new DocumentStorageProofArtifacts(documents) : new InMemoryProofArtifactStorage(),
+    },
     CaptureProofOfDeliveryCommand,
     GetProofOfDeliveryQuery,
 

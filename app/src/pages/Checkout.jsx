@@ -171,7 +171,7 @@ export default function Checkout() {
           {o.isCod ? 'Pay the driver in cash when it arrives.' : o.payment?.status === 'AUTHORIZED' ? 'Payment approved.' : 'Waiting for the payment to be confirmed.'}
         </p>
         <div className="mt-6 flex flex-col gap-2">
-          <p className="flex items-center justify-center gap-1.5 text-caption text-muted"><Truck className="h-4 w-4" aria-hidden="true" /> The pharmacy will confirm it next.</p>
+          <Button as={Link} to={`/orders/${o.orderId}`} size="lg"><Truck className="h-4 w-4" aria-hidden="true" /> Follow your order</Button>
           <Button as={Link} to="/search" variant="ghost">Continue shopping</Button>
         </div>
       </div>
