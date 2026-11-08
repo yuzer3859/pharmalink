@@ -47,8 +47,21 @@ operations portal first if it is using that port.
 
 ## 2. Sign up as the customer
 
-Register with **your own Resend account address**. While the test sender is in use, e-mail can
-only go to that address. Then enter the code from the e-mail. You type the code yourself.
+Your own Resend account address is already the staging **Super Admin**, and admin accounts need
+MFA, so it cannot be the customer. Resend's test sender refuses every other address (HTTP 403,
+shown as *E-mail delivery is not set up…*), so a new customer never gets the sign-up code.
+
+1. Register with an address of yours that is not a staging account, for example the Gmail alias
+   `you+customer@gmail.com`. The app reports that no code was sent; that is expected.
+2. Mark that customer's e-mail verified (Work 105). This only works on a new CUSTOMER account
+   still waiting for verification, and it is audited:
+   ```sh
+   $D run --rm tools npm run staging:actors -- verify-customer <that e-mail>
+   ```
+3. Sign in with that e-mail and your password.
+
+Once a domain is verified in Resend and set as the staging sender, every address receives its code
+and step 2 is unnecessary.
 
 ## 3. Browse and add to the cart
 
