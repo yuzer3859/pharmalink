@@ -95,3 +95,68 @@ Already on the real API, with Vitest and RTL tests: `auth/*`, `catalog/*`, and t
 | 102 | PoD artifacts in document storage; app: orders, status, live tracking, PoD (G6, G13) |
 | 103 | Phase 1 e2e suite (whole chain, compensation, reconciliation); scripted pharmacy and driver actors; live walk (G9) |
 | 104 | Close-out: this file and the roadmap |
+
+## Close-out (Work 104, 2026-11-08)
+
+Works 93–103 closed every Phase 1 code gap, G1 to G11 plus G13 and G14. Each was merged with all
+CI checks green: five checks from Work 99 on, which added the customer app's CI.
+
+| Work | What | PR | Merge |
+|---|---|---|---|
+| 93 | Audit, gaps and plan | #46 | 20afb09 |
+| 94 | Test gateway fails closed in production; `test-decline` (G10) | #47 | 377ed3d |
+| 95 | Prepaid checkout saga with compensation; `orders.paymentId` (G1, G8) | #48 | a102c34 |
+| 96 | Capture at fulfilment; payments `SETTLED`; refunds after payout (G2, G3) | #49 | ae10219 |
+| 97 | COD sale posted when the cash reaches PharmaLink; statements by amount or period (G4, owner's decision) | #50 | b86b6fe |
+| 98 | Module 14 minimal search (G5, backend) | #51 | 0ea1e53 |
+| 99 | App search; doctors and diagnostics marked "coming later"; app CI (G5, G11) | #52 | 14daaa8 |
+| 100 | App cart, checkout, gateway payment (G6) | #53 | 2775591 |
+| 101 | Prescription files in document storage; pharmacist preview; app upload (G7) | #54 | 85e0a6d |
+| 102 | Proof of delivery in document storage; app orders, live tracking, PoD (G13, G6) | #55 | 23987f2 |
+| 103 | Whole-chain e2e; orders follow their delivery; staging walk actors (G9, G14) | #56 | 8f3449f |
+
+**Automated evidence.** `backend/test/phase1/marketplace.e2e-spec.ts` runs the roadmap's three
+exit criteria over the real stack:
+1. **The whole chain:** search → cart → Rx gate → prescription approved → prepaid checkout → pharmacy
+   → capture → delivery job → driver → proof of delivery → delivered → statement → maker-checker
+   payout → `SETTLED`.
+2. **Compensation:** a declined payment releases the stock reservation.
+3. **Reconciliation:** debits equal credits, the pharmacy payable is paid out to zero, and finance
+   reconciliation reports `CLEAN`.
+
+It passes in CI with the rest of the suites.
+
+**Staging (2026-11-08).** The stack was redeployed at 8f3449f:
+- all 44 migrations applied;
+- 14 roles and 74 permissions;
+- the baseline seed plus the walk stock: an OTC product and the Rx Amoxicillin at Seed Bole
+  Pharmacy, Bole Main;
+- the search index built at start-up (5 products, 3 pharmacies, no failures);
+- no backend errors.
+
+Checks that need no sign-in passed. `GET /search/medicines?q=ors` finds the walk product with one
+pharmacy from ETB 12.00, and `q=amoxicillin` with a location finds it about 1 km away.
+
+### Live walk
+
+**Not yet done. It needs the owner.** `ops/staging/phase1-walkthrough.md` walks the same chain by
+hand: the customer app against staging, `npm run staging:actors` for the pharmacy and the driver,
+and the operations portal for settlement. It needs:
+- a customer sign-up with the owner's Resend address, and its e-mail code;
+- the Finance Officer sign-ins, with passwords and authenticator codes.
+
+Record the date, order numbers and any deviation here when it is done.
+
+### Not built, or still open
+
+| Item | Status |
+|---|---|
+| Amharic copy written by Claude (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED` notifications) (G12) | Needs a native speaker's review |
+| Pharmacy portal order, inventory and prescription pages (`web/`, still in-memory) | Follow-up for Modules 04 and 05. The walk uses `staging:actors` instead. |
+| Driver app | Not in Phase 1's code. The walk uses `staging:actors`. |
+| Real payment gateway (Telebirr) | Fail-closed until its contract exists (Work 94). Staging uses the test gateway only. |
+| Payout destination rules (module-07 §15) | Still open in the design. The mock payout rail pays a verified beneficiary. |
+| COD corrections after a remittance | Not reflected in the COD sale posting. A finance adjustment. |
+| Prescription references from before Work 101 | Still accepted, but cannot be opened |
+| Search: unified cross-entity search, suggestions, typo tolerance, OpenSearch | Not built (Phase 3 in the roadmap) |
+| Modules 09–12 | Deferred by the owner |
