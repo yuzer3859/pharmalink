@@ -99,7 +99,8 @@ export class StagingSeeder {
     for (const org of FIXTURE_ORGANIZATIONS) await this.ensureOrganization(org);
     await this.ensurePendingPersonVerifications();
     await this.ensurePreviewVerification();
-    await this.ensureDriverReady();
+    await this.ensureDriverReady('driverCod', 'AA-3-STG80');
+    await this.ensureDriverReady('driverWalkSpare', 'AA-3-STG81');
     for (const product of FIXTURE_PRODUCTS) await this.ensureProduct(product);
     await this.ensureMarketplace();
     for (const order of FIXTURE_ORDERS) await this.ensureOrder(order);
@@ -344,9 +345,9 @@ export class StagingSeeder {
     return seedSampleDocument(storage, ownerId, kind.replace(/_/g, ' ').toLowerCase(), fallbackRef);
   }
 
-  /** The COD driver: documents approved by the operator, a profile, on shift and online. */
-  private async ensureDriverReady(): Promise<void> {
-    const driver = this.account('driverCod');
+  /** An approved driver (the COD driver, Work 105's spare): documents approved by the operator, a profile. */
+  private async ensureDriverReady(key: 'driverCod' | 'driverWalkSpare', plateNumber: string): Promise<void> {
+    const driver = this.account(key);
     const operator = this.account('operator');
     let docs = await this.prisma.verificationRequest.findFirst({ where: { userId: driver, type: 'DRIVER_DOCS' } });
     if (!docs) {
@@ -354,10 +355,10 @@ export class StagingSeeder {
         userId: driver,
         type: VerificationType.DRIVER_DOCS,
         documents: [
-          { kind: 'DRIVING_LICENSE', storageRef: await this.sampleDoc(driver, 'DRIVING_LICENSE', 'staging-seed/driverCod/driving_license.pdf') },
+          { kind: 'DRIVING_LICENSE', storageRef: await this.sampleDoc(driver, 'DRIVING_LICENSE', `staging-seed/${key}/driving_license.pdf`) },
           {
             kind: 'VEHICLE_REGISTRATION',
-            storageRef: await this.sampleDoc(driver, 'VEHICLE_REGISTRATION', 'staging-seed/driverCod/vehicle_registration.pdf'),
+            storageRef: await this.sampleDoc(driver, 'VEHICLE_REGISTRATION', `staging-seed/${key}/vehicle_registration.pdf`),
           },
         ],
       });
@@ -378,15 +379,15 @@ export class StagingSeeder {
       await this.app.get(CreateDriverProfileCommand).execute({
         userId: driver,
         vehicleType: VehicleType.Motorcycle,
-        plateNumber: 'AA-3-STG80',
+        plateNumber,
         serviceArea: { lat: branch.lat, lng: branch.lng, radiusMeters: 20_000 },
         // Both COD jobs stay open at the drop-off (the collection is recorded there), so one
         // driver must be allowed more than one job at a time.
         maxConcurrent: 5,
         actorUserId: operator,
       });
-      this.note(true, 'driver profile');
-    } else this.note(false, 'driver profile');
+      this.note(true, `driver profile (${key})`);
+    } else this.note(false, `driver profile (${key})`);
   }
 
   private async driverOnline(online: boolean): Promise<void> {

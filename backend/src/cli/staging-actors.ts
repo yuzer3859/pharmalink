@@ -40,7 +40,8 @@ import { createStagingContext, StagingRefusedError } from './staging-seed/stagin
 const EXIT_REFUSED = 2;
 const EXIT_USAGE = 64;
 const WALK_PHARMACY = FIXTURE_ORGANIZATIONS.find((o) => o.key === 'transacting')!;
-const WALK_DRIVER_PHONE = FIXTURE_ACCOUNTS.find((a) => a.key === 'driverCod')!.phone!;
+/** Work 105: the walk driver, then a spare for a job whose offer to the first one expired. */
+const WALK_DRIVER_PHONES = ['driverCod', 'driverWalkSpare'].map((key) => FIXTURE_ACCOUNTS.find((a) => a.key === key)!.phone!);
 
 type Log = (line: string) => void;
 
@@ -120,7 +121,6 @@ export async function pharmacy(app: INestApplicationContext, orderNumber: string
 export async function driver(app: INestApplicationContext, orderNumber: string, log: Log, waitMs = 60_000): Promise<void> {
   const prisma = app.get(PrismaService);
   const order = await orderByNumber(prisma, orderNumber);
-  const user = await prisma.user.findFirstOrThrow({ where: { phone: WALK_DRIVER_PHONE } });
   const started = Date.now();
   let job = await prisma.deliveryJob.findFirst({ where: { orderId: order.id } });
   while (!job && Date.now() - started < waitMs) {
@@ -128,23 +128,66 @@ export async function driver(app: INestApplicationContext, orderNumber: string, 
     job = await prisma.deliveryJob.findFirst({ where: { orderId: order.id } });
   }
   if (!job) throw new Error('No delivery job yet: is the order ready, and is the staging backend running?');
-  if (job.status === DeliveryJobStatus.CREATED || job.status === DeliveryJobStatus.REASSIGNING) {
-    // Work 105: dispatch only offers to a driver who is on shift, online and near the pickup, which
-    // the driver app does; the seeded driver starts offline, so do it here first.
-    await app.get(ManageDriverShiftCommand).start({ userId: user.id });
-    await app.get(SetDriverAvailabilityCommand).execute({ userId: user.id, availability: DriverAvailability.ONLINE });
+  const user = await walkDriverFor(app, job, log);
+  try {
+    await deliver(app, job.id, user.id, orderNumber, log);
+  } finally {
+    // Off again, so the backend does not offer the next walk job on its own while this tool is
+    // not there to accept it within the offer's TTL (Work 105).
+    await app.get(SetDriverAvailabilityCommand).execute({ userId: user.id, availability: DriverAvailability.OFFLINE });
+  }
+}
+
+/**
+ * The driver who will carry this job, holding an accepted offer. A live offer is accepted at once by
+ * whoever holds it; otherwise the first walk driver never offered this job goes on shift, online
+ * and to the pickup, is offered it, and accepts it straight away (offers live 30 seconds).
+ */
+async function walkDriverFor(app: INestApplicationContext, job: { id: string; status: string; assignedDriverId: string | null; pickupLat: number | null; pickupLng: number | null }, log: Log) {
+  const prisma = app.get(PrismaService);
+  const users = await prisma.user.findMany({ where: { phone: { in: WALK_DRIVER_PHONES } } });
+  const profiles = await prisma.driverProfile.findMany({ where: { userId: { in: users.map((u) => u.id) } } });
+  // Walk order, each with its delivery profile; a fixture driver the seed has not set up is skipped.
+  const byPhone = WALK_DRIVER_PHONES.flatMap((phone) => {
+    const user = users.find((u) => u.phone === phone);
+    const profile = user && profiles.find((p) => p.userId === user.id);
+    return user && profile ? [{ id: user.id, phone, profileId: profile.id }] : [];
+  });
+  if (job.assignedDriverId) {
+    const assigned = byPhone.find((d) => d.profileId === job.assignedDriverId);
+    if (!assigned) throw new Error('This job is carried by a driver the walk does not control.');
+    return assigned;
+  }
+  const offers = await prisma.jobOffer.findMany({ where: { jobId: job.id } });
+  const live = offers.find((o) => o.status === 'OFFERED' && o.expiresAt.getTime() > Date.now() + 2_000);
+  let holder = live ? byPhone.find((d) => d.profileId === live.driverId) : undefined;
+  if (!holder) {
+    const offered = new Set(offers.map((o) => o.driverId));
+    const fresh = byPhone.find((d) => !offered.has(d.profileId));
+    if (!fresh) throw new Error('Every walk driver has already been offered this job; dispatch will not offer it to them again.');
+    await app.get(ManageDriverShiftCommand).start({ userId: fresh.id });
+    await app.get(SetDriverAvailabilityCommand).execute({ userId: fresh.id, availability: DriverAvailability.ONLINE });
     if (job.pickupLat !== null && job.pickupLng !== null) {
-      await app.get(UpdateDriverLocationCommand).execute({ userId: user.id, lat: job.pickupLat, lng: job.pickupLng });
+      await app.get(UpdateDriverLocationCommand).execute({ userId: fresh.id, lat: job.pickupLat, lng: job.pickupLng });
     }
-    log('  driver on shift, online, at the pharmacy');
+    log(`  driver ${fresh.phone} on shift, online, at the pharmacy`);
     const dispatched = await app.get(DispatchDeliveryJobCommand).execute({ jobId: job.id, actorUserId: null });
-    if (dispatched.outcome === DispatchOutcome.NoCandidate) {
+    if (dispatched.outcome === DispatchOutcome.NoCandidate || !dispatched.offer) {
       throw new Error('Dispatch found no eligible driver (online, on shift, in the service area, verified, under the job limit).');
     }
+    const offerDriverId = dispatched.offer.driverId;
+    holder = byPhone.find((d) => d.profileId === offerDriverId);
+    if (!holder) throw new Error('Dispatch offered the job to a driver the walk does not control.');
   }
-  if ((await prisma.deliveryJob.findUniqueOrThrow({ where: { id: job.id } })).status === DeliveryJobStatus.OFFERED) {
-    await app.get(AcceptJobOfferCommand).execute({ userId: user.id, jobId: job.id });
-  }
+  await app.get(AcceptJobOfferCommand).execute({ userId: holder.id, jobId: job.id });
+  log(`  offer accepted by ${holder.phone}`);
+  return holder;
+}
+
+async function deliver(app: INestApplicationContext, jobId: string, userId: string, orderNumber: string, log: Log): Promise<void> {
+  const prisma = app.get(PrismaService);
+  const job = { id: jobId };
+  const user = { id: userId };
   const advance = app.get(AdvanceDeliveryJobCommand);
   for (const to of [DeliveryJobStatus.ARRIVED_PICKUP, DeliveryJobStatus.PICKED_UP, DeliveryJobStatus.EN_ROUTE, DeliveryJobStatus.ARRIVED_DROPOFF]) {
     const current = (await prisma.deliveryJob.findUniqueOrThrow({ where: { id: job.id } })).status;
