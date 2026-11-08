@@ -54,15 +54,15 @@ async function orderByNumber(prisma: PrismaService, orderNumber: string) {
 /**
  * Work 105: Resend's test sender delivers only to the owner's own address, which on staging is the
  * Super Admin, so a walk customer can never receive the sign-up code. This marks one newly
- * registered customer's e-mail verified, as the code would have: only a CUSTOMER account still
- * PENDING_VERIFICATION with no roles, through the domain (`markEmailVerified`), with the same
+ * registered customer's e-mail verified, as the code would have: only a CUSTOMER account (holding no role but CUSTOMER) still
+ * PENDING_VERIFICATION, through the domain (`markEmailVerified`), with the same
  * `identity.user.verified` event, and audited. Staging only, like every actor here.
  */
 export async function verifyCustomer(app: INestApplicationContext, email: string, log: Log): Promise<void> {
   const prisma = app.get(PrismaService);
-  const row = await prisma.user.findFirst({ where: { email: email.toLowerCase() }, include: { userRoles: true } });
+  const row = await prisma.user.findFirst({ where: { email: email.toLowerCase() }, include: { userRoles: { include: { role: true } } } });
   if (!row) throw new Error(`No account ${email}. Sign up in the customer app first.`);
-  if (row.primaryRole !== 'CUSTOMER' || row.userRoles.length > 0) throw new Error(`${email} is not a customer account; only customers can be verified this way.`);
+  if (row.primaryRole !== 'CUSTOMER' || row.userRoles.some((r) => r.role.key !== 'CUSTOMER')) throw new Error(`${email} is not a customer account; only customers can be verified this way.`);
   if (row.status !== 'PENDING_VERIFICATION' || row.emailVerifiedAt) throw new Error(`${email} is not waiting for verification (status ${row.status}).`);
   const users = app.get<IUserRepository>(USER_REPOSITORY);
   const user = await users.findByIdentifier(row.email!);

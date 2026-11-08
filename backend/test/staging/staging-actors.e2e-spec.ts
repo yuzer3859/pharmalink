@@ -52,7 +52,9 @@ describe('Staging walk: marketplace seed and actors (Work 103, e2e)', () => {
   it('verify-customer verifies only a new customer, once, with an audit entry (Work 105)', async () => {
     const log = () => undefined;
     const email = 'walk.customer@staging.pharmalink.test';
-    const created = await ctx.prisma.user.create({ data: { email, primaryRole: 'CUSTOMER' } });
+    // As sign-up leaves it: a CUSTOMER account holding the CUSTOMER role, waiting for its code.
+    const customerRole = await ctx.prisma.role.findUniqueOrThrow({ where: { key: 'CUSTOMER' } });
+    const created = await ctx.prisma.user.create({ data: { email, primaryRole: 'CUSTOMER', userRoles: { create: { roleId: customerRole.id } } } });
     expect(created.status).toBe('PENDING_VERIFICATION');
 
     await verifyCustomer(ctx.app, 'Walk.Customer@staging.pharmalink.test', log);
