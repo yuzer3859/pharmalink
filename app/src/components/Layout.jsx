@@ -178,7 +178,7 @@ function HeaderSearch() {
       onSubmit={(e) => {
         e.preventDefault()
         const q = query.trim()
-        navigate(q ? `/medicines?${new URLSearchParams({ q })}` : '/medicines')
+        navigate(q ? `/search?${new URLSearchParams({ q })}` : '/search')
       }}
     >
       <Input

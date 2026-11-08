@@ -1,19 +1,5 @@
-// Mock data for the PharmaLink prototype's doctor, diagnostics, tracking and checkout screens.
+// Mock data for the PharmaLink prototype's tracking and checkout screens (removed in Works 100 and 102).
 // Medicines and categories come from the backend Catalog API (Work 64), never from here.
-
-export const doctors = [
-  { id: 'd1', name: 'Dr. Selamawit Bekele', specialty: 'Cardiologist', hospital: 'Nordic Medical Centre', experience: 12, fee: 900, rating: 4.9, reviews: 214, next: 'Today 3:30 PM', langs: ['Amharic', 'English'], verified: true },
-  { id: 'd2', name: 'Dr. Yonas Tadesse', specialty: 'Dermatologist', hospital: 'Bethel Teaching Hospital', experience: 8, fee: 700, rating: 4.8, reviews: 176, next: 'Tomorrow 10:00 AM', langs: ['Amharic', 'English', 'Afaan Oromoo'], verified: true },
-  { id: 'd3', name: 'Dr. Hanna Girma', specialty: 'Pediatrician', hospital: 'St. Gabriel Hospital', experience: 15, fee: 800, rating: 5.0, reviews: 402, next: 'Today 5:00 PM', langs: ['Amharic', 'English'], verified: true },
-  { id: 'd4', name: 'Dr. Abel Mengistu', specialty: 'General Physician', hospital: 'Kadisco General Hospital', experience: 6, fee: 500, rating: 4.7, reviews: 129, next: 'Today 2:00 PM', langs: ['Amharic', 'English'], verified: true },
-]
-
-export const diagnostics = [
-  { id: 't1', name: 'Complete Blood Count (CBC)', center: 'Pioneer Diagnostic Lab', price: 350, turnaround: '4 hrs', rating: 4.8, prep: 'No fasting required', type: 'Lab test' },
-  { id: 't2', name: 'Lipid Profile', center: 'Pioneer Diagnostic Lab', price: 520, turnaround: 'Same day', rating: 4.7, prep: '12 hrs fasting', type: 'Lab test' },
-  { id: 't3', name: 'Abdominal Ultrasound', center: 'Bethzatha Imaging', price: 1200, turnaround: '1 hr', rating: 4.9, prep: 'Full bladder', type: 'Imaging' },
-  { id: 't4', name: 'Chest X-Ray', center: 'Bethzatha Imaging', price: 650, turnaround: '30 min', rating: 4.6, prep: 'No preparation', type: 'Imaging' },
-]
 
 export const cart = [
   { id: 'm2', name: 'Paracetamol 500mg', form: 'Tablet · 20 tabs', qty: 2, price: 60, pharmacy: 'Bole Pharma' },

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import Medicines from './pages/Medicines'
+import SearchPage from './pages/Search'
 import MedicineDetail from './pages/MedicineDetail'
 import Doctors from './pages/Doctors'
 import Diagnostics from './pages/Diagnostics'
@@ -37,6 +38,7 @@ export default function App() {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Page><Home /></Page>} />
+          <Route path="/search" element={<Page><SearchPage /></Page>} />
           <Route path="/medicines" element={<Page><Medicines /></Page>} />
           <Route path="/medicines/:id" element={<Page><MedicineDetail /></Page>} />
           <Route path="/doctors" element={<Page><Doctors /></Page>} />

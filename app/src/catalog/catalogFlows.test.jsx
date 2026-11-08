@@ -7,6 +7,7 @@ import { AuthProvider } from '../auth/AuthContext'
 import { createApiClient } from '../auth/apiClient'
 import { createAuthService } from '../auth/authService'
 import { CatalogContext, createCatalogService } from './catalogService'
+import { SearchContext, createSearchService } from '../search/searchService'
 import { fail, fakeFetch, ok } from '../test/fakeBackend'
 import {
   BRANCH_ID, CATEGORY_ID, CHILD_CATEGORY_ID, HEALTH_CATEGORY_ID, LISTING_ID, PHARMACY_ID, PRODUCT_2_ID, PRODUCT_ID,
@@ -30,7 +31,9 @@ function renderApp(path, routes) {
     <MemoryRouter initialEntries={[path]}>
       <AuthProvider service={auth}>
         <CatalogContext.Provider value={catalog}>
-          <App />
+          <SearchContext.Provider value={createSearchService({ api: createApiClient({ baseUrl: 'http://api.test', fetcher: backend.fetcher }) })}>
+            <App />
+          </SearchContext.Provider>
         </CatalogContext.Provider>
       </AuthProvider>
     </MemoryRouter>,
@@ -264,7 +267,9 @@ describe('home page', () => {
     expect((await screen.findByRole('link', { name: 'Antibiotics' })).getAttribute('href')).toBe(`/medicines?category=${CATEGORY_ID}`)
     expect(main().textContent).not.toMatch(MOCK_NAMES)
     expect(main().textContent).not.toMatch(/Bole, Addis Ababa/)
-    expect(screen.getByText(/doctor booking is a design prototype/)).toBeTruthy()
+    // Work 99: doctors and lab tests are deferred by the owner; the home page says so, with no sample doctors.
+    expect(screen.getByText(/Doctor appointments and diagnostics are planned for a later phase/)).toBeTruthy()
+    expect(main().textContent).not.toMatch(/Dr\. |Selamawit/)
   })
 
   it('shows empty and failure states without falling back to mock medicines', async () => {
@@ -278,12 +283,13 @@ describe('home page', () => {
     expect(main().textContent).not.toMatch(MOCK_NAMES)
   })
 
-  it('sends the hero search to the live catalog search', async () => {
-    const { callsTo } = renderApp('/', { [PRODUCTS]: ok(page([summary()])) })
+  it('sends the hero search to the live medicine search (Work 99)', async () => {
+    const SEARCH = 'GET /search/medicines'
+    const { callsTo } = renderApp('/', { [PRODUCTS]: ok(page([summary()])), [SEARCH]: ok({ items: [], total: 0, page: 1, size: 20 }) })
     const form = within(main()).getAllByRole('search')[0]
     fireEvent.change(within(form).getByRole('searchbox'), { target: { value: 'amox' } })
     fireEvent.submit(form)
-    expect(await screen.findByRole('heading', { name: 'Medicines & health products' })).toBeTruthy()
-    await waitFor(() => expect(params(callsTo(PRODUCTS).at(-1))).toEqual({ q: 'amox', size: '20' }))
+    expect(await screen.findByRole('heading', { name: 'Search' })).toBeTruthy()
+    await waitFor(() => expect(params(callsTo(SEARCH).at(-1))).toEqual({ q: 'amox', size: '20' }))
   })
 })

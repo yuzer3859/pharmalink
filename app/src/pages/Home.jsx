@@ -5,8 +5,7 @@ import {
   Search, Upload, Pill, Stethoscope, FlaskConical, HeartPulse, Tags,
   ArrowRight, ShieldCheck, Truck, Clock, ChevronRight, RefreshCw,
 } from 'lucide-react'
-import { Button, Card, Badge, Input, IconTile, Rating, Avatar, SectionHead, Skeleton } from '../components/ui'
-import { doctors } from '../data/mock'
+import { Button, Card, Badge, Input, IconTile, SectionHead, Skeleton } from '../components/ui'
 import { useCatalog } from '../catalog/catalogService'
 import { categoryName } from '../catalog/format'
 import { ProductCard } from './Medicines'
@@ -15,9 +14,9 @@ const stagger = { show: { transition: { staggerChildren: 0.06 } } }
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
 
 const quickActions = [
-  { label: 'Order medicine', desc: 'From verified pharmacies', icon: Pill, to: '/medicines', tone: 'brand' },
-  { label: 'Book a doctor', desc: 'By specialty & location', icon: Stethoscope, to: '/doctors', tone: 'accent' },
-  { label: 'Lab & imaging', desc: 'Tests, scans & screening', icon: FlaskConical, to: '/diagnostics', tone: 'violet' },
+  { label: 'Find medicine', desc: 'Search nearby pharmacies', icon: Pill, to: '/search', tone: 'brand' },
+  { label: 'Doctors', desc: 'Coming later', icon: Stethoscope, to: '/doctors', tone: 'accent' },
+  { label: 'Lab & imaging', desc: 'Coming later', icon: FlaskConical, to: '/diagnostics', tone: 'violet' },
   { label: 'Upload Rx', desc: 'Coming soon', icon: Upload, to: '/medicines', tone: 'success' },
 ]
 
@@ -73,7 +72,7 @@ export default function Home() {
             Healthcare, delivered with care.
           </h1>
           <p className="mt-3 max-w-xl text-body-lg text-white/85">
-            Find medicines, book trusted doctors, and schedule lab tests — all in one secure place.
+            Find medicines from licensed pharmacies near you, in English or Amharic. Doctor visits and lab tests are coming later.
           </p>
 
           <form
@@ -81,7 +80,7 @@ export default function Home() {
             onSubmit={(e) => {
               e.preventDefault()
               const q = query.trim()
-              navigate(q ? `/medicines?${new URLSearchParams({ q })}` : '/medicines')
+              navigate(q ? `/search?${new URLSearchParams({ q })}` : '/search')
             }}
             className="mt-6 flex flex-col gap-3 rounded-2xl bg-white/95 p-3 shadow-lg sm:flex-row dark:bg-surface"
           >
@@ -208,32 +207,14 @@ export default function Home() {
         )}
       </section>
 
-      {/* Top doctors */}
+      {/* Doctors: deferred by the owner (Work 99); no sample profiles. */}
       <section>
-        <SectionHead
-          title="Doctors"
-          subtitle="Sample profiles: doctor booking is a design prototype and not connected yet."
-          action={<Button as={Link} to="/doctors" variant="ghost" size="sm">View all <ChevronRight className="h-4 w-4" /></Button>}
-        />
-        <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
-          {doctors.slice(0, 2).map((d) => (
-            <Card key={d.id} interactive className="flex items-center gap-4 p-4">
-              <Avatar name={d.name} size={64} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-body-lg font-semibold text-fg">{d.name}</p>
-                  {d.verified && <ShieldCheck className="h-4 w-4 shrink-0 text-brand-500" />}
-                </div>
-                <p className="text-caption text-muted">{d.specialty} · {d.hospital}</p>
-                <div className="mt-1.5 flex items-center gap-3">
-                  <Rating value={d.rating} count={d.reviews} />
-                  <Badge tone="success" dot>{d.next}</Badge>
-                </div>
-              </div>
-              <Button as={Link} to="/doctors" variant="soft" size="sm" className="shrink-0">Book</Button>
-            </Card>
-          ))}
-        </div>
+        <SectionHead title="Doctors and lab tests" subtitle="Coming later. Medicines are available now." />
+        <Card className="p-4">
+          <p className="text-body text-muted">
+            Doctor appointments and diagnostics are planned for a later phase. You can already search medicines and see which pharmacies have them.
+          </p>
+        </Card>
       </section>
 
       {/* Trust strip */}
