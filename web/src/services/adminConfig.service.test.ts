@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from './apiClient';
-import { configErrorMessage, createAdminConfigService, formatConfigValue, parseConfigInput } from './adminConfig.service';
+import {
+  configErrorMessage,
+  createAdminConfigService,
+  flagKeyProblem,
+  formatConfigValue,
+  normalizeFlagKey,
+  parseConfigInput,
+} from './adminConfig.service';
 import type { SessionRequest } from './auth.service';
 
 const of = (valueType: 'BOOLEAN' | 'INTEGER' | 'DECIMAL' | 'STRING' | 'JSON', extra: Partial<{ min: number; max: number; allowed: string[] }> = {}) => ({
@@ -103,5 +110,39 @@ describe('configErrorMessage', () => {
     expect(configErrorMessage(new ApiError(404, 'NOT_FOUND', 'x'), 'f')).toMatch(/not governable/);
     expect(configErrorMessage(new ApiError(400, 'CONFIG_VALIDATION_FAILED', 'Must be at most 60'), 'f')).toBe('Must be at most 60');
     expect(configErrorMessage(new Error('x'), 'fallback')).toBe('fallback');
+  });
+});
+
+describe('feature flag keys (the server rule)', () => {
+  it('normalizes like the server: trimmed and lower-cased', () => {
+    expect(normalizeFlagKey('  COD_Payments ')).toBe('cod_payments');
+  });
+
+  it('accepts a lowercase identifier and refuses everything else', () => {
+    expect(flagKeyProblem('cod_payments')).toBeNull();
+    expect(flagKeyProblem(' COD_Payments ')).toBeNull();
+    expect(flagKeyProblem('   ')).toMatch(/Enter a key/);
+    expect(flagKeyProblem('1st_flag')).toMatch(/starting with a letter/);
+    expect(flagKeyProblem('cod-payments')).toMatch(/underscores/);
+    expect(flagKeyProblem('cod payments')).toMatch(/underscores/);
+    expect(flagKeyProblem('a'.repeat(101))).toMatch(/At most 100/);
+  });
+
+  it('refuses a key that already exists, so adding never silently toggles one', () => {
+    expect(flagKeyProblem('COD_PAYMENTS', ['cod_payments'])).toMatch(/already exists/);
+  });
+});
+
+describe('createFlag', () => {
+  it('PUTs the normalized key with the initial state, and the description only when given', async () => {
+    const request = vi.fn().mockResolvedValue({});
+    const svc = createAdminConfigService(request as unknown as SessionRequest);
+    await svc.createFlag(' COD_Payments ', false, '  Cash on delivery at checkout ');
+    expect(request).toHaveBeenLastCalledWith('/admin/feature-flags/cod_payments', {
+      method: 'PUT',
+      body: { enabled: false, description: 'Cash on delivery at checkout' },
+    });
+    await svc.createFlag('beta', true, '   ');
+    expect(request).toHaveBeenLastCalledWith('/admin/feature-flags/beta', { method: 'PUT', body: { enabled: true } });
   });
 });
