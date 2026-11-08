@@ -6,7 +6,7 @@ import { AcceptFulfillmentCommand } from '../../application/commands/accept-fulf
 import { DeclineFulfillmentCommand } from '../../application/commands/decline-fulfillment.command';
 import { MarkReadyCommand } from '../../application/commands/mark-ready.command';
 import { PrepareFulfillmentCommand } from '../../application/commands/prepare-fulfillment.command';
-import { ListPharmacyOrdersQuery } from '../../application/queries/list-pharmacy-orders.query';
+import { GetPharmacyOrderQuery, ListPharmacyOrdersQuery } from '../../application/queries/list-pharmacy-orders.query';
 import { DeclineFulfillmentDto, ListPharmacyOrdersQueryDto } from '../dtos/fulfillment.dto';
 
 /**
@@ -32,6 +32,7 @@ import { DeclineFulfillmentDto, ListPharmacyOrdersQueryDto } from '../dtos/fulfi
 export class PharmacyOrdersController {
   constructor(
     private readonly listPharmacyOrders: ListPharmacyOrdersQuery,
+    private readonly getPharmacyOrder: GetPharmacyOrderQuery,
     private readonly acceptFulfillment: AcceptFulfillmentCommand,
     private readonly declineFulfillment: DeclineFulfillmentCommand,
     private readonly prepareFulfillment: PrepareFulfillmentCommand,
@@ -47,6 +48,13 @@ export class PharmacyOrdersController {
       page: query.page ?? 1,
       size: query.size ?? 20,
     });
+  }
+
+  /** Work 107: one fulfilment with its order header and lines; another pharmacy's reads as not found. */
+  @Get(':fulfillmentId')
+  @RequirePermissions('order:fulfill:org')
+  getOne(@CurrentUser() user: AuthenticatedPrincipal, @Param('fulfillmentId') fulfillmentId: string) {
+    return this.getPharmacyOrder.execute({ actorUserId: user.userId, fulfillmentId });
   }
 
   @Post(':fulfillmentId/accept')

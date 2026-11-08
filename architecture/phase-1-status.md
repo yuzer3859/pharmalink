@@ -214,15 +214,15 @@ for most of them already exist.
 
 | Page | Today | Real API | Gap |
 |---|---|---|---|
-| Orders | `ordersService` ← `mock/seed` `ORDERS`; status filter, fake flow | `GET /pharmacy/orders`; `POST /pharmacy/orders/:fulfillmentId/accept` · `decline` · `prepare` · `ready` (`order:fulfill:org`). The hand-over is the driver's `picked-up`, shown live from the order's status. | None on the backend. The portal page is rewritten (Work 107). |
-| Prescriptions (new page) | No page | `GET /pharmacy/verification/queue`, `GET /pharmacy/verification/:id`; `POST …/:id/approve` · `reject` · `clarify` (`prescription:verify`). The file opens through the audited preview (`POST /pharmacy/verification/:id/file`, Work 101). | None on the backend (Work 108) |
-| Inventory | `inventoryService` ← `mock/seed` `INVENTORY` | `GET`/`POST`/`PATCH`/`DELETE /inventory/listings`; `POST /inventory/listings/:id/batches`; `PATCH /inventory/batches/:id` (adjust, reason required); `GET /inventory/listings/:id/movements` (`inventory:manage:org`) | Reservations visibility: the listing's `reserved` count is enough for Phase 1. No alerts or import route (module-04 §9.3). Low stock and near expiry are filters on the listing read, added if missing (Work 109). |
-| Staff | `staffService` ← `mock/seed` `STAFF` | None | **Backend gap:** module-04 §9.2 `GET /pharmacy/staff`, `POST /pharmacy/staff/invite`, `DELETE /pharmacy/staff/:userId` (`staff:manage:org`) do not exist (Work 110). |
-| Roles | `rolesService` ← `mock/seed` `ROLES`, editable custom roles | Pharmacy roles are the system catalogue (`PHARMACY_OWNER`, `PHARMACY_MANAGER`, `PHARMACIST`, `CASHIER`, `INVENTORY_STAFF`). The RBAC has no organisation-defined roles. | The page becomes a read-only view of what each pharmacy role may do, and staff get roles on the Staff page. Creating custom roles is not built, so not shown (Work 111). |
-| Dashboard, Analytics | `analyticsService` ← `mock/seed` `ORDERS`, `INVENTORY` | None | **Backend gap:** module-04 §9.1 `GET /pharmacy/dashboard` (orders, revenue and stock health for the organisation) does not exist (Work 112). Analytics shows only what that read backs. |
-| Reports | `reportsService`, an in-memory store of generated reports | `GET /settlements`, `GET /settlements/:id` (`settlement:read:org`) | Becomes **Statements**: the pharmacy's settlement statements and lines. Report generation without an API is removed (Work 113). |
+| Orders | `ordersService` ← `mock/seed` `ORDERS`; status filter, fake flow | `GET /pharmacy/orders`; `POST /pharmacy/orders/:fulfillmentId/accept` · `decline` · `prepare` · `ready` (`order:fulfill:org`). The hand-over is the driver's `picked-up`, shown live from the order's status. | **Backend gap (Work 107):** the list returned only the fulfilment (ids, status, times), with no order number, lines, total or payment type. The portal page is rewritten in Work 108. |
+| Prescriptions (new page) | No page | `GET /pharmacy/verification/queue`, `GET /pharmacy/verification/:id`; `POST …/:id/approve` · `reject` · `clarify` (`prescription:verify`). The file opens through the audited preview (`POST /pharmacy/verification/:id/file`, Work 101). | None on the backend (Work 109) |
+| Inventory | `inventoryService` ← `mock/seed` `INVENTORY` | `GET`/`POST`/`PATCH`/`DELETE /inventory/listings`; `POST /inventory/listings/:id/batches`; `PATCH /inventory/batches/:id` (adjust, reason required); `GET /inventory/listings/:id/movements` (`inventory:manage:org`) | Reservations visibility: the listing's `reserved` count is enough for Phase 1. No alerts or import route (module-04 §9.3). Low stock and near expiry are filters on the listing read, added if missing (Work 110). |
+| Staff | `staffService` ← `mock/seed` `STAFF` | None | **Backend gap:** module-04 §9.2 `GET /pharmacy/staff`, `POST /pharmacy/staff/invite`, `DELETE /pharmacy/staff/:userId` (`staff:manage:org`) do not exist (Work 111). |
+| Roles | `rolesService` ← `mock/seed` `ROLES`, editable custom roles | Pharmacy roles are the system catalogue (`PHARMACY_OWNER`, `PHARMACY_MANAGER`, `PHARMACIST`, `CASHIER`, `INVENTORY_STAFF`). The RBAC has no organisation-defined roles. | The page becomes a read-only view of what each pharmacy role may do, and staff get roles on the Staff page. Creating custom roles is not built, so not shown (Work 112). |
+| Dashboard, Analytics | `analyticsService` ← `mock/seed` `ORDERS`, `INVENTORY` | None | **Backend gap:** module-04 §9.1 `GET /pharmacy/dashboard` (orders, revenue and stock health for the organisation) does not exist (Work 113). Analytics shows only what that read backs. |
+| Reports | `reportsService`, an in-memory store of generated reports | `GET /settlements`, `GET /settlements/:id` (`settlement:read:org`) | Becomes **Statements**: the pharmacy's settlement statements and lines. Report generation without an API is removed (Work 114). |
 
-When nothing imports them any more, Work 113 deletes `mock/seed.ts` and the six mock services
+When nothing imports them any more, Work 114 deletes `mock/seed.ts` and the six mock services
 (`orders`, `inventory`, `staff`, `roles`, `analytics`, `reports`).
 
 ### Audit: the operations portal
@@ -232,7 +232,7 @@ When nothing imports them any more, Work 113 deletes `mock/seed.ts` and the six 
 - **COD remittance:** `POST /admin/delivery/cod-reconciliation/:id/remit` exists; the portal's
   COD pages already show it.
 
-Work 120 adds the first two to Finance. If Module 16's rules put running a statement behind
+Work 121 adds the first two to Finance. If Module 16's rules put running a statement behind
 maker-checker, the action goes through an approval request.
 
 ### Audit: the customer app (deviation 2)
@@ -241,7 +241,7 @@ maker-checker, the action goes through an approval request.
   response*.
 - A Resend refusal shows *e-mail delivery is not set up*.
 
-Work 121 gives each a clear message.
+Work 122 gives each a clear message.
 
 ### Driver app
 
@@ -254,11 +254,11 @@ The design is in [driver-app.md](driver-app.md). Summary:
 - COD collection;
 - earnings.
 
-Remittance stays a finance action. **Backend gap (Work 114):** module-08 §9.1's
+Remittance stays a finance action. **Backend gap (Work 115):** module-08 §9.1's
 `PUT /driver/availability`, `GET /driver/profile` and `POST /delivery/location` do not exist; the
 commands do.
 
-**Staging accounts.** Pharmacy staff and drivers sign in with e-mail and password. Work 114:
+**Staging accounts.** Pharmacy staff and drivers sign in with e-mail and password. Work 115:
 - gives the walk's driver fixtures an e-mail address;
 - lets `staging:set-password` set the passwords of the walk's pharmacy and driver accounts, as it
   does for finance.
@@ -279,21 +279,22 @@ commands do.
 | Work | What |
 |---|---|
 | 106 | Housekeeping (PRs #2, #32), this audit, the driver app design |
-| 107 | Pharmacy portal: orders and fulfilment on the real API |
-| 108 | Pharmacy portal: prescription verification |
-| 109 | Pharmacy portal: inventory (listings, batches, receive and adjust, movements) |
-| 110 | Backend: pharmacy staff (module-04 §9.2) |
-| 111 | Pharmacy portal: staff and roles |
-| 112 | Backend: pharmacy dashboard (module-04 §9.1) |
-| 113 | Pharmacy portal: dashboard, analytics and statements; remove the mock seed |
-| 114 | Backend: driver availability, profile and location (module-08 §9.1); walk accounts with e-mail and passwords |
-| 115 | Driver app: scaffold, auth, CI |
-| 116 | Driver app: availability and offers |
-| 117 | Driver app: active job and live tracking |
-| 118 | Driver app: proof of delivery |
-| 119 | Driver app: COD and earnings |
-| 120 | Operations portal: run a statement; reconciliation report |
-| 121 | Customer app: staff-account and refused-e-mail messages |
-| 122 | Live walk with every role in its own app; fix what breaks; close-out |
+| 107 | Backend: the pharmacy order read: the order header and lines on `GET /pharmacy/orders`, plus `GET /pharmacy/orders/:fulfillmentId` (found in Work 106's follow-up: the list had only fulfilment ids and status) |
+| 108 | Pharmacy portal: orders and fulfilment on the real API |
+| 109 | Pharmacy portal: prescription verification |
+| 110 | Pharmacy portal: inventory (listings, batches, receive and adjust, movements) |
+| 111 | Backend: pharmacy staff (module-04 §9.2) |
+| 112 | Pharmacy portal: staff and roles |
+| 113 | Backend: pharmacy dashboard (module-04 §9.1) |
+| 114 | Pharmacy portal: dashboard, analytics and statements; remove the mock seed |
+| 115 | Backend: driver availability, profile and location (module-08 §9.1); walk accounts with e-mail and passwords |
+| 116 | Driver app: scaffold, auth, CI |
+| 117 | Driver app: availability and offers |
+| 118 | Driver app: active job and live tracking |
+| 119 | Driver app: proof of delivery |
+| 120 | Driver app: COD and earnings |
+| 121 | Operations portal: run a statement; reconciliation report |
+| 122 | Customer app: staff-account and refused-e-mail messages |
+| 123 | Live walk with every role in its own app; fix what breaks; close-out |
 
 Backend gaps found while building a page get their own Work, inserted before that page's Work.

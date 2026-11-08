@@ -27,7 +27,9 @@ import { GetActiveCartQuery } from './application/queries/get-active-cart.query'
 import { GetOrderInvoiceQuery } from './application/queries/get-order-invoice.query';
 import { GetOrderQuery } from './application/queries/get-order.query';
 import { ListOrdersQuery } from './application/queries/list-orders.query';
-import { ListPharmacyOrdersQuery } from './application/queries/list-pharmacy-orders.query';
+import { GetPharmacyOrderQuery, ListPharmacyOrdersQuery } from './application/queries/list-pharmacy-orders.query';
+import { PHARMACY_ORDER_VIEW_READ_PORT } from './application/ports/inbound/pharmacy-order-view-read.port';
+import { PrismaPharmacyOrderViewReadAdapter } from './infrastructure/persistence/prisma-pharmacy-order-view-read.adapter';
 import { CART_REPOSITORY } from './domain/repositories/cart.repository';
 import { FULFILLMENT_REPOSITORY } from './domain/repositories/fulfillment.repository';
 import { ORDER_REPOSITORY } from './domain/repositories/order.repository';
@@ -133,6 +135,7 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     { provide: ORDER_BACKLOG_SUMMARY_READ_PORT, useClass: PrismaOrderBacklogSummaryReadAdapter },
     // Module 16 Work 46 — fulfillment operations: fulfillments listed and read with explicit fields.
     { provide: FULFILLMENT_OPERATIONS_READ_PORT, useClass: PrismaFulfillmentOperationsReadAdapter },
+    { provide: PHARMACY_ORDER_VIEW_READ_PORT, useClass: PrismaPharmacyOrderViewReadAdapter },
     // Module 08's `delivery.job.created` -> `fulfillments.deliveryJobId` (Work 42A). A guarded write
     // of the reference column only; failures are recovered by `npm run maintenance:backfill-delivery-job-refs`.
     { provide: FULFILLMENT_DELIVERY_JOB_LINK_REPOSITORY, useClass: PrismaFulfillmentDeliveryJobLinkRepository },
@@ -191,6 +194,7 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
 
     // Pharmacy fulfillment (§9.4)
     ListPharmacyOrdersQuery,
+    GetPharmacyOrderQuery,
     AcceptFulfillmentCommand,
     DeclineFulfillmentCommand,
     PrepareFulfillmentCommand,
