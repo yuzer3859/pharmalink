@@ -26,7 +26,18 @@ export interface PrescriptionReviewRouting {
  *
  * Both take an explicit `customerUserId`; nothing here crosses customers.
  */
+/** What the customer asks to dispense against the prescription; the pharmacist approves these. */
+export interface RequestedRxItem {
+  catalogProductId: string;
+  productName: string | null;
+  quantity: number;
+}
+
 export interface IPrescriptionReviewRoutingPort {
-  routeForReview(input: { customerUserId: string; verifyingOrganizationId: string }): Promise<PrescriptionReviewRouting | null>;
+  routeForReview(input: {
+    customerUserId: string;
+    verifyingOrganizationId: string;
+    requestedItems: RequestedRxItem[];
+  }): Promise<PrescriptionReviewRouting | null>;
   verifyingOrganizationsFor(input: { customerUserId: string; prescriptionLineIds: string[] }): Promise<string[]>;
 }

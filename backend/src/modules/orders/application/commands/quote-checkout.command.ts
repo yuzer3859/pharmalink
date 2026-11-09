@@ -107,7 +107,7 @@ export class QuoteCheckoutCommand {
     // Step 1 — fresh Catalog re-price (§4 step 1). An unpriced/inactive/deleted product takes the
     // same `CATALOG_PRODUCT_NOT_FOUND` branch checkout takes, so a quote can never promise a
     // price checkout would refuse.
-    const priced: Array<{ catalogProductId: string; unitPrice: number; quantity: number; isRx: boolean; cartItemId: string; cachedPrice: number | null; cachedRequiresRx: boolean }> = [];
+    const priced: Array<{ catalogProductId: string; name: string; unitPrice: number; quantity: number; isRx: boolean; cartItemId: string; cachedPrice: number | null; cachedRequiresRx: boolean }> = [];
     for (const item of cartItems) {
       const product = await this.catalog.getProduct(item.catalogProductId);
       if (!product || product.status !== 'ACTIVE') {
@@ -115,6 +115,7 @@ export class QuoteCheckoutCommand {
       }
       priced.push({
         catalogProductId: item.catalogProductId,
+        name: product.name,
         unitPrice: product.price,
         quantity: item.quantity,
         isRx: RxClassificationPolicy.requiresPrescription(product.rxClassification),
@@ -186,8 +187,13 @@ export class QuoteCheckoutCommand {
     let prescriptionReview: PrescriptionReviewRouting | null = null;
     if (!rxGateResult.allowed) {
       const organizationId = topCandidate ? await this.pharmacies.getOrganizationId(topCandidate.pharmacyId) : null;
+      // What the pharmacist approves against: the Rx lines the gate blocked, as quoted.
+      const blockedIds = new Set(rxGateResult.blocked.map((b) => b.catalogProductId));
+      const requestedItems = rxLines
+        .filter((line) => blockedIds.has(line.catalogProductId))
+        .map((line) => ({ catalogProductId: line.catalogProductId, productName: line.name || null, quantity: line.quantity }));
       prescriptionReview = organizationId
-        ? await this.rxReview.routeForReview({ customerUserId: input.customerUserId, verifyingOrganizationId: organizationId })
+        ? await this.rxReview.routeForReview({ customerUserId: input.customerUserId, verifyingOrganizationId: organizationId, requestedItems })
         : null;
     }
 

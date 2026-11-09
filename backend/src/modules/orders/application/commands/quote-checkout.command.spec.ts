@@ -270,7 +270,12 @@ describe('QuoteCheckoutCommand (spec 9.2 — POST /checkout/quote)', () => {
       const result = await command.execute(input());
 
       expect(pharmacies.getOrganizationId).toHaveBeenCalledWith('pharmacy-1');
-      expect(rxReview.routeForReview).toHaveBeenCalledWith({ customerUserId: 'customer-1', verifyingOrganizationId: 'organization-1' });
+      // The pharmacist approves against the blocked Rx lines, as quoted.
+      expect(rxReview.routeForReview).toHaveBeenCalledWith({
+        customerUserId: 'customer-1',
+        verifyingOrganizationId: 'organization-1',
+        requestedItems: [{ catalogProductId: 'product-1', productName: 'Ibuprofen 400mg', quantity: 2 }],
+      });
       expect(result.prescriptionReview).toEqual(routing);
     });
 

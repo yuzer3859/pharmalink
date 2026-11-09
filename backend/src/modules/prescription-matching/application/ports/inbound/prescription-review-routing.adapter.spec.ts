@@ -28,10 +28,11 @@ describe('PrescriptionReviewRoutingAdapter (Work 109)', () => {
       prescriptions.listByCustomer.mockResolvedValueOnce({ items: [rx()], total: 1 } as never);
       assign.execute.mockResolvedValue(rx({ status: PrescriptionStatus.PENDING_VERIFICATION, verifyingPharmacyId: 'org-1' }) as never);
 
-      const result = await adapter.routeForReview({ customerUserId: 'customer-1', verifyingOrganizationId: 'org-1' });
+      const requestedItems = [{ catalogProductId: 'p-1', productName: 'Amoxicillin', quantity: 2 }];
+      const result = await adapter.routeForReview({ customerUserId: 'customer-1', verifyingOrganizationId: 'org-1', requestedItems });
 
       expect(prescriptions.listByCustomer).toHaveBeenCalledWith({ customerUserId: 'customer-1', status: PrescriptionStatus.UPLOADED, page: 1, size: 1 });
-      expect(assign.execute).toHaveBeenCalledWith({ prescriptionId: 'rx-1', pharmacyId: 'org-1' });
+      expect(assign.execute).toHaveBeenCalledWith({ prescriptionId: 'rx-1', pharmacyId: 'org-1', requestedItems });
       expect(result).toEqual({ prescriptionId: 'rx-1', status: PrescriptionStatus.PENDING_VERIFICATION, verifyingOrganizationId: 'org-1', routedNow: true });
     });
 
@@ -41,7 +42,7 @@ describe('PrescriptionReviewRoutingAdapter (Work 109)', () => {
         .mockResolvedValueOnce({ items: [], total: 0 } as never)
         .mockResolvedValueOnce({ items: [rx({ id: 'rx-2', status: PrescriptionStatus.PENDING_VERIFICATION, verifyingPharmacyId: 'org-9' })], total: 1 } as never);
 
-      const result = await adapter.routeForReview({ customerUserId: 'customer-1', verifyingOrganizationId: 'org-1' });
+      const result = await adapter.routeForReview({ customerUserId: 'customer-1', verifyingOrganizationId: 'org-1', requestedItems: [] });
 
       expect(assign.execute).not.toHaveBeenCalled();
       expect(result).toEqual({ prescriptionId: 'rx-2', status: PrescriptionStatus.PENDING_VERIFICATION, verifyingOrganizationId: 'org-9', routedNow: false });
@@ -49,7 +50,7 @@ describe('PrescriptionReviewRoutingAdapter (Work 109)', () => {
 
     it('returns null when the customer has nothing to review', async () => {
       const { adapter, assign } = build();
-      await expect(adapter.routeForReview({ customerUserId: 'customer-1', verifyingOrganizationId: 'org-1' })).resolves.toBeNull();
+      await expect(adapter.routeForReview({ customerUserId: 'customer-1', verifyingOrganizationId: 'org-1', requestedItems: [] })).resolves.toBeNull();
       expect(assign.execute).not.toHaveBeenCalled();
     });
   });

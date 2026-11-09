@@ -87,6 +87,11 @@ describe('Phase 1 marketplace, end to end (Work 103)', () => {
     const again = body(await customer.post('/checkout/quote', { addressId: shop.addressId }).expect(200));
     expect(again.prescriptionReview).toMatchObject({ prescriptionId: rxId, routedNow: false });
     const pharmacist = await grantOrgRole(ctx, 'PHARMACIST', shop.pharmacy.organizationId);
+    // The pharmacist sees what the customer asks for, to approve lines against it.
+    const review = body(await as(pharmacist.accessToken).get(`/pharmacy/verification/${rxId}`).expect(200));
+    expect(review.requestedItems).toEqual([expect.objectContaining({ catalogProductId: shop.catalogProductId, quantity: expect.any(Number) })]);
+    const queue = body(await as(pharmacist.accessToken).get('/pharmacy/verification/queue').expect(200)) as { items: Array<{ id: string }> };
+    expect(queue.items.map((i) => i.id)).toContain(rxId);
     await as(pharmacist.accessToken).post(`/pharmacy/verification/${rxId}/file`).expect(200);
     await as(pharmacist.accessToken)
       .post(`/pharmacy/verification/${rxId}/approve`, {

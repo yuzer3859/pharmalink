@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PrescriptionStatus } from '../../../domain/enums';
 import { IPrescriptionRepository, PRESCRIPTION_REPOSITORY } from '../../../domain/repositories/prescription.repository';
 import { AssignVerifyingPharmacyCommand } from '../../commands/assign-verifying-pharmacy.command';
-import { IPrescriptionReviewRoutingPort, PrescriptionReviewRouting } from './prescription-review-routing.port';
+import { IPrescriptionReviewRoutingPort, PrescriptionReviewRouting, RequestedRxItem } from './prescription-review-routing.port';
 
 /** The newest prescriptions are what checkout is about; older ones are not routed by a quote. */
 const RECENT = 20;
@@ -15,7 +15,11 @@ export class PrescriptionReviewRoutingAdapter implements IPrescriptionReviewRout
     private readonly assign: AssignVerifyingPharmacyCommand,
   ) {}
 
-  async routeForReview(input: { customerUserId: string; verifyingOrganizationId: string }): Promise<PrescriptionReviewRouting | null> {
+  async routeForReview(input: {
+    customerUserId: string;
+    verifyingOrganizationId: string;
+    requestedItems: RequestedRxItem[];
+  }): Promise<PrescriptionReviewRouting | null> {
     const { items: uploaded } = await this.prescriptions.listByCustomer({
       customerUserId: input.customerUserId,
       status: PrescriptionStatus.UPLOADED,
@@ -24,7 +28,11 @@ export class PrescriptionReviewRoutingAdapter implements IPrescriptionReviewRout
     });
     const next = uploaded.find((p) => !p.verifyingPharmacyId);
     if (next) {
-      const routed = await this.assign.execute({ prescriptionId: next.id, pharmacyId: input.verifyingOrganizationId });
+      const routed = await this.assign.execute({
+        prescriptionId: next.id,
+        pharmacyId: input.verifyingOrganizationId,
+        requestedItems: input.requestedItems,
+      });
       return { prescriptionId: routed.id, status: routed.status, verifyingOrganizationId: input.verifyingOrganizationId, routedNow: true };
     }
 

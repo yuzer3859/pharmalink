@@ -19,9 +19,18 @@ export interface PrescriptionSnapshot {
   verifiedAt: Date | null;
   verifyingPharmacyId: string | null;
   rejectionReason: string | null;
+  /** Work 109: what checkout asked to dispense against it when routing it for review. */
+  requestedItems?: PrescriptionRequestedItem[] | null;
   retentionUntil: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Work 109: one item the customer asks for against a prescription, as checkout saw it. */
+export interface PrescriptionRequestedItem {
+  catalogProductId: string;
+  productName: string | null;
+  quantity: number;
 }
 
 /** Data required to create a brand-new Prescription (`UploadPrescriptionCommand`, §5.1, §12). */
@@ -53,6 +62,8 @@ export interface PrescriptionStatusUpdate {
   fileRef?: string | null;
   encryptionKeyRef?: string | null;
   fileType?: string | null;
+  /** Work 109: set when checkout routes the prescription for review. */
+  requestedItems?: PrescriptionRequestedItem[];
 }
 
 /**

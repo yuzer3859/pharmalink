@@ -5,6 +5,7 @@ import { PrescriptionMatchingErrors } from '../../domain/errors';
 import {
   IPrescriptionRepository,
   PRESCRIPTION_REPOSITORY,
+  PrescriptionRequestedItem,
   PrescriptionSnapshot,
 } from '../../domain/repositories/prescription.repository';
 import { PrescriptionStatusPolicy } from '../../domain/services/prescription-status-policy';
@@ -14,6 +15,8 @@ import { runWithMatchRetry } from '../support/match-retry';
 export interface AssignVerifyingPharmacyInput {
   prescriptionId: string;
   pharmacyId: string;
+  /** Work 109: what checkout asks to dispense against it, for the reviewing pharmacist. */
+  requestedItems?: PrescriptionRequestedItem[];
 }
 
 /**
@@ -58,7 +61,11 @@ export class AssignVerifyingPharmacyCommand {
 
       await this.prescriptions.updateStatus(
         fresh.id,
-        { status: PrescriptionStatus.PENDING_VERIFICATION, verifyingPharmacyId: input.pharmacyId },
+        {
+          status: PrescriptionStatus.PENDING_VERIFICATION,
+          verifyingPharmacyId: input.pharmacyId,
+          ...(input.requestedItems ? { requestedItems: input.requestedItems } : {}),
+        },
         tx,
       );
 
