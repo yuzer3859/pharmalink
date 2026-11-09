@@ -249,11 +249,9 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('staff:manage:org')) {
       result.add('staff:view');
       result.add('staff:manage');
-    }
-    if (has('rbac:read')) result.add('roles:view');
-    if (has('rbac:manage')) {
+      // Work 114: the pharmacy's Roles page is the staff roles, read-only, from GET /pharmacy/staff
+      // (staff:manage:org). Pharmacies cannot define roles, so there is no roles:manage here.
       result.add('roles:view');
-      result.add('roles:manage');
     }
     if (has('settlement:read:org', 'finance:report:any')) result.add('reports:view');
     if (has('finance:report:any')) result.add('reports:export');

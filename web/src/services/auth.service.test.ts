@@ -117,3 +117,17 @@ describe('toAuthUser: the pharmacist review queue (Work 110)', () => {
     expect(toAuthUser(user('ADMIN', ['auth:login', 'prescription:verify'])).permissions).not.toContain('prescriptions:verify');
   });
 });
+
+describe('toAuthUser: pharmacy staff and roles (Work 114)', () => {
+  it('an owner or manager (staff:manage:org) sees Staff and the read-only Roles, never roles:manage', () => {
+    const owner = toAuthUser(user('PHARMACY_OWNER', ['auth:login', 'staff:manage:org', 'order:fulfill:org']));
+    expect(owner.permissions).toEqual(expect.arrayContaining(['staff:view', 'staff:manage', 'roles:view']));
+    expect(owner.permissions).not.toContain('roles:manage');
+  });
+
+  it('a pharmacist without staff:manage:org sees neither', () => {
+    const pharmacist = toAuthUser(user('PHARMACIST', ['auth:login', 'prescription:verify', 'order:fulfill:org', 'rbac:read']));
+    expect(pharmacist.permissions).not.toContain('staff:view');
+    expect(pharmacist.permissions).not.toContain('roles:view');
+  });
+});
