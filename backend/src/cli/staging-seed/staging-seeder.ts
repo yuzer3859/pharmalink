@@ -115,10 +115,19 @@ export class StagingSeeder {
 
   private async ensureAccount(account: (typeof FIXTURE_ACCOUNTS)[number]): Promise<void> {
     const users = this.app.get<IUserRepository>(USER_REPOSITORY);
-    const found = account.email ? await users.findByEmail(account.email) : await users.findByPhone(account.phone!);
+    const byEmail = account.email ? await users.findByEmail(account.email) : null;
+    const found = byEmail ?? (account.phone ? await users.findByPhone(account.phone) : null);
     if (found) {
+      // Work 117: a fixture seeded before it had an e-mail (the walk drivers) gets it now, verified,
+      // so the person can sign in by e-mail; the account is otherwise left as it is.
+      if (account.email && !byEmail) {
+        await this.prisma.user.update({ where: { id: found.id }, data: { email: account.email, emailVerifiedAt: new Date() } });
+        await this.audit('staging.seed.account_email_added', 'user', found.id, { fixture: account.key });
+        this.note(true, `e-mail for account ${account.key}`);
+      } else {
+        this.note(false, `account ${account.key}`);
+      }
       this.accounts.set(account.key, found.id);
-      this.note(false, `account ${account.key}`);
       return;
     }
     // Direct creation, as the e2e fixtures do: registration would need an OTP round-trip per

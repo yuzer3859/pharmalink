@@ -10,7 +10,7 @@ import {
 } from '../modules/identity/domain/repositories/auth.repositories';
 import { IUserRepository, USER_REPOSITORY } from '../modules/identity/domain/repositories/user.repository';
 import { PasswordPolicy } from '../modules/identity/domain/value-objects/password-policy';
-import { FIXTURE_ACCOUNTS } from './staging-seed/fixtures';
+import { FIXTURE_ACCOUNTS, FIXTURE_ORGANIZATIONS } from './staging-seed/fixtures';
 import { EXIT_REFUSED, FixturePasswordStore, runSetStagingPassword } from './staging-seed/set-staging-password.runner';
 import { createStagingContext, StagingRefusedError } from './staging-seed/staging-context';
 import { createTerminalPrompter } from './terminal-prompter';
@@ -58,10 +58,13 @@ async function main(): Promise<void> {
   const app = await createStagingContext();
   const io = createTerminalPrompter();
   try {
-    const accounts = FIXTURE_ACCOUNTS.filter((a) => a.signIn).map((a) => ({
-      email: a.email!,
-      administrator: a.primaryRole === 'ADMIN',
-    }));
+    const accounts = [
+      ...FIXTURE_ACCOUNTS.filter((a) => a.signIn).map((a) => ({ email: a.email!, administrator: a.primaryRole === 'ADMIN' })),
+      // Work 117: the Phase 1 walk's own sign-ins, each in its own app: the walk pharmacy's owner
+      // (also its pharmacist) in the pharmacy portal, and the two walk drivers in the driver app.
+      { email: FIXTURE_ORGANIZATIONS.find((o) => o.key === 'transacting')!.ownerEmail, administrator: false },
+      ...FIXTURE_ACCOUNTS.filter((a) => a.key === 'driverCod' || a.key === 'driverWalkSpare').map((a) => ({ email: a.email!, administrator: false })),
+    ];
     process.exitCode = await runSetStagingPassword(identityStore(app), io, accounts);
   } finally {
     io.close();
