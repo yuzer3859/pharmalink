@@ -125,6 +125,20 @@ describe('checkout (Work 100)', () => {
     expect(screen.getByRole('button', { name: 'Place order' }).disabled).toBe(true)
   })
 
+  it('says the prescription is with the pharmacist once checkout has sent it for review (Work 110)', async () => {
+    signedInApp('/checkout', {
+      'GET /cart': ok({ ...cartWith(), items: [{ ...cartWith().items[0], requiresRx: true }] }),
+      'POST /checkout/quote': ok({
+        ...quote,
+        rxGateResult: { allowed: false, blocked: [{ catalogProductId: PRODUCT_ID }], usablePrescriptionLineIds: [] },
+        prescriptionReview: { prescriptionId: 'rx-1', status: 'PENDING_VERIFICATION', verifyingOrganizationId: 'org-1', routedNow: true },
+      }),
+    })
+    expect(await screen.findByText(/with the pharmacist for review/)).toBeTruthy()
+    expect(screen.queryByText(/A prescription is needed/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Place order' }).disabled).toBe(true)
+  })
+
   it('the product page adds the product to the signed-in cart', async () => {
     const { callsTo } = signedInApp(`/medicines/${PRODUCT_ID}`, {
       [`GET /availability/product/${PRODUCT_ID}`]: ok([]),

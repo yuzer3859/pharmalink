@@ -104,3 +104,16 @@ describe('toAuthUser: support view (Work 85)', () => {
     expect(toAuthUser(user('FINANCE_OFFICER', ['finance:report:any', 'support:impersonate:any'])).permissions).not.toContain('support:impersonate');
   });
 });
+
+describe('toAuthUser: the pharmacist review queue (Work 110)', () => {
+  it('shows Prescriptions to a pharmacy account holding prescription:verify, and not without it', () => {
+    const pharmacist = toAuthUser(user('PHARMACIST', ['auth:login', 'prescription:verify', 'order:fulfill:org']));
+    expect(pharmacist.portal).toBe('pharmacy');
+    expect(pharmacist.permissions).toContain('prescriptions:verify');
+    expect(toAuthUser(user('PHARMACY_OWNER', ['auth:login', 'order:fulfill:org'])).permissions).not.toContain('prescriptions:verify');
+  });
+
+  it('never gives it to an operations administrator, who has no pharmacy', () => {
+    expect(toAuthUser(user('ADMIN', ['auth:login', 'prescription:verify'])).permissions).not.toContain('prescriptions:verify');
+  });
+});

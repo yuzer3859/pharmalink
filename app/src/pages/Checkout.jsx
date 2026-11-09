@@ -331,9 +331,16 @@ export default function Checkout() {
               </dl>
             )}
             {rxBlocked && (
-              <p className="text-caption text-warning">
-                A prescription is needed for an item in your cart. <Link to="/prescriptions" className="font-semibold underline">Upload a prescription</Link>
-              </p>
+              quote.data?.prescriptionReview?.status === 'PENDING_VERIFICATION' ? (
+                // Work 110: the quote sent the prescription to the matched pharmacy (Work 109).
+                <p className="text-caption text-warning" role="status">
+                  Your prescription is with the pharmacist for review. You can pay once it is approved; reopen this page to check.
+                </p>
+              ) : (
+                <p className="text-caption text-warning">
+                  A prescription is needed for an item in your cart. <Link to="/prescriptions" className="font-semibold underline">Upload a prescription</Link>
+                </p>
+              )
             )}
             <Button size="lg" className="w-full" disabled={!canPlace} onClick={place}>
               {placing ? 'Placing order…' : method === 'COD' ? 'Place order' : 'Pay and place order'}

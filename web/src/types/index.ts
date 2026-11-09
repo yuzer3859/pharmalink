@@ -30,7 +30,9 @@ export type PermissionKey =
   | 'disputes:manage'
   | 'staff:monitor'
   | 'reviews:moderate'
-  | 'settings:manage';
+  | 'settings:manage'
+  // Work 110: a pharmacist reviews prescriptions routed to their pharmacy (`prescription:verify`).
+  | 'prescriptions:verify';
 
 export interface AuthUser {
   id: string;
