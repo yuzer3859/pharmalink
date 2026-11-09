@@ -19,9 +19,14 @@ import {
   MATCHING_PORT,
 } from '../../../prescription-matching/application/ports/inbound/matching.port';
 import {
+  IPrescriptionReviewRoutingPort,
+  PRESCRIPTION_REVIEW_ROUTING_PORT,
+} from '../../../prescription-matching/application/ports/inbound/prescription-review-routing.port';
+import {
   DELIVERY_PRICING_PORT,
   IDeliveryPricingPort,
 } from '../../../delivery/application/ports/inbound/delivery-pricing.port';
+import { IPharmacyPort, PHARMACY_PORT } from '../ports/outbound/pharmacy.port';
 import {
   COUPON_PORT,
   ICouponPort,
@@ -197,7 +202,28 @@ export class CheckoutCommand {
     private readonly outbox: OutboxService,
     @Inject(PAYMENT_AUTHORIZATION_PORT) private readonly payments: IPaymentAuthorizationPort,
     private readonly prepaid: PrepaidPaymentService,
+    @Inject(PRESCRIPTION_REVIEW_ROUTING_PORT) private readonly rxReview: IPrescriptionReviewRoutingPort,
+    @Inject(PHARMACY_PORT) private readonly pharmacies: IPharmacyPort,
   ) {}
+
+  /**
+   * Work 109 (owner decision 2026-11-09, module-05 Model A): the pharmacy whose pharmacist
+   * approved the prescription lines this order dispenses against is the pharmacy that fills it.
+   * `null` when the cart dispenses against no prescription, or only against ones approved before
+   * routing existed (no verifying pharmacy recorded): then matching chooses as before.
+   */
+  private async rxDispensingPharmacyId(customerUserId: string, prescriptionLineIds: string[]): Promise<string | null> {
+    if (prescriptionLineIds.length === 0) return null;
+    const organizations = await this.rxReview.verifyingOrganizationsFor({ customerUserId, prescriptionLineIds });
+    if (organizations.length === 0) return null;
+    if (organizations.length > 1) {
+      throw OrdersErrors.validation(
+        'The prescriptions in this cart were approved by different pharmacies. Order the items of each prescription separately.',
+      );
+    }
+    const [pharmacyId] = await this.pharmacies.findPharmacyIdsByOrganizationIds(organizations);
+    return pharmacyId ?? null;
+  }
 
   async execute(input: CheckoutInput): Promise<CheckoutResult> {
     // Step 1 — idempotency replay check (§4/§13.5), before any Rx-gate/matching/reservation work.
@@ -292,10 +318,15 @@ export class CheckoutCommand {
       deliveryLat: address.lat ?? undefined,
       deliveryLng: address.lng ?? undefined,
     });
+    // Work 109: a prescription order goes to the pharmacy that approved its prescription. If that
+    // pharmacy cannot fill it now, selection refuses (`MATCH_CANDIDATE_UNAVAILABLE`) rather than
+    // handing the prescription to a pharmacy that never verified it.
+    const rxPharmacyId = await this.rxDispensingPharmacyId(input.customerUserId, [...prescriptionLineIdByProduct.values()]);
     const selected = await this.matching.select({
       matchRequestId: findResult.matchRequest.id,
       customerUserId: input.customerUserId,
       lines: matchLines,
+      ...(rxPharmacyId ? { pharmacyId: rxPharmacyId } : {}),
     });
     const chosenResult = selected.chosenResult;
     if (!chosenResult) {

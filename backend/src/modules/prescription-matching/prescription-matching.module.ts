@@ -16,6 +16,8 @@ import { CHECK_RX_GATE_PORT } from './application/ports/inbound/check-rx-gate.po
 import { DISPENSING_PORT } from './application/ports/inbound/dispensing.port';
 import { MatchingPortAdapter } from './application/ports/inbound/matching-port.adapter';
 import { MATCHING_PORT } from './application/ports/inbound/matching.port';
+import { PRESCRIPTION_REVIEW_ROUTING_PORT } from './application/ports/inbound/prescription-review-routing.port';
+import { PrescriptionReviewRoutingAdapter } from './application/ports/inbound/prescription-review-routing.adapter';
 import { PRESCRIPTION_RECIPIENT_READ_PORT } from './application/ports/inbound/prescription-recipient-read.port';
 import { PrismaPrescriptionRecipientReadAdapter } from './infrastructure/persistence/prisma-prescription-recipient-read.adapter';
 import { AVAILABILITY_PORT } from './application/ports/outbound/availability.port';
@@ -114,7 +116,10 @@ import { VerificationController } from './interface/controllers/verification.con
     // Inbound read contract for Module 13's prescription/matching notifications (module-13
     // Work 06): a prescription's or match request's `customerUserId`, nothing else.
     { provide: PRESCRIPTION_RECIPIENT_READ_PORT, useClass: PrismaPrescriptionRecipientReadAdapter },
+    // Work 109: routes the customer's prescription to the matched pharmacy's review queue, and
+    // tells checkout which pharmacy approved it (owner decision: verify before paying).
+    { provide: PRESCRIPTION_REVIEW_ROUTING_PORT, useClass: PrescriptionReviewRoutingAdapter },
   ],
-  exports: [CHECK_RX_GATE_PORT, DISPENSING_PORT, MATCHING_PORT, PRESCRIPTION_RECIPIENT_READ_PORT],
+  exports: [CHECK_RX_GATE_PORT, DISPENSING_PORT, MATCHING_PORT, PRESCRIPTION_RECIPIENT_READ_PORT, PRESCRIPTION_REVIEW_ROUTING_PORT],
 })
 export class PrescriptionMatchingModule {}

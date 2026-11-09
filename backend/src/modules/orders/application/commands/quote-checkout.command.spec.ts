@@ -142,6 +142,15 @@ function build() {
     quote: jest.fn().mockResolvedValue(deliveryQuote(100)),
   };
 
+  const rxReview = {
+    routeForReview: jest.fn().mockResolvedValue(null),
+    verifyingOrganizationsFor: jest.fn().mockResolvedValue([]),
+  };
+  const pharmacies = {
+    getOrganizationId: jest.fn().mockResolvedValue('organization-1'),
+    findPharmacyIdsByOrganizationIds: jest.fn().mockResolvedValue([]),
+  };
+
   const command = new QuoteCheckoutCommand(
     carts,
     catalog,
@@ -150,8 +159,10 @@ function build() {
     matching,
     deliveryPricing,
     config,
+    rxReview,
+    pharmacies,
   );
-  return { command, carts, catalog, addresses, checkRxGate, matching, deliveryPricing };
+  return { command, carts, catalog, addresses, checkRxGate, matching, deliveryPricing, rxReview, pharmacies };
 }
 
 const input = () => ({ customerUserId: 'customer-1', addressId: 'address-1' });
@@ -239,6 +250,45 @@ describe('QuoteCheckoutCommand (spec 9.2 — POST /checkout/quote)', () => {
       allowed: true,
       blocked: [],
       usablePrescriptionLineIds: [],
+    });
+  });
+
+  describe('prescription review routing (Work 109, verify before paying)', () => {
+    const blocked = () => ({
+      allowed: false,
+      blocked: [{ catalogProductId: 'product-1', reason: 'RX_REQUIRED' }] as never,
+      usablePrescriptionLineIds: [],
+    });
+
+    it('a blocked Rx cart routes the prescription to the organisation of the pharmacy ranked first', async () => {
+      const { command, checkRxGate, catalog, rxReview, pharmacies } = build();
+      catalog.getProduct.mockResolvedValue(product({ rxClassification: 'RX' }));
+      checkRxGate.check.mockResolvedValue(blocked());
+      const routing = { prescriptionId: 'rx-1', status: 'PENDING_VERIFICATION', verifyingOrganizationId: 'organization-1', routedNow: true };
+      rxReview.routeForReview.mockResolvedValue(routing);
+
+      const result = await command.execute(input());
+
+      expect(pharmacies.getOrganizationId).toHaveBeenCalledWith('pharmacy-1');
+      expect(rxReview.routeForReview).toHaveBeenCalledWith({ customerUserId: 'customer-1', verifyingOrganizationId: 'organization-1' });
+      expect(result.prescriptionReview).toEqual(routing);
+    });
+
+    it('routes nothing when the gate allows the cart', async () => {
+      const { command, rxReview } = build();
+      const result = await command.execute(input());
+      expect(rxReview.routeForReview).not.toHaveBeenCalled();
+      expect(result.prescriptionReview).toBeNull();
+    });
+
+    it('routes nothing when no pharmacy can fill the cart', async () => {
+      const { command, checkRxGate, catalog, matching, rxReview } = build();
+      catalog.getProduct.mockResolvedValue(product({ rxClassification: 'RX' }));
+      checkRxGate.check.mockResolvedValue(blocked());
+      matching.find.mockResolvedValue({ matchRequest: { id: 'match-1' }, candidates: [] } as never);
+      const result = await command.execute(input());
+      expect(rxReview.routeForReview).not.toHaveBeenCalled();
+      expect(result.prescriptionReview).toBeNull();
     });
   });
 
