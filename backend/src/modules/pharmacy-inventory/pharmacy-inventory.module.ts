@@ -25,7 +25,7 @@ import { UNIT_OF_WORK } from './application/ports/outbound/unit-of-work.port';
 import { GetAvailabilityQuery } from './application/queries/get-availability.query';
 import { GetListingMovementsQuery } from './application/queries/get-listing-movements.query';
 import { GetReservationFulfillmentQuery } from './application/queries/get-reservation-fulfillment.query';
-import { ListListingsQuery } from './application/queries/list-listings.query';
+import { GetListingQuery, ListListingsQuery } from './application/queries/list-listings.query';
 import { ResolveCallerPharmacyQuery } from './application/queries/resolve-caller-pharmacy.query';
 import { InventoryPortService } from './application/services/inventory-port.service';
 import { BRANCH_REPOSITORY } from './domain/repositories/branch.repository';
@@ -113,6 +113,7 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     AddBatchCommand,
     AdjustBatchCommand,
     ListListingsQuery,
+    GetListingQuery,
     GetListingMovementsQuery,
 
     // Reservation use cases

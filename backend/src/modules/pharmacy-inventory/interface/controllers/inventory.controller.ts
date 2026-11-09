@@ -8,7 +8,7 @@ import { CreateListingCommand } from '../../application/commands/create-listing.
 import { DeleteListingCommand } from '../../application/commands/delete-listing.command';
 import { UpdateListingCommand } from '../../application/commands/update-listing.command';
 import { GetListingMovementsQuery } from '../../application/queries/get-listing-movements.query';
-import { ListListingsQuery } from '../../application/queries/list-listings.query';
+import { GetListingQuery, ListListingsQuery } from '../../application/queries/list-listings.query';
 import { ResolveCallerPharmacyQuery } from '../../application/queries/resolve-caller-pharmacy.query';
 import {
   AddBatchDto,
@@ -30,6 +30,7 @@ export class InventoryController {
     private readonly addBatch: AddBatchCommand,
     private readonly adjustBatch: AdjustBatchCommand,
     private readonly listListings: ListListingsQuery,
+    private readonly getListing: GetListingQuery,
     private readonly getListingMovements: GetListingMovementsQuery,
   ) {}
 
@@ -38,6 +39,14 @@ export class InventoryController {
   async list(@CurrentUser() user: AuthenticatedPrincipal, @Query() query: ListListingsQueryDto) {
     const pharmacy = await this.resolveCallerPharmacy.execute(user.userId);
     return this.listListings.execute({ pharmacyId: pharmacy.id, ...query });
+  }
+
+  /** Work 111: one listing with its product name and batches; another pharmacy's reads as not found. */
+  @Get('listings/:id')
+  @RequirePermissions('inventory:manage:org')
+  async getOne(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') id: string) {
+    const pharmacy = await this.resolveCallerPharmacy.execute(user.userId);
+    return this.getListing.execute({ pharmacyId: pharmacy.id, listingId: id });
   }
 
   @Post('listings')
