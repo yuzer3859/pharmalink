@@ -56,7 +56,8 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Prescriptions', path: 'prescriptions', icon: MedicationRoundedIcon, permission: 'prescriptions:verify', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
-      { label: 'Reports', path: 'reports', icon: SummarizeRoundedIcon, permission: 'reports:view', section: INSIGHTS },
+      // Work 116: the pharmacy's settlement statements (settlement:read:org).
+      { label: 'Statements', path: 'reports', icon: SummarizeRoundedIcon, permission: 'reports:view', section: INSIGHTS },
       { label: 'Staff', path: 'staff', icon: GroupsRoundedIcon, permission: 'staff:view', section: ADMIN },
       { label: 'Roles', path: 'roles', icon: AdminPanelSettingsRoundedIcon, permission: 'roles:view', section: ADMIN },
     ],

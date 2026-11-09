@@ -169,3 +169,10 @@ describe('reports (Work 90)', () => {
     expect(pageFor('pharmacy', 'reports')).toBe(ReportsPage);
   });
 });
+
+describe('the pharmacy portal after Work 116', () => {
+  it('calls its settlement page Statements, behind reports:view', () => {
+    const item = PORTALS.pharmacy.nav.find((i) => i.path === 'reports');
+    expect(item).toMatchObject({ label: 'Statements', permission: 'reports:view' });
+  });
+});
