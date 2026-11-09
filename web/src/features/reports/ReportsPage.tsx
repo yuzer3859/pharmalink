@@ -1,175 +1,102 @@
 import { useState } from 'react';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  MenuItem,
-  Stack,
-  TextField,
-  Tooltip,
-} from '@mui/material';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import type { GridColDef } from '@mui/x-data-grid';
+import { Alert, Box, Divider, Drawer, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable } from '@/components/common/DataTable';
 import { StatusChip } from '@/components/common/StatusChip';
-import { useReports, useReportTemplates, useGenerateReport } from '@/hooks/useReports';
-import { useNotify } from '@/context/NotificationContext';
-import { useAuth } from '@/context/AuthContext';
 import { usePortal } from '@/hooks/usePortal';
-import { formatDateTime } from '@/utils/format';
-import type { ReportRecord } from '@/types';
+import { dashboardErrorMessage, useStatement, useStatements } from '@/hooks/usePharmacyDashboard';
+import { fromMinorUnits } from '@/services/adminOrders.service';
+import type { Statement } from '@/services/pharmacyDashboard.service';
+import { currency, formatDate, formatDateTime } from '@/utils/format';
 
-const PERIODS = ['Jan 2026', 'Feb 2026', 'Mar 2026', 'Apr 2026', 'Q1 2026'];
-const FORMATS: ReportRecord['format'][] = ['PDF', 'CSV', 'XLSX'];
+const money = (minor: number, code: string) => currency(fromMinorUnits(minor), code);
+const STATUSES = ['DRAFT', 'APPROVED', 'PROCESSING', 'PAID', 'FAILED'];
 
+function StatementDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const { data: s, isLoading, error } = useStatement(id);
+  return (
+    <Drawer anchor="right" open={!!id} onClose={onClose} PaperProps={{ sx: { width: { xs: '100%', sm: 500 } } }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2 }}>
+        <Typography variant="h6">{s?.statementRef ?? 'Statement'}</Typography>
+        <IconButton onClick={onClose} aria-label="Close">
+          <CloseRoundedIcon />
+        </IconButton>
+      </Stack>
+      <Divider />
+      <Box sx={{ p: 2 }}>
+        {error ? <Alert severity="error">{dashboardErrorMessage(error, 'The statement could not be loaded.')}</Alert> : null}
+        {isLoading ? <Skeleton variant="rounded" height={240} /> : null}
+        {s ? (
+          <Stack spacing={1.25}>
+            <StatusChip status={s.status.toLowerCase()} />
+            <Typography variant="body2" color="text.secondary">
+              {formatDate(s.periodStart)} – {formatDate(s.periodEnd)}
+            </Typography>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="body2">Sales payable to you</Typography><Typography variant="body2">{money(s.providerPayableGross, s.currency)}</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="body2">Refund clawback</Typography><Typography variant="body2">−{money(s.refundClawback, s.currency)}</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="subtitle2">Net payable</Typography><Typography variant="subtitle2">{money(s.netPayable, s.currency)}</Typography></Stack>
+            <Divider />
+            <Typography variant="subtitle2">Lines ({s.lines.length})</Typography>
+            {s.lines.map((l) => (
+              <Stack key={l.ledgerReference} direction="row" justifyContent="space-between" spacing={2}>
+                <Typography variant="body2">{l.transactionType.replace(/_/g, ' ').toLowerCase()} · {formatDateTime(l.occurredAt)}</Typography>
+                <Typography variant="body2">{money(l.providerPayableDelta, s.currency)}</Typography>
+              </Stack>
+            ))}
+            <Typography variant="caption" color="text.secondary">
+              Cash-on-delivery sales appear once the driver’s cash has reached PharmaLink. Payouts are approved by two PharmaLink finance officers.
+            </Typography>
+          </Stack>
+        ) : null}
+      </Box>
+    </Drawer>
+  );
+}
+
+/**
+ * Work 116: the pharmacy's settlement statements (`GET /settlements`, `settlement:read:org`),
+ * read-only. Replaces the earlier in-memory report generator, which no API backed.
+ */
 export function ReportsPage() {
   const portal = usePortal();
-  const { can } = useAuth();
-  const notify = useNotify();
-  const canExport = can('reports:export');
+  const [status, setStatus] = useState('all');
+  const [paging, setPaging] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [selected, setSelected] = useState<string | null>(null);
+  const { data, isLoading, isFetching, error } = useStatements({ status, page: paging.page + 1, size: paging.pageSize });
 
-  const { data = [], isLoading } = useReports();
-  const { data: templates = [] } = useReportTemplates();
-  const generate = useGenerateReport();
-
-  const [open, setOpen] = useState(false);
-  const [type, setType] = useState('');
-  const [period, setPeriod] = useState(PERIODS[0]);
-  const [format, setFormat] = useState<ReportRecord['format']>('PDF');
-
-  const submit = () => {
-    const chosen = type || templates[0] || 'Sales Summary';
-    generate.mutate(
-      { name: `${chosen} — ${period}`, type: chosen, period, format },
-      { onSuccess: () => setOpen(false) },
-    );
-  };
-
-  const columns: GridColDef[] = [
-    { field: 'name', headerName: 'Report', flex: 1.4, minWidth: 220 },
-    { field: 'type', headerName: 'Type', flex: 1, minWidth: 150 },
-    { field: 'period', headerName: 'Period', width: 120 },
-    { field: 'format', headerName: 'Format', width: 100 },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 130,
-      renderCell: (params) => <StatusChip status={params.value as string} />,
-    },
-    { field: 'generatedBy', headerName: 'By', width: 150 },
-    {
-      field: 'generatedAt',
-      headerName: 'Generated',
-      width: 170,
-      valueFormatter: (value: string) => formatDateTime(value),
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 70,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => {
-        const row = params.row as ReportRecord;
-        return (
-          <Tooltip title={row.status === 'ready' ? 'Download' : 'Not ready'}>
-            <span>
-              <IconButton
-                size="small"
-                disabled={!canExport || row.status !== 'ready'}
-                onClick={() => notify(`Downloading ${row.name} (${row.format})`, 'info')}
-              >
-                <DownloadRoundedIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        );
-      },
-    },
+  const columns: GridColDef<Statement>[] = [
+    { field: 'statementRef', headerName: 'Statement', flex: 1, minWidth: 170 },
+    { field: 'period', headerName: 'Period', width: 220, valueGetter: (_v, row) => `${formatDate(row.periodStart)} – ${formatDate(row.periodEnd)}` },
+    { field: 'netPayable', headerName: 'Net payable', width: 140, valueGetter: (_v, row) => money(row.netPayable, row.currency) },
+    { field: 'lineCount', headerName: 'Lines', width: 80, type: 'number' },
+    { field: 'status', headerName: 'Status', width: 130, renderCell: ({ value }) => <StatusChip status={String(value).toLowerCase()} /> },
   ];
 
   return (
     <>
-      <PageHeader
-        portalName={portal.title}
-        title="Reports"
-        subtitle="Generate, schedule and export operational and compliance reports."
-        actions={
-          canExport ? (
-            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setOpen(true)}>
-              Generate Report
-            </Button>
-          ) : undefined
-        }
-      />
-
+      <PageHeader portalName={portal.title} title="Statements" subtitle="What PharmaLink owes your pharmacy, statement by statement." />
+      <Stack direction="row" spacing={1.5} sx={{ mb: 2 }}>
+        <TextField select size="small" label="Status" value={status} onChange={(e) => { setStatus(e.target.value); setPaging((p) => ({ ...p, page: 0 })); }} sx={{ minWidth: 180 }}>
+          <MenuItem value="all">All statuses</MenuItem>
+          {STATUSES.map((s) => (
+            <MenuItem key={s} value={s}>{s.toLowerCase()}</MenuItem>
+          ))}
+        </TextField>
+      </Stack>
+      {error ? <Alert severity="error" sx={{ mb: 2 }}>{dashboardErrorMessage(error, 'Statements could not be loaded.')}</Alert> : null}
       <DataTable
-        rows={data}
-        columns={columns}
-        loading={isLoading}
-        emptyTitle="No reports yet"
-        emptyDescription="Generate a report to see it listed here."
+        rows={data?.items ?? []}
+        columns={columns as GridColDef[]}
+        getRowId={(row) => (row as Statement).settlementId}
+        loading={isLoading || isFetching}
+        onRowClick={(row) => setSelected((row as Statement).settlementId)}
+        emptyTitle="No statements yet"
+        emptyDescription="Statements appear once PharmaLink settles your pharmacy’s sales."
+        server={{ rowCount: data?.total ?? 0, paginationModel: paging, onPaginationModelChange: setPaging, pageSizeOptions: [10, 25, 50] }}
       />
-
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Generate Report</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 0.5 }}>
-            <TextField
-              select
-              label="Report type"
-              size="small"
-              value={type || templates[0] || ''}
-              onChange={(e) => setType(e.target.value)}
-            >
-              {templates.map((t) => (
-                <MenuItem key={t} value={t}>
-                  {t}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Period"
-              size="small"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-            >
-              {PERIODS.map((p) => (
-                <MenuItem key={p} value={p}>
-                  {p}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Format"
-              size="small"
-              value={format}
-              onChange={(e) => setFormat(e.target.value as ReportRecord['format'])}
-            >
-              {FORMATS.map((f) => (
-                <MenuItem key={f} value={f}>
-                  {f}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button color="inherit" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={submit} disabled={generate.isPending}>
-            Generate
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <StatementDrawer id={selected} onClose={() => setSelected(null)} />
     </>
   );
 }
