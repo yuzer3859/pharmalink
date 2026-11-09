@@ -1,8 +1,9 @@
 /**
  * Local development origins allowed when `WEB_ORIGIN` is unset: the operations portal (`web/`,
- * Vite on 5173) and the customer app (`app/`, Vite on 5174). Any deployment sets `WEB_ORIGIN`.
+ * Vite on 5173), the customer app (`app/`, Vite on 5174) and the driver app (`driver/`, Vite on
+ * 5175, Work 118). Any deployment sets `WEB_ORIGIN`.
  */
-export const DEFAULT_WEB_ORIGINS: readonly string[] = ['http://localhost:5173', 'http://localhost:5174'];
+export const DEFAULT_WEB_ORIGINS: readonly string[] = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
 
 /**
  * Parses `WEB_ORIGIN` (comma-separated) into the exact origins CORS allows. A `*` entry is refused:
