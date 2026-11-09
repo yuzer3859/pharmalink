@@ -8,6 +8,8 @@ export interface CatalogProductView {
   controlledSchedule: string;
   onlineSaleProhibited: boolean;
   storageRequirement: string;
+  /** Work 111: the display name (English, else generic, else brand); optional so earlier fakes stand. */
+  name?: string | null;
 }
 
 /**

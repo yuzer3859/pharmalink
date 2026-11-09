@@ -24,6 +24,7 @@ export class CatalogPortAdapter implements ICatalogPort {
       controlledSchedule: product.controlledSchedule,
       onlineSaleProhibited: product.onlineSaleProhibited,
       storageRequirement: product.storageRequirement,
+      name: product.nameEn ?? product.genericName ?? product.brandName ?? null,
     };
   }
 }
