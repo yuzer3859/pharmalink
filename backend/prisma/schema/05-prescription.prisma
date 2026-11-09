@@ -63,6 +63,10 @@ model Prescription {
   verifiedAt          DateTime?
   verifyingPharmacyId String?
   rejectionReason     String?
+  /// Work 109: what the customer is asking for against this prescription, recorded when checkout
+  /// routes it for review: `[{ catalogProductId, productName, quantity }]`. The reviewing
+  /// pharmacist approves lines for these products. Null for prescriptions never routed by checkout.
+  requestedItems      Json?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   retentionUntil      DateTime?

@@ -10,9 +10,15 @@ import {
   MATCHING_PORT,
 } from '../../../prescription-matching/application/ports/inbound/matching.port';
 import {
+  IPrescriptionReviewRoutingPort,
+  PRESCRIPTION_REVIEW_ROUTING_PORT,
+  PrescriptionReviewRouting,
+} from '../../../prescription-matching/application/ports/inbound/prescription-review-routing.port';
+import {
   DELIVERY_PRICING_PORT,
   IDeliveryPricingPort,
 } from '../../../delivery/application/ports/inbound/delivery-pricing.port';
+import { IPharmacyPort, PHARMACY_PORT } from '../ports/outbound/pharmacy.port';
 import { CartPolicy } from '../../domain/services/cart-policy';
 import { OrderTotals, PricingCalculator } from '../../domain/services/pricing-calculator';
 import { RxClassificationPolicy } from '../../domain/services/rx-classification-policy';
@@ -40,6 +46,11 @@ export interface QuoteCheckoutResult {
   rxGateResult: CheckRxGateResult;
   candidates: QuoteCandidate[];
   totals: OrderTotals;
+  /**
+   * Work 109: where the customer's prescription review stands, when the Rx gate blocks the cart.
+   * `null` when nothing is blocked, or the customer has no prescription to review.
+   */
+  prescriptionReview: PrescriptionReviewRouting | null;
 }
 
 /**
@@ -79,6 +90,8 @@ export class QuoteCheckoutCommand {
     @Inject(MATCHING_PORT) private readonly matching: IMatchingPort,
     @Inject(DELIVERY_PRICING_PORT) private readonly deliveryPricing: IDeliveryPricingPort,
     @Inject(CONFIG_PORT) private readonly config: IConfigPort,
+    @Inject(PRESCRIPTION_REVIEW_ROUTING_PORT) private readonly rxReview: IPrescriptionReviewRoutingPort,
+    @Inject(PHARMACY_PORT) private readonly pharmacies: IPharmacyPort,
   ) {}
 
   async execute(input: QuoteCheckoutInput): Promise<QuoteCheckoutResult> {
@@ -94,7 +107,7 @@ export class QuoteCheckoutCommand {
     // Step 1 — fresh Catalog re-price (§4 step 1). An unpriced/inactive/deleted product takes the
     // same `CATALOG_PRODUCT_NOT_FOUND` branch checkout takes, so a quote can never promise a
     // price checkout would refuse.
-    const priced: Array<{ catalogProductId: string; unitPrice: number; quantity: number; isRx: boolean; cartItemId: string; cachedPrice: number | null; cachedRequiresRx: boolean }> = [];
+    const priced: Array<{ catalogProductId: string; name: string; unitPrice: number; quantity: number; isRx: boolean; cartItemId: string; cachedPrice: number | null; cachedRequiresRx: boolean }> = [];
     for (const item of cartItems) {
       const product = await this.catalog.getProduct(item.catalogProductId);
       if (!product || product.status !== 'ACTIVE') {
@@ -102,6 +115,7 @@ export class QuoteCheckoutCommand {
       }
       priced.push({
         catalogProductId: item.catalogProductId,
+        name: product.name,
         unitPrice: product.price,
         quantity: item.quantity,
         isRx: RxClassificationPolicy.requiresPrescription(product.rxClassification),
@@ -166,6 +180,23 @@ export class QuoteCheckoutCommand {
             })
           ).deliveryFee;
 
+    // Step 4c — Work 109 (owner decision 2026-11-09: verify before paying). A blocked Rx cart sends
+    // the customer's newest unrouted prescription to the pharmacy ranked first, the one checkout
+    // will choose, so that pharmacy's pharmacist reviews it before the customer pays. Checkout then
+    // places the order with the pharmacy that approved it.
+    let prescriptionReview: PrescriptionReviewRouting | null = null;
+    if (!rxGateResult.allowed) {
+      const organizationId = topCandidate ? await this.pharmacies.getOrganizationId(topCandidate.pharmacyId) : null;
+      // What the pharmacist approves against: the Rx lines the gate blocked, as quoted.
+      const blockedIds = new Set(rxGateResult.blocked.map((b) => b.catalogProductId));
+      const requestedItems = rxLines
+        .filter((line) => blockedIds.has(line.catalogProductId))
+        .map((line) => ({ catalogProductId: line.catalogProductId, productName: line.name || null, quantity: line.quantity }));
+      prescriptionReview = organizationId
+        ? await this.rxReview.routeForReview({ customerUserId: input.customerUserId, verifyingOrganizationId: organizationId, requestedItems })
+        : null;
+    }
+
     // Step 5 — totals, via the one shared calculator.
     const totals = PricingCalculator.computeTotals({
       lines: priced.map((line) => ({ unitPrice: line.unitPrice, quantity: line.quantity })),
@@ -191,6 +222,7 @@ export class QuoteCheckoutCommand {
         rank: candidate.rank,
       })),
       totals,
+      prescriptionReview,
     };
   }
 }

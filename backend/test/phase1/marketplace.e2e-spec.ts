@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 import request from 'supertest';
-import { AssignVerifyingPharmacyCommand } from '../../src/modules/prescription-matching/application/commands/assign-verifying-pharmacy.command';
 import { AcceptJobOfferCommand } from '../../src/modules/delivery/application/commands/accept-job-offer.command';
 import { AdvanceDeliveryJobCommand } from '../../src/modules/delivery/application/commands/advance-delivery-job.command';
 import { CaptureProofOfDeliveryCommand } from '../../src/modules/delivery/application/commands/capture-proof-of-delivery.command';
@@ -81,8 +80,18 @@ describe('Phase 1 marketplace, end to end (Work 103)', () => {
     const rx = body(await customer.post('/prescriptions', { fileRef: issued.fileRef, fileType: 'application/pdf', doctorName: 'Abebe' }).expect(201));
     const rxId = rx.id as string;
 
-    await ctx.app.get(AssignVerifyingPharmacyCommand).execute({ prescriptionId: rxId, pharmacyId: shop.pharmacy.organizationId });
+    // Work 109 (verify before paying): opening checkout routes the prescription to the pharmacy the
+    // quote ranked first, the one that then fills the order.
+    const routed = body(await customer.post('/checkout/quote', { addressId: shop.addressId }).expect(200));
+    expect(routed.prescriptionReview).toMatchObject({ prescriptionId: rxId, status: 'PENDING_VERIFICATION', verifyingOrganizationId: shop.pharmacy.organizationId, routedNow: true });
+    const again = body(await customer.post('/checkout/quote', { addressId: shop.addressId }).expect(200));
+    expect(again.prescriptionReview).toMatchObject({ prescriptionId: rxId, routedNow: false });
     const pharmacist = await grantOrgRole(ctx, 'PHARMACIST', shop.pharmacy.organizationId);
+    // The pharmacist sees what the customer asks for, to approve lines against it.
+    const review = body(await as(pharmacist.accessToken).get(`/pharmacy/verification/${rxId}`).expect(200));
+    expect(review.requestedItems).toEqual([expect.objectContaining({ catalogProductId: shop.catalogProductId, quantity: expect.any(Number) })]);
+    const queue = body(await as(pharmacist.accessToken).get('/pharmacy/verification/queue').expect(200)) as { items: Array<{ id: string }> };
+    expect(queue.items.map((i) => i.id)).toContain(rxId);
     await as(pharmacist.accessToken).post(`/pharmacy/verification/${rxId}/file`).expect(200);
     await as(pharmacist.accessToken)
       .post(`/pharmacy/verification/${rxId}/approve`, {
@@ -161,6 +170,8 @@ describe('Phase 1 marketplace, end to end (Work 103)', () => {
     // The pharmacy accepts, prepares and marks it ready.
     const driver = await onlineDriverNear(9.02, 38.75);
     const fulfillment = await ctx.prisma.fulfillment.findFirstOrThrow({ where: { orderId } });
+    // Work 109: the pharmacy whose pharmacist approved the prescription fills the order.
+    expect(fulfillment.pharmacyId).toBe(shop.pharmacy.pharmacyId);
     for (const step of ['accept', 'prepare', 'ready']) {
       await as(shop.pharmacy.accessToken).post(`/pharmacy/orders/${fulfillment.id}/${step}`).expect(200);
     }

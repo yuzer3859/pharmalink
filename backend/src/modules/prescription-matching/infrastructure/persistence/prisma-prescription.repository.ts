@@ -14,6 +14,7 @@ import {
   NewPrescriptionLineData,
   PagedResult,
   PrescriptionLineSnapshot,
+  PrescriptionRequestedItem,
   PrescriptionSnapshot,
   PrescriptionStatusUpdate,
   VerificationQueueCriteria,
@@ -38,10 +39,23 @@ function toPrescriptionSnapshot(row: PrismaPrescription): PrescriptionSnapshot {
     verifiedAt: row.verifiedAt,
     verifyingPharmacyId: row.verifyingPharmacyId,
     rejectionReason: row.rejectionReason,
+    // Work 109: present only once checkout has routed it, so every earlier shape is unchanged.
+    ...(row.requestedItems !== null ? { requestedItems: toRequestedItems(row.requestedItems) } : {}),
     retentionUntil: row.retentionUntil,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+/** Reads the stored JSON defensively: anything malformed is dropped, never thrown. */
+function toRequestedItems(value: Prisma.JsonValue): PrescriptionRequestedItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+    const { catalogProductId, productName, quantity } = entry as Record<string, unknown>;
+    if (typeof catalogProductId !== 'string' || typeof quantity !== 'number') return [];
+    return [{ catalogProductId, productName: typeof productName === 'string' ? productName : null, quantity }];
+  });
 }
 
 function toLineSnapshot(row: PrismaPrescriptionLine): PrescriptionLineSnapshot {
@@ -111,6 +125,7 @@ export class PrismaPrescriptionRepository implements IPrescriptionRepository {
         fileRef: update.fileRef,
         encryptionKeyRef: update.encryptionKeyRef,
         fileType: update.fileType,
+        ...(update.requestedItems !== undefined ? { requestedItems: update.requestedItems as unknown as Prisma.InputJsonValue } : {}),
       },
     });
   }

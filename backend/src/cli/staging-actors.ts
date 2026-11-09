@@ -94,13 +94,22 @@ export async function pharmacist(app: INestApplicationContext, email: string, lo
   const prisma = app.get(PrismaService);
   const customer = await prisma.user.findFirst({ where: { email: email.toLowerCase() } });
   if (!customer) throw new Error(`No customer ${email}.`);
-  const rx = await prisma.prescription.findFirst({ where: { customerUserId: customer.id, status: 'UPLOADED' }, orderBy: { createdAt: 'desc' } });
+  // Work 109: opening checkout now routes the prescription itself (PENDING_VERIFICATION); one
+  // uploaded before any checkout is still UPLOADED and is routed here as before.
+  const rx = await prisma.prescription.findFirst({
+    where: { customerUserId: customer.id, status: { in: ['UPLOADED', 'PENDING_VERIFICATION'] } },
+    orderBy: { createdAt: 'desc' },
+  });
   if (!rx) throw new Error('That customer has no uploaded prescription waiting for review.');
   const cart = await prisma.cart.findFirst({ where: { customerUserId: customer.id, status: 'ACTIVE' }, include: { items: true } });
   const rxItems = (cart?.items ?? []).filter((i) => i.requiresRx);
   if (rxItems.length === 0) throw new Error("The customer's cart has no prescription medicine to approve.");
   const pharmacy = await walkPharmacy(prisma);
-  await app.get(AssignVerifyingPharmacyCommand).execute({ prescriptionId: rx.id, pharmacyId: pharmacy.organizationId });
+  if (rx.status === 'UPLOADED') {
+    await app.get(AssignVerifyingPharmacyCommand).execute({ prescriptionId: rx.id, pharmacyId: pharmacy.organizationId });
+  } else if (rx.verifyingPharmacyId !== pharmacy.organizationId) {
+    throw new Error('That prescription was sent to another pharmacy for review, not the walk pharmacy.');
+  }
   await app.get(ApprovePrescriptionCommand).execute({
     prescriptionId: rx.id,
     reviewerUserId: pharmacy.ownerUserId,
