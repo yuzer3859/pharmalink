@@ -30,6 +30,9 @@ import { ListOrdersQuery } from './application/queries/list-orders.query';
 import { GetPharmacyOrderQuery, ListPharmacyOrdersQuery } from './application/queries/list-pharmacy-orders.query';
 import { PHARMACY_ORDER_VIEW_READ_PORT } from './application/ports/inbound/pharmacy-order-view-read.port';
 import { PrismaPharmacyOrderViewReadAdapter } from './infrastructure/persistence/prisma-pharmacy-order-view-read.adapter';
+import { GetPharmacyDashboardQuery, PHARMACY_DASHBOARD_READ_PORT } from './application/queries/get-pharmacy-dashboard.query';
+import { PrismaPharmacyDashboardReadAdapter } from './infrastructure/persistence/prisma-pharmacy-dashboard-read.adapter';
+import { PharmacyDashboardController } from './interface/controllers/pharmacy-dashboard.controller';
 import { CART_REPOSITORY } from './domain/repositories/cart.repository';
 import { FULFILLMENT_REPOSITORY } from './domain/repositories/fulfillment.repository';
 import { ORDER_REPOSITORY } from './domain/repositories/order.repository';
@@ -111,7 +114,7 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
   // `ScheduleModule.forRoot()` activates the reference reconciler's `@Cron` (Work 45), registered here
   // rather than relied upon from another module's registration, as `DeliveryModule` does for its own.
   imports: [PrescriptionMatchingModule, PharmacyInventoryModule, PaymentModule, DeliveryModule, ScheduleModule.forRoot()],
-  controllers: [CartController, CheckoutController, OrdersController, PharmacyOrdersController],
+  controllers: [CartController, CheckoutController, OrdersController, PharmacyOrdersController, PharmacyDashboardController],
   providers: [
     // Repositories
     { provide: CART_REPOSITORY, useClass: PrismaCartRepository },
@@ -136,6 +139,8 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     // Module 16 Work 46 — fulfillment operations: fulfillments listed and read with explicit fields.
     { provide: FULFILLMENT_OPERATIONS_READ_PORT, useClass: PrismaFulfillmentOperationsReadAdapter },
     { provide: PHARMACY_ORDER_VIEW_READ_PORT, useClass: PrismaPharmacyOrderViewReadAdapter },
+    // Work 115: the pharmacy dashboard's order figures.
+    { provide: PHARMACY_DASHBOARD_READ_PORT, useClass: PrismaPharmacyDashboardReadAdapter },
     // Module 08's `delivery.job.created` -> `fulfillments.deliveryJobId` (Work 42A). A guarded write
     // of the reference column only; failures are recovered by `npm run maintenance:backfill-delivery-job-refs`.
     { provide: FULFILLMENT_DELIVERY_JOB_LINK_REPOSITORY, useClass: PrismaFulfillmentDeliveryJobLinkRepository },
@@ -195,6 +200,7 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     // Pharmacy fulfillment (§9.4)
     ListPharmacyOrdersQuery,
     GetPharmacyOrderQuery,
+    GetPharmacyDashboardQuery,
     AcceptFulfillmentCommand,
     DeclineFulfillmentCommand,
     PrepareFulfillmentCommand,
