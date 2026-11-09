@@ -245,7 +245,7 @@ Work 124 gives each a clear message.
 
 ### Driver app
 
-The design is in [driver-app.md](driver-app.md). Summary:
+The design is in [driver-app.md](driver-app.md). **Work 118:** the `driver/` app exists, with e-mail sign-in that refuses customer and staff accounts clearly, the verification state, its CI (`driver-ci.yml`), and 5175 in the backend's default CORS list. Summary:
 - a new `driver/` app in `app/`'s stack;
 - e-mail and password sign-in (SMS is not available);
 - availability, offers by polling within the 30-second TTL, the active job, live location through

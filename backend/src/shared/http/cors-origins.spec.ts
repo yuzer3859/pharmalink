@@ -2,7 +2,7 @@ import { DEFAULT_WEB_ORIGINS, parseCorsOrigins } from './cors-origins';
 
 describe('parseCorsOrigins', () => {
   it('defaults to the operations portal and customer app dev origins', () => {
-    expect(parseCorsOrigins(undefined)).toEqual(['http://localhost:5173', 'http://localhost:5174']);
+    expect(parseCorsOrigins(undefined)).toEqual(['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175']);
     expect(parseCorsOrigins('  ')).toEqual([...DEFAULT_WEB_ORIGINS]);
   });
 

@@ -22,7 +22,7 @@ async function bootstrap(): Promise<void> {
   const port = config.port;
   // Trusted proxies and security headers (Work 59); must run before any route handles a request.
   applyHttpSecurity(app, config);
-  // Explicit origins only; unset means the local portal (5173) and customer app (5174).
+  // Explicit origins only; unset means the local portal (5173), customer app (5174) and driver app (5175).
   const allowedOrigins = parseCorsOrigins(config.get<string>('WEB_ORIGIN'));
   app.enableCors({ origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins });
 
