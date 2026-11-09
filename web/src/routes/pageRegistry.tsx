@@ -24,6 +24,7 @@ import { AuditPage } from '@/features/audit/AuditPage';
 import { AdminActivityPage } from '@/features/audit/AdminActivityPage';
 import { AdminReportsPage } from '@/features/reports/AdminReportsPage';
 import { ModerationPage } from '@/features/moderation/ModerationPage';
+import { PrescriptionsPage } from '@/features/prescriptions/PrescriptionsPage';
 
 // Maps a navigation path segment to its page component. Shared across portals.
 export const PAGE_REGISTRY: Record<string, ComponentType> = {
@@ -68,7 +69,13 @@ const FINANCE_PAGES: Record<string, ComponentType> = {
   reports: AdminReportsPage,
 };
 
+// Pages only the pharmacy portal has (Work 110: the pharmacist's prescription review).
+const PHARMACY_PAGES: Record<string, ComponentType> = {
+  prescriptions: PrescriptionsPage,
+};
+
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {
+  pharmacy: PHARMACY_PAGES,
   admin: ADMIN_PAGES,
   superadmin: ADMIN_PAGES,
   finance: FINANCE_PAGES,

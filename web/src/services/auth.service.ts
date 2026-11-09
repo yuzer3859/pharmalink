@@ -90,6 +90,7 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   'staff:monitor',
   'reviews:moderate',
   'settings:manage',
+  'prescriptions:verify',
 ];
 
 const ROLE_NAMES: Record<string, string> = {
@@ -257,6 +258,8 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('settlement:read:org', 'finance:report:any')) result.add('reports:view');
     if (has('finance:report:any')) result.add('reports:export');
     if (has('order:read:org', 'inventory:manage:org')) result.add('analytics:view');
+    // Work 110: the pharmacist's review queue (module-05 Model A, owner decision 2026-11-09).
+    if (has('prescription:verify')) result.add('prescriptions:verify');
   }
 
   if (portal === 'finance') {

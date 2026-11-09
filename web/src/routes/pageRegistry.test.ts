@@ -22,6 +22,7 @@ import { FinancePage } from '@/features/finance/FinancePage';
 import { CodDisputesPage } from '@/features/finance/CodDisputesPage';
 import { ApprovalsPage } from '@/features/approvals/ApprovalsPage';
 import { DisputesPage } from '@/features/disputes/DisputesPage';
+import { PrescriptionsPage } from '@/features/prescriptions/PrescriptionsPage';
 import { pageFor } from './pageRegistry';
 
 describe('pageFor', () => {
@@ -49,6 +50,14 @@ describe('pageFor', () => {
     expect(pageFor('superadmin', 'roles')).toBe(AdminRolesPage);
     expect(pageFor('pharmacy', 'staff')).toBe(StaffPage);
     expect(pageFor('pharmacy', 'roles')).toBe(RolesPage);
+  });
+
+  it('routes the prescription review in the pharmacy portal only, behind prescriptions:verify (Work 110)', () => {
+    expect(pageFor('pharmacy', 'prescriptions')).toBe(PrescriptionsPage);
+    expect(pageFor('admin', 'prescriptions')).toBeUndefined();
+    expect(pageFor('finance', 'prescriptions')).toBeUndefined();
+    expect(PORTALS.pharmacy.nav.find((i) => i.path === 'prescriptions')?.permission).toBe('prescriptions:verify');
+    expect(PORTALS.admin.nav.some((i) => i.path === 'prescriptions')).toBe(false);
   });
 
   it('routes the verification queue in the admin portals only', () => {

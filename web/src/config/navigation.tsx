@@ -54,6 +54,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
+      { label: 'Prescriptions', path: 'prescriptions', icon: MedicationRoundedIcon, permission: 'prescriptions:verify', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
       { label: 'Reports', path: 'reports', icon: SummarizeRoundedIcon, permission: 'reports:view', section: INSIGHTS },
       { label: 'Staff', path: 'staff', icon: GroupsRoundedIcon, permission: 'staff:view', section: ADMIN },
