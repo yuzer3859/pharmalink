@@ -4,6 +4,9 @@ import { PermissionsGuard } from '../../shared/rbac/permissions.guard';
 import { PERMISSION_RESOLVER } from '../../shared/rbac/rbac.types';
 import { ApproveVerificationCommand } from './application/commands/approve-verification.command';
 import { AssignUserRoleCommand } from './application/commands/assign-user-role.command';
+import { PHARMACY_STAFF_READ_PORT, PharmacyStaffService } from './application/services/pharmacy-staff.service';
+import { PrismaPharmacyStaffReadAdapter } from './infrastructure/persistence/prisma-pharmacy-staff-read.adapter';
+import { PharmacyStaffController } from './interface/controllers/pharmacy-staff.controller';
 import { ChangePasswordCommand } from './application/commands/change-password.command';
 import { DeactivateAccountCommand } from './application/commands/deactivate-account.command';
 import { ExpireVerificationsCommand } from './application/commands/expire-verifications.command';
@@ -140,6 +143,8 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     VerificationController,
     AdminVerificationController,
     OrganizationsController,
+    // Work 113: a pharmacy's staff (module-04 §9.2).
+    PharmacyStaffController,
   ],
   providers: [
     // Repositories
@@ -155,6 +160,7 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     // Work 66: mandatory administrator MFA (authenticator-app TOTP).
     { provide: ADMIN_MFA_REPOSITORY, useClass: PrismaAdminMfaRepository },
     { provide: RBAC_REPOSITORY, useClass: PrismaRbacRepository },
+    { provide: PHARMACY_STAFF_READ_PORT, useClass: PrismaPharmacyStaffReadAdapter },
     { provide: VERIFICATION_REPOSITORY, useClass: PrismaVerificationRepository },
     { provide: CONSENT_REPOSITORY, useClass: PrismaConsentRepository },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
@@ -225,6 +231,7 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     ListUserRolesQuery,
     SetRolePermissionsCommand,
     AssignUserRoleCommand,
+    PharmacyStaffService,
     RevokeUserRoleCommand,
     SuspendUserCommand,
     ReactivateUserCommand,
