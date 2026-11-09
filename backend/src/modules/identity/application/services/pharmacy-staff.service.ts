@@ -57,9 +57,22 @@ export class PharmacyStaffService {
     return organizationId;
   }
 
-  async list(actorUserId: string): Promise<{ organizationId: string; items: PharmacyStaffMember[]; assignableRoles: readonly string[] }> {
+  /**
+   * The members, and the staff roles with what each one allows (the RBAC catalogue's own keys), so
+   * the portal can show the roles read-only; pharmacy staff cannot read the admin role catalogue.
+   */
+  async list(actorUserId: string): Promise<{
+    organizationId: string;
+    items: PharmacyStaffMember[];
+    assignableRoles: Array<{ key: string; name: string; description: string | null; permissionKeys: string[] }>;
+  }> {
     const organizationId = await this.managedOrganization(actorUserId);
-    return { organizationId, items: await this.read.listMembers(organizationId), assignableRoles: PHARMACY_STAFF_ROLES };
+    const [items, roles] = await Promise.all([this.read.listMembers(organizationId), this.rbac.listRoles()]);
+    const assignableRoles = PHARMACY_STAFF_ROLES.flatMap((key) => {
+      const role = roles.find((r) => r.key === key);
+      return role ? [{ key, name: role.name, description: role.description, permissionKeys: [...role.permissionKeys].sort() }] : [];
+    });
+    return { organizationId, items, assignableRoles };
   }
 
   async add(input: { actorUserId: string; email: string; roleKey: string; ip?: string | null }) {

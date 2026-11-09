@@ -7,7 +7,7 @@ import { createCustomer } from '../orders/support';
 interface StaffList {
   organizationId: string;
   items: Array<{ userId: string; email: string | null; roles: Array<{ roleKey: string }> }>;
-  assignableRoles: string[];
+  assignableRoles: Array<{ key: string; name: string; permissionKeys: string[] }>;
 }
 
 /**
@@ -48,7 +48,10 @@ describe('Pharmacy staff (Work 113, e2e)', () => {
     expect(list.organizationId).toBe(owner.organizationId);
     expect(list.items.map((m) => m.userId)).toEqual([owner.userId]);
     expect(list.items[0].roles.map((r) => r.roleKey)).toContain('PHARMACY_OWNER');
-    expect(list.assignableRoles).toEqual(['PHARMACY_MANAGER', 'PHARMACIST', 'CASHIER', 'INVENTORY_STAFF']);
+    expect(list.assignableRoles.map((r) => r.key)).toEqual(['PHARMACY_MANAGER', 'PHARMACIST', 'CASHIER', 'INVENTORY_STAFF']);
+    // What each role allows comes from the RBAC catalogue itself.
+    expect(list.assignableRoles.find((r) => r.key === 'PHARMACIST')?.permissionKeys).toContain('prescription:verify');
+    expect(list.assignableRoles.every((r) => r.name.length > 0)).toBe(true);
   });
 
   it('gives an existing account a staff role by e-mail, audited, once', async () => {
