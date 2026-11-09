@@ -64,6 +64,7 @@ import { PrismaDriverEarningRepository } from './infrastructure/persistence/pris
 import { DriverEarningsController } from './interface/controllers/driver-earnings.controller';
 import { DeliveryCompletionHandler } from './interface/events/delivery-completion.handler';
 import { ListDriverJobsQuery } from './application/queries/list-driver-jobs.query';
+import { DriverSelfController } from './interface/controllers/driver-self.controller';
 import { DriverJobsListController } from './interface/controllers/driver-jobs-list.controller';
 import { DispatchRecoverySweeper } from './infrastructure/scheduling/dispatch-recovery.sweeper';
 import { OfferExpirySweeper } from './infrastructure/scheduling/offer-expiry.sweeper';
@@ -470,6 +471,8 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     DriverEarningsController,
     DriverJobController,
     DriverJobsListController,
+    // Work 117: the driver's own profile, availability and location (module-08 §9.1).
+    DriverSelfController,
     ProofOfDeliveryController,
     TrackingController,
   ],

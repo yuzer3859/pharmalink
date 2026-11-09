@@ -102,7 +102,8 @@ export const FIXTURE_ACCOUNTS: readonly FixtureAccount[] = [
   },
   {
     key: 'driverCod', round: null,
-    email: null,
+    // Work 117: an e-mail so the driver can sign in to the driver app (SMS is not available).
+    email: email('driver.walk'),
     phone: '+251910000104',
     primaryRole: 'DRIVER',
     roleKey: 'DRIVER',
@@ -142,7 +143,7 @@ export const FIXTURE_ACCOUNTS: readonly FixtureAccount[] = [
     // Work 105: dispatch never re-offers a job to a driver whose offer on it expired, so the Phase 1
     // walk keeps a second approved driver for that case. `staging:actors -- driver` picks it.
     key: 'driverWalkSpare', round: null,
-    email: null,
+    email: email('driver.spare'),
     phone: '+251910000108',
     primaryRole: 'DRIVER',
     roleKey: 'DRIVER',

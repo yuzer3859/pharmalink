@@ -255,8 +255,8 @@ The design is in [driver-app.md](driver-app.md). Summary:
 - earnings.
 
 Remittance stays a finance action. **Backend gap (Work 117):** module-08 §9.1's
-`PUT /driver/availability`, `GET /driver/profile` and `POST /delivery/location` do not exist; the
-commands do.
+`PUT /driver/availability`, `GET /driver/profile` and `POST /delivery/location` did not exist; the
+commands did. **Done, Work 117:** all three, plus walk accounts that sign in by e-mail.
 
 **Staging accounts.** Pharmacy staff and drivers sign in with e-mail and password. Work 117:
 - gives the walk's driver fixtures an e-mail address;
