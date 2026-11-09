@@ -20,6 +20,8 @@ import { UpdateListingCommand } from './application/commands/update-listing.comm
 import { UpdatePharmacyProfileCommand } from './application/commands/update-pharmacy-profile.command';
 import { INVENTORY_PORT } from './application/ports/inbound/inventory.port';
 import { CATALOG_PORT } from './application/ports/outbound/catalog.port';
+import { PHARMACY_STOCK_HEALTH_READ_PORT } from './application/ports/inbound/pharmacy-stock-health-read.port';
+import { PrismaPharmacyStockHealthReadAdapter } from './infrastructure/persistence/prisma-pharmacy-stock-health-read.adapter';
 import { IDENTITY_PORT } from './application/ports/outbound/identity.port';
 import { UNIT_OF_WORK } from './application/ports/outbound/unit-of-work.port';
 import { GetAvailabilityQuery } from './application/queries/get-availability.query';
@@ -159,9 +161,12 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     // Scheduling
     LicenseExpirySweeper,
     ReservationTtlSweeper,
+    // Work 115: stock health for the pharmacy dashboard.
+    { provide: PHARMACY_STOCK_HEALTH_READ_PORT, useClass: PrismaPharmacyStockHealthReadAdapter },
   ],
   exports: [
     INVENTORY_PORT,
+    PHARMACY_STOCK_HEALTH_READ_PORT,
     PHARMACY_SEARCH_SOURCE_PORT,
     GetAvailabilityQuery,
     PHARMACY_ANALYTICS_READ_PORT,
