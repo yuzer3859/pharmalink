@@ -26,4 +26,10 @@ export class PharmacyPortAdapter implements IPharmacyPort {
     });
     return pharmacies.map((p) => p.id);
   }
+
+  async findDisplayNames(pharmacyIds: string[]): Promise<Map<string, string>> {
+    if (pharmacyIds.length === 0) return new Map();
+    const rows = await this.prisma.pharmacy.findMany({ where: { id: { in: pharmacyIds } }, select: { id: true, displayName: true } });
+    return new Map(rows.map((r) => [r.id, r.displayName]));
+  }
 }

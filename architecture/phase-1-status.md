@@ -232,8 +232,7 @@ for most of them already exist.
 - **COD remittance:** `POST /admin/delivery/cod-reconciliation/:id/remit` exists; the portal's
   COD pages already show it.
 
-Work 123 adds the first two to Finance. If Module 16's rules put running a statement behind
-maker-checker, the action goes through an approval request.
+Work 125 adds the first two to Finance, over Work 124's `GET /admin/finance/settlements/due`. Running a statement is not maker-checker in Module 16: it only produces a *draft*, and approving the draft and paying it out each need a second finance officer.
 
 ### Audit: the customer app (deviation 2)
 
@@ -241,7 +240,7 @@ maker-checker, the action goes through an approval request.
   response*.
 - A Resend refusal shows *e-mail delivery is not set up*.
 
-Work 124 gives each a clear message.
+Work 126 gives each a clear message.
 
 ### Driver app
 
@@ -299,8 +298,9 @@ commands did. **Done, Work 117:** all three, plus walk accounts that sign in by 
 | 121 | Backend: what completing a job demands on `GET /driver/jobs`: the proof-of-delivery requirement and the COD collection rules. A job takes one proof, so the app must know before it captures one. |
 | 122 | Driver app: proof of delivery |
 | 123 | Driver app: COD and earnings |
-| 124 | Operations portal: run a statement; reconciliation report |
-| 125 | Customer app: staff-account and refused-e-mail messages |
-| 126 | Live walk with every role in its own app; fix what breaks; close-out |
+| 124 | Backend: what can be settled now, `GET /admin/finance/settlements/due`. A finance officer has no pharmacy list (`pharmacy:read:any`), and no read said who is owed since their last statement. |
+| 125 | Operations portal: run a statement; reconciliation report |
+| 126 | Customer app: staff-account and refused-e-mail messages |
+| 127 | Live walk with every role in its own app; fix what breaks; close-out |
 
 Backend gaps found while building a page get their own Work, inserted before that page's Work.
