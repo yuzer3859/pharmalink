@@ -33,6 +33,7 @@ import {
 } from './application/queries/get-settlement.query';
 import { AccountingReconciliationService } from './application/services/accounting-reconciliation.service';
 import { ProviderPayableService } from './application/services/provider-payable.service';
+import { ListSettlementsDueQuery } from './application/queries/list-settlements-due.query';
 import { ProviderScopeService } from './application/services/provider-scope.service';
 import { SETTLEMENT_REPOSITORY } from './domain/repositories/settlement.repository';
 import { PrismaSettlementRepository } from './infrastructure/persistence/prisma-settlement.repository';
@@ -228,6 +229,7 @@ import { WalletController } from './interface/controllers/wallet.controller';
     ProviderScopeService,
     RunSettlementCommand,
     GetSettlementQuery,
+    ListSettlementsDueQuery,
     ListSettlementsQuery,
     AccountingReconciliationService,
     { provide: WEBHOOK_REPOSITORY, useClass: PrismaWebhookRepository },

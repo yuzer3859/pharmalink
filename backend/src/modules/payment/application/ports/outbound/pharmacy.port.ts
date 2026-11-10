@@ -23,4 +23,10 @@ export interface IPharmacyPort {
    * statements.
    */
   findPharmacyIdsByOrganizationIds(organizationIds: string[]): Promise<string[]>;
+
+  /**
+   * Work 124: the storefront names of `pharmacyIds`, so finance can tell pharmacies apart. Optional on
+   * the port so earlier fakes stand; a missing name is shown as the id.
+   */
+  findDisplayNames?(pharmacyIds: string[]): Promise<Map<string, string>>;
 }

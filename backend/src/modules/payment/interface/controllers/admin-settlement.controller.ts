@@ -1,3 +1,4 @@
+import { ListSettlementsDueQuery } from '../../application/queries/list-settlements-due.query';
 import {
   Body,
   Controller,
@@ -96,6 +97,7 @@ export class AdminSettlementController {
     private readonly runSettlement: RunSettlementCommand,
     private readonly listSettlements: ListSettlementsQuery,
     private readonly getSettlement: GetSettlementQuery,
+    private readonly listDue: ListSettlementsDueQuery,
   ) {}
 
   /**
@@ -121,6 +123,16 @@ export class AdminSettlementController {
         size: query.size,
       }),
     );
+  }
+
+  /**
+   * Work 124: what can be settled now: each pharmacy with something unsettled since its last
+   * statement, the period and net payable a run would produce, and whether the automatic run would
+   * already generate it. Declared before `:id` so `due` is never read as a statement id.
+   */
+  @Get('due')
+  due() {
+    return this.listDue.execute();
   }
 
   /** One statement with its lines, whichever provider it belongs to. */
