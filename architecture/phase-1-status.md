@@ -296,10 +296,11 @@ commands did. **Done, Work 117:** all three, plus walk accounts that sign in by 
 | 118 | Driver app: scaffold, auth, CI |
 | 119 | Driver app: availability and offers |
 | 120 | Driver app: active job and live tracking |
-| 121 | Driver app: proof of delivery |
-| 122 | Driver app: COD and earnings |
-| 123 | Operations portal: run a statement; reconciliation report |
-| 124 | Customer app: staff-account and refused-e-mail messages |
-| 125 | Live walk with every role in its own app; fix what breaks; close-out |
+| 121 | Backend: what completing a job demands on `GET /driver/jobs`: the proof-of-delivery requirement and the COD collection rules. A job takes one proof, so the app must know before it captures one. |
+| 122 | Driver app: proof of delivery |
+| 123 | Driver app: COD and earnings |
+| 124 | Operations portal: run a statement; reconciliation report |
+| 125 | Customer app: staff-account and refused-e-mail messages |
+| 126 | Live walk with every role in its own app; fix what breaks; close-out |
 
 Backend gaps found while building a page get their own Work, inserted before that page's Work.
