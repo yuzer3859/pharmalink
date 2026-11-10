@@ -61,5 +61,11 @@ export function createDriverService(request) {
     advance: (jobId, action, coords) => request('POST', job(jobId, action), coords ? { lat: coords.lat, lng: coords.lng } : {}),
     fail: (jobId, reason, coords) => request('POST', job(jobId, 'fail'), { reason: reason.trim(), ...(coords ? { lat: coords.lat, lng: coords.lng } : {}) }),
     status: (jobId) => request('GET', `/delivery/jobs/${encodeURIComponent(jobId)}/status`),
+    // Work 122: at the door. Replaying the same proof returns the one already stored (the backend's
+    // rule), and a collection already recorded answers 409, so a retried submit is safe.
+    recordCash: (jobId, collectedAmount) => request('POST', job(jobId, 'cod-collection'), { collectedAmount, method: 'CASH' }),
+    cashCollection: (jobId) => request('GET', job(jobId, 'cod-collection')),
+    captureProof: (jobId, proof) => request('POST', job(jobId, 'proof-of-delivery'), proof),
+    deliver: (jobId, coords) => request('POST', job(jobId, 'deliver'), coords ? { lat: coords.lat, lng: coords.lng } : {}),
   }
 }
