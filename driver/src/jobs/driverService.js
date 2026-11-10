@@ -57,5 +57,9 @@ export function createDriverService(request) {
     accept: (jobId) => request('POST', job(jobId, 'accept')),
     decline: (jobId, reason) => request('POST', job(jobId, 'decline'), reason?.trim() ? { reason: reason.trim() } : {}),
     reportLocation: (lat, lng) => request('POST', '/delivery/location', { lat, lng }),
+    // Work 120: the active job. Status posts carry where the driver was, when known (§13 "with geo").
+    advance: (jobId, action, coords) => request('POST', job(jobId, action), coords ? { lat: coords.lat, lng: coords.lng } : {}),
+    fail: (jobId, reason, coords) => request('POST', job(jobId, 'fail'), { reason: reason.trim(), ...(coords ? { lat: coords.lat, lng: coords.lng } : {}) }),
+    status: (jobId) => request('GET', `/delivery/jobs/${encodeURIComponent(jobId)}/status`),
   }
 }
