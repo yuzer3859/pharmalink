@@ -80,7 +80,7 @@ describe('registration', () => {
     type('Password', 'Passw0rdX')
     type('Confirm password', 'Passw0rdX')
     submit('Create account')
-    expect((await screen.findByRole('alert')).textContent).toMatch(/not set up on this PharmaLink server, so no code was sent/)
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not send a code to this e-mail address/)
     expect(screen.getByRole('heading', { name: 'Create your PharmaLink account' })).toBeTruthy()
   })
 })

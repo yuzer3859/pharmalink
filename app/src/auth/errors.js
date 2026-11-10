@@ -43,7 +43,7 @@ export function describeAuthError(error) {
     case 'AUTH_REFRESH_REUSE_DETECTED':
       return t('error.sessionExpired')
     case 'NOT_CUSTOMER':
-      return t('error.notCustomer')
+      return details.accountKind === 'DRIVER' ? t('error.driverAccount') : t('error.notCustomer')
     case 'DEPENDENCY_UNAVAILABLE':
       if (details.channel === 'SMS') return t('error.smsUnavailable')
       if (details.channel === 'EMAIL') {
