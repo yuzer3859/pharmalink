@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
   activeJobs,
@@ -94,6 +94,7 @@ export default function Home() {
   const now = useNow(offers.length > 0)
   const locationStatus = useLocationReporter(!notVerified && online)
   const working = activeJobs(jobs.data?.items)
+  const delivered = useLocation().state?.delivered
 
   async function setAvailability(status) {
     setToggle({ busy: true, error: null })
@@ -116,6 +117,10 @@ export default function Home() {
           Sign out
         </button>
       </header>
+
+      {delivered ? (
+        <p role="status" className="mt-5 rounded-lg bg-success-soft px-3 py-2 text-sm font-semibold">Delivered. Thank you!</p>
+      ) : null}
 
       {notVerified ? (
         <p role="status" className="mt-5 rounded-lg bg-warning-soft px-3 py-2 text-sm">
