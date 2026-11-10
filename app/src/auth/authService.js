@@ -17,9 +17,19 @@ const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', 'The server sent a
 const sessionExpired = () => new ApiError(401, 'SESSION_EXPIRED', 'Your session has ended. Please sign in again.')
 const isRecord = (value) => typeof value === 'object' && value !== null
 
+/**
+ * Work 126 (live-walk deviation 2): an account the customer app does not serve. `accountKind` lets
+ * the screen say where it belongs: staff to the operations portal, a driver to the driver app.
+ */
+const notCustomer = (accountKind) =>
+  new ApiError(403, 'NOT_CUSTOMER', 'This account is not a customer account.', { accountKind })
+
 function readTokens(data) {
   if (!isRecord(data) || typeof data.accessToken !== 'string' || !data.accessToken ||
       typeof data.refreshToken !== 'string' || data.refreshToken.length < 32) {
+    // An administrator's sign-in answers with an authenticator challenge instead of tokens; that is a
+    // staff account, not a broken response.
+    if (isRecord(data) && (data.mfaRequired === true || typeof data.challengeToken === 'string')) throw notCustomer('STAFF')
     throw malformed()
   }
   return { accessToken: data.accessToken, refreshToken: data.refreshToken }
@@ -142,7 +152,7 @@ export function createAuthService({ api, storage = safeSessionStorage(), deviceI
     }
     if (user.primaryRole !== 'CUSTOMER') {
       await logout()
-      throw new ApiError(403, 'NOT_CUSTOMER', 'This account is not a customer account.')
+      throw notCustomer(user.primaryRole === 'DRIVER' ? 'DRIVER' : 'STAFF')
     }
     return user
   }
@@ -191,6 +201,8 @@ export function createAuthService({ api, storage = safeSessionStorage(), deviceI
         deviceInfo: deviceInfo(),
       })
       if (!isRecord(data) || data.verified !== true) throw malformed()
+      // An administrator's code verifies the account but issues no session (Work 66).
+      if (data.mfaRequired === true) throw notCustomer('STAFF')
       return startSession(data.tokens)
     },
 

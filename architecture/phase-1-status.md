@@ -176,7 +176,7 @@ following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+custo
 | Amharic copy written by Claude (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED` notifications) (G12) | Needs a native speaker's review |
 | Pharmacy portal order, inventory and prescription pages (`web/`, still in-memory) | Follow-up for Modules 04 and 05. The walk uses `staging:actors` instead. |
 | Driver app | Not in Phase 1's code. The walk uses `staging:actors`. |
-| Customer app error messages for a staff sign-in and a refused e-mail address (live walk, deviation 2) | Open |
+| Customer app error messages for a staff sign-in and a refused e-mail address (live walk, deviation 2) | **Done, Work 126:** a staff sign-in (an MFA challenge, or a staff role) is told to use the operations portal, a driver is told to use the driver app, and a refused or unconfigured e-mail says the code could not be sent to that address. |
 | Portal action to run a settlement statement (live walk, deviation 6) | **Done, Work 124 (#77) and Work 125.** Finance → Settlements lists who is owed since their last statement, with **Run statement** (a draft; approval and payout stay maker-checker). |
 | Portal page for the finance reconciliation report (live walk, deviation 8) | **Done, Work 125:** Finance → Reconciliation, CLEAN or discrepancies, with what was examined. |
 | Real payment gateway (Telebirr) | Fail-closed until its contract exists (Work 94). Staging uses the test gateway only. |

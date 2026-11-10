@@ -118,8 +118,11 @@ export const messages = {
     'error.otpExpired': 'That code has expired. Request a new one.',
     'error.otpAttempts': 'Too many incorrect attempts. Request a new code.',
     'error.sessionExpired': 'Your session has ended. Please sign in again.',
-    'error.notCustomer': 'This is a staff account. Please use the PharmaLink operations portal.',
-    'error.emailNotConfigured': 'E-mail delivery is not set up on this PharmaLink server, so no code was sent.',
+    'error.notCustomer': 'This is a PharmaLink staff account. Sign in to the operations portal instead; the app is for customers.',
+    'error.driverAccount': 'This is a driver account. Sign in to the PharmaLink driver app instead; this app is for customers.',
+    // Work 126: the server says NOT_CONFIGURED both when it has no e-mail provider and when the provider
+    // refuses this address (a test sender only delivers to its own account), so the text fits both.
+    'error.emailNotConfigured': 'We could not send a code to this e-mail address. Check that it is right; if it is, PharmaLink cannot e-mail it yet, so please contact PharmaLink support.',
     'error.emailFailed': 'We could not send the e-mail, so no code was delivered.',
     'error.smsUnavailable': 'SMS delivery is not available yet. Use your e-mail address instead.',
     'error.unavailable': 'This service is temporarily unavailable. Please try again shortly.',

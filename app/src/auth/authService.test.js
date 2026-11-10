@@ -66,7 +66,7 @@ describe('registration and e-mail verification', () => {
       'POST /auth/register': fail(503, 'DEPENDENCY_UNAVAILABLE', 'E-mail delivery is not configured', { channel: 'EMAIL', reason: 'NOT_CONFIGURED' }),
     })
     const error = await service.register({ email: 'a@b.co', password: 'Passw0rd!', preferredLanguage: 'en' }).catch((e) => e)
-    expect(describeAuthError(error)).toMatch(/not set up.*no code was sent/i)
+    expect(describeAuthError(error)).toMatch(/could not send a code to this e-mail address/i)
   })
 
   it('rejects a malformed registration response', async () => {
@@ -149,6 +149,36 @@ describe('login, session and logout', () => {
     await expect(service.login({ email: 'staff@example.com', password: 'x' })).rejects.toMatchObject({ code: 'NOT_CUSTOMER' })
     expect(callsTo('POST /auth/logout')[0].body).toEqual({ refreshToken: REFRESH_A })
     expect(service.hasStoredSession()).toBe(false)
+  })
+
+  it('says a staff account belongs in the operations portal, not that the response was broken (Work 126)', async () => {
+    const { service } = setup({ 'POST /auth/login': ok({ mfaRequired: true, challengeToken: 'c'.repeat(40) }) })
+    const error = await service.login({ email: 'admin@example.com', password: 'x' }).catch((e) => e)
+    expect(error).toMatchObject({ code: 'NOT_CUSTOMER', details: { accountKind: 'STAFF' } })
+    expect(describeAuthError(error)).toMatch(/operations portal/)
+    expect(service.hasStoredSession()).toBe(false)
+  })
+
+  it('tells a driver to use the driver app (Work 126)', async () => {
+    const { service } = setup({
+      'POST /auth/login': ok(tokens()),
+      'GET /users/me': ok({ ...customer, primaryRole: 'DRIVER' }),
+      'POST /auth/logout': { status: 204 },
+    })
+    const error = await service.login({ email: 'driver@example.com', password: 'x' }).catch((e) => e)
+    expect(error).toMatchObject({ code: 'NOT_CUSTOMER', details: { accountKind: 'DRIVER' } })
+    expect(describeAuthError(error)).toMatch(/driver app/)
+  })
+
+  it('a staff account verifying a sign-up code is told the same, not given a broken session (Work 126)', async () => {
+    const { service } = setup({ 'POST /auth/verify-otp': ok({ verified: true, mfaRequired: true }) })
+    await expect(service.verifyRegistration({ email: 'admin@example.com', code: '123456' })).rejects.toMatchObject({ code: 'NOT_CUSTOMER', details: { accountKind: 'STAFF' } })
+  })
+
+  it('words a refused or unconfigured e-mail honestly (Work 126)', () => {
+    const message = describeAuthError({ code: 'DEPENDENCY_UNAVAILABLE', details: { channel: 'EMAIL', reason: 'NOT_CONFIGURED' } })
+    expect(message).toMatch(/could not send a code to this e-mail address/)
+    expect(message).not.toMatch(/not set up/)
   })
 
   it('refreshes once on an expired access token, rotates the stored refresh token and retries', async () => {
