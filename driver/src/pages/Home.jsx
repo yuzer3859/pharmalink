@@ -118,6 +118,11 @@ export default function Home() {
         </button>
       </header>
 
+      <nav className="mt-4 grid grid-cols-2 gap-2" aria-label="Money">
+        <Link to="/earnings" className="rounded-lg border border-slate-300 bg-white py-2 text-center text-sm font-semibold">Earnings</Link>
+        <Link to="/cash" className="rounded-lg border border-slate-300 bg-white py-2 text-center text-sm font-semibold">Cash collected</Link>
+      </nav>
+
       {delivered ? (
         <p role="status" className="mt-5 rounded-lg bg-success-soft px-3 py-2 text-sm font-semibold">Delivered. Thank you!</p>
       ) : null}
