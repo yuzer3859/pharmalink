@@ -24,6 +24,7 @@ import { fromMinorUnits } from '@/services/adminOrders.service';
 import { currency, formatDate, formatDateTime } from '@/utils/format';
 import { SettlementDrawer } from './SettlementDrawer';
 import { RefundForm } from './RefundForm';
+import { ReconciliationTab, StatementsDue } from './StatementsDueAndReconciliation';
 import type {
   FinancePayment,
   FinanceRefund,
@@ -290,6 +291,8 @@ function SettlementsTab() {
   ];
   return (
     <>
+      <StatementsDue />
+      <Typography variant="subtitle1" sx={{ mb: 1 }}>Statements</Typography>
       <Alert severity="info" sx={{ mb: 2 }}>
         Open a statement to approve it, register or verify the pharmacy's payout destination, and pay it
         out. Approving, paying and verifying need a second finance officer (Approvals page).
@@ -312,11 +315,13 @@ function SettlementsTab() {
   );
 }
 
-type FinanceTab = 'overview' | 'payments' | 'refunds' | 'settlements';
+type FinanceTab = 'overview' | 'payments' | 'refunds' | 'settlements' | 'reconciliation';
 
 /**
  * Financial oversight (module-16 §9.5): the overview, payments with their refunds, and refunds
- * (`finance:report:any`), plus settlements for accounts with `finance:settlement:any`. Read-only.
+ * (`finance:report:any`), plus settlements for accounts with `finance:settlement:any`: what is owed
+ * since the last statement, with a run action (Work 125), and the statements. And the read-only
+ * reconciliation report (Work 125).
  */
 export function FinancePage() {
   const portal = usePortal();
@@ -332,12 +337,15 @@ export function FinancePage() {
           <Tab value="payments" label="Payments" />
           <Tab value="refunds" label="Refunds" />
           {showSettlements ? <Tab value="settlements" label="Settlements" /> : null}
+          {/* Work 125: the reconciliation report (finance:report:any, which finance:view stands for). */}
+          <Tab value="reconciliation" label="Reconciliation" />
         </Tabs>
       </Box>
       {tab === 'overview' ? <OverviewTab /> : null}
       {tab === 'payments' ? <PaymentsTab /> : null}
       {tab === 'refunds' ? <RefundsTab /> : null}
       {tab === 'settlements' && showSettlements ? <SettlementsTab /> : null}
+      {tab === 'reconciliation' ? <ReconciliationTab /> : null}
     </>
   );
 }

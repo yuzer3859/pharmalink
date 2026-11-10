@@ -177,8 +177,8 @@ following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+custo
 | Pharmacy portal order, inventory and prescription pages (`web/`, still in-memory) | Follow-up for Modules 04 and 05. The walk uses `staging:actors` instead. |
 | Driver app | Not in Phase 1's code. The walk uses `staging:actors`. |
 | Customer app error messages for a staff sign-in and a refused e-mail address (live walk, deviation 2) | Open |
-| Portal action to run a settlement statement (live walk, deviation 6) | Open. The walk uses `staging:actors -- statement now`. |
-| Portal page for the finance reconciliation report (live walk, deviation 8) | Open. The walk uses `staging:actors -- reconciliation all`. |
+| Portal action to run a settlement statement (live walk, deviation 6) | **Done, Work 124 (#77) and Work 125.** Finance → Settlements lists who is owed since their last statement, with **Run statement** (a draft; approval and payout stay maker-checker). |
+| Portal page for the finance reconciliation report (live walk, deviation 8) | **Done, Work 125:** Finance → Reconciliation, CLEAN or discrepancies, with what was examined. |
 | Real payment gateway (Telebirr) | Fail-closed until its contract exists (Work 94). Staging uses the test gateway only. |
 | Payout destination rules (module-07 §15) | Still open in the design. The mock payout rail pays a verified beneficiary. |
 | COD corrections after a remittance | Not reflected in the COD sale posting. A finance adjustment. |
