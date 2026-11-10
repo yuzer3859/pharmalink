@@ -140,9 +140,9 @@ describe('Settlements due (Work 124, e2e)', () => {
     expect(row.lineCount).toBe(1);
   });
 
-  it('needs finance:settlement:any, which operations admins also hold', async () => {
+  it('needs finance:settlement:any: a finance officer, not a customer or an operations admin', async () => {
     await request(ctx.server).get(`${FIN}/settlements/due`).set(...auth(customer.accessToken)).expect(403);
     const admin = await createUserWithRole(ctx, 'ADMIN');
-    await request(ctx.server).get(`${FIN}/settlements/due`).set(...auth(admin.accessToken)).expect(200);
+    await request(ctx.server).get(`${FIN}/settlements/due`).set(...auth(admin.accessToken)).expect(403);
   });
 });
