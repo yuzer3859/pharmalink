@@ -20,6 +20,7 @@ interface JobSummary {
   status: string;
   isCod: boolean;
   codAmount: number | null;
+  rules?: { podRequirement: string; codCollectionRequired: boolean; codExactAmountRequired: boolean };
 }
 
 interface OfferSummary {
@@ -170,6 +171,20 @@ describe('Driver jobs list (e2e)', () => {
     expect(res.status).toBe(200);
     expect(page(res).total).toBe(2);
     expect(page(res).items.map((j) => j.jobId).sort()).toEqual([first, second].sort());
+  });
+
+  it('says on every job and offer what completing it demands (Work 121)', async () => {
+    const driver = await seedDriver();
+    await carrying(driver);
+    const { jobId: offeredJob } = await seedJob();
+    await dispatch.execute({ jobId: offeredJob });
+
+    const res = page(await list(driver.token));
+
+    // The shipped settings demand nothing (no PoD policy has been approved; COD collection optional).
+    const none = { podRequirement: 'NONE', codCollectionRequired: false, codExactAmountRequired: false };
+    expect(res.items[0].rules).toEqual(none);
+    expect(res.offers[0].job.rules).toEqual(none);
   });
 
   it('reports a live offer separately from the jobs already held', async () => {

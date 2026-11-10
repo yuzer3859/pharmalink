@@ -3,6 +3,7 @@ import {
   DriverOfferView,
 } from '../../application/queries/list-driver-jobs.query';
 import { DeliveryJobProps } from '../../domain/entities/delivery-job.entity';
+import { PodPolicySettings, ProofOfDeliveryPolicy } from '../../domain/services/proof-of-delivery-policy';
 
 /**
  * One job as the driver carrying it sees it in their list (§9.2).
@@ -41,6 +42,8 @@ export interface DriverJobSummaryResponse {
   pickedUpAt: string | null;
   deliveredAt: string | null;
   createdAt: string;
+  /** Work 121: present on `GET /driver/jobs`; what completing the job demands. */
+  rules?: DriverJobDeliveryRules;
 }
 
 /**
@@ -60,6 +63,34 @@ export interface DriverOfferResponse {
   job: DriverJobSummaryResponse;
 }
 
+/**
+ * Work 121: what completing this job demands, so the driver app captures the right proof and records
+ * the cash before it tries to deliver. A job takes one proof of delivery, so finding out only when
+ * delivery is refused would leave it stuck. Resolved from the live `delivery.pod*` and
+ * `delivery.cod*` settings, the same ones the deliver step enforces.
+ */
+export interface DriverJobDeliveryRules {
+  /** `NONE`, `CONFIRMATION` (the recipient attests), or `ARTIFACT` (a signature or a photo). */
+  podRequirement: string;
+  /** A COD job whose collection must be recorded before it can be delivered. */
+  codCollectionRequired: boolean;
+  /** A COD job whose recorded collection must be the exact amount due. */
+  codExactAmountRequired: boolean;
+}
+
+export interface DriverJobRuleSettings {
+  pod: PodPolicySettings;
+  cod: { requireExactAmount: boolean; requireCollectionForCompletion: boolean };
+}
+
+export function deliveryRulesFor(job: Pick<DeliveryJobProps, 'isCod' | 'isColdChain'>, settings: DriverJobRuleSettings): DriverJobDeliveryRules {
+  return {
+    podRequirement: ProofOfDeliveryPolicy.requirementFor({ isCod: job.isCod, isColdChain: job.isColdChain }, settings.pod),
+    codCollectionRequired: job.isCod && settings.cod.requireCollectionForCompletion,
+    codExactAmountRequired: job.isCod && settings.cod.requireExactAmount,
+  };
+}
+
 export interface DriverJobsPageResponse {
   items: DriverJobSummaryResponse[];
   offers: DriverOfferResponse[];
@@ -68,17 +99,17 @@ export interface DriverJobsPageResponse {
   size: number;
 }
 
-export function toDriverOfferResponse(view: DriverOfferView): DriverOfferResponse {
+export function toDriverOfferResponse(view: DriverOfferView, settings?: DriverJobRuleSettings): DriverOfferResponse {
   return {
     offerId: view.offer.id,
     round: view.offer.round,
     offeredAt: view.offer.offeredAt.toISOString(),
     expiresAt: view.offer.expiresAt.toISOString(),
-    job: toDriverJobSummaryResponse(view.job),
+    job: toDriverJobSummaryResponse(view.job, settings),
   };
 }
 
-export function toDriverJobSummaryResponse(job: DeliveryJobProps): DriverJobSummaryResponse {
+export function toDriverJobSummaryResponse(job: DeliveryJobProps, settings?: DriverJobRuleSettings): DriverJobSummaryResponse {
   return {
     jobId: job.id,
     orderId: job.orderId,
@@ -93,13 +124,14 @@ export function toDriverJobSummaryResponse(job: DeliveryJobProps): DriverJobSumm
     pickedUpAt: job.pickedUpAt ? job.pickedUpAt.toISOString() : null,
     deliveredAt: job.deliveredAt ? job.deliveredAt.toISOString() : null,
     createdAt: job.createdAt.toISOString(),
+    ...(settings ? { rules: deliveryRulesFor(job, settings) } : {}),
   };
 }
 
-export function toDriverJobsPageResponse(view: DriverJobsPageView): DriverJobsPageResponse {
+export function toDriverJobsPageResponse(view: DriverJobsPageView, settings?: DriverJobRuleSettings): DriverJobsPageResponse {
   return {
-    items: view.items.map(toDriverJobSummaryResponse),
-    offers: view.offers.map(toDriverOfferResponse),
+    items: view.items.map((job) => toDriverJobSummaryResponse(job, settings)),
+    offers: view.offers.map((offer) => toDriverOfferResponse(offer, settings)),
     total: view.total,
     page: view.page,
     size: view.size,
