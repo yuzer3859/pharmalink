@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
   activeJobs,
@@ -163,10 +164,11 @@ export default function Home() {
         <section className="mt-5 grid gap-2" aria-label="Your deliveries">
           <h2 className="text-sm font-semibold text-slate-600">Your deliveries</h2>
           {working.map((job) => (
-            <div key={job.jobId} className="rounded-xl border border-slate-200 bg-white p-3 text-sm">
+            <Link key={job.jobId} to={`/jobs/${job.jobId}`} className="block rounded-xl border border-slate-200 bg-white p-3 text-sm">
               <p className="font-semibold">{job.status.replace(/_/g, ' ').toLowerCase()}</p>
               <p className="text-slate-600">{job.dropoffAddress ?? 'Customer'}</p>
-            </div>
+              <p className="mt-1 font-semibold text-brand-700">Open →</p>
+            </Link>
           ))}
         </section>
       ) : null}

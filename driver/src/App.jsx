@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
+import ActiveJob from './pages/ActiveJob'
 import Home from './pages/Home'
 import SignIn from './pages/SignIn'
 
@@ -23,6 +24,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/jobs/:jobId" element={<ActiveJob />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
