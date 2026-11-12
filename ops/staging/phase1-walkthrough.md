@@ -1,19 +1,28 @@
-# Phase 1 live walk on staging (Work 103)
+# Phase 1 live walk on staging
 
-This is the roadmap's Phase 1 happy path, walked by a person on the staging stack. The same chain
-also runs automatically in `backend/test/phase1/marketplace.e2e-spec.ts`. The path is:
+This is the roadmap's Phase 1 happy path, walked by people on the staging stack. **Every role uses
+its own app.** The same chain also runs automatically in `backend/test/phase1/marketplace.e2e-spec.ts`.
 
-> browse → add to cart → (Rx verify) → checkout → pay → assign driver → deliver → PoD → settle,
+> browse → cart → prescription review → checkout → pay → pharmacy prepares → driver delivers with
+> proof → COD cash reaches PharmaLink → statement → maker-checker payout → `SETTLED`,
 > plus a declined payment releasing the stock.
 
-You play the customer in the customer app, and two finance officers in the operations portal. The
-pharmacy and the driver are played by `npm run staging:actors`, because their apps are outside the
-Phase 1 mission. Real money never moves: payments use the test gateway (Work 94) and payouts use
-the mock payout rail.
+Real money never moves. Payments use the test gateway (Work 94), and payouts use the mock payout
+rail. This version replaces the Work 103 walk, which used `staging:actors` for the pharmacy and the
+driver. It was walked on 2026-11-12; the record is in `architecture/phase-1-status.md`.
+
+| Role | App | Port | Account |
+|---|---|---|---|
+| Customer | Customer app (`app/`) | 5173 | your own e-mail (see step 2) |
+| Pharmacist and pharmacy | Pharmacy portal (`web/`) | 5174 | `owner.bole@staging.pharmalink.test` |
+| Driver | Driver app (`driver/`) | 5175 | `driver.walk@staging.pharmalink.test` |
+| Finance maker and checker | Operations portal, Finance (`web/`) | 5174 | `finance@`, `finance.checker@` |
+
+The backend's default CORS list allows all three ports.
 
 ## 0. Redeploy staging at `main`
 
-Run these in the staging worktree (`.claude/worktrees/beautiful-moore-19cc3a`):
+In the staging worktree (`.claude/worktrees/beautiful-moore-19cc3a`):
 
 ```sh
 git fetch origin && git checkout --detach origin/main
@@ -29,139 +38,121 @@ $D run --rm tools npm run staging:seed
 
 `ensure-env-secrets.mjs --check` must report `PASS`.
 
-On its first start the backend builds the search index from the catalogue and the stock (Work 98).
-To rebuild it by hand, run `$D run --rm tools npm run search:reindex`.
+## 1. Passwords and apps
 
-## 1. Run the customer app against staging
-
-```sh
-cd app
-VITE_API_BASE_URL=http://127.0.0.1:3000 VITE_PAYMENTS_TEST_MODE=true npx vite --port 5173 --strictPort
-```
-
-Open `http://localhost:5173`. Port 5173 is an origin the staging backend accepts, so stop the
-operations portal first if it is using that port. Run the portal for step 9 on port 5174, which
-staging also accepts:
+The seed creates sign-in accounts without passwords. Set each one you will use, in an interactive
+terminal. You type the password, and it stays hidden:
 
 ```sh
-cd web
-VITE_API_BASE_URL=http://127.0.0.1:3000 npx vite --port 5174 --strictPort
+$D run --rm tools npm run staging:set-password
 ```
 
-`VITE_PAYMENTS_TEST_MODE=true` shows a test-token field at checkout, which staging needs for step
-6. Never set it in a production build.
+Run it once per account: `owner.bole@`, `driver.walk@`, `finance@`, `finance.checker@`. Each finance
+account enrols its own authenticator at its first sign-in.
 
-## 2. Sign up as the customer
+Then start the three apps:
 
-Your own Resend account address is already the staging **Super Admin**, and admin accounts need
-MFA, so it cannot be the customer. Resend's test sender refuses every other address (HTTP 403,
-shown as *E-mail delivery is not set up…*), so a new customer never gets the sign-up code.
+```sh
+(cd app && npm ci && VITE_API_BASE_URL=http://127.0.0.1:3000 VITE_PAYMENTS_TEST_MODE=true npx vite --port 5173 --strictPort)
+(cd web && npm ci && VITE_API_BASE_URL=http://127.0.0.1:3000 npx vite --port 5174 --strictPort)
+(cd driver && npm ci && VITE_API_BASE_URL=http://127.0.0.1:3000 npx vite --port 5175 --strictPort)
+```
 
-1. Register with an address of yours that is not a staging account, for example the Gmail alias
-   `you+customer@gmail.com`. The app reports that no code was sent; that is expected.
-2. Mark that customer's e-mail verified (Work 105). This only works on a new CUSTOMER account
-   still waiting for verification, and it is audited:
-   ```sh
-   $D run --rm tools npm run staging:actors -- verify-customer <that e-mail>
-   ```
-3. Sign in with that e-mail and your password.
+`VITE_PAYMENTS_TEST_MODE=true` shows the test-token field at checkout. Never set it in a production
+build.
 
-Once a domain is verified in Resend and set as the staging sender, every address receives its code
-and step 2 is unnecessary.
+## 2. Customer account
 
-## 3. Browse and add to the cart
+Your Resend account address is the staging Super Admin, so it can't be the customer. Resend's test
+sender also refuses every other address, so a new customer never receives the sign-up code.
 
-1. Search for `ORS`. **Seed ORS oral rehydration sachet** shows *1 pharmacy · from ETB 12.00*.
-   Tap **Near me** and allow your location to see the distance.
-2. Open it and choose **Add to cart**.
-3. Search for `Amoxicillin`. It is Rx, at *ETB 45.00*. Add it to the cart too.
+1. Register in the customer app with another address of yours, for example
+   `you+customer@gmail.com`. The app says no code could be sent.
+2. Mark that address verified. This is staging only and audited:
+   `$D run --rm tools npm run staging:actors -- verify-customer <that e-mail>`.
+3. Sign in.
 
-## 4. Prescription
+Once a domain is verified in Resend and set as the staging sender, step 2 isn't needed.
 
-1. Go to **Prescriptions** and upload any PDF or photo. Its status is *Waiting for a pharmacist*.
-2. At checkout the total shows, but **Place order** is disabled: *A prescription is needed…*.
-3. Approve the prescription as the walk pharmacy's pharmacist:
-   ```sh
-   $D run --rm tools npm run staging:actors -- pharmacist <your e-mail>
-   ```
-4. Reload checkout. The block is gone, and on **Prescriptions** the status reads *Approved*.
+## 3. Customer: cart and prescription
 
-## 5. Checkout and pay
+1. Search for `ORS` and add it. Search for `Amoxicillin`, which is Rx, and add it.
+2. On **Prescriptions**, upload a PDF or photo.
+3. Open **checkout**. It reads *Your prescription is with the pharmacist for review*: checkout has
+   sent it to the pharmacy it matched, with what you asked for (Work 109).
 
-Choose your address, or add one: a new address needs **Use my current location** (allow it in the browser), because delivery needs its map location. Then choose **Telebirr**. Leave the test token empty and choose **Pay
-and place order**. You see *Order placed* and *Payment approved*. Note the order number
-(`ORD-…`), then open **Follow your order**.
+   A prescription approved earlier that still has units left is reused instead, and no new review
+   is needed. Ask for more than it has left to see the review.
 
-## 6. A declined payment releases the stock
+## 4. Pharmacist: review (pharmacy portal, `owner.bole@`)
 
-Repeat steps 3–5 with a fresh cart, and type `test-decline` as the test token.
+On **Prescriptions**:
+1. Open the upload, then **Open the prescription file**. The link is audited and short-lived.
+2. Check the requested items, tick both attestations, and **Approve prescription**.
 
-- The app says *Payment declined… Your order was cancelled and nothing was charged*.
+## 5. Customer: pay
+
+Reload checkout and choose the address. A new address needs **Use my current location**.
+
+- **Prepaid order:** **Telebirr**, with the test token left empty, then **Pay and place order**.
+- **COD order:** **Cash on delivery**, then **Place order**.
+
+## 6. Declined payment
+
+Fill a fresh cart and pay by Telebirr with the test token `test-decline`.
+
+- The app says *Payment declined… nothing was charged*.
 - **Put the items back in my cart** restores the cart.
-- Search still shows the same availability: the stock was released.
+- Search still shows the same stock.
 
-## 7. The pharmacy prepares the order
+## 7. Pharmacy: prepare (pharmacy portal, **Orders**)
 
-```sh
-$D run --rm tools npm run staging:actors -- pharmacy ORD-…
-```
+Open the order, then **Accept**, **Start preparing** and **Ready for pickup**. For a prepaid order,
+the payment is captured at this point (Work 96).
 
-The order page moves to *Ready for the driver*, then shows the delivery. The payment is captured
-at this point (Work 96).
+## 8. Driver: deliver (driver app, `driver.walk@`)
 
-## 8. The driver delivers it
+1. **Go online.** Allow location: dispatch needs it.
+2. **Accept** the offer before its countdown ends.
+3. On the job, step through *I am at the pharmacy*, *I have picked up the order*, *I am on my way*
+   and *I have arrived at the customer*. The customer's order page follows the driver live.
+4. **Record proof of delivery.**
+   - For COD, record the cash, which defaults to the amount due.
+   - Add the recipient's confirmation, or a signature or photo when the job requires one (Work 121).
+   - Then **Complete delivery**.
+5. **Cash collected** shows COD cash *with you*. **Earnings** shows the delivery.
 
-```sh
-$D run --rm tools npm run staging:actors -- driver ORD-…
-```
+## 9. Finance: cash, statement, payout (operations portal)
 
-The tool puts a walk driver on shift, online and at the pharmacy, has the job offered to them and
-accepts it at once (offers live 30 seconds), then delivers and takes the driver offline again.
-Dispatch never re-offers a job to a driver whose offer on it expired, so the seed keeps a spare
-walk driver (`+251910000108`) that the tool uses in that case (Work 105).
+1. **finance@ → Finance → COD cash:** **Record cash received** for the COD order, with a receipt
+   reference. The COD sale is now payable to the pharmacy, under the owner's COD rule.
+2. **Finance → Settlements:** under *Owed since the last statement*, click **Run statement** for
+   Seed Bole Pharmacy. It makes a draft.
+3. Open the draft and ask for approval. **finance.checker@** approves it on **Approvals**.
+4. The pharmacy needs a verified payout destination. finance@ registers it with **Register
+   destination** (made-up details, for example bank code `TESTBANK`, account `1000000000001`), and
+   finance.checker@ verifies it.
+5. **Pay out.** finance.checker@ approves. The statement reads *PAID*, and each prepaid order's
+   payment reads `SETTLED`.
+6. **Finance → Reconciliation** reads *CLEAN*.
 
-Keep the order page open:
-- The **Delivery** card goes from *Driver assigned* through *On the way to you* to *Delivered*,
-  live over the tracking connection.
-- **Proof of delivery** then shows *Received by Staging customer*.
-- The order reads *Delivered*.
-
-## 9. Settle the pharmacy
-
-Settlement covers the **prepaid** order. A COD order is payable only once its cash is remitted to
-PharmaLink (the owner's COD decision, Work 97), which the walk tools do not do.
-
-1. Both finance accounts need a password. The seed creates them without one. Set each in an
-   interactive terminal; you type the password, hidden:
-   ```sh
-   $D run --rm tools npm run staging:set-password
-   ```
-   The first sign-in of each account enrols its own authenticator.
-2. The portal has no "run statement" action, and the automatic run (Work 97) waits for an amount
-   or a period the walk never reaches. Make the walk pharmacy's statement as the automatic run
-   would (Work 105):
-   ```sh
-   $D run --rm tools npm run staging:actors -- statement now
-   ```
-   It is a *Draft* for **Seed Bole Pharmacy** with your prepaid order's line.
-3. In the portal (`http://localhost:5174`), sign in as **finance@**. Under **Finance →
-   Settlements**, open that statement and approve it for payment. (The other draft statement is a
-   seed fixture for the admin walk; leave it.)
-4. The pharmacy has no payout destination yet. As **finance@**, choose **Register destination**:
-   a bank transfer with made-up details (bank code `TESTBANK`, account `1000000000001`, name
-   `Seed Bole Pharmacy`). The mock payout rail moves no money.
-5. As **finance.checker@**, **Verify** the destination. A pharmacy's first destination is payable
-   at once; only a changed one waits.
-6. As **finance@**, **Pay out**. The statement reads *PAID*, and the order's payment `SETTLED`.
-7. The finance reconciliation report has no portal page yet. Read it here (read-only, Work 105);
-   it reads `CLEAN, 0 discrepancy(ies)`:
-   ```sh
-   $D run --rm tools npm run staging:actors -- reconciliation all
-   ```
-
-Each sign-in needs your password and authenticator code; you type them yourself.
+Every sign-in needs your password, and for finance your authenticator code. You type them
+yourself.
 
 ## Record the result
 
-In `architecture/phase-1-status.md`, under "Live walk", note the date, the order numbers, and any
-step that did not behave as written.
+In `architecture/phase-1-status.md`, note the date, the order numbers and any step that didn't
+behave as written.
+
+## Setup tools (not stand-ins)
+
+`npm run staging:actors` still exists for setup and diagnosis:
+
+| Command | What it does |
+|---|---|
+| `verify-customer` | Marks the walk customer verified (step 2) |
+| `statement now` | Makes a statement the way the automatic run does |
+| `reconciliation all` | Prints the reconciliation report |
+| `pharmacist`, `pharmacy`, `driver` | Play those roles, kept for automated setup |
+
+No step of the walk needs them for a role.
