@@ -229,8 +229,9 @@ for most of them already exist.
 
 - **Run a settlement statement:** `POST /admin/finance/settlements/run` exists; no page calls it.
 - **Reconciliation report:** `GET /admin/finance/reconciliation` exists; no page shows it.
-- **COD remittance:** `POST /admin/delivery/cod-reconciliation/:id/remit` exists; the portal's
-  COD pages already show it.
+- **COD remittance:** `POST /admin/delivery/cod-reconciliation/:id/remit` exists. The portal's
+  COD pages show a remittance, but nothing records one. This audit line said otherwise; the second
+  live walk found it (Work 127). Without it a COD sale is never payable, under the owner's COD rule.
 
 Work 125 adds the first two to Finance, over Work 124's `GET /admin/finance/settlements/due`. Running a statement is not maker-checker in Module 16: it only produces a *draft*, and approving the draft and paying it out each need a second finance officer.
 
@@ -301,6 +302,7 @@ commands did. **Done, Work 117:** all three, plus walk accounts that sign in by 
 | 124 | Backend: what can be settled now, `GET /admin/finance/settlements/due`. A finance officer has no pharmacy list (`pharmacy:read:any`), and no read said who is owed since their last statement. |
 | 125 | Operations portal: run a statement; reconciliation report |
 | 126 | Customer app: staff-account and refused-e-mail messages |
-| 127 | Live walk with every role in its own app; fix what breaks; close-out |
+| 127 | Operations portal: Finance → COD cash. Record the cash a driver hands over, which makes the COD sale payable, and reconcile it. Found in the second live walk. |
+| 128 | Live walk with every role in its own app; fix what breaks; close-out |
 
 Backend gaps found while building a page get their own Work, inserted before that page's Work.

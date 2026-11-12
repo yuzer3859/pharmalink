@@ -25,6 +25,7 @@ import { currency, formatDate, formatDateTime } from '@/utils/format';
 import { SettlementDrawer } from './SettlementDrawer';
 import { RefundForm } from './RefundForm';
 import { ReconciliationTab, StatementsDue } from './StatementsDueAndReconciliation';
+import { CodCashTab } from './CodCashTab';
 import type {
   FinancePayment,
   FinanceRefund,
@@ -315,7 +316,7 @@ function SettlementsTab() {
   );
 }
 
-type FinanceTab = 'overview' | 'payments' | 'refunds' | 'settlements' | 'reconciliation';
+type FinanceTab = 'overview' | 'payments' | 'refunds' | 'cod' | 'settlements' | 'reconciliation';
 
 /**
  * Financial oversight (module-16 §9.5): the overview, payments with their refunds, and refunds
@@ -336,6 +337,8 @@ export function FinancePage() {
           <Tab value="overview" label="Overview" />
           <Tab value="payments" label="Payments" />
           <Tab value="refunds" label="Refunds" />
+          {/* Work 127: the cash drivers hand to PharmaLink (COD remittance). */}
+          <Tab value="cod" label="COD cash" />
           {showSettlements ? <Tab value="settlements" label="Settlements" /> : null}
           {/* Work 125: the reconciliation report (finance:report:any, which finance:view stands for). */}
           <Tab value="reconciliation" label="Reconciliation" />
@@ -344,6 +347,7 @@ export function FinancePage() {
       {tab === 'overview' ? <OverviewTab /> : null}
       {tab === 'payments' ? <PaymentsTab /> : null}
       {tab === 'refunds' ? <RefundsTab /> : null}
+      {tab === 'cod' ? <CodCashTab /> : null}
       {tab === 'settlements' && showSettlements ? <SettlementsTab /> : null}
       {tab === 'reconciliation' ? <ReconciliationTab /> : null}
     </>
