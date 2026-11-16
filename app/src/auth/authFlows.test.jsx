@@ -233,6 +233,41 @@ describe('navigation, logout and session expiry', () => {
     expect(callsTo('POST /auth/logout')).toHaveLength(1)
   })
 
+  it('changes the preferred language from the account page (Work 130)', async () => {
+    sessionStorage.setItem('pharmalink.customer.session', JSON.stringify({ refreshToken: REFRESH_A }))
+    const { callsTo } = renderApp('/account', {
+      'POST /auth/token/refresh': ok(tokens('access-2', 'q'.repeat(40))),
+      'GET /users/me': [ok(customer), ok({ ...customer, preferredLanguage: 'am' })],
+      'PATCH /users/me': ok({ preferredLanguage: 'am' }),
+    })
+    await screen.findByRole('heading', { name: 'My account' })
+    const select = screen.getByLabelText('Preferred language')
+    expect(select.value).toBe('en')
+    const save = screen.getByRole('button', { name: 'Save' })
+    expect(save.disabled).toBe(true)
+
+    fireEvent.change(select, { target: { value: 'am' } })
+    await act(async () => fireEvent.click(save))
+
+    expect(await screen.findByText('Language saved.')).toBeTruthy()
+    expect(callsTo('PATCH /users/me').map((c) => c.body)).toEqual([{ preferredLanguage: 'am' }])
+    expect(screen.getByLabelText('Preferred language').value).toBe('am')
+    expect(screen.getByRole('button', { name: 'Save' }).disabled).toBe(true)
+  })
+
+  it('says so when the language cannot be saved', async () => {
+    sessionStorage.setItem('pharmalink.customer.session', JSON.stringify({ refreshToken: REFRESH_A }))
+    renderApp('/account', {
+      'POST /auth/token/refresh': ok(tokens('access-2', 'q'.repeat(40))),
+      'GET /users/me': ok(customer),
+      'PATCH /users/me': fail(503, 'SERVICE_UNAVAILABLE'),
+    })
+    await screen.findByRole('heading', { name: 'My account' })
+    fireEvent.change(screen.getByLabelText('Preferred language'), { target: { value: 'am' } })
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save' })))
+    expect((await screen.findByRole('alert')).textContent).toBe('The language could not be saved. Please try again.')
+  })
+
   it('returns to sign in with a notice when the stored session is rejected', async () => {
     sessionStorage.setItem('pharmalink.customer.session', JSON.stringify({ refreshToken: REFRESH_A }))
     renderApp('/account', { 'POST /auth/token/refresh': fail(401, 'AUTH_REFRESH_INVALID') })

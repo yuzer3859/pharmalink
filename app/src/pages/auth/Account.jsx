@@ -19,6 +19,57 @@ function Row({ label, children }) {
   )
 }
 
+/** Work 130: the customer chooses English or Amharic and saves it to their account. */
+function LanguageChoice({ current }) {
+  const { updateLanguage } = useAuth()
+  const [choice, setChoice] = useState(current === 'am' ? 'am' : 'en')
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState(null)
+  const changed = choice !== current
+
+  async function onSave() {
+    setSaving(true)
+    setMessage(null)
+    try {
+      await updateLanguage(choice)
+      setMessage({ tone: 'ok', text: t('account.languageSaved') })
+    } catch {
+      setMessage({ tone: 'error', text: t('account.languageFailed') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 sm:items-end">
+      <div className="flex items-center gap-2">
+        <select
+          id="account-language"
+          aria-label={t('account.language')}
+          value={choice}
+          onChange={(e) => {
+            setChoice(e.target.value)
+            setMessage(null)
+          }}
+          className="h-10 rounded-xl border border-border bg-surface px-3 text-body text-fg focus:border-brand-500 focus:shadow-glow focus-visible:outline-none"
+        >
+          <option value="en">{t('language.en')}</option>
+          <option value="am">{t('language.am')}</option>
+        </select>
+        <Button variant="secondary" onClick={onSave} loading={saving} disabled={saving || !changed}>
+          {saving ? t('common.working') : t('account.languageSave')}
+        </Button>
+      </div>
+      {message && (
+        <span role={message.tone === 'error' ? 'alert' : 'status'} className={message.tone === 'error' ? 'text-caption text-danger' : 'text-caption text-success'}>
+          {message.text}
+        </span>
+      )}
+      <span className="text-caption text-subtle sm:max-w-xs">{t('account.languageNote')}</span>
+    </div>
+  )
+}
+
 /**
  * Shows only what `GET /users/me` returned. The API exposes no creation date or name, so neither is
  * shown. E-mail verification and Fayda identity are separate: one never implies the other.
@@ -68,7 +119,7 @@ export default function Account() {
             {statusLabel.startsWith('account.status.') ? user.status : statusLabel}
           </Row>
           <Row label={t('account.language')}>
-            {user.preferredLanguage === 'am' ? t('language.am') : user.preferredLanguage === 'en' ? t('language.en') : user.preferredLanguage}
+            <LanguageChoice current={user.preferredLanguage} />
           </Row>
         </dl>
       </Card>
