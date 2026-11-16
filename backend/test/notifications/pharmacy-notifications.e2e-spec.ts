@@ -101,7 +101,7 @@ describe('Pharmacy notifications (e2e)', () => {
       const pharmacy = await createActivatedPharmacy(ctx);
       await request(ctx.server).patch('/users/me').set(...auth(pharmacy.accessToken)).send({ preferredLanguage: 'am' }).expect(200);
       await ctx.drainOutbox();
-      expect(await pharmacyItems(pharmacy.accessToken)).toEqual([expect.objectContaining({ title: 'ፋርማሲዎ ነቅቷል', body: 'ፋርማሲዎ በፋርማሊንክ ላይ ነቅቷል።' })]);
+      expect(await pharmacyItems(pharmacy.accessToken)).toEqual([expect.objectContaining({ title: 'ፋርማሲዎ ተመልሷል', body: 'ፋርማሲዎ በፋርማሊንክ ላይ ተመልሷል።' })]);
     });
 
     it('pharmacy.pharmacy.suspended (licence expired) → the owner, exactly once, with the reason code', async () => {

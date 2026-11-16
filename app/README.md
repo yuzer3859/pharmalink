@@ -193,8 +193,10 @@ integration and real SMS delivery are deferred.
 
 ### Localization and accessibility
 
-All authentication text is in `src/auth/strings.js`, ready for translation. Only English is written:
-the Amharic copy should come from a native speaker rather than a guess. Forms use real labels,
+All authentication and account text is in `src/auth/strings.js`, in English and Amharic. The Amharic
+was reviewed by a native speaker (Work 131); a key with no Amharic shows its English. The screens
+follow the customer's preferred language (My account), remembered on the device for the sign-in
+screens. The other pages are English only for now. Forms use real labels,
 announce errors (`role="alert"`), work by keyboard, and the code field opens the numeric keypad,
 accepts one-time-code autofill and strips spaces from a pasted code.
 
