@@ -184,6 +184,14 @@ export function createAuthService({ api, storage = safeSessionStorage(), deviceI
       return () => expiredListeners.delete(listener)
     },
 
+    /** Work 130: saves the customer's preferred language (`en` or `am`) on their account. */
+    async updateLanguage(preferredLanguage) {
+      if (preferredLanguage !== 'en' && preferredLanguage !== 'am') {
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Choose English or Amharic.')
+      }
+      await authorized('PATCH', '/users/me', { preferredLanguage })
+    },
+
     async register({ email, password, preferredLanguage }) {
       const data = await api.post('/auth/register', { email, password, preferredLanguage })
       if (!isRecord(data) || typeof data.userId !== 'string' || !isRecord(data.verification) ||
