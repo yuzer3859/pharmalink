@@ -3,10 +3,11 @@ import { RequirePermissions } from '../../../../shared/rbac/permissions.decorato
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { CurrentUser } from '../../../identity/interface/decorators/current-user.decorator';
 import { CancelOrderCommand } from '../../application/commands/cancel-order.command';
+import { PayOrderCommand } from '../../application/commands/pay-order.command';
 import { GetOrderInvoiceQuery } from '../../application/queries/get-order-invoice.query';
 import { GetOrderQuery } from '../../application/queries/get-order.query';
 import { ListOrdersQuery } from '../../application/queries/list-orders.query';
-import { CancelOrderDto, ListOrdersQueryDto } from '../dtos/order.dto';
+import { CancelOrderDto, ListOrdersQueryDto, PayOrderDto } from '../dtos/order.dto';
 
 /**
  * Customer order history and lifecycle (`06-orders-spec.md` §9.3, `order:read:own`).
@@ -29,7 +30,24 @@ export class OrdersController {
     private readonly getOrder: GetOrderQuery,
     private readonly getInvoice: GetOrderInvoiceQuery,
     private readonly cancelOrder: CancelOrderCommand,
+    private readonly payOrder: PayOrderCommand,
   ) {}
+
+  /**
+   * Work 129: pay a prepaid order once the pharmacist approved its prescription (verify before
+   * paying). `order:create:own`, the permission checkout's own payment runs under.
+   */
+  @Post(':id/pay')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('order:create:own')
+  async pay(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') orderId: string, @Body() dto: PayOrderDto) {
+    const { order, payment } = await this.payOrder.execute({
+      orderId,
+      customerUserId: user.userId,
+      payment: { method: dto.payment.method, token: dto.payment.token ?? null, returnUrl: dto.payment.returnUrl ?? null },
+    });
+    return { orderId: order.id, orderNumber: order.orderNumber, status: order.status, isCod: order.isCod, grandTotal: order.grandTotal, currency: order.currency, payment };
+  }
 
   @Get()
   @RequirePermissions('order:read:own')

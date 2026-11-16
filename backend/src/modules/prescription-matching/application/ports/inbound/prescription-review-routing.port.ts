@@ -1,43 +1,48 @@
 export const PRESCRIPTION_REVIEW_ROUTING_PORT = Symbol('PRESCRIPTION_REVIEW_ROUTING_PORT');
 
-/** Where the customer's prescription review stands, as checkout shows it. */
-export interface PrescriptionReviewRouting {
-  prescriptionId: string;
-  status: string;
-  /** The pharmacy organisation whose pharmacist reviews it. */
-  verifyingOrganizationId: string;
-  /** True when this call is the one that sent it there. */
-  routedNow: boolean;
-}
-
-/**
- * Work 109 (owner decision 2026-11-09, "verify before paying"): module-05 Model A, where the
- * dispensing pharmacy's pharmacist verifies. Before this, nothing in the product flow ever called
- * `AssignVerifyingPharmacyCommand` (§20 Decision 6 left the call site "to confirm later"), so an
- * uploaded prescription reached no pharmacist's queue.
- *
- * - `routeForReview` is called by Module 06's checkout quote when the cart has prescription items
- *   the Rx gate blocks. The customer's **newest** `UPLOADED` prescription not yet routed goes to the
- *   pharmacy the quote ranked first; that pharmacy's pharmacist then reviews it in the portal.
- *   When there is nothing to route, it reports the newest prescription already waiting for review,
- *   if any, so checkout can say where it is. It never moves a prescription already with a pharmacy.
- * - `verifyingOrganizationsFor` lets checkout place the order with the pharmacy that approved the
- *   prescription lines it dispenses against, so the verifier is the dispenser.
- *
- * Both take an explicit `customerUserId`; nothing here crosses customers.
- */
-/** What the customer asks to dispense against the prescription; the pharmacist approves these. */
+/** What the order asks to dispense against the prescription; the pharmacist approves these. */
 export interface RequestedRxItem {
   catalogProductId: string;
   productName: string | null;
   quantity: number;
 }
 
+/** One approved prescription line, for the order line of the same product. */
+export interface ApprovedRxLine {
+  catalogProductId: string;
+  prescriptionLineId: string;
+}
+
+/**
+ * Work 129 (owner decision 2026-11-16): the prescription travels with the order. Every order with a
+ * prescription medicine carries the prescription the customer attached at checkout, and the
+ * pharmacist of the pharmacy filling the order reviews it on that order (module-05 Model A: the
+ * dispenser verifies). It replaces Work 109's quote-time routing of the customer's newest upload.
+ *
+ * - `assertAttachable`: before checkout reserves stock, the prescription must be the customer's
+ *   own, `UPLOADED`, and not yet sent to any pharmacy (one prescription, one order).
+ * - `attachToOrder`: once the order exists, sends it to the filling pharmacy's organisation with
+ *   what the order asks for (`UPLOADED -> PENDING_VERIFICATION`). A prescription another checkout
+ *   attached first is refused, and the caller cancels its own order.
+ * - `approveForOrder` / `rejectForOrder`: the pharmacist's decision, through Module 05's own
+ *   approve and reject commands, which check the reviewer is a pharmacist at that pharmacy. The
+ *   approval is one line per ordered product for the ordered quantity. Approving a prescription
+ *   already approved returns its lines, so a retry after a crash completes the order.
+ */
 export interface IPrescriptionReviewRoutingPort {
-  routeForReview(input: {
+  assertAttachable(input: { customerUserId: string; prescriptionId: string }): Promise<void>;
+  attachToOrder(input: {
     customerUserId: string;
+    prescriptionId: string;
     verifyingOrganizationId: string;
     requestedItems: RequestedRxItem[];
-  }): Promise<PrescriptionReviewRouting | null>;
-  verifyingOrganizationsFor(input: { customerUserId: string; prescriptionLineIds: string[] }): Promise<string[]>;
+  }): Promise<void>;
+  approveForOrder(input: {
+    prescriptionId: string;
+    reviewerUserId: string;
+    items: Array<{ catalogProductId: string; quantity: number }>;
+    legibilityOk: boolean;
+    validityOk: boolean;
+  }): Promise<ApprovedRxLine[]>;
+  rejectForOrder(input: { prescriptionId: string; reviewerUserId: string; reason: string }): Promise<void>;
 }

@@ -41,6 +41,11 @@ export interface CheckoutResponse {
   replay: boolean;
   /** Work 95: the prepaid payment (`null` for cash on delivery). Never the gateway token. */
   payment: { paymentId: string; status: string; providerRedirect: string | null } | null;
+  /**
+   * Work 129: the review of the prescription attached to the order: `PENDING` while the pharmacist
+   * reviews it (the order is not paid yet), `null` for an order with no prescription medicine.
+   */
+  rxReviewStatus: string | null;
 }
 
 /** Pure mapping, no business logic — keeps the controller free of shape-building. */
@@ -70,5 +75,6 @@ export function toCheckoutResponse(result: CheckoutResult): CheckoutResponse {
     })),
     replay,
     payment: payment ?? null,
+    rxReviewStatus: order.rxReviewStatus ?? null,
   };
 }

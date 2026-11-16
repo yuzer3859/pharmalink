@@ -122,4 +122,12 @@ export class CheckoutDto {
   @ValidateNested()
   @Type(() => CheckoutPaymentDto)
   payment?: CheckoutPaymentDto;
+
+  /**
+   * Work 129: the customer's uploaded prescription, required when the cart has a prescription
+   * medicine. Ownership and state are checked by Module 05 below the controller.
+   */
+  @IsOptional()
+  @IsUUID()
+  prescriptionId?: string;
 }

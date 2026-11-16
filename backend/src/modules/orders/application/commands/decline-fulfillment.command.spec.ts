@@ -42,6 +42,7 @@ function build() {
     listUncapturedPrepaid: jest.fn(),
     isPaymentCaptured: jest.fn(),
     markPaymentCaptured: jest.fn(),
+    setLinePrescriptionLines: jest.fn(),
   };
   const identity: jest.Mocked<IIdentityPort> = {
     getUserOrganizationIds: jest.fn(),

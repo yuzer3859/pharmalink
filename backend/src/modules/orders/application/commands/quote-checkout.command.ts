@@ -1,24 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CONFIG_PORT, IConfigPort } from '../../../../shared/config/config.port';
-import {
-  CHECK_RX_GATE_PORT,
-  CheckRxGateResult,
-  ICheckRxGatePort,
-} from '../../../prescription-matching/application/ports/inbound/check-rx-gate.port';
+import { ErrorCode } from '../../../../shared/errors/error-codes';
+import { CheckRxGateResult } from '../../../prescription-matching/application/ports/inbound/check-rx-gate.port';
 import {
   IMatchingPort,
   MATCHING_PORT,
 } from '../../../prescription-matching/application/ports/inbound/matching.port';
 import {
-  IPrescriptionReviewRoutingPort,
-  PRESCRIPTION_REVIEW_ROUTING_PORT,
-  PrescriptionReviewRouting,
-} from '../../../prescription-matching/application/ports/inbound/prescription-review-routing.port';
-import {
   DELIVERY_PRICING_PORT,
   IDeliveryPricingPort,
 } from '../../../delivery/application/ports/inbound/delivery-pricing.port';
-import { IPharmacyPort, PHARMACY_PORT } from '../ports/outbound/pharmacy.port';
 import { CartPolicy } from '../../domain/services/cart-policy';
 import { OrderTotals, PricingCalculator } from '../../domain/services/pricing-calculator';
 import { RxClassificationPolicy } from '../../domain/services/rx-classification-policy';
@@ -47,10 +38,10 @@ export interface QuoteCheckoutResult {
   candidates: QuoteCandidate[];
   totals: OrderTotals;
   /**
-   * Work 109: where the customer's prescription review stands, when the Rx gate blocks the cart.
-   * `null` when nothing is blocked, or the customer has no prescription to review.
+   * Work 129: the cart has a prescription medicine, so checkout needs the customer's prescription
+   * attached to the order. The pharmacist of the pharmacy filling it reviews it before payment.
    */
-  prescriptionReview: PrescriptionReviewRouting | null;
+  prescriptionRequired: boolean;
 }
 
 /**
@@ -61,7 +52,9 @@ export interface QuoteCheckoutResult {
  * Runs the read-only prefix of the checkout saga (§4 steps 1, 2, 3, 5) and deliberately stops
  * before step 4:
  *  - step 1 — validate the caller's own cart + re-price every line fresh from `ICatalogPort`;
- *  - step 2 — `ICheckRxGatePort.check()`, Module 05's gate, reused not reimplemented;
+ *  - step 2 — Work 129: whether a prescription must be attached (every prescription medicine needs
+ *    one on its order; `rxGateResult` lists them as `RX_REQUIRED`). Nothing is routed here;
+ *    checkout attaches the prescription to the order it places;
  *  - step 3 — `IMatchingPort.find()` **only**. `IMatchingPort.select()` is never called here:
  *    `SelectMatchCommand` reserves stock via Module 04 before flipping `MatchRequest.status`
  *    (§4's own ordering rationale, ADR-014), so calling it would make this quote hold inventory.
@@ -86,12 +79,9 @@ export class QuoteCheckoutCommand {
     @Inject(CART_REPOSITORY) private readonly carts: ICartRepository,
     @Inject(CATALOG_PORT) private readonly catalog: ICatalogPort,
     @Inject(ADDRESS_PORT) private readonly addresses: IAddressPort,
-    @Inject(CHECK_RX_GATE_PORT) private readonly checkRxGate: ICheckRxGatePort,
     @Inject(MATCHING_PORT) private readonly matching: IMatchingPort,
     @Inject(DELIVERY_PRICING_PORT) private readonly deliveryPricing: IDeliveryPricingPort,
     @Inject(CONFIG_PORT) private readonly config: IConfigPort,
-    @Inject(PRESCRIPTION_REVIEW_ROUTING_PORT) private readonly rxReview: IPrescriptionReviewRoutingPort,
-    @Inject(PHARMACY_PORT) private readonly pharmacies: IPharmacyPort,
   ) {}
 
   async execute(input: QuoteCheckoutInput): Promise<QuoteCheckoutResult> {
@@ -125,21 +115,13 @@ export class QuoteCheckoutCommand {
       });
     }
 
-    // Step 2 — Rx gate (§4 step 2). Unlike checkout this reports the result instead of throwing:
-    // §9.2 contracts `rxGateResult` as part of a successful `200` so the client can see *why* it
-    // is blocked before committing. A cart with no Rx line skips Module 05 entirely, preserving
-    // the existing OTC behaviour.
+    // Step 2 — Work 129: every prescription medicine needs the prescription attached to its order.
     const rxLines = priced.filter((line) => line.isRx);
-    const rxGateResult: CheckRxGateResult =
-      rxLines.length === 0
-        ? { allowed: true, blocked: [], usablePrescriptionLineIds: [] }
-        : await this.checkRxGate.check({
-            customerUserId: input.customerUserId,
-            items: rxLines.map((line) => ({
-              catalogProductId: line.catalogProductId,
-              quantity: line.quantity,
-            })),
-          });
+    const rxGateResult: CheckRxGateResult = {
+      allowed: rxLines.length === 0,
+      blocked: rxLines.map((line) => ({ catalogProductId: line.catalogProductId, reason: ErrorCode.RX_REQUIRED })),
+      usablePrescriptionLineIds: [],
+    };
 
     // Step 3 — matching discovery only (never `select`, which would reserve stock).
     const findResult = await this.matching.find({
@@ -180,22 +162,6 @@ export class QuoteCheckoutCommand {
             })
           ).deliveryFee;
 
-    // Step 4c — Work 109 (owner decision 2026-11-09: verify before paying). A blocked Rx cart sends
-    // the customer's newest unrouted prescription to the pharmacy ranked first, the one checkout
-    // will choose, so that pharmacy's pharmacist reviews it before the customer pays. Checkout then
-    // places the order with the pharmacy that approved it.
-    let prescriptionReview: PrescriptionReviewRouting | null = null;
-    if (!rxGateResult.allowed) {
-      const organizationId = topCandidate ? await this.pharmacies.getOrganizationId(topCandidate.pharmacyId) : null;
-      // What the pharmacist approves against: the Rx lines the gate blocked, as quoted.
-      const blockedIds = new Set(rxGateResult.blocked.map((b) => b.catalogProductId));
-      const requestedItems = rxLines
-        .filter((line) => blockedIds.has(line.catalogProductId))
-        .map((line) => ({ catalogProductId: line.catalogProductId, productName: line.name || null, quantity: line.quantity }));
-      prescriptionReview = organizationId
-        ? await this.rxReview.routeForReview({ customerUserId: input.customerUserId, verifyingOrganizationId: organizationId, requestedItems })
-        : null;
-    }
 
     // Step 5 — totals, via the one shared calculator.
     const totals = PricingCalculator.computeTotals({
@@ -222,7 +188,7 @@ export class QuoteCheckoutCommand {
         rank: candidate.rank,
       })),
       totals,
-      prescriptionReview,
+      prescriptionRequired: rxLines.length > 0,
     };
   }
 }

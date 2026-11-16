@@ -1,4 +1,4 @@
-import { OrderLineStatus, OrderStatus, OrderStrategy } from '../enums';
+import { OrderLineStatus, OrderRxReviewStatus, OrderStatus, OrderStrategy } from '../enums';
 
 export const ORDER_REPOSITORY = Symbol('ORDER_REPOSITORY');
 
@@ -36,6 +36,11 @@ export interface OrderSnapshot {
   completedAt: Date | null;
   cancelledAt: Date | null;
   cancelReason: string | null;
+  /** Work 129: the prescription attached at checkout; `null` on an order with no prescription medicine. */
+  prescriptionId: string | null;
+  /** Work 129: the pharmacist's review of that prescription; `null` when there is none. */
+  rxReviewStatus: OrderRxReviewStatus | null;
+  rxReviewedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -135,6 +140,9 @@ export interface NewOrderData {
   idempotencyKey: string;
   isCod: boolean;
   placedAt?: Date | null;
+  /** Work 129: set together, on an order with a prescription medicine (review `PENDING`). */
+  prescriptionId?: string | null;
+  rxReviewStatus?: OrderRxReviewStatus | null;
 }
 
 /** Data required to insert one `OrderLine` (checkout saga §4 step 6) — created alongside the
@@ -166,6 +174,9 @@ export interface OrderStatusUpdate {
   matchRequestId?: string | null;
   /** Work 95: set once, when a prepaid order's authorization is applied (`PENDING_PAYMENT -> PAID`). */
   paymentId?: string | null;
+  /** Work 129: the pharmacist's decision on the attached prescription, with its time. */
+  rxReviewStatus?: OrderRxReviewStatus;
+  rxReviewedAt?: Date;
 }
 
 /** Data required to move one `OrderLine` from a declined `Fulfillment` onto the pharmacy a
@@ -244,8 +255,15 @@ export interface IOrderRepository {
     tx?: unknown,
   ): Promise<void>;
   findStatusHistory(orderId: string, tx?: unknown): Promise<OrderStatusHistoryEntrySnapshot[]>;
-  /** Work 95: prepaid orders still `PENDING_PAYMENT` that were placed before `cutoff`, oldest first. */
-  listUnpaidPrepaid(cutoff: Date, limit: number, tx?: unknown): Promise<OrderSnapshot[]>;
+  /**
+   * Work 95: prepaid orders still `PENDING_PAYMENT` that were placed before `cutoff`, oldest first.
+   * Work 129: an order whose prescription is still with the pharmacist is never listed, and one
+   * whose prescription was approved is listed once it was approved before `approvedCutoff`: the
+   * customer can only pay after the approval.
+   */
+  listUnpaidPrepaid(cutoff: Date, limit: number, tx?: unknown, approvedCutoff?: Date): Promise<OrderSnapshot[]>;
+  /** Work 129: points each Rx line at the prescription line the pharmacist approved for it. */
+  setLinePrescriptionLines(links: Array<{ orderLineId: string; prescriptionLineId: string }>, tx?: unknown): Promise<void>;
   /** Work 96: prepaid orders handed to fulfilment (`READY` or later) whose payment is not yet captured, oldest first. */
   listUncapturedPrepaid(statuses: string[], limit: number, tx?: unknown): Promise<Array<{ id: string; paymentId: string }>>;
   /** Work 96: whether the order's payment capture is already recorded. */

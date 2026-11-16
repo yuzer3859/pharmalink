@@ -71,6 +71,9 @@ function toOrderSnapshot(row: PrismaOrder): OrderSnapshot {
     completedAt: row.completedAt,
     cancelledAt: row.cancelledAt,
     cancelReason: row.cancelReason,
+    prescriptionId: row.prescriptionId,
+    rxReviewStatus: row.rxReviewStatus,
+    rxReviewedAt: row.rxReviewedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -149,9 +152,16 @@ export class PrismaOrderRepository implements IOrderRepository {
     return (tx as Prisma.TransactionClient) ?? this.prisma;
   }
 
-  async listUnpaidPrepaid(cutoff: Date, limit: number, tx?: unknown): Promise<OrderSnapshot[]> {
+  async listUnpaidPrepaid(cutoff: Date, limit: number, tx?: unknown, approvedCutoff: Date = cutoff): Promise<OrderSnapshot[]> {
     const rows = await this.client(tx).order.findMany({
-      where: { isCod: false, status: 'PENDING_PAYMENT', placedAt: { lt: cutoff } },
+      where: {
+        isCod: false,
+        status: 'PENDING_PAYMENT',
+        OR: [
+          { rxReviewStatus: null, placedAt: { lt: cutoff } },
+          { rxReviewStatus: 'APPROVED', rxReviewedAt: { lt: approvedCutoff } },
+        ],
+      },
       orderBy: { placedAt: 'asc' },
       take: limit,
     });
@@ -171,6 +181,13 @@ export class PrismaOrderRepository implements IOrderRepository {
       select: { id: true, paymentId: true },
     });
     return rows.map((r) => ({ id: r.id, paymentId: r.paymentId as string }));
+  }
+
+  async setLinePrescriptionLines(links: Array<{ orderLineId: string; prescriptionLineId: string }>, tx?: unknown): Promise<void> {
+    const client = this.client(tx);
+    for (const link of links) {
+      await client.orderLine.update({ where: { id: link.orderLineId }, data: { prescriptionLineId: link.prescriptionLineId } });
+    }
   }
 
   async isPaymentCaptured(orderId: string, tx?: unknown): Promise<boolean> {
@@ -243,6 +260,8 @@ export class PrismaOrderRepository implements IOrderRepository {
         idempotencyKey: data.idempotencyKey,
         isCod: data.isCod,
         placedAt: data.placedAt ?? null,
+        prescriptionId: data.prescriptionId ?? null,
+        rxReviewStatus: data.rxReviewStatus ?? null,
         statusHistory: {
           create: {
             fromStatus: initialHistoryEntry.fromStatus,
@@ -275,6 +294,8 @@ export class PrismaOrderRepository implements IOrderRepository {
         cancelReason: update.cancelReason,
         matchRequestId: update.matchRequestId,
         paymentId: update.paymentId,
+        rxReviewStatus: update.rxReviewStatus,
+        rxReviewedAt: update.rxReviewedAt,
       },
     });
     await client.orderStatusHistory.create({

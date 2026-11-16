@@ -22,6 +22,14 @@ enum OrderStatus {
   REFUNDED
 }
 
+/// Work 129 (owner decision 2026-11-16): where the pharmacist's review of the prescription attached
+/// to an order stands. Null on an order with no prescription medicine.
+enum OrderRxReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum OrderStrategy {
   SINGLE
   SPLIT
@@ -101,6 +109,12 @@ model Order {
   completedAt         DateTime?
   cancelledAt         DateTime?
   cancelReason        String?
+  /// Work 129: the prescription the customer attached to this order at checkout (Module 05's
+  /// `prescriptions.id`, no relation across modules). Null when the order has no prescription medicine.
+  prescriptionId      String?
+  rxReviewStatus      OrderRxReviewStatus?
+  /// When the pharmacist approved or rejected the attached prescription.
+  rxReviewedAt        DateTime?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 

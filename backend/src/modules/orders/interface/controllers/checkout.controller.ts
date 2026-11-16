@@ -66,6 +66,8 @@ export class CheckoutController {
       payment: dto.payment
         ? { method: dto.payment.method, token: dto.payment.token ?? null, returnUrl: dto.payment.returnUrl ?? null }
         : undefined,
+      // Work 129: the prescription attached to this order.
+      prescriptionId: dto.prescriptionId,
     });
 
     return toCheckoutResponse(result);

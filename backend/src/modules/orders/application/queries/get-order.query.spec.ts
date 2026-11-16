@@ -20,6 +20,7 @@ function build() {
     listUncapturedPrepaid: jest.fn(),
     isPaymentCaptured: jest.fn(),
     markPaymentCaptured: jest.fn(),
+    setLinePrescriptionLines: jest.fn(),
   };
   const query = new GetOrderQuery(orders);
   return { query, orders };

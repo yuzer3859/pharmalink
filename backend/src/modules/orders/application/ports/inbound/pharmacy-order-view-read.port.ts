@@ -4,10 +4,21 @@ import { FulfillmentStatus, OrderLineStatus, OrderStatus } from '../../../domain
  * Work 107: what a pharmacy needs to prepare its part of an order (module-06 §9.4), read for the
  * pharmacy portal. A fulfilment with its order's header and the lines it carries.
  *
- * Deliberately **no customer contact data**: no name, phone or address. The pharmacy prepares
- * and hands over; the driver delivers. What a pharmacist needs for the prescription comes from
- * the verification queue (Module 05), not from here.
+ * Work 129 (owner decision 2026-11-16): the pharmacist reviews the order's prescription on the
+ * order, so the view names who ordered (the customer's profile name) and carries the attached
+ * prescription's summary; its file opens through Module 05's audited preview link. Still **no
+ * customer contact data**: no phone, e-mail or address. The driver delivers.
  */
+export interface PharmacyOrderPrescriptionView {
+  id: string;
+  /** Module 05's status of the prescription. */
+  status: string;
+  fileType: string | null;
+  doctorName: string | null;
+  hospitalName: string | null;
+  uploadedAt: Date;
+}
+
 export interface PharmacyOrderLineView {
   id: string;
   catalogProductId: string;
@@ -38,7 +49,13 @@ export interface PharmacyOrderView {
     currency: string;
     placedAt: Date | null;
     deliverySlot: string | null;
+    /** Work 129: `PENDING` while the pharmacist reviews the attached prescription. */
+    rxReviewStatus: string | null;
   };
+  /** Work 129: the customer's name from their profile; `null` when they have not given one. */
+  customerName: string | null;
+  /** Work 129: the prescription attached to the order; `null` when it has none. */
+  prescription: PharmacyOrderPrescriptionView | null;
   /** The order's lines this fulfilment carries. */
   lines: PharmacyOrderLineView[];
   /** At least one line needs a prescription. */

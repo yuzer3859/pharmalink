@@ -6,8 +6,14 @@ import { AcceptFulfillmentCommand } from '../../application/commands/accept-fulf
 import { DeclineFulfillmentCommand } from '../../application/commands/decline-fulfillment.command';
 import { MarkReadyCommand } from '../../application/commands/mark-ready.command';
 import { PrepareFulfillmentCommand } from '../../application/commands/prepare-fulfillment.command';
+import { ReviewOrderPrescriptionCommand } from '../../application/commands/review-order-prescription.command';
 import { GetPharmacyOrderQuery, ListPharmacyOrdersQuery } from '../../application/queries/list-pharmacy-orders.query';
-import { DeclineFulfillmentDto, ListPharmacyOrdersQueryDto } from '../dtos/fulfillment.dto';
+import {
+  ApproveOrderPrescriptionDto,
+  DeclineFulfillmentDto,
+  ListPharmacyOrdersQueryDto,
+  RejectOrderPrescriptionDto,
+} from '../dtos/fulfillment.dto';
 
 /**
  * Pharmacy-side fulfillment actions (`06-orders-spec.md` §9.4, `order:fulfill:org`).
@@ -37,7 +43,35 @@ export class PharmacyOrdersController {
     private readonly declineFulfillment: DeclineFulfillmentCommand,
     private readonly prepareFulfillment: PrepareFulfillmentCommand,
     private readonly markReady: MarkReadyCommand,
+    private readonly reviewPrescription: ReviewOrderPrescriptionCommand,
   ) {}
+
+  /**
+   * Work 129: the pharmacist approves the prescription attached to the order. Needs
+   * `prescription:verify`; Module 05 also requires the PHARMACIST role at this pharmacy.
+   */
+  @Post(':fulfillmentId/prescription/approve')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('prescription:verify')
+  approvePrescription(
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Param('fulfillmentId') fulfillmentId: string,
+    @Body() dto: ApproveOrderPrescriptionDto,
+  ) {
+    return this.reviewPrescription.approve({ fulfillmentId, actorUserId: user.userId, legibilityOk: dto.legibilityOk, validityOk: dto.validityOk });
+  }
+
+  /** Work 129: the pharmacist rejects it with a reason for the customer; the order is cancelled. */
+  @Post(':fulfillmentId/prescription/reject')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('prescription:verify')
+  rejectPrescription(
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Param('fulfillmentId') fulfillmentId: string,
+    @Body() dto: RejectOrderPrescriptionDto,
+  ) {
+    return this.reviewPrescription.reject({ fulfillmentId, actorUserId: user.userId, reason: dto.reason });
+  }
 
   @Get()
   @RequirePermissions('order:fulfill:org')

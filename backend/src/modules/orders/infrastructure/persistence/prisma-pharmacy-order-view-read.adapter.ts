@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
 import {
   IPharmacyOrderViewReadPort,
+  PharmacyOrderPrescriptionView,
   PharmacyOrderView,
   PharmacyOrderViewCriteria,
 } from '../../application/ports/inbound/pharmacy-order-view-read.port';
@@ -17,6 +18,9 @@ const INCLUDE = {
       currency: true,
       placedAt: true,
       deliverySlot: true,
+      customerUserId: true,
+      prescriptionId: true,
+      rxReviewStatus: true,
     },
   },
   lines: { orderBy: { createdAt: 'asc' } },
@@ -24,9 +28,19 @@ const INCLUDE = {
 
 type Row = Prisma.FulfillmentGetPayload<{ include: typeof INCLUDE }>;
 
+interface Related {
+  names: Map<string, string | null>;
+  prescriptions: Map<string, PharmacyOrderPrescriptionView>;
+}
+
 /**
  * Work 107: the pharmacy portal's order read. The visibility rule is the fulfilment list's own
- * (Work 95): a prepaid order is the pharmacy's to see only once its payment is recorded.
+ * (Work 95): a prepaid order is the pharmacy's to see only once its payment is recorded. Work 129:
+ * an order with a prescription is visible from placement, because its pharmacist reviews the
+ * prescription before the customer pays.
+ *
+ * The customer's name and the prescription summary are read from Module 02's and Module 05's
+ * tables by id, read-only, two queries per page (no relation across modules).
  */
 @Injectable()
 export class PrismaPharmacyOrderViewReadAdapter implements IPharmacyOrderViewReadPort {
@@ -44,12 +58,38 @@ export class PrismaPharmacyOrderViewReadAdapter implements IPharmacyOrderViewRea
       }),
       this.prisma.fulfillment.count({ where }),
     ]);
-    return { items: rows.map(toView), total };
+    const related = await this.related(rows);
+    return { items: rows.map((row) => toView(row, related)), total };
   }
 
   async findById(fulfillmentId: string, pharmacyIds: string[]): Promise<PharmacyOrderView | null> {
     const row = await this.prisma.fulfillment.findFirst({ where: visible(pharmacyIds, { id: fulfillmentId }), include: INCLUDE });
-    return row ? toView(row) : null;
+    return row ? toView(row, await this.related([row])) : null;
+  }
+
+  private async related(rows: Row[]): Promise<Related> {
+    const userIds = [...new Set(rows.map((r) => r.order.customerUserId))];
+    const prescriptionIds = [...new Set(rows.map((r) => r.order.prescriptionId).filter((id): id is string => id !== null))];
+    const [profiles, prescriptions] = await Promise.all([
+      userIds.length === 0
+        ? []
+        : this.prisma.customerProfile.findMany({ where: { userId: { in: userIds }, deletedAt: null }, select: { userId: true, fullName: true } }),
+      prescriptionIds.length === 0
+        ? []
+        : this.prisma.prescription.findMany({
+            where: { id: { in: prescriptionIds } },
+            select: { id: true, status: true, fileType: true, doctorName: true, hospitalName: true, createdAt: true },
+          }),
+    ]);
+    return {
+      names: new Map(profiles.map((p) => [p.userId, p.fullName?.trim() || null])),
+      prescriptions: new Map(
+        prescriptions.map((p) => [
+          p.id,
+          { id: p.id, status: p.status, fileType: p.fileType, doctorName: p.doctorName, hospitalName: p.hospitalName, uploadedAt: p.createdAt },
+        ]),
+      ),
+    };
   }
 }
 
@@ -57,7 +97,7 @@ function visible(pharmacyIds: string[], extra: Prisma.FulfillmentWhereInput): Pr
   return {
     ...extra,
     pharmacyId: { in: pharmacyIds },
-    order: { OR: [{ isCod: true }, { paymentId: { not: null } }] },
+    order: { OR: [{ isCod: true }, { paymentId: { not: null } }, { prescriptionId: { not: null } }] },
   };
 }
 
@@ -69,7 +109,7 @@ function productName(snapshot: Prisma.JsonValue | null): string | null {
   return null;
 }
 
-function toView(row: Row): PharmacyOrderView {
+function toView(row: Row, related: Related): PharmacyOrderView {
   const lines = row.lines.map((l) => ({
     id: l.id,
     catalogProductId: l.catalogProductId,
@@ -80,6 +120,7 @@ function toView(row: Row): PharmacyOrderView {
     requiresRx: l.requiresRx,
     lineStatus: l.lineStatus,
   }));
+  const { customerUserId, prescriptionId, ...order } = row.order;
   return {
     id: row.id,
     orderId: row.orderId,
@@ -90,8 +131,10 @@ function toView(row: Row): PharmacyOrderView {
     acceptedAt: row.acceptedAt,
     readyAt: row.readyAt,
     createdAt: row.createdAt,
-    order: { ...row.order },
+    order,
     lines,
     requiresRx: lines.some((l) => l.requiresRx),
+    customerName: related.names.get(customerUserId) ?? null,
+    prescription: prescriptionId ? related.prescriptions.get(prescriptionId) ?? null : null,
   };
 }

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { FulfillmentStatus } from '../../domain/enums';
 
 /**
@@ -33,6 +33,23 @@ export class ListPharmacyOrdersQueryDto {
  * pharmacist's stated reason.
  */
 export class DeclineFulfillmentDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason!: string;
+}
+
+/** Work 129: the pharmacist approves the prescription on the order, attesting both checks. */
+export class ApproveOrderPrescriptionDto {
+  @IsBoolean()
+  legibilityOk!: boolean;
+
+  @IsBoolean()
+  validityOk!: boolean;
+}
+
+/** Work 129: the pharmacist's reason, shown to the customer on the cancelled order. */
+export class RejectOrderPrescriptionDto {
   @IsString()
   @MinLength(3)
   @MaxLength(500)
