@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { API_BASE_URL } from '../config/env'
 import { createApiClient } from './apiClient'
 import { createAuthService } from './authService'
-import { t } from './strings'
+import { setLanguage, t } from './strings'
 
 // Status: 'initializing' while a stored session is being checked, then 'signedIn' or 'signedOut'.
 // Components get the user and actions only; tokens stay inside the auth service.
@@ -28,7 +28,11 @@ export function AuthProvider({ service: provided, children }) {
     if (service.hasStoredSession()) {
       service
         .restore()
-        .then((user) => active && setState((s) => ({ status: user ? 'signedIn' : 'signedOut', user, expired: !user && s.expired })))
+        .then((user) => {
+          if (!active) return
+          if (user) setLanguage(user.preferredLanguage)
+          setState((s) => ({ status: user ? 'signedIn' : 'signedOut', user, expired: !user && s.expired }))
+        })
         .catch(() => active && setState({ status: 'signedOut', user: null, expired: false }))
     }
     const unsubscribe = service.onSessionExpired(() => {
@@ -41,6 +45,8 @@ export function AuthProvider({ service: provided, children }) {
   }, [service])
 
   const signedIn = useCallback((user) => {
+    // Work 131: the screens follow the customer's preferred language.
+    setLanguage(user?.preferredLanguage)
     setState({ status: 'signedIn', user, expired: false })
     return user
   }, [])

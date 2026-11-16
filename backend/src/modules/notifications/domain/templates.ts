@@ -132,7 +132,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     category: NotificationCategory.SECURITY,
     render: {
       en: () => ({ title: 'Account reactivated', body: 'Your account is active again.' }),
-      am: () => ({ title: 'መለያዎ እንደገና ነቅቷል', body: 'መለያዎ እንደገና ንቁ ሆኗል።' }),
+      am: () => ({ title: 'መለያዎ እንደገና ነቅቷል', body: 'መለያዎ እንደገና አክቲቭ ሆኗል።' }),
     },
   },
   [NotificationTemplateCode.DISPUTE_UPDATED]: {
@@ -143,7 +143,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         body: d.change === 'MESSAGE' ? 'Support replied to your dispute.' : `Your dispute is now ${String(d.status).toLowerCase().replace(/_/g, ' ')}.`,
       }),
       am: (d) => ({
-        title: `ቅሬታ ${String(d.caseNumber)} ተዘምኗል`,
+        title: `ቅሬታ ${String(d.caseNumber)} ተስተካክሏል`,
         body: d.change === 'MESSAGE' ? 'የድጋፍ ቡድኑ ለቅሬታዎ መልስ ሰጥቷል።' : 'የቅሬታዎ ሁኔታ ተቀይሯል።',
       }),
     },
@@ -161,7 +161,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
               : 'Your review was hidden while it breaks the review policy.',
       }),
       am: (d) => ({
-        title: 'ግምገማዎ ተገምግሟል',
+        title: 'ግምገማዎ በግምገማ ሂደት ውስጥ አልፏል',
         body:
           d.move === 'restore'
             ? 'ግምገማዎ እንደገና ይታያል።'
@@ -355,8 +355,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         title: 'የጥሬ ገንዘብ ክፍያ ተመሳክሯል',
         body:
           d.outcome === COD_RECONCILED_ACCEPTED
-            ? 'ለዚህ ማድረስ የጥሬ ገንዘብ ክፍያ መጠኖች ተረጋግጠው ተስማምተዋል።'
-            : 'ለዚህ ማድረስ የጥሬ ገንዘብ ክፍያ መጠኖች ተረጋግጠው ልዩነት ተመዝግቧል።',
+            ? 'ለዚህ ስራ የጥሬ ገንዘብ ክፍያ መጠኖች ተረጋግጠው ተስማምተዋል።'
+            : 'ለዚህ ስራ የጥሬ ገንዘብ ክፍያ መጠኖች ተረጋግጠው ልዩነቱ ተመዝግቧል።',
       }),
     },
   },
@@ -368,8 +368,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         body: 'A correction has been recorded to the cash-on-delivery record for this delivery.',
       }),
       am: () => ({
-        title: 'የጥሬ ገንዘብ ክፍያ መዝገብ ታርሟል',
-        body: 'ለዚህ ማድረስ የጥሬ ገንዘብ ክፍያ መዝገብ ላይ እርማት ተመዝግቧል።',
+        title: 'የጥሬ ገንዘብ ክፍያ መዝገብ ተስተካክሏል',
+        body: 'ለዚህ ስራ የጥሬ ገንዘብ ክፍያ መዝገብ ላይ ማስተካከያ ተደርጓል።',
       }),
     },
   },
@@ -405,7 +405,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     category: NotificationCategory.SYSTEM,
     render: {
       en: () => ({ title: 'Pharmacy activated', body: 'Your pharmacy has been activated on PharmaLink.' }),
-      am: () => ({ title: 'ፋርማሲዎ ነቅቷል', body: 'ፋርማሲዎ በፋርማሊንክ ላይ ነቅቷል።' }),
+      am: () => ({ title: 'ፋርማሲዎ ተመልሷል', body: 'ፋርማሲዎ በፋርማሊንክ ላይ ተመልሷል።' }),
     },
   },
   // `LICENSE_EXPIRED` is the reason the platform itself records (Module 04's expiry sweep) and

@@ -251,8 +251,24 @@ describe('navigation, logout and session expiry', () => {
 
     expect(await screen.findByText('Language saved.')).toBeTruthy()
     expect(callsTo('PATCH /users/me').map((c) => c.body)).toEqual([{ preferredLanguage: 'am' }])
-    expect(screen.getByLabelText('Preferred language').value).toBe('am')
+    // Work 131: the account screen now reads in Amharic, and the choice is remembered.
+    expect(screen.getByRole('heading', { name: 'የእኔ መለያ' })).toBeTruthy()
+    expect(screen.getByLabelText('የሚመርጡት ቋንቋ').value).toBe('am')
     expect(screen.getByRole('button', { name: 'Save' }).disabled).toBe(true)
+    expect(localStorage.getItem('pharmalink.customer.language')).toBe('am')
+    expect(document.documentElement.lang).toBe('am')
+  })
+
+  it('opens in Amharic for a customer who chose it, and the sign-in screen stays in it after signing out (Work 131)', async () => {
+    sessionStorage.setItem('pharmalink.customer.session', JSON.stringify({ refreshToken: REFRESH_A }))
+    renderApp('/account', {
+      'POST /auth/token/refresh': ok(tokens('access-2', 'q'.repeat(40))),
+      'GET /users/me': ok({ ...customer, preferredLanguage: 'am' }),
+      'POST /auth/logout': { status: 204 },
+    })
+    expect(await screen.findByRole('heading', { name: 'የእኔ መለያ' })).toBeTruthy()
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: /^ውጣ$/ })))
+    expect(await screen.findByRole('heading', { name: 'ወደ ፋርማሊንክ ይግቡ' })).toBeTruthy()
   })
 
   it('says so when the language cannot be saved', async () => {

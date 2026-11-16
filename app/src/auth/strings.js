@@ -1,6 +1,6 @@
-// Every customer-facing authentication string, in one place so it can be translated. Only English is
-// written so far: the Amharic copy needs a native-speaker review rather than a guess (app/README.md).
-// `t(key, vars)` replaces `{name}` placeholders.
+// Every customer-facing authentication string, in one place so it can be translated. English and
+// Amharic; the Amharic was reviewed by a native speaker (Work 131). A key with no Amharic shows
+// its English. `t(key, vars)` replaces `{name}` placeholders.
 
 export const messages = {
   en: {
@@ -86,7 +86,7 @@ export const messages = {
     'account.languageSave': 'Save',
     'account.languageSaved': 'Language saved.',
     'account.languageFailed': 'The language could not be saved. Please try again.',
-    'account.languageNote': 'Notifications use this language. The app screens are in English for now; Amharic screens come once their translation is reviewed.',
+    'account.languageNote': 'Sign-in, your account and notifications use this language. The other screens are in English for now.',
     'account.emailStatus': 'E-mail',
     'account.emailVerified': 'E-mail verified',
     'account.emailVerifiedOn': 'E-mail verified on {date}',
@@ -131,12 +131,148 @@ export const messages = {
     'error.smsUnavailable': 'SMS delivery is not available yet. Use your e-mail address instead.',
     'error.unavailable': 'This service is temporarily unavailable. Please try again shortly.',
   },
+  // Work 131: reviewed by the owner, a native speaker, on 2026-11-16. A key missing here shows its English.
+  am: {
+    'nav.login': 'ግባ',
+    'nav.register': 'መለያ ይፍጠሩ',
+    'nav.account': 'የእኔ መለያ',
+    'nav.logout': 'ውጣ',
+    'nav.accountMenu': 'የመለያ ቦታ',
+    'nav.loadingSession': 'ክፍለ ጊዜዎን በማረጋገጥ ላይ',
+    'field.email': 'የኢሜይል አድራሻ',
+    'field.password': 'የይለፍ ቃል',
+    'field.newPassword': 'አዲስ የይለፍ ቃል',
+    'field.confirmPassword': 'የይለፍ ቃሉን ያረጋግጡ',
+    'field.confirmNewPassword': 'አዲሱን የይለፍ ቃል ያረጋግጡ',
+    'field.language': 'የሚመርጡት ቋንቋ',
+    'field.code': 'ባለ ስድስት አሃዝ ኮድ',
+    'field.showPassword': 'የይለፍ ቃሉን አሳይ',
+    'field.hidePassword': 'የይለፍ ቃሉን ደብቅ',
+    'language.en': 'እንግሊዝኛ (English)',
+    'language.am': 'አማርኛ',
+    'password.rules': 'የይለፍ ቃልዎ የሚከተሉትን ማሟላት አለበት፦',
+    'password.rule.length': 'ቢያንስ 8 ምልክቶች',
+    'password.rule.upper': 'አንድ ትልቅ የእንግሊዝኛ ፊደል (A–Z)',
+    'password.rule.lower': 'አንድ ትንሽ የእንግሊዝኛ ፊደል (a–z)',
+    'password.rule.digit': 'አንድ ቁጥር',
+    'validation.email.required': 'የኢሜይል አድራሻዎን ያስገቡ።',
+    'validation.email.invalid': 'ትክክለኛ የኢሜይል አድራሻ ያስገቡ፤ ለምሳሌ name@example.com።',
+    'validation.password.required': 'የይለፍ ቃል ያስገቡ።',
+    'validation.password.tooLong': 'የይለፍ ቃል ቢበዛ 128 ፊደላቶች ሊሆን ይችላል።',
+    'validation.password.weak': 'የይለፍ ቃልዎ ከታች ያሉትን መስፈርቶች በሙሉ አያሟላም።',
+    'validation.confirm.required': 'የይለፍ ቃሉን እንደገና ያስገቡ።',
+    'validation.confirm.mismatch': 'የይለፍ ቃሎቹ አይመሳሰሉም።',
+    'validation.otp.format': 'ከኢሜይሉ የደረሰዎትን ባለ ስድስት አሃዝ ኮድ ያስገቡ።',
+    'register.title': 'የፋርማሊንክ መለያዎን ይፍጠሩ',
+    'register.subtitle': 'በኢሜይል አድራሻዎ ይመዝገቡ። ለማረጋገጥ ኮድ በኢሜይል እንልክልዎታለን።',
+    'register.submit': 'መለያ ፍጠር',
+    'register.smsNote': 'የኤስኤምኤስ ማረጋገጫ ገና ስለሌለ ለመመዝገብ ስልክ ቁጥር አያስፈልግም።',
+    'register.haveAccount': 'መለያ አለዎት?',
+    'verify.title': 'ኢሜይልዎን ይመልከቱ',
+    'verify.sentTo': 'ወደ {target} ባለ ስድስት አሃዝ ኮድ ልከናል።',
+    'verify.sentGeneric': 'በኢሜይል የላክንልዎትን ባለ ስድስት አሃዝ ኮድ ያስገቡ።',
+    'verify.noCode': 'ከአንድ ደቂቃ በኋላም ኢሜይል ካልደረሰዎት የአይፈለጌ መልዕክት (spam) ማህደርዎን ይመልከቱ ወይም አዲስ ኮድ ይጠይቁ።',
+    'verify.submit': 'ኢሜይሉን አረጋግጥ',
+    'verify.resend': 'አዲስ ኮድ ላክ',
+    'verify.resendIn': 'በ{seconds} ሰከንድ ውስጥ አዲስ ኮድ መጠየቅ ይችላሉ',
+    'verify.resent': 'አዲስ ኮድ በኢሜይል ልከንልዎታል። ቀደም ያሉት ኮዶች ከአሁን በኋላ አይሰሩም።',
+    'verify.expiry': 'ኮዶች ከጥቂት ደቂቃዎች በኋላ ጊዜያቸው ያልፋል፤ የሚያገለግሉትም አንድ ጊዜ ብቻ ነው።',
+    'verify.backToRegister': 'ሌላ ኢሜይል ተጠቀም',
+    'verify.backToLogin': 'ወደ መግቢያ ተመለስ',
+    'login.title': 'ወደ ፋርማሊንክ ይግቡ',
+    'login.subtitle': 'የተመዘገቡበትን የኢሜይል አድራሻና የይለፍ ቃል ይጠቀሙ።',
+    'login.submit': 'ግባ',
+    'login.forgot': 'የይለፍ ቃልዎን ረሱ?',
+    'login.noAccount': 'ለፋርማሊንክ አዲስ ነዎት?',
+    'login.unverified': 'አሁን ተመዘገቡ? መጀመሪያ ኢሜይልዎን ያረጋግጡ።',
+    'login.staffNote': 'የፋርማሲና የአስተዳደር ሰራተኞች የሚገቡት በኦፕሬሽን ፖርታሉ በኩል ነው።',
+    'login.expired': 'ክፍለ ጊዜዎ አብቅቷል። እባክዎ እንደገና ይግቡ።',
+    'forgot.title': 'የይለፍ ቃልዎን ይቀይሩ',
+    'forgot.subtitle': 'የመለያዎን ኢሜይል ያስገቡ። መቀየር የሚቻል ከሆነ ኮድ በኢሜይል እንልክልዎታለን።',
+    'forgot.submit': 'የመቀየሪያ ኮድ ላክ',
+    'forgot.done': 'በዚህ አድራሻ የሚቀየር መለያ ካለ የመቀየሪያ ኮድ በኢሜይል ልከናል። ኮዱ ከጥቂት ደቂቃዎች በኋላ ጊዜው ያልፋል።',
+    'forgot.haveCode': 'ኮድ አለኝ',
+    'reset.title': 'አዲስ የይለፍ ቃል ይምረጡ',
+    'reset.subtitle': 'ከኢሜይሉ የደረሰዎትን ኮድና አዲሱን የይለፍ ቃልዎን ያስገቡ።',
+    'reset.submit': 'የይለፍ ቃል ቀይር',
+    'reset.done': 'የይለፍ ቃልዎ ተቀይሯል። በአዲሱ የይለፍ ቃልዎ ይግቡ።',
+    'reset.needCode': 'ኮድ ያስፈልግዎታል?',
+    'account.title': 'የእኔ መለያ',
+    'account.subtitle': 'ፋርማሊንክ ስለ መለያዎ የያዛቸው መረጃዎች።',
+    'account.email': 'ኢሜይል',
+    'account.phone': 'ስልክ',
+    'account.status': 'የመለያ ሁኔታ',
+    'account.language': 'የሚመርጡት ቋንቋ',
+    'account.emailStatus': 'ኢሜይል',
+    'account.emailVerified': 'ኢሜይሉ ተረጋግጧል',
+    'account.emailVerifiedOn': 'ኢሜይሉ በ{date} ተረጋግጧል',
+    'account.emailUnverified': 'ኢሜይሉ አልተረጋገጠም',
+    'account.phoneUnverified': 'አልተረጋገጠም (የኤስኤምኤስ ማረጋገጫ ገና አልተጀመረም)',
+    'account.notProvided': 'አልተሰጠም',
+    'account.fayda': 'የፋይዳ መታወቂያ',
+    'account.faydaNotConnected': 'የፋይዳ መታወቂያ ማረጋገጫ ገና አልተገናኘም።',
+    'account.faydaNote': 'የተረጋገጠ ኢሜይል ያንን የኢሜይል ሳጥን እርስዎ እንደሚቆጣጠሩ ያሳያል። የማንነት ማረጋገጫ አይደለም።',
+    'account.deletionPending': 'ለዚህ መለያ የመረጃ ስረዛ ጥያቄ በሂደት ላይ ነው።',
+    'account.logout': 'ውጣ',
+    'account.status.ACTIVE': 'ንቁ',
+    'account.status.PENDING_VERIFICATION': 'የኢሜይል ማረጋገጫን በመጠበቅ ላይ',
+    'account.status.SUSPENDED': 'ታግዷል',
+    'account.status.DEACTIVATED': 'ተሰናክሏል',
+    'common.or': 'ወይም',
+    'common.working': 'እባክዎ ይጠብቁ…',
+    'common.signIn': 'ግባ',
+    'common.createAccount': 'መለያ ይፍጠሩ',
+    'error.network': 'ፋርማሊንክን ማግኘት አልቻልንም። የኢንተርኔት ግንኙነትዎን አረጋግጠው እንደገና ይሞክሩ።',
+    'error.malformed': 'ፋርማሊንክ ያልተጠበቀ ምላሽ ልኳል። እባክዎ እንደገና ይሞክሩ።',
+    'error.generic': 'የሆነ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።',
+    'error.retryIn': 'በ{seconds} ሰከንድ ውስጥ እንደገና ይሞክሩ።',
+    'error.rateLimited': 'በጣም ብዙ ሙከራዎች ተደርገዋል። እባክዎ ትንሽ ቆይተው እንደገና ይሞክሩ።',
+    'error.duplicate': 'በዚህ ኢሜይል የተከፈተ መለያ አለ። ይግቡ ወይም የይለፍ ቃልዎን ይቀይሩ።',
+    'error.weakPassword': 'የይለፍ ቃሉ የደህንነት መስፈርቶቹን አያሟላም።',
+    'error.invalidCredentials': 'ኢሜይሉ ወይም የይለፍ ቃሉ ትክክል አይደለም፣ ወይም መለያው ገና አልነቃም።',
+    'error.suspended': 'ይህ መለያ ታግዷል። እባክዎ የፋርማሊንክ ድጋፍን ያነጋግሩ።',
+    'error.locked': 'ይህ መለያ ለጊዜው ተቆልፏል። እባክዎ ቆይተው እንደገና ይሞክሩ።',
+    'error.otpInvalid': 'ያ ኮድ ትክክል አይደለም። ኢሜይሉን አይተው እንደገና ይሞክሩ።',
+    'error.otpExpired': 'የዚያ ኮድ ጊዜ አልፏል። አዲስ ኮድ ይጠይቁ።',
+    'error.otpAttempts': 'በጣም ብዙ የተሳሳቱ ሙከራዎች ተደርገዋል። አዲስ ኮድ ይጠይቁ።',
+    'error.sessionExpired': 'ክፍለ ጊዜዎ አብቅቷል። እባክዎ እንደገና ይግቡ።',
+    'error.notCustomer': 'ይህ የፋርማሊንክ ሰራተኛ መለያ ነው። በምትኩ በኦፕሬሽን ፖርታሉ ይግቡ፤ ይህ መተግበሪያ ለደንበኞች ነው።',
+    'error.driverAccount': 'ይህ የአሽከርካሪ መለያ ነው። በምትኩ በፋርማሊንክ የአሽከርካሪ መተግበሪያ ይግቡ፤ ይህ መተግበሪያ ለደንበኞች ነው።',
+    'error.emailNotConfigured': 'ወደዚህ ኢሜይል አድራሻ ኮድ መላክ አልቻልንም። አድራሻው ትክክል መሆኑን ያረጋግጡ፤ ትክክል ከሆነ ፋርማሊንክ ገና ወደዚህ አድራሻ ኢሜይል መላክ ስለማይችል እባክዎ የፋርማሊንክ ድጋፍን ያነጋግሩ።',
+    'error.emailFailed': 'ኢሜይሉን መላክ ስላልቻልን ምንም ኮድ አልተላከም።',
+    'error.smsUnavailable': 'በኤስኤምኤስ መላክ ገና አልተጀመረም። በምትኩ የኢሜይል አድራሻዎን ይጠቀሙ።',
+    'error.unavailable': 'ይህ አገልግሎት ለጊዜው አይገኝም። እባክዎ ትንሽ ቆይተው እንደገና ይሞክሩ።',
+  },
 }
 
-let language = 'en'
+const LANGUAGE_KEY = 'pharmalink.customer.language'
 
+function storedLanguage() {
+  try {
+    return globalThis.localStorage?.getItem(LANGUAGE_KEY) ?? null
+  } catch {
+    return null
+  }
+}
+
+let language = messages[storedLanguage()] ? storedLanguage() : 'en'
+
+export function getLanguage() {
+  return language
+}
+
+/**
+ * Work 131: the language the screens use. It follows the signed-in customer's preferred language
+ * and is remembered on this device, so the sign-in screens open in it next time too.
+ */
 export function setLanguage(next) {
   language = messages[next] ? next : 'en'
+  try {
+    globalThis.localStorage?.setItem(LANGUAGE_KEY, language)
+  } catch {
+    // Storage can be unavailable (private mode); the choice then lasts for this visit.
+  }
+  if (globalThis.document?.documentElement) globalThis.document.documentElement.lang = language
 }
 
 export function t(key, vars) {

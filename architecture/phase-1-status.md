@@ -47,7 +47,7 @@ diagnostics, consultation). The app shows their pages as "coming later", with no
 | G10 | **Production safety:** with no other gateway configured, `MockPaymentProvider` authorises every gateway payment, production included. It also cannot decline, so compensation cannot be shown on staging. | `payment.module.ts` binds `PAYMENT_PROVIDER_PORT` to `MockPaymentProvider` unconditionally | **Done, Work 94:** the mock is unavailable in production, so gateway payments fail closed; the `test-decline` token declines outside production (`backend/docs/test-payment-gateway.md`) |
 | G13 | Proof-of-delivery photos and signatures are kept in process memory, lost on restart. This is safe only while `delivery.podRequirement` stays `NONE`. Work 89's document storage is now a real place for them. | `in-memory-proof-artifact.storage.ts`; found during Work 94 | **Done, Work 102:** artifacts are kept in document storage when it is configured, and opened through an explicit, audited 5-minute link |
 | G11 | The customer app has no CI job | `.github/workflows` has `backend-ci.yml` and `web-ci.yml` only; `app/` has 4 Vitest files | **Done, Work 99:** `app-ci.yml` runs the app's Vitest suite and production build on every PR |
-| G12 | Amharic copy written by Claude needs native review (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED`) | `module-16-implementation-status.md` | Owner (not code) |
+| G12 | Amharic copy written by Claude needs native review (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED`) | `module-16-implementation-status.md` | **Done, Work 131:** the owner reviewed all 74 notification texts and the 109 sign-in and account screen texts on 2026-11-16 (172 correct, 12 corrected). |
 
 ## Customer app mock inventory (`app/src`)
 
@@ -173,7 +173,7 @@ following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+custo
 
 | Item | Status |
 |---|---|
-| Amharic copy written by Claude (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED` notifications) (G12) | Needs a native speaker's review |
+| Amharic for the app screens other than sign-in and My account (medicines, cart, checkout, orders) | Their text is written in the pages, not in `strings.js`; it needs moving there and translating |
 | Pharmacy portal order, inventory and prescription pages (`web/`, still in-memory) | **Done, Works 107–116 (#60–#69).** Every pharmacy portal page reads and writes the real API: orders, prescriptions, inventory, staff, roles, dashboard, analytics and statements. The mock seed is deleted. |
 | Driver app | **Done, Works 117–123 (#70–#76):** `driver/` covers sign-in, availability, offers, the active job with live tracking, proof of delivery, cash collected and earnings, with its own CI. |
 | Portal action to record COD cash received (found in the second live walk) | **Done, Work 127 (#80):** Finance → COD cash records the remittance (which makes the COD sale payable) and reconciles it. |
@@ -366,7 +366,7 @@ proved it end to end with no `staging:actors` stand-ins. The scripts stay for au
 | 127 | #80 | Operations portal: COD cash received and reconciled |
 | 128 | — | Second live walk recorded; walkthrough rewritten for the apps; close-out |
 
-**Still needing the owner:** a native speaker's review of the Amharic copy (G12). Everything else
+**Amharic (G12):** reviewed by the owner on 2026-11-16 and applied in Work 131. Everything else
 in "Not built, or still open" that is not done is outside this mission: the real Telebirr
 gateway, payout destination rules, COD corrections after remittance, Phase 3 search, and
 Modules 09–12.
