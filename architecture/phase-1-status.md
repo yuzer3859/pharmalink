@@ -174,11 +174,12 @@ following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+custo
 | Item | Status |
 |---|---|
 | Amharic copy written by Claude (`ACCOUNT_IMPERSONATED`, `DISPUTE_UPDATED`, `REVIEW_MODERATED` notifications) (G12) | Needs a native speaker's review |
-| Pharmacy portal order, inventory and prescription pages (`web/`, still in-memory) | Follow-up for Modules 04 and 05. The walk uses `staging:actors` instead. |
-| Driver app | Not in Phase 1's code. The walk uses `staging:actors`. |
-| Customer app error messages for a staff sign-in and a refused e-mail address (live walk, deviation 2) | **Done, Work 126:** a staff sign-in (an MFA challenge, or a staff role) is told to use the operations portal, a driver is told to use the driver app, and a refused or unconfigured e-mail says the code could not be sent to that address. |
-| Portal action to run a settlement statement (live walk, deviation 6) | **Done, Work 124 (#77) and Work 125.** Finance → Settlements lists who is owed since their last statement, with **Run statement** (a draft; approval and payout stay maker-checker). |
-| Portal page for the finance reconciliation report (live walk, deviation 8) | **Done, Work 125:** Finance → Reconciliation, CLEAN or discrepancies, with what was examined. |
+| Pharmacy portal order, inventory and prescription pages (`web/`, still in-memory) | **Done, Works 107–116 (#60–#69).** Every pharmacy portal page reads and writes the real API: orders, prescriptions, inventory, staff, roles, dashboard, analytics and statements. The mock seed is deleted. |
+| Driver app | **Done, Works 117–123 (#70–#76):** `driver/` covers sign-in, availability, offers, the active job with live tracking, proof of delivery, cash collected and earnings, with its own CI. |
+| Portal action to record COD cash received (found in the second live walk) | **Done, Work 127 (#80):** Finance → COD cash records the remittance (which makes the COD sale payable) and reconciles it. |
+| Customer app error messages for a staff sign-in and a refused e-mail address (live walk, deviation 2) | **Done, Work 126 (#79):** a staff sign-in (an MFA challenge, or a staff role) is told to use the operations portal, a driver is told to use the driver app, and a refused or unconfigured e-mail says the code could not be sent to that address. |
+| Portal action to run a settlement statement (live walk, deviation 6) | **Done, Work 124 (#77) and Work 125 (#78).** Finance → Settlements lists who is owed since their last statement, with **Run statement** (a draft; approval and payout stay maker-checker). |
+| Portal page for the finance reconciliation report (live walk, deviation 8) | **Done, Work 125 (#78):** Finance → Reconciliation, CLEAN or discrepancies, with what was examined. |
 | Real payment gateway (Telebirr) | Fail-closed until its contract exists (Work 94). Staging uses the test gateway only. |
 | Payout destination rules (module-07 §15) | Still open in the design. The mock payout rail pays a verified beneficiary. |
 | COD corrections after a remittance | Not reflected in the COD sale posting. A finance adjustment. |
@@ -306,3 +307,66 @@ commands did. **Done, Work 117:** all three, plus walk accounts that sign in by 
 | 128 | Live walk with every role in its own app; fix what breaks; close-out |
 
 Backend gaps found while building a page get their own Work, inserted before that page's Work.
+
+### Second live walk (2026-11-10 to 2026-11-12): every role in its own app
+
+**Walked by the owner** on staging at `main`. There were no `staging:actors` stand-ins: each role
+used its own app and its own account.
+
+| Role | App | Account |
+|---|---|---|
+| Customer | Customer app (`app/`, :5173) | `yuzer3859+customer@gmail.com` |
+| Pharmacist and pharmacy | Pharmacy portal (`web/`, :5174) | `owner.bole@staging.pharmalink.test` |
+| Driver | Driver app (`driver/`, :5175) | `driver.walk@staging.pharmalink.test` |
+| Finance (maker and checker) | Operations portal, Finance (`web/`, :5174) | `finance@`, `finance.checker@` |
+
+| Step | Result |
+|---|---|
+| `ORD-2abfb78f-7d27-4aab-a48a-e5d5712e82b4`: ORS and Amoxicillin (Rx), ETB 57.00, Telebirr (test gateway) | The Rx line drew on the prescription Bole approved in the first walk, which still had units left, so checkout allowed it and placed it at Bole, the approving pharmacy (Work 109). Accepted, prepared and marked ready in the pharmacy portal, then delivered in the driver app. Payment `AUTHORIZED` → `CAPTURED` → **`SETTLED`**. |
+| `ORD-632d081f-d3df-4578-8e40-67a3a4afd3fe`: 10 × Amoxicillin, ETB 450.00, cash on delivery | More than the old prescription allowed, so checkout routed the new upload to Bole with what was requested (Work 109). It was approved in the portal's Prescriptions, placed, prepared, then delivered in the driver app with the cash recorded at the door and a recipient confirmation (Work 122). Finance recorded the cash received in Finance → COD cash (Work 127), which posted the COD sale. |
+| Declined payment (`test-decline`) | As written: order cancelled, nothing charged, items back in the cart, stock unchanged |
+| Settlement | Finance → Settlements listed Bole as owed (Work 124). *Run statement* produced `STL-…-20261108T182314Z-20261112T091836Z`, ETB 564.00: the COD sale and the prepaid captures since the first walk's statement. Approved and paid out through maker-checker; the payout reads `PAID`. |
+| Ledger | Debits equal credits (ETB 2,549.00 each) |
+| Reconciliation | `CLEAN`, 0 discrepancies (3 captured payments, 3 statements, 11 lines examined) |
+
+**Deviations found:**
+1. The portal showed a COD remittance but had no action to record one. Under the owner's COD rule
+   that left a COD sale permanently unpayable. Fixed in Work 127 (#80), during the walk.
+2. Not a defect: an approved prescription with units left is reused by a later order (BRULE-12,
+   remaining-dispensable). The walk's first Rx order did not need a new review; the second did.
+
+## Mission close-out: operational completeness (Work 128, 2026-11-12)
+
+Every Phase 1 role now does its job in its own app on the real API, and the second live walk
+proved it end to end with no `staging:actors` stand-ins. The scripts stay for automated setup only.
+
+| Work | PR | What |
+|---|---|---|
+| 106 | #59 | Housekeeping (PRs #2 and #32), audit, driver app design |
+| 107 | #60 | Pharmacy order read with header and lines |
+| 108 | #61 | Pharmacy portal: orders and fulfilment |
+| 109 | #62 | Rx routed to the matched pharmacy and filled at the approver (owner decision: verify before paying) |
+| 110 | #63 | Pharmacy portal: prescription review; customer checkout message |
+| 111 | #64 | Inventory read with names and batches |
+| 112 | #65 | Pharmacy portal: inventory |
+| 113 | #66 | Pharmacy staff API |
+| 114 | #67 | Pharmacy portal: staff and roles |
+| 115 | #68 | Pharmacy dashboard read |
+| 116 | #69 | Pharmacy portal: dashboard, analytics, statements; mock seed removed |
+| 117 | #70 | Driver profile, availability and location routes; walk sign-ins by e-mail |
+| 118 | #71 | Driver app: scaffold, sign-in, CI |
+| 119 | #72 | Driver app: availability, offers, location |
+| 120 | #73 | Driver app: active job and live tracking |
+| 121 | #74 | What completing a job demands, on the driver's job list |
+| 122 | #75 | Driver app: proof of delivery and cash at the door |
+| 123 | #76 | Driver app: earnings and cash collected |
+| 124 | #77 | Settlements due, for finance |
+| 125 | #78 | Operations portal: run a statement; reconciliation report |
+| 126 | #79 | Customer app: staff, driver and refused-e-mail messages |
+| 127 | #80 | Operations portal: COD cash received and reconciled |
+| 128 | — | Second live walk recorded; walkthrough rewritten for the apps; close-out |
+
+**Still needing the owner:** a native speaker's review of the Amharic copy (G12). Everything else
+in "Not built, or still open" that is not done is outside this mission: the real Telebirr
+gateway, payout destination rules, COD corrections after remittance, Phase 3 search, and
+Modules 09–12.
