@@ -14,6 +14,15 @@ export function unpaidOrderWindowMinutes(config: IConfigPort): number {
   return (Number.isFinite(ttl) && ttl > 0 ? ttl : 15) + 5;
 }
 
+/**
+ * Work 129: minutes after the pharmacist approves its prescription before a prepaid order the
+ * customer has not paid is cancelled. Its stock stays held meanwhile, so this is bounded too.
+ */
+export function approvedRxPaymentWindowMinutes(config: IConfigPort): number {
+  const minutes = Number(config.get<number>('orders.rxApprovedPaymentWindowMinutes') ?? 120);
+  return Number.isFinite(minutes) && minutes > 0 ? minutes : 120;
+}
+
 export interface UnpaidOrderReconcileReport {
   examined: number;
   cancelled: number;
@@ -48,7 +57,10 @@ export class UnpaidOrderReconciler {
     this.running = true;
     try {
       const cutoff = new Date(now.getTime() - unpaidOrderWindowMinutes(this.config) * 60_000);
-      const due = await this.orders.listUnpaidPrepaid(cutoff, batchSize);
+      // Work 129: an order waiting for its prescription review is never due; an approved one has
+      // its own window, counted from the approval.
+      const approvedCutoff = new Date(now.getTime() - approvedRxPaymentWindowMinutes(this.config) * 60_000);
+      const due = await this.orders.listUnpaidPrepaid(cutoff, batchSize, undefined, approvedCutoff);
       for (const order of due) {
         report.examined += 1;
         try {

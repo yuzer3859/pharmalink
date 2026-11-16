@@ -124,6 +124,12 @@ export class DeclineFulfillmentCommand {
     if (!order.matchRequestId) {
       throw OrdersErrors.validation('Order has no associated match request to re-match against.');
     }
+    // Work 129: the prescription on this order was sent to this pharmacy. Re-matching would hand
+    // the order to a pharmacy that never saw it; the pharmacist rejects the prescription instead,
+    // which cancels the order.
+    if (order.rxReviewStatus === 'PENDING') {
+      throw OrdersErrors.validation('This order is waiting for its prescription review. Reject the prescription instead of declining the order.');
+    }
 
     FulfillmentStatusPolicy.assertValidTransition(fulfillment.status, FulfillmentStatus.CANCELLED);
 

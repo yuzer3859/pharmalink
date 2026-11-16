@@ -9,6 +9,8 @@ import { PrescriptionMatchingModule } from '../prescription-matching/prescriptio
 import { AcceptFulfillmentCommand } from './application/commands/accept-fulfillment.command';
 import { AddCartItemCommand } from './application/commands/add-cart-item.command';
 import { CancelOrderCommand } from './application/commands/cancel-order.command';
+import { PayOrderCommand } from './application/commands/pay-order.command';
+import { ReviewOrderPrescriptionCommand } from './application/commands/review-order-prescription.command';
 import { CheckoutCommand } from './application/commands/checkout.command';
 import { ClearCartCommand } from './application/commands/clear-cart.command';
 import { QuoteCheckoutCommand } from './application/commands/quote-checkout.command';
@@ -196,6 +198,8 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     GetOrderQuery,
     GetOrderInvoiceQuery,
     CancelOrderCommand,
+    PayOrderCommand,
+    ReviewOrderPrescriptionCommand,
 
     // Pharmacy fulfillment (§9.4)
     ListPharmacyOrdersQuery,

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
+import { CheckoutPaymentDto } from './checkout.dto';
 import { OrderStatus } from '../../domain/enums';
 
 /**
@@ -36,4 +37,11 @@ export class CancelOrderDto {
   @MinLength(3)
   @MaxLength(500)
   reason!: string;
+}
+
+/** Work 129: pay a prepaid order once its prescription is approved; the same shape as checkout's payment. */
+export class PayOrderDto {
+  @ValidateNested()
+  @Type(() => CheckoutPaymentDto)
+  payment!: CheckoutPaymentDto;
 }

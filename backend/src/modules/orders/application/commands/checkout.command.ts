@@ -10,11 +10,6 @@ import {
   INVENTORY_PORT,
 } from '../../../pharmacy-inventory/application/ports/inbound/inventory.port';
 import {
-  CheckRxGateInput,
-  ICheckRxGatePort,
-  CHECK_RX_GATE_PORT,
-} from '../../../prescription-matching/application/ports/inbound/check-rx-gate.port';
-import {
   IMatchingPort,
   MATCHING_PORT,
 } from '../../../prescription-matching/application/ports/inbound/matching.port';
@@ -80,6 +75,11 @@ export interface CheckoutInput {
    * before. `method` is a gateway method; `token` is the gateway's opaque token, never card data.
    */
   payment?: PrepaidPaymentInput;
+  /**
+   * Work 129: the customer's uploaded prescription, required when the cart has a prescription
+   * medicine. The order then waits for the pharmacist's review before it is paid.
+   */
+  prescriptionId?: string;
 }
 
 /** Gateway methods a customer may prepay with (COD and wallet are not gateway payments). */
@@ -145,9 +145,10 @@ function isUniqueConstraintViolation(err: unknown): boolean {
  *  3. Resolve the delivery address (ownership-checked by `IAddressPort.getAddress` itself, §5).
  *  4. Re-price every line fresh from `ICatalogPort` (§3.11 invariant 2 — never trust the cart's
  *     cached `indicativePrice`/`requiresRx`).
- *  5. Rx gate (§4 step 2) — see the per-product-call doc comment on {@link checkRxGateBlocking}
- *     for why this calls `ICheckRxGatePort.check()` once per Rx product rather than once for the
- *     whole cart.
+ *  5. Prescription (Work 129, replacing the Rx gate here): a cart with a prescription medicine
+ *     needs the customer's uploaded prescription attached ({@link requirePrescription}). The order
+ *     is then placed `PENDING_PAYMENT` with its stock held and its review `PENDING`: it is paid
+ *     (COD) or payable (prepaid) only once the filling pharmacy's pharmacist approves it.
  *  6. Matching + reservation (§4 step 3+4) via `IMatchingPort.find()`/`.select()`. The order id
  *     is allocated here, before the order exists, and passed to `find()` so the match request is
  *     bound to this order (`match_requests.orderId`) and every reservation is keyed by it. A bound
@@ -191,7 +192,6 @@ export class CheckoutCommand {
     @Inject(FULFILLMENT_REPOSITORY) private readonly fulfillments: IFulfillmentRepository,
     @Inject(CATALOG_PORT) private readonly catalog: ICatalogPort,
     @Inject(ADDRESS_PORT) private readonly addresses: IAddressPort,
-    @Inject(CHECK_RX_GATE_PORT) private readonly checkRxGate: ICheckRxGatePort,
     @Inject(MATCHING_PORT) private readonly matching: IMatchingPort,
     @Inject(INVENTORY_PORT) private readonly inventory: IInventoryPort,
     @Inject(COUPON_PORT) private readonly coupons: ICouponPort,
@@ -206,25 +206,6 @@ export class CheckoutCommand {
     @Inject(PHARMACY_PORT) private readonly pharmacies: IPharmacyPort,
   ) {}
 
-  /**
-   * Work 109 (owner decision 2026-11-09, module-05 Model A): the pharmacy whose pharmacist
-   * approved the prescription lines this order dispenses against is the pharmacy that fills it.
-   * `null` when the cart dispenses against no prescription, or only against ones approved before
-   * routing existed (no verifying pharmacy recorded): then matching chooses as before.
-   */
-  private async rxDispensingPharmacyId(customerUserId: string, prescriptionLineIds: string[]): Promise<string | null> {
-    if (prescriptionLineIds.length === 0) return null;
-    const organizations = await this.rxReview.verifyingOrganizationsFor({ customerUserId, prescriptionLineIds });
-    if (organizations.length === 0) return null;
-    if (organizations.length > 1) {
-      throw OrdersErrors.validation(
-        'The prescriptions in this cart were approved by different pharmacies. Order the items of each prescription separately.',
-      );
-    }
-    const [pharmacyId] = await this.pharmacies.findPharmacyIdsByOrganizationIds(organizations);
-    return pharmacyId ?? null;
-  }
-
   async execute(input: CheckoutInput): Promise<CheckoutResult> {
     // Step 1 — idempotency replay check (§4/§13.5), before any Rx-gate/matching/reservation work.
     const existing = await this.orders.findByIdempotencyKey(input.idempotencyKey);
@@ -235,7 +216,7 @@ export class CheckoutCommand {
       const replayed = await this.loadCheckoutResult(existing, true);
       // Work 95: a replay of a prepaid checkout whose payment never resolved (a crash, or an
       // unknown gateway outcome) re-drives the same authorization; Module 07 replays it by key.
-      if (input.payment && !existing.isCod && existing.status === 'PENDING_PAYMENT') {
+      if (input.payment && !existing.isCod && existing.status === 'PENDING_PAYMENT' && existing.rxReviewStatus !== 'PENDING') {
         return this.payPrepaid(input, replayed);
       }
       return replayed;
@@ -296,11 +277,10 @@ export class CheckoutCommand {
       throw OrdersErrors.priceChanged(diverged);
     }
 
-    // Step 5 — Rx gate.
-    const prescriptionLineIdByProduct = await this.checkRxGateBlocking(
-      input.customerUserId,
-      resolvedLines,
-    );
+    // Step 5 — Work 129: a prescription medicine needs the prescription attached to this order.
+    const rxLines = resolvedLines.filter((line) => line.isRx);
+    const prescriptionId = await this.requirePrescription(input, rxLines);
+    const awaitingReview = prescriptionId !== null;
 
     // Step 6 — matching + reservation (Module 05's already-atomic find + select, ADR-014).
     // The order id is pre-allocated so the match request is bound to it from creation (see the
@@ -318,15 +298,10 @@ export class CheckoutCommand {
       deliveryLat: address.lat ?? undefined,
       deliveryLng: address.lng ?? undefined,
     });
-    // Work 109: a prescription order goes to the pharmacy that approved its prescription. If that
-    // pharmacy cannot fill it now, selection refuses (`MATCH_CANDIDATE_UNAVAILABLE`) rather than
-    // handing the prescription to a pharmacy that never verified it.
-    const rxPharmacyId = await this.rxDispensingPharmacyId(input.customerUserId, [...prescriptionLineIdByProduct.values()]);
     const selected = await this.matching.select({
       matchRequestId: findResult.matchRequest.id,
       customerUserId: input.customerUserId,
       lines: matchLines,
-      ...(rxPharmacyId ? { pharmacyId: rxPharmacyId } : {}),
     });
     const chosenResult = selected.chosenResult;
     if (!chosenResult) {
@@ -420,9 +395,12 @@ export class CheckoutCommand {
     // retried checkout is safe.
     // Work 95: a prepaid order keeps its holds `HELD` (and so under the TTL) until the payment is
     // authorized; `PrepaidPaymentService.onAuthorized` confirms them then.
+    // Work 129: an order waiting for the pharmacist's review holds its stock until the decision,
+    // which can take longer than the hold's TTL, so its holds are confirmed now whatever the
+    // payment; a rejection or cancellation releases them.
     const prepaid = Boolean(input.payment);
     try {
-      for (const reservationId of prepaid ? [] : reservationIds) {
+      for (const reservationId of prepaid && !awaitingReview ? [] : reservationIds) {
         await this.inventory.confirm({ reservationId });
       }
     } catch (err) {
@@ -457,6 +435,8 @@ export class CheckoutCommand {
             idempotencyKey: input.idempotencyKey,
             isCod: !prepaid,
             placedAt: new Date(),
+            prescriptionId,
+            rxReviewStatus: awaitingReview ? 'PENDING' : null,
           },
           {
             fromStatus: null,
@@ -487,9 +467,8 @@ export class CheckoutCommand {
             pharmacyId: chosenResult.pharmacyId,
             branchId: chosenResult.branchId,
             reservationId: chosenLine?.reservationId ?? null,
-            prescriptionLineId: line.isRx
-              ? prescriptionLineIdByProduct.get(line.catalogProductId) ?? null
-              : null,
+            // Work 129: set when the pharmacist approves the attached prescription.
+            prescriptionLineId: null,
             requiresRx: line.isRx,
             lineStatus: 'RESERVED',
           };
@@ -511,7 +490,8 @@ export class CheckoutCommand {
           tx,
         );
 
-        if (!prepaid) {
+        // Work 129: an order waiting for the pharmacist's review is neither paid nor confirmed.
+        if (!prepaid && !awaitingReview) {
           await this.orders.updateStatus(
             order.id,
             { status: 'PAID' },
@@ -547,7 +527,7 @@ export class CheckoutCommand {
           }),
           tx as never,
         );
-        if (!prepaid) {
+        if (!prepaid && !awaitingReview) {
           await this.outbox.write(orderPaidEvent({ orderId: order.id, paymentId: null }), tx as never);
         }
 
@@ -562,10 +542,18 @@ export class CheckoutCommand {
       // unit-of-work implementations without collapsing ADR-001/ADR-002's boundary. So it runs
       // over ADR-014's accepted eventual-consistency seam, exactly like the `IInventoryPort` calls
       // above, and owns the window that opens if it fails.
+      if (prescriptionId) {
+        await this.attachPrescription(input, placed, prescriptionId, rxLines, chosenResult.pharmacyId, reservationIds);
+      }
+
       if (input.couponCode) {
         await this.redeemCoupon(input, placed, discountTotal, reservationIds);
       }
 
+      // Work 129: verify before paying. The customer pays once the pharmacist approves.
+      if (awaitingReview) {
+        return { ...placed, payment: null };
+      }
       if (prepaid) {
         return this.payPrepaid(input, placed);
       }
@@ -695,18 +683,18 @@ export class CheckoutCommand {
         );
       }
     } catch (err) {
-      await this.compensateFailedRedemption(input, placed, reservationIds);
+      await this.compensatePlacedOrder(input, placed, reservationIds, 'checkout-coupon-redemption-failed');
       throw err;
     }
   }
 
-  /** Undoes a placed-but-un-couponed order: cancel, release, audit. Never throws. */
-  private async compensateFailedRedemption(
+  /** Undoes a placed order the checkout could not finish: cancel, release, audit. Never throws. */
+  private async compensatePlacedOrder(
     input: CheckoutInput,
     placed: CheckoutResult,
     reservationIds: string[],
+    reason: string,
   ): Promise<void> {
-    const reason = 'checkout-coupon-redemption-failed';
     try {
       await runWithOrderRetry(this.uow, async (tx) => {
         await this.orders.updateStatus(
@@ -746,50 +734,47 @@ export class CheckoutCommand {
   }
 
   /**
-   * Rx gate (§4 step 2, §9.2). Calls `ICheckRxGatePort.check()` **once per distinct Rx product**
-   * rather than once for the whole cart. `CheckRxGateResult.usablePrescriptionLineIds` (§3.7) is
-   * a flat set with no per-`catalogProductId` attribution — batching every line into one call
-   * would make it impossible to know *which* line each returned prescription-line id belongs to
-   * once a cart has more than one distinct Rx product. `ICheckRxGatePort.check()`'s existing
-   * `items` field already accepts an arbitrary-length array (no new port method or shape is
-   * introduced, §0/Step 6/Step 8's "do not invent a new cross-module API" instruction) — calling
-   * it with a single-item batch per Rx product is a pure application-layer orchestration choice
-   * that resolves the mapping unambiguously, since `PrescriptionGate.check()`'s per-line logic
-   * (module-05 `domain/services/prescription-gate.ts`) is already independent per requested line
-   * and produces an identical allow/block answer whether the lines are batched or split. OTC
-   * lines never reach this method at all — the gate is not invoked when the cart has no Rx items.
+   * Work 129 (owner decision 2026-11-16): an order with a prescription medicine carries its own
+   * prescription, attached at checkout and reviewed by the filling pharmacy's pharmacist on the
+   * order. Earlier approvals are not reused. Without one the checkout is refused with the gate's
+   * `RX_REQUIRED`, per prescription item, before anything is reserved; the one given must be the
+   * customer's own upload, not yet attached to another order.
    */
-  private async checkRxGateBlocking(
-    customerUserId: string,
-    lines: ResolvedLine[],
-  ): Promise<Map<string, string>> {
-    const prescriptionLineIdByProduct = new Map<string, string>();
-    const rxLines = lines.filter((line) => line.isRx);
-    if (rxLines.length === 0) {
-      return prescriptionLineIdByProduct;
+  private async requirePrescription(input: CheckoutInput, rxLines: ResolvedLine[]): Promise<string | null> {
+    if (rxLines.length === 0) return null;
+    if (!input.prescriptionId) {
+      throw OrdersErrors.rxGateBlocked(rxLines.map((line) => ({ catalogProductId: line.catalogProductId, reason: ErrorCode.RX_REQUIRED })));
     }
+    await this.rxReview.assertAttachable({ customerUserId: input.customerUserId, prescriptionId: input.prescriptionId });
+    return input.prescriptionId;
+  }
 
-    const blocked: Array<{ catalogProductId: string; reason: ErrorCode }> = [];
-    for (const line of rxLines) {
-      const input: CheckRxGateInput = {
-        customerUserId,
-        items: [{ catalogProductId: line.catalogProductId, quantity: line.quantity }],
-      };
-      const result = await this.checkRxGate.check(input);
-      if (!result.allowed) {
-        blocked.push(...result.blocked);
-        continue;
-      }
-      const [usableId] = result.usablePrescriptionLineIds;
-      if (usableId) {
-        prescriptionLineIdByProduct.set(line.catalogProductId, usableId);
-      }
+  /**
+   * Work 129: sends the attached prescription to the pharmacy organisation that fills the order,
+   * with what the order asks for. If another checkout attached the same prescription first, this
+   * order is cancelled and its stock released, and the refusal is what the customer sees.
+   */
+  private async attachPrescription(
+    input: CheckoutInput,
+    placed: CheckoutResult,
+    prescriptionId: string,
+    rxLines: ResolvedLine[],
+    pharmacyId: string,
+    reservationIds: string[],
+  ): Promise<void> {
+    try {
+      const organizationId = await this.pharmacies.getOrganizationId(pharmacyId);
+      if (!organizationId) throw OrdersErrors.validation('The pharmacy filling this order could not be found.');
+      await this.rxReview.attachToOrder({
+        customerUserId: input.customerUserId,
+        prescriptionId,
+        verifyingOrganizationId: organizationId,
+        requestedItems: rxLines.map((line) => ({ catalogProductId: line.catalogProductId, productName: line.name || null, quantity: line.quantity })),
+      });
+    } catch (err) {
+      await this.compensatePlacedOrder(input, placed, reservationIds, 'checkout-prescription-attach-failed');
+      throw err;
     }
-
-    if (blocked.length > 0) {
-      throw OrdersErrors.rxGateBlocked(blocked);
-    }
-    return prescriptionLineIdByProduct;
   }
 
   /** Best-effort compensation (§4's failure/compensation table) — Module 04's reservation TTL

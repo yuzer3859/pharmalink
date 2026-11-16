@@ -11,7 +11,6 @@ import { IInventoryPort } from '../../../pharmacy-inventory/application/ports/in
 import {
   ICouponPort,
 } from '../../../payment/application/ports/inbound/coupon.port';
-import { ICheckRxGatePort } from '../../../prescription-matching/application/ports/inbound/check-rx-gate.port';
 import { IMatchingPort } from '../../../prescription-matching/application/ports/inbound/matching.port';
 import { CartSnapshot, ICartRepository } from '../../domain/repositories/cart.repository';
 import { IFulfillmentRepository } from '../../domain/repositories/fulfillment.repository';
@@ -19,6 +18,7 @@ import { IOrderRepository, InvoiceSnapshot } from '../../domain/repositories/ord
 import { IAddressPort } from '../ports/outbound/address.port';
 import { ICatalogPort } from '../ports/outbound/catalog.port';
 import { IUnitOfWork } from '../ports/unit-of-work.port';
+import { OrdersEventType } from '../../domain/events';
 import { CheckoutCommand } from './checkout.command';
 import { fulfillmentSnapshot, orderLineSnapshot, orderSnapshot } from './test-fixtures';
 
@@ -118,6 +118,7 @@ function build() {
     listUncapturedPrepaid: jest.fn(),
     isPaymentCaptured: jest.fn(),
     markPaymentCaptured: jest.fn(),
+    setLinePrescriptionLines: jest.fn(),
   };
 
   const fulfillments: jest.Mocked<IFulfillmentRepository> = {
@@ -145,10 +146,6 @@ function build() {
       line1: 'Bole Road',
       city: 'Addis Ababa',
     }),
-  };
-
-  const checkRxGate: jest.Mocked<ICheckRxGatePort> = {
-    check: jest.fn().mockResolvedValue({ allowed: true, blocked: [], usablePrescriptionLineIds: [] }),
   };
 
   const matching: jest.Mocked<IMatchingPort> = {
@@ -224,13 +221,15 @@ function build() {
     quote: jest.fn().mockResolvedValue(deliveryQuote(0)),
   };
 
-  /** Work 109: no prescription line has a verifying pharmacy unless a test says so. */
+  /** Work 129: the prescription attached to the order. */
   const rxReview = {
-    routeForReview: jest.fn(),
-    verifyingOrganizationsFor: jest.fn().mockResolvedValue([] as string[]),
+    assertAttachable: jest.fn().mockResolvedValue(undefined),
+    attachToOrder: jest.fn().mockResolvedValue(undefined),
+    approveForOrder: jest.fn(),
+    rejectForOrder: jest.fn(),
   };
   const pharmacies = {
-    getOrganizationId: jest.fn(),
+    getOrganizationId: jest.fn().mockResolvedValue('organization-1'),
     findPharmacyIdsByOrganizationIds: jest.fn().mockResolvedValue(['pharmacy-1']),
   };
 
@@ -244,7 +243,6 @@ function build() {
     fulfillments,
     catalog,
     addresses,
-    checkRxGate,
     matching,
     inventory,
     coupons,
@@ -270,7 +268,6 @@ function build() {
     fulfillments,
     catalog,
     addresses,
-    checkRxGate,
     matching,
     inventory,
     config,
@@ -418,129 +415,87 @@ describe('CheckoutCommand', () => {
     });
   });
 
-  describe('Rx gate', () => {
-    it('does not call ICheckRxGatePort at all when the cart has no Rx items', async () => {
-      const { command, checkRxGate } = build();
+  describe('a prescription on the order (Work 129)', () => {
+    const rxProduct = { id: 'product-1', status: 'ACTIVE', rxClassification: 'RX', price: 500, name: 'Amoxicillin 500mg' };
 
-      await command.execute(input());
-
-      expect(checkRxGate.check).not.toHaveBeenCalled();
-    });
-
-    it('does not call ICheckRxGatePort for an OTC medicine (rxClassification "OTC")', async () => {
+    it('an OTC medicine (rxClassification "OTC") needs no prescription', async () => {
       // Regression: `Boolean(rxClassification)` was true for the string 'OTC', so every OTC
-      // medicine was gated and blocked with RX_REQUIRED. `rxClassification` is mandatory for
-      // MEDICINE (module-03 §3.6 invariant 1), so OTC medicines are the common case, not an edge.
-      const { command, catalog, checkRxGate, orders } = build();
-      catalog.getProduct.mockResolvedValue({
-        id: 'product-1',
-        status: 'ACTIVE',
-        rxClassification: 'OTC',
-        price: 500,
-        name: 'Paracetamol 500mg',
-      });
+      // medicine was gated and blocked with RX_REQUIRED.
+      const { command, catalog, rxReview, orders } = build();
+      catalog.getProduct.mockResolvedValue({ id: 'product-1', status: 'ACTIVE', rxClassification: 'OTC', price: 500, name: 'Paracetamol 500mg' });
 
       await command.execute(input());
 
-      expect(checkRxGate.check).not.toHaveBeenCalled();
-      expect(orders.createLines).toHaveBeenCalledWith(
-        'order-1',
-        [expect.objectContaining({ requiresRx: false, prescriptionLineId: null })],
-        undefined,
-      );
+      expect(rxReview.assertAttachable).not.toHaveBeenCalled();
+      expect(orders.create).toHaveBeenCalledWith(expect.objectContaining({ prescriptionId: null, rxReviewStatus: null }), expect.anything(), undefined);
     });
 
-    it('calls the Rx gate once per Rx product and resolves prescriptionLineId per line', async () => {
-      const { command, catalog, checkRxGate, orders } = build();
-      catalog.getProduct.mockResolvedValue({
-        id: 'product-1',
-        status: 'ACTIVE',
-        rxClassification: 'RX',
-        price: 500,
-        name: 'Amoxicillin 500mg',
-      });
-      checkRxGate.check.mockResolvedValue({
-        allowed: true,
-        blocked: [],
-        usablePrescriptionLineIds: ['prescription-line-1'],
-      });
-
-      await command.execute(input());
-
-      expect(checkRxGate.check).toHaveBeenCalledTimes(1);
-      expect(checkRxGate.check).toHaveBeenCalledWith({
-        customerUserId: 'customer-1',
-        items: [{ catalogProductId: 'product-1', quantity: 2 }],
-      });
-      expect(orders.createLines).toHaveBeenCalledWith(
-        'order-1',
-        [expect.objectContaining({ prescriptionLineId: 'prescription-line-1', requiresRx: true })],
-        undefined,
-      );
-    });
-
-    describe('the approving pharmacy fills the order (Work 109)', () => {
-      const rxProduct = { id: 'product-1', status: 'ACTIVE', rxClassification: 'RX', price: 500, name: 'Amoxicillin 500mg' };
-
-      it('selects the pharmacy whose pharmacist approved the prescription lines in use', async () => {
-        const { command, catalog, checkRxGate, matching, rxReview, pharmacies } = build();
-        catalog.getProduct.mockResolvedValue(rxProduct as never);
-        checkRxGate.check.mockResolvedValue({ allowed: true, blocked: [], usablePrescriptionLineIds: ['prescription-line-1'] });
-        rxReview.verifyingOrganizationsFor.mockResolvedValue(['organization-1']);
-        pharmacies.findPharmacyIdsByOrganizationIds.mockResolvedValue(['pharmacy-1']);
-
-        await command.execute(input());
-
-        expect(rxReview.verifyingOrganizationsFor).toHaveBeenCalledWith({ customerUserId: 'customer-1', prescriptionLineIds: ['prescription-line-1'] });
-        expect(pharmacies.findPharmacyIdsByOrganizationIds).toHaveBeenCalledWith(['organization-1']);
-        expect(matching.select).toHaveBeenCalledWith(expect.objectContaining({ pharmacyId: 'pharmacy-1' }));
-      });
-
-      it('lets matching choose when no prescription line records a verifying pharmacy', async () => {
-        const { command, catalog, checkRxGate, matching } = build();
-        catalog.getProduct.mockResolvedValue(rxProduct as never);
-        checkRxGate.check.mockResolvedValue({ allowed: true, blocked: [], usablePrescriptionLineIds: ['prescription-line-1'] });
-
-        await command.execute(input());
-
-        expect(matching.select.mock.calls[0][0]).not.toHaveProperty('pharmacyId');
-      });
-
-      it('does not ask for a verifying pharmacy when the cart has no Rx line', async () => {
-        const { command, rxReview, matching } = build();
-        await command.execute(input());
-        expect(rxReview.verifyingOrganizationsFor).not.toHaveBeenCalled();
-        expect(matching.select.mock.calls[0][0]).not.toHaveProperty('pharmacyId');
-      });
-
-      it('refuses when the prescriptions in use were approved by different pharmacies', async () => {
-        const { command, catalog, checkRxGate, matching, rxReview } = build();
-        catalog.getProduct.mockResolvedValue(rxProduct as never);
-        checkRxGate.check.mockResolvedValue({ allowed: true, blocked: [], usablePrescriptionLineIds: ['prescription-line-1'] });
-        rxReview.verifyingOrganizationsFor.mockResolvedValue(['organization-1', 'organization-2']);
-
-        await expect(command.execute(input())).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
-        expect(matching.select).not.toHaveBeenCalled();
-      });
-    });
-
-    it('blocks checkout (reusing the gate-reported error code) when the Rx gate rejects a line', async () => {
-      const { command, catalog, checkRxGate, orders } = build();
-      catalog.getProduct.mockResolvedValue({
-        id: 'product-1',
-        status: 'ACTIVE',
-        rxClassification: 'RX',
-        price: 500,
-        name: 'Amoxicillin 500mg',
-      });
-      checkRxGate.check.mockResolvedValue({
-        allowed: false,
-        blocked: [{ catalogProductId: 'product-1', reason: ErrorCode.RX_REQUIRED }],
-        usablePrescriptionLineIds: [],
-      });
+    it('refuses a prescription medicine without a prescription (RX_REQUIRED), before anything is reserved', async () => {
+      const { command, catalog, matching, orders } = build();
+      catalog.getProduct.mockResolvedValue(rxProduct as never);
 
       await expect(command.execute(input())).rejects.toMatchObject({ code: 'RX_REQUIRED' });
+      expect(matching.find).not.toHaveBeenCalled();
       expect(orders.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses a prescription that cannot be attached (another customer, or already on an order)', async () => {
+      const { command, catalog, rxReview, matching } = build();
+      catalog.getProduct.mockResolvedValue(rxProduct as never);
+      rxReview.assertAttachable.mockRejectedValue(Object.assign(new Error('no'), { code: 'PRESCRIPTION_NOT_FOUND' }));
+
+      await expect(command.execute(input({ prescriptionId: 'rx-1' }))).rejects.toMatchObject({ code: 'PRESCRIPTION_NOT_FOUND' });
+      expect(rxReview.assertAttachable).toHaveBeenCalledWith({ customerUserId: 'customer-1', prescriptionId: 'rx-1' });
+      expect(matching.find).not.toHaveBeenCalled();
+    });
+
+    it('places the order waiting for review: stock held and confirmed, not paid, the prescription sent to the filling pharmacy', async () => {
+      const { command, catalog, rxReview, pharmacies, orders, inventory, outbox } = build();
+      catalog.getProduct.mockResolvedValue(rxProduct as never);
+
+      const result = await command.execute(input({ prescriptionId: 'rx-1' }));
+
+      expect(orders.create).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'PENDING_PAYMENT', isCod: true, prescriptionId: 'rx-1', rxReviewStatus: 'PENDING' }),
+        expect.anything(),
+        undefined,
+      );
+      expect(orders.updateStatus).not.toHaveBeenCalled();
+      expect(inventory.confirm).toHaveBeenCalledWith({ reservationId: 'reservation-1' });
+      expect(orders.createLines).toHaveBeenCalledWith('order-1', [expect.objectContaining({ requiresRx: true, prescriptionLineId: null })], undefined);
+      expect(pharmacies.getOrganizationId).toHaveBeenCalledWith('pharmacy-1');
+      expect(rxReview.attachToOrder).toHaveBeenCalledWith({
+        customerUserId: 'customer-1',
+        prescriptionId: 'rx-1',
+        verifyingOrganizationId: 'organization-1',
+        requestedItems: [{ catalogProductId: 'product-1', productName: 'Amoxicillin 500mg', quantity: 2 }],
+      });
+      const events = (outbox.write as jest.Mock).mock.calls.map((c) => (c[0] as { type: string }).type);
+      expect(events).not.toContain(OrdersEventType.OrderPaid);
+      expect(result.payment).toBeNull();
+    });
+
+    it('a prepaid order waiting for review is not charged yet: the customer pays once it is approved', async () => {
+      const { command, catalog, inventory } = build();
+      catalog.getProduct.mockResolvedValue(rxProduct as never);
+      const authorize = jest.fn();
+      (command as unknown as { payments: { authorize: jest.Mock } }).payments = { authorize } as never;
+
+      const result = await command.execute(input({ prescriptionId: 'rx-1', payment: { method: 'TELEBIRR', token: 'tok' } }));
+
+      expect(authorize).not.toHaveBeenCalled();
+      expect(inventory.confirm).toHaveBeenCalledWith({ reservationId: 'reservation-1' });
+      expect(result.payment).toBeNull();
+    });
+
+    it('cancels its own order and releases the stock when the prescription was attached elsewhere first', async () => {
+      const { command, catalog, rxReview, orders, inventory } = build();
+      catalog.getProduct.mockResolvedValue(rxProduct as never);
+      rxReview.attachToOrder.mockRejectedValue(Object.assign(new Error('taken'), { code: 'VALIDATION_ERROR' }));
+
+      await expect(command.execute(input({ prescriptionId: 'rx-1' }))).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(orders.updateStatus).toHaveBeenCalledWith('order-1', expect.objectContaining({ status: 'CANCELLED', cancelReason: 'checkout-prescription-attach-failed' }), expect.anything(), undefined);
+      expect(inventory.release).toHaveBeenCalledWith({ reservationId: 'reservation-1', reason: 'checkout-prescription-attach-failed' });
     });
   });
 
