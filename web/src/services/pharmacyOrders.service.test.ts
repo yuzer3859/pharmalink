@@ -5,9 +5,18 @@ import {
   declineReasonProblem,
   FULFILLMENT_STATUSES,
   nextActions,
+  orderStageLabel,
+  paymentLabel,
   pharmacyOrderQuery,
+  rejectReasonProblem,
   stageLabel,
+  type PharmacyOrder,
 } from './pharmacyOrders.service';
+
+const withOrder = (order: Partial<PharmacyOrder['order']>, status: PharmacyOrder['status'] = 'PENDING') => ({
+  status,
+  order: { orderNumber: 'PL-1', status: 'PAID', isCod: false, grandTotal: 1000, currency: 'ETB', placedAt: null, deliverySlot: null, ...order },
+});
 
 describe('pharmacyOrderQuery', () => {
   it('sends only the filters that are set, and never more than the server allows', () => {
@@ -28,6 +37,25 @@ describe('nextActions', () => {
     }
   });
 
+  it('offers nothing while the prescription waits for review: the review is the decision (Work 132)', () => {
+    expect(nextActions('PENDING', 'PENDING')).toEqual([]);
+    expect(nextActions('PENDING', 'APPROVED')).toEqual(['accept', 'decline']);
+    expect(nextActions('PENDING', null)).toEqual(['accept', 'decline']);
+    // Approved but not paid yet: the customer pays first.
+    expect(nextActions('PENDING', 'APPROVED', 'PENDING_PAYMENT')).toEqual([]);
+    expect(nextActions('PENDING', 'APPROVED', 'PAID')).toEqual(['accept', 'decline']);
+  });
+
+  it('says where an order with a prescription is, including the payment after the approval', () => {
+    expect(orderStageLabel(withOrder({ rxReviewStatus: 'PENDING', status: 'PENDING_PAYMENT' }))).toMatch(/review/);
+    expect(orderStageLabel(withOrder({ rxReviewStatus: 'APPROVED', status: 'PENDING_PAYMENT' }))).toMatch(/customer to pay/);
+    expect(orderStageLabel(withOrder({ rxReviewStatus: 'REJECTED', status: 'CANCELLED' }, 'CANCELLED'))).toMatch(/rejected/);
+    expect(orderStageLabel(withOrder({ rxReviewStatus: 'APPROVED' }))).toBe(stageLabel('PENDING'));
+    expect(paymentLabel(withOrder({ isCod: true, status: 'PENDING_PAYMENT' }))).toBe('COD');
+    expect(paymentLabel(withOrder({ status: 'PENDING_PAYMENT' }))).toBe('Not paid yet');
+    expect(paymentLabel(withOrder({ status: 'PAID' }))).toBe('Paid');
+  });
+
   it('has a plain stage label for every status', () => {
     for (const status of FULFILLMENT_STATUSES) expect(stageLabel(status).length).toBeGreaterThan(3);
     expect(stageLabel('READY')).toMatch(/driver/);
@@ -40,6 +68,14 @@ describe('declineReasonProblem', () => {
     expect(declineReasonProblem('  ab ')).not.toBeNull();
     expect(declineReasonProblem('Out of stock')).toBeNull();
     expect(declineReasonProblem('x'.repeat(501))).not.toBeNull();
+  });
+});
+
+describe('rejectReasonProblem', () => {
+  it('follows the server rule: 3 to 500 characters after trimming', () => {
+    expect(rejectReasonProblem(' No ')).not.toBeNull();
+    expect(rejectReasonProblem('Not legible')).toBeNull();
+    expect(rejectReasonProblem('x'.repeat(501))).not.toBeNull();
   });
 });
 
@@ -69,8 +105,18 @@ describe('pharmacyOrdersService', () => {
     expect(request).toHaveBeenLastCalledWith('/pharmacy/orders/f-1/decline', { method: 'POST', body: { reason: 'Out of stock' } });
   });
 
+  it('approves or rejects the prescription on the order (Work 132)', async () => {
+    const request = vi.fn().mockResolvedValue({});
+    const service = createPharmacyOrdersService(request as unknown as SessionRequest);
+
+    await service.approvePrescription('f-1', { legibilityOk: true, validityOk: true });
+    expect(request).toHaveBeenLastCalledWith('/pharmacy/orders/f-1/prescription/approve', { method: 'POST', body: { legibilityOk: true, validityOk: true } });
+    await service.rejectPrescription('f-1', '  Not legible ');
+    expect(request).toHaveBeenLastCalledWith('/pharmacy/orders/f-1/prescription/reject', { method: 'POST', body: { reason: 'Not legible' } });
+  });
+
   it('offers no other operation', () => {
     const service = createPharmacyOrdersService(vi.fn() as unknown as SessionRequest);
-    expect(Object.keys(service).sort()).toEqual(['accept', 'decline', 'get', 'list', 'prepare', 'ready']);
+    expect(Object.keys(service).sort()).toEqual(['accept', 'approvePrescription', 'decline', 'get', 'list', 'prepare', 'ready', 'rejectPrescription']);
   });
 });
