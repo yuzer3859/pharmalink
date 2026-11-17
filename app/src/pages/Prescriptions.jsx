@@ -132,7 +132,7 @@ export default function Prescriptions() {
       </section>
 
       <p className="text-caption text-subtle">
-        Once a pharmacist approves it, prescription medicines can be checked out. <Link to="/checkout" className="font-semibold text-brand-600">Go to checkout</Link>
+        To order a prescription medicine, add it to your cart: checkout asks for the prescription, and the pharmacist checks it on your order. <Link to="/checkout" className="font-semibold text-brand-600">Go to checkout</Link>
       </p>
     </div>
   )

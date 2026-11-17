@@ -65,9 +65,14 @@ export function createOrdersService({ request }) {
      * Places the order. `method` 'COD' sends no payment; any other is a gateway prepayment with an
      * optional opaque `token` (never card data). A decline arrives as ApiError PAYMENT_AUTH_FAILED
      * with `details.orderId` of the order that was cancelled.
+     *
+     * Work 133: a cart with a prescription medicine sends the customer's `prescriptionId`. The order
+     * then waits for the pharmacist (`rxReviewStatus` 'PENDING') and nothing is charged yet: a
+     * pay-now order is paid with `payOrder` once the prescription is approved.
      */
-    async placeOrder({ addressId, method, token, idempotencyKey }) {
+    async placeOrder({ addressId, method, token, idempotencyKey, prescriptionId }) {
       const body = { addressId, idempotencyKey }
+      if (prescriptionId) body.prescriptionId = prescriptionId
       if (method && method !== 'COD') body.payment = { method, ...(token ? { token } : {}) }
       const data = await request('POST', '/checkout', body)
       if (!isRecord(data) || typeof data.orderId !== 'string') throw malformed()
@@ -75,6 +80,15 @@ export function createOrdersService({ request }) {
     },
     async order(orderId) {
       return request('GET', `/orders/${encodeURIComponent(orderId)}`)
+    },
+    /**
+     * Work 133: pays an order whose prescription the pharmacist approved. A retry reuses the same
+     * payment on the server. A decline arrives as ApiError PAYMENT_AUTH_FAILED and cancels the order.
+     */
+    async payOrder(orderId, { method, token }) {
+      const data = await request('POST', `/orders/${encodeURIComponent(orderId)}/pay`, { payment: { method, ...(token ? { token } : {}) } })
+      if (!isRecord(data) || !isRecord(data.payment)) throw malformed()
+      return data
     },
     async orders() {
       const data = await request('GET', '/orders?page=1&size=50')
