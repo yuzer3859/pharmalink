@@ -103,9 +103,10 @@ describe('Quoting a prescription request and confirming it into an order (Work 1
     expect(await ctx.prisma.prescription.findUniqueOrThrow({ where: { id: prescriptionId } })).toMatchObject({ status: 'APPROVED', verifiedByUserId: pharmacistUserId });
     expect((await ctx.prisma.inventoryListing.findFirstOrThrow({ where: { catalogProductId: productId } })).reserved).toBe(3);
 
-    // The pharmacy fills it as any paid order.
+    // The pharmacy accepts it; with the paper required, preparing waits for the paper (Work 136).
     const fulfillmentId = order.fulfillments[0].id;
-    for (const step of ['accept', 'prepare']) await pharmacist.post(`/pharmacy/orders/${fulfillmentId}/${step}`).expect(200);
+    await pharmacist.post(`/pharmacy/orders/${fulfillmentId}/accept`).expect(200);
+    await pharmacist.post(`/pharmacy/orders/${fulfillmentId}/prepare`).expect(400);
   });
 
   it('confirmed with a prepayment, the order is paid through the test gateway in the same call', async () => {

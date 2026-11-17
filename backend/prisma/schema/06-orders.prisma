@@ -118,6 +118,9 @@ model Order {
   /// Work 135: the pharmacist requires the original paper prescription; the driver collects it
   /// from the customer and brings it to the pharmacy before the medicine goes out (Work 136).
   paperRxRequired     Boolean       @default(false)
+  /// Work 136: the pharmacist checked the original paper the driver brought, and kept it.
+  paperRxVerifiedAt   DateTime?
+  paperRxVerifiedById String?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 

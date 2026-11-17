@@ -119,6 +119,11 @@ import { TrackingController } from './interface/controllers/tracking.controller'
 import { JobCreatedHandler } from './interface/events/job-created.handler';
 import { OrderCancelledHandler } from './interface/events/order-cancelled.handler';
 import { OrderReadyHandler } from './interface/events/order-ready.handler';
+import { OrderAcceptedPaperHandler } from './interface/events/order-accepted-paper.handler';
+import { RecordPaperCollectedCommand } from './application/commands/record-paper-collected.command';
+import { DELIVERY_PAPER_REPOSITORY } from './domain/repositories/delivery-paper.repository';
+import { PrismaDeliveryPaperRepository } from './infrastructure/persistence/prisma-delivery-paper.repository';
+import { DELIVERY_PAPER_READ_PORT } from './application/ports/inbound/delivery-paper-read.port';
 import { TrackingGateway } from './interface/ws/tracking.gateway';
 import { WsAuthService } from './interface/ws/ws-auth.service';
 
@@ -233,6 +238,11 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
 
     CreateDeliveryJobCommand,
     OrderReadyHandler,
+    // Work 136: the original paper prescription's round trip.
+    OrderAcceptedPaperHandler,
+    RecordPaperCollectedCommand,
+    { provide: DELIVERY_PAPER_REPOSITORY, useClass: PrismaDeliveryPaperRepository },
+    { provide: DELIVERY_PAPER_READ_PORT, useExisting: DELIVERY_PAPER_REPOSITORY },
 
     // Dispatch (§6, §11.1/§11.2/§11.5). `JobCreatedHandler` is the only automatic trigger;
     // declines and reassignments re-dispatch themselves, and an expired offer is retired by
@@ -496,6 +506,7 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     COD_EXCEPTION_SUMMARY_READ_PORT,
     DELIVERY_BACKLOG_SUMMARY_READ_PORT,
     DELIVERY_JOB_REFERENCE_READ_PORT,
+    DELIVERY_PAPER_READ_PORT,
   ],
 })
 export class DeliveryModule {}

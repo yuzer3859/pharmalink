@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { DomainEvent } from '../../../../shared/events/domain-event';
 import { OutboxService, OutboxCapableClient } from '../../../../shared/outbox/outbox.service';
@@ -42,6 +42,8 @@ import { CONFIG_PORT, IConfigPort } from '../../../../shared/config/config.port'
 import { IIdentityPort, IDENTITY_PORT } from '../ports/outbound/identity.port';
 import { IUnitOfWork, UNIT_OF_WORK } from '../ports/unit-of-work.port';
 import { runWithDeliveryRetry } from '../support/delivery-retry';
+import { DELIVERY_PAPER_REPOSITORY, IDeliveryPaperRepository } from '../../domain/repositories/delivery-paper.repository';
+import { paperRoundTripProblem } from './record-paper-collected.command';
 
 /** What a driver may drive their own job to (§9.2's explicit endpoints). */
 export const DRIVER_SETTABLE_STATUSES: readonly DeliveryJobStatus[] = [
@@ -179,6 +181,8 @@ export class AdvanceDeliveryJobCommand {
     @Inject(CONFIG_PORT) private readonly config: IConfigPort,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
+    // Work 136: optional so a spec that does not exercise the paper round trip need not supply it.
+    @Optional() @Inject(DELIVERY_PAPER_REPOSITORY) private readonly paper?: IDeliveryPaperRepository,
   ) {}
 
   /** A driver posting progress on the job they are carrying (§9.2). */
@@ -305,6 +309,11 @@ export class AdvanceDeliveryJobCommand {
 
       // BR-DEL-10's two gates, on the same terms and for the same reasons as BRULE-29's below.
       await this.assertEarningAccrued(current, to, tx);
+      // Work 136: the original paper prescription's round trip gates reaching the pharmacy and the pick-up.
+      if (this.paper) {
+        const problem = paperRoundTripProblem(await this.paper.findByJobId(jobId, tx), to);
+        if (problem) throw DeliveryErrors.validation(problem, { field: 'status', status: to, reason: 'PAPER_RX_ROUND_TRIP' });
+      }
       await this.assertCodCollected(current, to, tx);
 
       // BRULE-29's gate, inside the transaction and immediately before the write.

@@ -216,6 +216,8 @@ describe('DeliveryJobReferenceReconciler (Work 45)', () => {
     }
     expect([...deliveryImports].sort()).toEqual([
       'delivery/application/ports/inbound/delivery-job-reference-read.port',
+      // Work 136: where the original paper prescription is, for the pharmacist's check.
+      'delivery/application/ports/inbound/delivery-paper-read.port',
       'delivery/application/ports/inbound/delivery-pricing.port',
       'delivery/delivery.module',
       'delivery/domain/events',

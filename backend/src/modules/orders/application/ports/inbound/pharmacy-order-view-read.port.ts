@@ -52,6 +52,12 @@ export interface PharmacyOrderView {
     /** Work 129: `PENDING` while the pharmacist reviews the attached prescription. */
     rxReviewStatus: string | null;
   };
+  /**
+   * Work 136: the original paper prescription's round trip, on an order that needs it: whether the
+   * driver has collected it from the customer, is at the pharmacy with it, and whether the
+   * pharmacist checked it. `null` on an order that does not need the paper.
+   */
+  paper: { collectedAt: Date | null; driverAtPharmacy: boolean; verifiedAt: Date | null } | null;
   /** Work 129: the customer's name from their profile; `null` when they have not given one. */
   customerName: string | null;
   /** Work 129: the prescription attached to the order; `null` when it has none. */

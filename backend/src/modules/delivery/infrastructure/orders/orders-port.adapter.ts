@@ -16,6 +16,8 @@ import {
  * fulfillment, so a job cut from either would be a second job for work already in flight.
  */
 const DELIVERABLE_STATUS = 'READY';
+/** Work 136: a paper-prescription order gets its driver from acceptance (customer -> pharmacy -> customer). */
+const PAPER_DELIVERABLE_STATUSES = new Set(['ACCEPTED', 'PREPARING', 'READY']);
 
 /**
  * Module 08's own `IOrdersPort` adapter — a direct, in-process `PrismaService` read of Module
@@ -60,6 +62,7 @@ export class OrdersPortAdapter implements IOrdersPort {
         deliveryFee: true,
         currency: true,
         addressSnapshot: true,
+        paperRxRequired: true,
       },
     });
     if (!order) {
@@ -81,7 +84,8 @@ export class OrdersPortAdapter implements IOrdersPort {
       pharmacyId: fulfillment.pharmacyId,
       branchId: fulfillment.branchId,
       status: fulfillment.status,
-      isReadyForDelivery: fulfillment.status === DELIVERABLE_STATUS,
+      isReadyForDelivery: order.paperRxRequired ? PAPER_DELIVERABLE_STATUSES.has(fulfillment.status) : fulfillment.status === DELIVERABLE_STATUS,
+      paperRxRequired: order.paperRxRequired,
       deliveryJobId: fulfillment.deliveryJobId,
       isCod: order.isCod,
       orderTotal: order.grandTotal,

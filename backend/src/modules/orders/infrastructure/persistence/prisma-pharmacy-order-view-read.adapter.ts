@@ -21,6 +21,8 @@ const INCLUDE = {
       customerUserId: true,
       prescriptionId: true,
       rxReviewStatus: true,
+      paperRxRequired: true,
+      paperRxVerifiedAt: true,
     },
   },
   lines: { orderBy: { createdAt: 'asc' } },
@@ -29,6 +31,8 @@ const INCLUDE = {
 type Row = Prisma.FulfillmentGetPayload<{ include: typeof INCLUDE }>;
 
 interface Related {
+  /** Work 136: the paper job's state, per fulfilment. */
+  paperJobs: Map<string, { paperCollectedAt: Date | null; status: string }>;
   names: Map<string, string | null>;
   prescriptions: Map<string, PharmacyOrderPrescriptionView>;
 }
@@ -70,7 +74,8 @@ export class PrismaPharmacyOrderViewReadAdapter implements IPharmacyOrderViewRea
   private async related(rows: Row[]): Promise<Related> {
     const userIds = [...new Set(rows.map((r) => r.order.customerUserId))];
     const prescriptionIds = [...new Set(rows.map((r) => r.order.prescriptionId).filter((id): id is string => id !== null))];
-    const [profiles, prescriptions] = await Promise.all([
+    const paperFulfillmentIds = rows.filter((r) => r.order.paperRxRequired).map((r) => r.id);
+    const [profiles, prescriptions, paperJobs] = await Promise.all([
       userIds.length === 0
         ? []
         : this.prisma.customerProfile.findMany({ where: { userId: { in: userIds }, deletedAt: null }, select: { userId: true, fullName: true } }),
@@ -80,8 +85,15 @@ export class PrismaPharmacyOrderViewReadAdapter implements IPharmacyOrderViewRea
             where: { id: { in: prescriptionIds } },
             select: { id: true, status: true, fileType: true, doctorName: true, hospitalName: true, createdAt: true },
           }),
+      paperFulfillmentIds.length === 0
+        ? []
+        : this.prisma.deliveryJob.findMany({
+            where: { fulfillmentId: { in: paperFulfillmentIds }, status: { notIn: ['CANCELLED', 'FAILED'] } },
+            select: { fulfillmentId: true, paperCollectedAt: true, status: true },
+          }),
     ]);
     return {
+      paperJobs: new Map(paperJobs.map((j) => [j.fulfillmentId, { paperCollectedAt: j.paperCollectedAt, status: j.status }])),
       names: new Map(profiles.map((p) => [p.userId, p.fullName?.trim() || null])),
       prescriptions: new Map(
         prescriptions.map((p) => [
@@ -120,7 +132,8 @@ function toView(row: Row, related: Related): PharmacyOrderView {
     requiresRx: l.requiresRx,
     lineStatus: l.lineStatus,
   }));
-  const { customerUserId, prescriptionId, ...order } = row.order;
+  const { customerUserId, prescriptionId, paperRxRequired, paperRxVerifiedAt, ...order } = row.order;
+  const paperJob = related.paperJobs.get(row.id);
   return {
     id: row.id,
     orderId: row.orderId,
@@ -136,5 +149,8 @@ function toView(row: Row, related: Related): PharmacyOrderView {
     requiresRx: lines.some((l) => l.requiresRx),
     customerName: related.names.get(customerUserId) ?? null,
     prescription: prescriptionId ? related.prescriptions.get(prescriptionId) ?? null : null,
+    paper: paperRxRequired
+      ? { collectedAt: paperJob?.paperCollectedAt ?? null, driverAtPharmacy: paperJob?.status === 'ARRIVED_PICKUP', verifiedAt: paperRxVerifiedAt }
+      : null,
   };
 }
