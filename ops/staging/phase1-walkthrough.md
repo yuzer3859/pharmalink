@@ -3,7 +3,8 @@
 This is the roadmap's Phase 1 happy path, walked by people on the staging stack. **Every role uses
 its own app.** The same chain also runs automatically in `backend/test/phase1/marketplace.e2e-spec.ts`.
 
-> browse → cart → prescription review → checkout → pay → pharmacy prepares → driver delivers with
+> browse → cart → checkout with the prescription → pharmacist reviews it on the order → pay →
+> pharmacy prepares → driver delivers with
 > proof → COD cash reaches PharmaLink → statement → maker-checker payout → `SETTLED`,
 > plus a declined payment releasing the stock.
 
@@ -74,28 +75,37 @@ sender also refuses every other address, so a new customer never receives the si
 
 Once a domain is verified in Resend and set as the staging sender, step 2 isn't needed.
 
-## 3. Customer: cart and prescription
+## 3. Customer: cart and checkout with the prescription
+
+The prescription travels with the order (owner decision 2026-11-16, Works 129, 132 and 133).
 
 1. Search for `ORS` and add it. Search for `Amoxicillin`, which is Rx, and add it.
-2. On **Prescriptions**, upload a PDF or photo.
-3. Open **checkout**. It reads *Your prescription is with the pharmacist for review*: checkout has
-   sent it to the pharmacy it matched, with what you asked for (Work 109).
+2. Open **checkout** and choose the address. A new address needs **Use my current location**.
+3. The **Prescription** card asks for the prescription. Choose a PDF or photo; it reads
+   *Prescription attached*.
+4. Choose how to pay, then **Send to the pharmacist**. Nothing is charged yet.
+   - **Prepaid order:** **Telebirr**. You pay after the approval (step 5).
+   - **COD order:** **Cash on delivery**.
 
-   A prescription approved earlier that still has units left is reused instead, and no new review
-   is needed. Ask for more than it has left to see the review.
+   The app reads *Sent to the pharmacist*. The order page and **My orders** show
+   *With the pharmacist*. Each order carries its own prescription; an old approval is not reused.
 
-## 4. Pharmacist: review (pharmacy portal, `owner.bole@`)
+## 4. Pharmacist: review on the order (pharmacy portal, `owner.bole@`)
 
-On **Prescriptions**:
-1. Open the upload, then **Open the prescription file**. The link is audited and short-lived.
-2. Check the requested items, tick both attestations, and **Approve prescription**.
+On **Orders**, the order shows the customer's name and *To review* under Prescription. There is no
+separate prescriptions page.
+1. Open the order, then **Open the prescription**. The link is audited and short-lived.
+2. Check it covers the items under *To prepare*, tick both attestations, and **Approve prescription**.
+   **Reject** instead asks for a reason; the order is cancelled, its stock released, and the
+   customer sees the reason on the order.
+
+Accept and decline are not offered while the prescription waits for review.
 
 ## 5. Customer: pay
 
-Reload checkout and choose the address. A new address needs **Use my current location**.
-
-- **Prepaid order:** **Telebirr**, with the test token left empty, then **Pay and place order**.
-- **COD order:** **Cash on delivery**, then **Place order**.
+- **Prepaid order:** the order page reads *Prescription approved: pay now*. Choose **Telebirr**,
+  leave the test token empty, then **Pay now**.
+- **COD order:** nothing to do; the order goes straight to the pharmacy.
 
 ## 6. Declined payment
 

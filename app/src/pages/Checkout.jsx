@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, CreditCard, MapPin, Minus, Pill, Plus, RefreshCw, ShieldCheck, Smartphone, Trash2, Truck, Wallet, XCircle } from 'lucide-react'
+import { Check, CreditCard, FileText, MapPin, Minus, Pill, Plus, RefreshCw, ShieldCheck, Smartphone, Trash2, Truck, Upload, Wallet, XCircle } from 'lucide-react'
 import { Badge, Button, Card, Input, Skeleton } from '../components/ui'
 import { formatMinorUnits } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
@@ -8,6 +8,8 @@ import { useCatalog } from '../catalog/catalogService'
 import { productName } from '../catalog/format'
 import { PAYMENT_METHODS, createOrdersService, newIdempotencyKey } from '../orders/ordersService'
 import { requestLocation } from '../search/searchService'
+import { PRESCRIPTION_FILE_TYPES, checkFile } from '../prescriptions/prescriptionsService'
+import { usePrescriptions } from './Prescriptions'
 
 const METHOD_ICONS = { COD: Wallet, TELEBIRR: Smartphone, CARD: CreditCard }
 
@@ -74,6 +76,54 @@ export function AddressForm({ onSaved, orders, locate = requestLocation }) {
 }
 
 /**
+ * Work 133 (owner decision 2026-11-16): a cart with a prescription medicine carries the customer's
+ * prescription on the order. The file is uploaded here (PDF or photo, to document storage through a
+ * signed link) and its id goes with checkout; the pharmacist of the filling pharmacy reviews it on
+ * the order, before anything is charged.
+ */
+export function PrescriptionAttach({ value, onChange }) {
+  const prescriptions = usePrescriptions()
+  async function choose(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const problem = checkFile(file)
+    if (problem) return onChange({ status: 'error', id: null, name: null, error: problem })
+    onChange({ status: 'uploading', id: null, name: file.name, error: null })
+    try {
+      const saved = await prescriptions.upload(file)
+      onChange({ status: 'attached', id: saved.id, name: file.name, error: null })
+    } catch (error) {
+      onChange({ status: 'error', id: null, name: null, error: error?.message || 'The prescription could not be uploaded.' })
+    }
+  }
+  return (
+    <Card className="space-y-3 p-4" aria-label="Prescription">
+      <h2 className="flex items-center gap-2 text-h3 text-fg"><FileText className="h-5 w-5 text-brand-500" aria-hidden="true" /> Prescription</h2>
+      <p className="text-caption text-muted">
+        An item in your cart needs a prescription. Add a photo or PDF of it; the pharmacist checks it before your order goes ahead, and sees your name with it.
+      </p>
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border p-3">
+        <Upload className="h-5 w-5 text-brand-500" aria-hidden="true" />
+        <span className="text-body text-fg">
+          {value.status === 'uploading' ? `Uploading ${value.name}…` : value.status === 'attached' ? `Attached: ${value.name}` : 'Choose a photo or PDF'}
+        </span>
+        <input
+          type="file"
+          className="sr-only"
+          aria-label="Prescription file"
+          accept={PRESCRIPTION_FILE_TYPES.join(',')}
+          onChange={choose}
+          disabled={value.status === 'uploading'}
+        />
+      </label>
+      {value.status === 'attached' && <p className="flex items-center gap-1.5 text-caption text-success" role="status"><Check className="h-4 w-4" aria-hidden="true" /> Prescription attached. Choose another file to replace it.</p>}
+      {value.status === 'error' && <p role="alert" className="text-caption text-danger">{value.error}</p>}
+    </Card>
+  )
+}
+
+/**
  * Work 100: checkout on the real API (Module 06, with Module 07's payment). The cart, addresses,
  * the server's quote, then either cash on delivery or a gateway payment. A declined payment
  * cancels the order and releases its stock on the server; the customer can put the items back in
@@ -93,6 +143,7 @@ export default function Checkout() {
   const [placing, setPlacing] = useState(false)
   const [outcome, setOutcome] = useState(null)
   const [cartError, setCartError] = useState(null)
+  const [rx, setRx] = useState({ status: 'none', id: null, name: null, error: null })
   const idempotencyKey = useRef(newIdempotencyKey())
 
   const loadCart = useCallback(async () => {
@@ -125,6 +176,8 @@ export default function Checkout() {
   }, [orders, loadCart])
 
   const items = cart.data?.items ?? []
+  // Work 133: the server says whether this cart needs a prescription on its order.
+  const rxRequired = quote.data ? quote.data.prescriptionRequired === true || quote.data.rxGateResult?.allowed === false : items.some((i) => i.requiresRx)
   const itemsKey = items.map((i) => `${i.id}:${i.quantity}`).join(',')
 
   useEffect(() => {
@@ -156,7 +209,13 @@ export default function Checkout() {
   async function place() {
     setPlacing(true)
     try {
-      const order = await orders.placeOrder({ addressId, method, token: PAYMENTS_TEST_MODE ? token.trim() : undefined, idempotencyKey: idempotencyKey.current })
+      const order = await orders.placeOrder({
+        addressId,
+        method,
+        token: PAYMENTS_TEST_MODE && !rxRequired ? token.trim() : undefined,
+        idempotencyKey: idempotencyKey.current,
+        prescriptionId: rxRequired ? rx.id : undefined,
+      })
       setOutcome({ kind: 'placed', order })
     } catch (error) {
       if (error?.code === 'PAYMENT_AUTH_FAILED') {
@@ -180,6 +239,29 @@ export default function Checkout() {
     } catch (error) {
       setOutcome({ ...outcome, message: error?.message || outcome.message })
     }
+  }
+
+  if (outcome?.kind === 'placed' && outcome.order.rxReviewStatus === 'PENDING') {
+    const o = outcome.order
+    return (
+      <div className="mx-auto max-w-md py-12 text-center">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-brand-500/15 text-brand-600">
+          <FileText className="h-10 w-10" aria-hidden="true" />
+        </div>
+        <h1 className="mt-5 font-display text-h1 text-fg">Sent to the pharmacist</h1>
+        <p className="mt-2 text-body text-muted">
+          Order <span className="font-semibold text-fg">{o.orderNumber}</span> · {money(o.grandTotal, o.currency)}
+        </p>
+        <p className="mt-1 text-caption text-muted">
+          The pharmacist checks your prescription first. Nothing is charged yet.{' '}
+          {o.isCod ? 'Once it is approved, the pharmacy prepares your order and you pay the driver in cash.' : 'Once it is approved, you pay from the order page.'}
+        </p>
+        <div className="mt-6 flex flex-col gap-2">
+          <Button as={Link} to={`/orders/${o.orderId}`} size="lg"><Truck className="h-4 w-4" aria-hidden="true" /> Follow your order</Button>
+          <Button as={Link} to="/search" variant="ghost">Continue shopping</Button>
+        </div>
+      </div>
+    )
   }
 
   if (outcome?.kind === 'placed') {
@@ -217,8 +299,7 @@ export default function Checkout() {
   }
 
   const totals = quote.data?.totals
-  const rxBlocked = quote.data?.rxGateResult && quote.data.rxGateResult.allowed === false
-  const canPlace = items.length > 0 && addressId && quote.status === 'ready' && !rxBlocked && !placing
+  const canPlace = items.length > 0 && addressId && quote.status === 'ready' && (!rxRequired || rx.status === 'attached') && !placing
 
   return (
     <div className="space-y-6">
@@ -288,6 +369,8 @@ export default function Checkout() {
               )}
             </Card>
 
+            {rxRequired && <PrescriptionAttach value={rx} onChange={setRx} />}
+
             <Card className="space-y-3 p-4">
               <h2 className="text-h3 text-fg">Payment</h2>
               <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Payment method">
@@ -308,7 +391,8 @@ export default function Checkout() {
                   )
                 })}
               </div>
-              {PAYMENTS_TEST_MODE && method !== 'COD' && (
+              {rxRequired && method !== 'COD' && <p className="text-caption text-muted">You pay once the pharmacist approves your prescription. Nothing is charged before.</p>}
+              {PAYMENTS_TEST_MODE && method !== 'COD' && !rxRequired && (
                 <div>
                   <Input aria-label="Test gateway token" placeholder="Test token (e.g. test-decline)" value={token} onChange={(e) => setToken(e.target.value)} maxLength={512} />
                   <p className="mt-1 text-caption text-subtle">Test mode: no real money moves. The token test-decline makes the payment fail.</p>
@@ -330,20 +414,9 @@ export default function Checkout() {
                 <div className="flex justify-between border-t border-border pt-2 font-semibold"><dt>Total</dt><dd data-testid="grand-total">{money(totals.grandTotal, totals.currency)}</dd></div>
               </dl>
             )}
-            {rxBlocked && (
-              quote.data?.prescriptionReview?.status === 'PENDING_VERIFICATION' ? (
-                // Work 110: the quote sent the prescription to the matched pharmacy (Work 109).
-                <p className="text-caption text-warning" role="status">
-                  Your prescription is with the pharmacist for review. You can pay once it is approved; reopen this page to check.
-                </p>
-              ) : (
-                <p className="text-caption text-warning">
-                  A prescription is needed for an item in your cart. <Link to="/prescriptions" className="font-semibold underline">Upload a prescription</Link>
-                </p>
-              )
-            )}
+            {rxRequired && rx.status !== 'attached' && <p className="text-caption text-warning">Add your prescription to place this order.</p>}
             <Button size="lg" className="w-full" disabled={!canPlace} onClick={place}>
-              {placing ? 'Placing order…' : method === 'COD' ? 'Place order' : 'Pay and place order'}
+              {placing ? 'Placing order…' : rxRequired ? 'Send to the pharmacist' : method === 'COD' ? 'Place order' : 'Pay and place order'}
             </Button>
             <p className="flex items-center gap-1.5 text-caption text-subtle"><ShieldCheck className="h-4 w-4" aria-hidden="true" /> Licensed pharmacies only. The pharmacy confirms your order.</p>
           </Card>

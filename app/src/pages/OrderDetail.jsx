@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Camera, Check, MapPin, Navigation, PenLine, RefreshCw } from 'lucide-react'
-import { Badge, Button, Card, Skeleton } from '../components/ui'
+import { ArrowLeft, Camera, Check, FileText, MapPin, Navigation, PenLine, RefreshCw, XCircle } from 'lucide-react'
+import { Badge, Button, Card, Input, Skeleton } from '../components/ui'
 import { formatMinorUnits } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
 import { useOrders } from './Checkout'
 import { statusOf } from './Orders'
 import { followDelivery } from '../orders/trackingSocket'
+import { PAYMENT_METHODS } from '../orders/ordersService'
 
 const DELIVERY_STATUS = {
   CREATED: 'Finding a driver',
@@ -120,6 +121,98 @@ function ProofOfDelivery({ jobId }) {
   )
 }
 
+/** The test gateway's token field appears only in a build that turns test mode on (staging). */
+const PAYMENTS_TEST_MODE = import.meta.env.VITE_PAYMENTS_TEST_MODE === 'true'
+
+/**
+ * Work 133: where the prescription on this order stands. While the pharmacist checks it nothing is
+ * charged; once approved, a pay-now order is paid here; a rejection shows the pharmacist's reason.
+ */
+export function PrescriptionPanel({ order, onChanged }) {
+  const orders = useOrders()
+  const [method, setMethod] = useState(order.payment?.method && order.payment.method !== 'COD' ? order.payment.method : 'TELEBIRR')
+  const [token, setToken] = useState('')
+  const [paying, setPaying] = useState({ busy: false, error: null })
+  const review = order.rxReviewStatus
+  if (!review) return null
+
+  async function pay() {
+    setPaying({ busy: true, error: null })
+    try {
+      await orders.payOrder(order.id, { method, token: PAYMENTS_TEST_MODE ? token.trim() : undefined })
+      setPaying({ busy: false, error: null })
+      onChanged()
+    } catch (error) {
+      setPaying({ busy: false, error: error?.message || 'The payment could not be made.' })
+      if (error?.code === 'PAYMENT_AUTH_FAILED') onChanged()
+    }
+  }
+
+  if (review === 'PENDING') {
+    return (
+      <Card className="flex items-start gap-3 p-4" role="status" aria-label="Prescription">
+        <FileText className="mt-0.5 h-5 w-5 text-brand-500" aria-hidden="true" />
+        <div>
+          <p className="text-body font-semibold text-fg">With the pharmacist</p>
+          <p className="text-caption text-muted">
+            The pharmacist is checking your prescription. Nothing is charged yet.{' '}
+            {order.isCod ? 'Once it is approved, the pharmacy prepares your order.' : 'Once it is approved, you can pay here.'}
+          </p>
+          <Button variant="ghost" size="sm" className="mt-2" onClick={onChanged}><RefreshCw className="h-4 w-4" aria-hidden="true" /> Check again</Button>
+        </div>
+      </Card>
+    )
+  }
+  if (review === 'REJECTED') {
+    return (
+      <Card role="alert" className="flex items-start gap-3 border-danger/40 p-4" aria-label="Prescription">
+        <XCircle className="mt-0.5 h-5 w-5 text-danger" aria-hidden="true" />
+        <div>
+          <p className="text-body font-semibold text-fg">Prescription not accepted</p>
+          <p className="text-caption text-muted">
+            {order.cancelReason ? `${order.cancelReason} ` : ''}Your order was cancelled and nothing was charged.
+          </p>
+        </div>
+      </Card>
+    )
+  }
+  if (order.status === 'PENDING_PAYMENT' && !order.isCod) {
+    return (
+      <Card className="space-y-3 p-4" aria-label="Prescription">
+        <p className="flex items-center gap-2 text-body font-semibold text-fg"><Check className="h-5 w-5 text-success" aria-hidden="true" /> Prescription approved: pay now</p>
+        <p className="text-caption text-muted">Pay {formatMinorUnits(order.grandTotal, order.currency)} to send your order to the pharmacy.</p>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Payment method">
+          {PAYMENT_METHODS.filter((m) => m.id !== 'COD').map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={method === m.id}
+              onClick={() => setMethod(m.id)}
+              className={`rounded-xl border px-3 py-2 text-body ${method === m.id ? 'border-brand-500 bg-brand-500/5' : 'border-border'}`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {PAYMENTS_TEST_MODE && (
+          <div>
+            <Input aria-label="Test gateway token" placeholder="Test token (e.g. test-decline)" value={token} onChange={(e) => setToken(e.target.value)} maxLength={512} />
+            <p className="mt-1 text-caption text-subtle">Test mode: no real money moves.</p>
+          </div>
+        )}
+        <Button onClick={pay} disabled={paying.busy}>{paying.busy ? 'Paying…' : 'Pay now'}</Button>
+        {paying.error && <p role="alert" className="text-caption text-danger">{paying.error}</p>}
+      </Card>
+    )
+  }
+  return (
+    <p className="flex items-center gap-1.5 text-caption text-success" aria-label="Prescription">
+      <Check className="h-4 w-4" aria-hidden="true" /> Prescription approved by the pharmacist.
+    </p>
+  )
+}
+
 /** Work 102: one order on the real API: its status history, live delivery and proof of delivery. */
 export default function OrderDetail() {
   const { id } = useParams()
@@ -149,7 +242,7 @@ export default function OrderDetail() {
   }
 
   const { order, lines = [], statusHistory = [] } = state.data
-  const s = statusOf(order.status)
+  const s = order.rxReviewStatus === 'PENDING' ? { label: 'With the pharmacist', tone: 'warning' } : statusOf(order.status)
   const delivering = ['READY', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(order.status)
   return (
     <div className="space-y-6">
@@ -159,8 +252,10 @@ export default function OrderDetail() {
         <Badge tone={s.tone}>{s.label}</Badge>
       </div>
       <p className="text-body text-muted">
-        {formatMinorUnits(order.grandTotal, order.currency)} · {order.isCod ? 'cash on delivery' : 'paid online'} · {lines.length === 1 ? '1 item' : `${lines.length} items`}
+        {formatMinorUnits(order.grandTotal, order.currency)} · {order.isCod ? 'cash on delivery' : order.status === 'PENDING_PAYMENT' || order.status === 'CANCELLED' ? 'pay online' : 'paid online'} · {lines.length === 1 ? '1 item' : `${lines.length} items`}
       </p>
+
+      <PrescriptionPanel order={order} onChanged={load} />
 
       {delivering && (
         <Card className="p-4">

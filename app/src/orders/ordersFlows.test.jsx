@@ -88,6 +88,47 @@ describe('orders (Work 102)', () => {
   })
 })
 
+describe('the prescription on an order (Work 133)', () => {
+  const rxOrder = (over) => ({ ...order('PENDING_PAYMENT'), prescriptionId: 'rx-1', ...over })
+
+  it('while the pharmacist checks it, says so in the list and on the order, and nothing is payable', async () => {
+    signedInApp('/orders', { 'GET /orders': ok({ items: [rxOrder({ rxReviewStatus: 'PENDING' })], total: 1 }) })
+    expect(await screen.findByText('With the pharmacist')).toBeTruthy()
+    expect(screen.queryByText('Waiting for payment')).toBeNull()
+  })
+
+  it('once approved, the customer pays on the order page with the chosen method', async () => {
+    const { callsTo } = signedInApp(`/orders/${ORDER_ID}`, {
+      [`GET /orders/${ORDER_ID}`]: [
+        ok({ order: rxOrder({ rxReviewStatus: 'APPROVED' }), lines: [], statusHistory: [] }),
+        ok({ order: rxOrder({ rxReviewStatus: 'APPROVED', status: 'PAID' }), lines: [], statusHistory: [] }),
+      ],
+      [`POST /orders/${ORDER_ID}/pay`]: ok({ order: rxOrder({ status: 'PAID' }), payment: { paymentId: 'p-1', status: 'AUTHORIZED', providerRedirect: null } }),
+    })
+    expect(await screen.findByText(/Prescription approved: pay now/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: 'Card' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pay now' }))
+    expect(await screen.findByText('Prescription approved by the pharmacist.')).toBeTruthy()
+    expect(callsTo(`POST /orders/${ORDER_ID}/pay`)[0].body).toEqual({ payment: { method: 'CARD' } })
+  })
+
+  it("a rejected prescription shows the pharmacist's reason and that nothing was charged", async () => {
+    signedInApp(`/orders/${ORDER_ID}`, {
+      [`GET /orders/${ORDER_ID}`]: ok({ order: rxOrder({ status: 'CANCELLED', rxReviewStatus: 'REJECTED', cancelReason: 'The prescription is not legible.' }), lines: [], statusHistory: [] }),
+    })
+    expect(await screen.findByText('Prescription not accepted')).toBeTruthy()
+    expect(screen.getByText(/The prescription is not legible. Your order was cancelled and nothing was charged./)).toBeTruthy()
+  })
+
+  it('a COD order waiting for the review says the pharmacy prepares it once approved', async () => {
+    signedInApp(`/orders/${ORDER_ID}`, {
+      [`GET /orders/${ORDER_ID}`]: ok({ order: rxOrder({ isCod: true, rxReviewStatus: 'PENDING' }), lines: [], statusHistory: [] }),
+    })
+    expect(await screen.findByText(/the pharmacy prepares your order/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Pay now' })).toBeNull()
+  })
+})
+
 describe('followDelivery', () => {
   function fakeSocket() {
     const handlers = {}

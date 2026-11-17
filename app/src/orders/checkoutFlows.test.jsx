@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { MotionGlobalConfig } from 'framer-motion'
@@ -14,6 +14,10 @@ import { newIdempotencyKey } from './ordersService'
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = true
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 const PRODUCT_ID = '22222222-2222-4222-8222-222222222222'
@@ -41,6 +45,8 @@ function signedInApp(path, routes) {
     ...routes,
   })
   const api = createApiClient({ baseUrl: 'http://api.test', fetcher: backend.fetcher })
+  // A prescription file goes straight to storage with the browser's fetch; point it at the same script.
+  vi.stubGlobal('fetch', backend.fetcher)
   render(
     <MemoryRouter initialEntries={[path]}>
       <AuthProvider service={createAuthService({ api, storage: sessionStorage })}>
@@ -116,27 +122,47 @@ describe('checkout (Work 100)', () => {
     expect(await screen.findByText('Your cart is empty.')).toBeTruthy()
   })
 
-  it('a prescription item blocks placing until a prescription is on file', async () => {
-    signedInApp('/checkout', {
-      'GET /cart': ok({ ...cartWith(), items: [{ ...cartWith().items[0], requiresRx: true }] }),
-      'POST /checkout/quote': ok({ ...quote, rxGateResult: { allowed: false, blocked: [{ catalogProductId: PRODUCT_ID }], usablePrescriptionLineIds: [] } }),
-    })
-    expect(await screen.findByText(/A prescription is needed/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Place order' }).disabled).toBe(true)
+  const rxCart = () => ok({ ...cartWith(), items: [{ ...cartWith().items[0], requiresRx: true }] })
+  const rxQuote = () => ok({ ...quote, prescriptionRequired: true, rxGateResult: { allowed: false, blocked: [{ catalogProductId: PRODUCT_ID, reason: 'RX_REQUIRED' }], usablePrescriptionLineIds: [] } })
+  const upload = {
+    'POST /prescriptions/uploads': ok({ fileRef: 'prescriptions/c/f.pdf', upload: { url: 'http://storage.test/storage/local/tok', method: 'PUT', headers: { 'Content-Type': 'application/pdf' } } }, 201),
+    'PUT /storage/local/tok': ok({}),
+    'POST /prescriptions': ok({ id: 'rx-1', status: 'UPLOADED' }, 201),
+  }
+  const pdf = () => new File(['%PDF-1.4 test'], 'rx.pdf', { type: 'application/pdf' })
+
+  it('a prescription item needs the prescription attached on the order before it can be sent (Work 133)', async () => {
+    const { callsTo } = signedInApp('/checkout', { 'GET /cart': rxCart(), 'POST /checkout/quote': rxQuote() })
+    expect(await screen.findByText(/An item in your cart needs a prescription/)).toBeTruthy()
+    await waitFor(() => expect(screen.getByTestId('grand-total')).toBeTruthy())
+    expect(screen.getByRole('button', { name: 'Send to the pharmacist' }).disabled).toBe(true)
+
+    fireEvent.change(screen.getByLabelText('Prescription file'), { target: { files: [new File(['x'], 'rx.gif', { type: 'image/gif' })] } })
+    expect(await screen.findByText('Choose a PDF, JPEG or PNG file.')).toBeTruthy()
+    expect(callsTo('POST /prescriptions/uploads')).toHaveLength(0)
   })
 
-  it('says the prescription is with the pharmacist once checkout has sent it for review (Work 110)', async () => {
-    signedInApp('/checkout', {
-      'GET /cart': ok({ ...cartWith(), items: [{ ...cartWith().items[0], requiresRx: true }] }),
-      'POST /checkout/quote': ok({
-        ...quote,
-        rxGateResult: { allowed: false, blocked: [{ catalogProductId: PRODUCT_ID }], usablePrescriptionLineIds: [] },
-        prescriptionReview: { prescriptionId: 'rx-1', status: 'PENDING_VERIFICATION', verifyingOrganizationId: 'org-1', routedNow: true },
-      }),
+  it('uploads the prescription at checkout and places the order with it; nothing is charged before the review (Work 133)', async () => {
+    const { callsTo } = signedInApp('/checkout', {
+      'GET /cart': rxCart(),
+      'POST /checkout/quote': rxQuote(),
+      ...upload,
+      'POST /checkout': ok(placed({ status: 'PENDING_PAYMENT', isCod: false, rxReviewStatus: 'PENDING' }), 201),
     })
-    expect(await screen.findByText(/with the pharmacist for review/)).toBeTruthy()
-    expect(screen.queryByText(/A prescription is needed/)).toBeNull()
-    expect(screen.getByRole('button', { name: 'Place order' }).disabled).toBe(true)
+    await screen.findByText(/An item in your cart needs a prescription/)
+    fireEvent.change(screen.getByLabelText('Prescription file'), { target: { files: [pdf()] } })
+    expect(await screen.findByText(/Prescription attached/)).toBeTruthy()
+    expect(callsTo('PUT /storage/local/tok')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('radio', { name: /Telebirr/ }))
+    expect(screen.getByText(/You pay once the pharmacist approves your prescription/)).toBeTruthy()
+    expect(screen.queryByLabelText('Test gateway token')).toBeNull()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send to the pharmacist' }).disabled).toBe(false))
+    fireEvent.click(screen.getByRole('button', { name: 'Send to the pharmacist' }))
+
+    expect(await screen.findByRole('heading', { name: 'Sent to the pharmacist' })).toBeTruthy()
+    expect(screen.getByText(/you pay from the order page/)).toBeTruthy()
+    expect(callsTo('POST /checkout')[0].body).toEqual({ addressId: ADDRESS_ID, idempotencyKey: expect.any(String), prescriptionId: 'rx-1', payment: { method: 'TELEBIRR' } })
   })
 
   it('the product page adds the product to the signed-in cart', async () => {

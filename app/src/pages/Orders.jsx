@@ -55,7 +55,8 @@ export default function Orders() {
       {state.status === 'ready' && state.items.length > 0 && (
         <div className="space-y-3">
           {state.items.map((o) => {
-            const s = statusOf(o.status)
+            // Work 133: an order whose prescription the pharmacist is still checking.
+            const s = o.rxReviewStatus === 'PENDING' ? { label: 'With the pharmacist', tone: 'warning' } : statusOf(o.status)
             return (
               <Card key={o.id} interactive>
                 <Link to={`/orders/${o.id}`} className="flex items-center gap-3 rounded-2xl p-4">
