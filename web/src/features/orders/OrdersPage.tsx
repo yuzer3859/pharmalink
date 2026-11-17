@@ -3,9 +3,11 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Divider,
   Drawer,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Skeleton,
@@ -14,22 +16,29 @@ import {
   Typography,
 } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable } from '@/components/common/DataTable';
 import { StatusChip } from '@/components/common/StatusChip';
 import { useAuth } from '@/context/AuthContext';
-import { useFulfillmentAction, usePharmacyOrder, usePharmacyOrders } from '@/hooks/usePharmacyOrders';
+import { useNotify } from '@/context/NotificationContext';
+import { rxReviewErrorMessage, useFulfillmentAction, usePharmacyOrder, usePharmacyOrders, useRxReviewDecision } from '@/hooks/usePharmacyOrders';
 import { usePortal } from '@/hooks/usePortal';
 import { ApiError } from '@/services/apiClient';
 import { fromMinorUnits } from '@/services/adminOrders.service';
+import { prescriptionReviewService } from '@/services/prescriptionReview.service';
 import {
+  awaitingRxReview,
   DECLINE_REASON_MAX,
   declineReasonProblem,
   FULFILLMENT_STATUSES,
   nextActions,
+  orderStageLabel,
+  paymentLabel,
   PHARMACY_ORDER_PAGE_SIZES,
-  stageLabel,
+  REJECT_REASON_MAX,
+  rejectReasonProblem,
   type FulfillmentStatus,
   type PharmacyOrder,
 } from '@/services/pharmacyOrders.service';
@@ -63,6 +72,114 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+function PrescriptionSection({ f }: { f: PharmacyOrder }) {
+  const { can } = useAuth();
+  const notify = useNotify();
+  const decision = useRxReviewDecision();
+  const [legibilityOk, setLegibilityOk] = useState(false);
+  const [validityOk, setValidityOk] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  const [opening, setOpening] = useState(false);
+  const rx = f.prescription;
+  const pharmacist = can('prescriptions:verify');
+  const reviewable = awaitingRxReview(f) && pharmacist;
+  const problem = rejectReasonProblem(reason);
+  const busy = decision.isPending;
+
+  async function openFile() {
+    if (!rx) return;
+    setOpening(true);
+    try {
+      const link = await prescriptionReviewService.filePreview(rx.id);
+      window.open(link.url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      notify(rxReviewErrorMessage(e), 'error');
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  if (!rx) {
+    return f.requiresRx ? <Alert severity="warning">This order has prescription items but no prescription attached.</Alert> : null;
+  }
+  return (
+    <Stack spacing={1}>
+      <Typography variant="subtitle2">Prescription</Typography>
+      <Typography variant="body2" color="text.secondary">
+        Uploaded {formatDateTime(rx.uploadedAt)} · {rx.fileType === 'application/pdf' ? 'PDF' : 'Photo'}
+        {rx.doctorName ? ` · Dr ${rx.doctorName}` : ''}
+        {rx.hospitalName ? ` · ${rx.hospitalName}` : ''}
+      </Typography>
+      {pharmacist ? (
+        <>
+          <Button variant="outlined" startIcon={<OpenInNewRoundedIcon />} disabled={opening} onClick={openFile}>
+            {opening ? 'Opening…' : 'Open the prescription'}
+          </Button>
+          <Typography variant="caption" color="text.secondary">
+            The link lasts a few minutes, and every opening is recorded.
+          </Typography>
+        </>
+      ) : (
+        <Alert severity="info">Only a pharmacist of your pharmacy can open and review the prescription.</Alert>
+      )}
+      {reviewable ? (
+        rejecting ? (
+          <Stack spacing={1}>
+            <TextField
+              size="small"
+              multiline
+              minRows={2}
+              label="Why is it rejected? (the customer sees this)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              error={reason !== '' && !!problem}
+              helperText={reason !== '' ? problem ?? ' ' : 'The order is cancelled and its stock released.'}
+              inputProps={{ maxLength: REJECT_REASON_MAX }}
+            />
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="contained"
+                color="error"
+                disabled={busy || !!problem}
+                onClick={() => decision.mutate({ id: f.id, kind: 'reject', reason })}
+              >
+                Reject prescription
+              </Button>
+              <Button disabled={busy} onClick={() => setRejecting(false)}>
+                Back
+              </Button>
+            </Stack>
+          </Stack>
+        ) : (
+          <Stack spacing={0.5}>
+            <Typography variant="body2">Check it covers what was ordered, as listed under “To prepare”.</Typography>
+            <FormControlLabel control={<Checkbox checked={legibilityOk} onChange={(e) => setLegibilityOk(e.target.checked)} />} label="I could read it clearly" />
+            <FormControlLabel control={<Checkbox checked={validityOk} onChange={(e) => setValidityOk(e.target.checked)} />} label="It is a valid prescription for these items" />
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="contained"
+                color="success"
+                disabled={busy || !legibilityOk || !validityOk}
+                onClick={() => decision.mutate({ id: f.id, kind: 'approve', legibilityOk, validityOk })}
+              >
+                Approve prescription
+              </Button>
+              <Button color="error" disabled={busy} onClick={() => setRejecting(true)}>
+                Reject
+              </Button>
+            </Stack>
+          </Stack>
+        )
+      ) : f.order.rxReviewStatus === 'APPROVED' ? (
+        <Alert severity="success">Prescription approved. Preparing dispenses against it.</Alert>
+      ) : f.order.rxReviewStatus === 'REJECTED' ? (
+        <Alert severity="error">Prescription rejected. The order was cancelled.</Alert>
+      ) : null}
+    </Stack>
+  );
+}
+
 function OrderDrawer({ fulfillmentId, onClose }: { fulfillmentId: string | null; onClose: () => void }) {
   const { can } = useAuth();
   const { data: f, isLoading, error } = usePharmacyOrder(fulfillmentId);
@@ -70,7 +187,7 @@ function OrderDrawer({ fulfillmentId, onClose }: { fulfillmentId: string | null;
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const reasonProblem = declineReasonProblem(reason);
-  const actions = f && can('orders:manage') ? nextActions(f.status) : [];
+  const actions = f && can('orders:manage') ? nextActions(f.status, f.order.rxReviewStatus) : [];
   const busy = action.isPending;
   const run = (name: 'accept' | 'prepare' | 'ready') => f && action.mutate({ id: f.id, action: name });
 
@@ -90,11 +207,12 @@ function OrderDrawer({ fulfillmentId, onClose }: { fulfillmentId: string | null;
           <Stack spacing={1.25}>
             <Stack direction="row" spacing={1} alignItems="center">
               <StatusChip status={humanStatus(f.status)} />
-              {f.requiresRx ? <Chip size="small" color="warning" label="Prescription" /> : null}
+              {awaitingRxReview(f) ? <Chip size="small" color="warning" label="Prescription to review" /> : f.requiresRx ? <Chip size="small" label="Prescription" /> : null}
             </Stack>
-            <Typography variant="body2">{stageLabel(f.status)}</Typography>
+            <Typography variant="body2">{orderStageLabel(f)}</Typography>
+            <Field label="Customer" value={f.customerName || 'Name not given'} />
             <Field label="Placed" value={f.order.placedAt ? formatDateTime(f.order.placedAt) : '—'} />
-            <Field label="Payment" value={f.order.isCod ? 'Cash on delivery (the driver collects it)' : 'Paid online'} />
+            <Field label="Payment" value={f.order.isCod ? 'Cash on delivery (the driver collects it)' : paymentLabel(f) === 'Paid' ? 'Paid online' : 'Online, not paid yet'} />
             <Field label="Order total" value={money(f.order.grandTotal, f.order.currency)} />
             {f.order.deliverySlot ? <Field label="Delivery slot" value={f.order.deliverySlot} /> : null}
             {f.acceptedAt ? <Field label="Accepted" value={formatDateTime(f.acceptedAt)} /> : null}
@@ -113,10 +231,11 @@ function OrderDrawer({ fulfillmentId, onClose }: { fulfillmentId: string | null;
                 </Typography>
               </Stack>
             ))}
-            {f.requiresRx ? (
-              <Alert severity="info">
-                Prescription items are released only against a prescription your pharmacist approved under Prescriptions.
-              </Alert>
+            {f.requiresRx || f.prescription ? (
+              <>
+                <Divider />
+                <PrescriptionSection key={f.id} f={f} />
+              </>
             ) : null}
 
             {actions.length > 0 ? (
@@ -203,6 +322,7 @@ export function OrdersPage() {
 
   const columns: GridColDef<PharmacyOrder>[] = [
     { field: 'orderNumber', headerName: 'Order', flex: 1, minWidth: 170, valueGetter: (_v, row) => row.order.orderNumber },
+    { field: 'customer', headerName: 'Customer', width: 170, valueGetter: (_v, row) => row.customerName || '—' },
     {
       field: 'status',
       headerName: 'Status',
@@ -210,8 +330,8 @@ export function OrdersPage() {
       renderCell: ({ value }) => <StatusChip status={humanStatus(String(value))} />,
     },
     { field: 'items', headerName: 'Items', width: 150, valueGetter: (_v, row) => itemsSummary(row) },
-    { field: 'requiresRx', headerName: 'Rx', width: 70, valueFormatter: (v: boolean) => (v ? 'Yes' : '—') },
-    { field: 'payment', headerName: 'Payment', width: 110, valueGetter: (_v, row) => (row.order.isCod ? 'COD' : 'Paid') },
+    { field: 'requiresRx', headerName: 'Prescription', width: 120, valueGetter: (_v, row) => (awaitingRxReview(row) ? 'To review' : row.requiresRx ? 'Yes' : '—') },
+    { field: 'payment', headerName: 'Payment', width: 120, valueGetter: (_v, row) => paymentLabel(row) },
     { field: 'total', headerName: 'Total', width: 120, valueGetter: (_v, row) => money(row.order.grandTotal, row.order.currency) },
     {
       field: 'placedAt',
@@ -226,7 +346,7 @@ export function OrdersPage() {
       <PageHeader
         portalName={portal.title}
         title="Orders"
-        subtitle="Accept, prepare and hand over your pharmacy’s orders. Customer contact details are not shown."
+        subtitle="Review prescriptions, then accept, prepare and hand over your pharmacy’s orders. Only the customer’s name is shown, never their contact details."
       />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>

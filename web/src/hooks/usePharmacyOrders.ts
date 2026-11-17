@@ -63,3 +63,34 @@ export function useFulfillmentAction() {
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
+
+export type RxReviewDecision =
+  | { id: string; kind: 'approve'; legibilityOk: boolean; validityOk: boolean }
+  | { id: string; kind: 'reject'; reason: string };
+
+export function rxReviewErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 403) return 'Only a pharmacist of this pharmacy can review the prescription.';
+  if (error instanceof ApiError && error.status === 409) return 'This order changed meanwhile. It has been refreshed; check its status.';
+  if (error instanceof ApiError) return `${error.message}${error.requestId ? ` (request ${error.requestId})` : ''}`;
+  return 'The decision could not be recorded.';
+}
+
+/** Work 132: the pharmacist's decision on the prescription of an order. */
+export function useRxReviewDecision() {
+  const qc = useQueryClient();
+  const notify = useNotify();
+  return useMutation({
+    mutationFn: (decision: RxReviewDecision) =>
+      decision.kind === 'approve'
+        ? pharmacyOrdersService.approvePrescription(decision.id, { legibilityOk: decision.legibilityOk, validityOk: decision.validityOk })
+        : pharmacyOrdersService.rejectPrescription(decision.id, decision.reason),
+    onSuccess: (_r, decision) =>
+      notify(
+        decision.kind === 'approve'
+          ? 'Prescription approved. A cash-on-delivery order is ready to accept; a prepaid one waits for the customer to pay.'
+          : 'Prescription rejected. The order is cancelled and the customer has been told why.',
+      ),
+    onError: (error) => notify(rxReviewErrorMessage(error), 'error'),
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
