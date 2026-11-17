@@ -32,6 +32,11 @@ export interface DeliverableFulfillmentView {
   status: string;
   /** `true` when the fulfillment is in the one state from which a job may be cut (BRULE-27). */
   isReadyForDelivery: boolean;
+  /**
+   * Work 136: the original paper prescription must reach the pharmacy first. Such a fulfilment is
+   * deliverable from acceptance, so a driver can collect the paper while the order waits.
+   */
+  paperRxRequired: boolean;
   /** An existing job's id, when Module 06 already recorded one (`Fulfillment.deliveryJobId`). */
   deliveryJobId: string | null;
   isCod: boolean;

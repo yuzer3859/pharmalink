@@ -7,6 +7,7 @@ import { DeclineFulfillmentCommand } from '../../application/commands/decline-fu
 import { MarkReadyCommand } from '../../application/commands/mark-ready.command';
 import { PrepareFulfillmentCommand } from '../../application/commands/prepare-fulfillment.command';
 import { ReviewOrderPrescriptionCommand } from '../../application/commands/review-order-prescription.command';
+import { PaperPrescriptionCommand } from '../../application/commands/paper-prescription.command';
 import { GetPharmacyOrderQuery, ListPharmacyOrdersQuery } from '../../application/queries/list-pharmacy-orders.query';
 import {
   ApproveOrderPrescriptionDto,
@@ -44,6 +45,7 @@ export class PharmacyOrdersController {
     private readonly prepareFulfillment: PrepareFulfillmentCommand,
     private readonly markReady: MarkReadyCommand,
     private readonly reviewPrescription: ReviewOrderPrescriptionCommand,
+    private readonly paperPrescription: PaperPrescriptionCommand,
   ) {}
 
   /**
@@ -62,6 +64,25 @@ export class PharmacyOrdersController {
   }
 
   /** Work 129: the pharmacist rejects it with a reason for the customer; the order is cancelled. */
+  /**
+   * Work 136: the pharmacist checked the original paper prescription the driver brought from the
+   * customer, and keeps it. The order may then be prepared.
+   */
+  @Post(':fulfillmentId/paper-prescription/verify')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('prescription:verify')
+  verifyPaper(@CurrentUser() user: AuthenticatedPrincipal, @Param('fulfillmentId') fulfillmentId: string) {
+    return this.paperPrescription.verify({ fulfillmentId, actorUserId: user.userId });
+  }
+
+  /** Work 136: the paper does not match. The order is cancelled; the driver returns the paper to the customer. */
+  @Post(':fulfillmentId/paper-prescription/reject')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('prescription:verify')
+  rejectPaper(@CurrentUser() user: AuthenticatedPrincipal, @Param('fulfillmentId') fulfillmentId: string, @Body() dto: RejectOrderPrescriptionDto) {
+    return this.paperPrescription.reject({ fulfillmentId, actorUserId: user.userId, reason: dto.reason });
+  }
+
   @Post(':fulfillmentId/prescription/reject')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('prescription:verify')

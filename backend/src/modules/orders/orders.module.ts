@@ -12,6 +12,9 @@ import { CancelOrderCommand } from './application/commands/cancel-order.command'
 import { PayOrderCommand } from './application/commands/pay-order.command';
 import { ReviewOrderPrescriptionCommand } from './application/commands/review-order-prescription.command';
 import { RxRequestCommands } from './application/commands/rx-request.commands';
+import { PaperPrescriptionCommand } from './application/commands/paper-prescription.command';
+import { ORDER_PAPER_REPOSITORY } from './domain/repositories/order-paper.repository';
+import { PrismaOrderPaperRepository } from './infrastructure/persistence/prisma-order-paper.repository';
 import { RxRequestQuoteCommands } from './application/commands/rx-request-quote.commands';
 import { RxRequestQueries } from './application/queries/rx-request.queries';
 import { RX_REQUEST_PHARMACIES_PORT } from './application/ports/outbound/rx-request-pharmacies.port';
@@ -219,6 +222,9 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PayOrderCommand,
     ReviewOrderPrescriptionCommand,
     RxRequestCommands,
+    // Work 136: the pharmacist's check of the original paper prescription.
+    PaperPrescriptionCommand,
+    { provide: ORDER_PAPER_REPOSITORY, useClass: PrismaOrderPaperRepository },
     RxRequestQuoteCommands,
     RxRequestQueries,
     RxRequestExpirySweeper,

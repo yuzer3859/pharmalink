@@ -200,6 +200,7 @@ function deliverable(
     branchId: 'branch-1',
     status: 'READY',
     isReadyForDelivery: true,
+    paperRxRequired: false,
     deliveryJobId: null,
     isCod: false,
     orderTotal: 24_500,

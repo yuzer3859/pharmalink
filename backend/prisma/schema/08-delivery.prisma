@@ -268,6 +268,12 @@ model DeliveryJob {
   etaAt            DateTime?
   pickedUpAt       DateTime?
   deliveredAt      DateTime?
+  /// Work 136: the original paper prescription goes customer -> pharmacy first, on this job.
+  paperRxRequired  Boolean           @default(false)
+  /// When the driver recorded taking the paper from the customer.
+  paperCollectedAt DateTime?
+  /// When the pharmacy marked the order ready; a paper job exists before that.
+  goodsReadyAt     DateTime?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 

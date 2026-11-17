@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { IOrderPaperRepository, ORDER_PAPER_REPOSITORY } from '../../domain/repositories/order-paper.repository';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import {
   DISPENSING_PORT,
@@ -54,6 +55,8 @@ export class PrepareFulfillmentCommand {
     @Inject(DISPENSING_PORT) private readonly dispensing: IDispensingPort,
     @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
     private readonly audit: AuditService,
+    // Work 136: optional so a spec that does not exercise the paper round trip need not supply it.
+    @Optional() @Inject(ORDER_PAPER_REPOSITORY) private readonly paper?: IOrderPaperRepository,
   ) {}
 
   async execute(input: PrepareFulfillmentInput): Promise<FulfillmentSnapshot> {
@@ -68,6 +71,11 @@ export class PrepareFulfillmentCommand {
       fulfillment.pharmacyId,
     );
     FulfillmentStatusPolicy.assertValidTransition(fulfillment.status, FulfillmentStatus.PREPARING);
+    // Work 136: an order that needs the original paper is prepared only once the pharmacist checked it.
+    const paper = await this.paper?.findByOrderId(fulfillment.orderId);
+    if (paper?.paperRxRequired && !paper.paperRxVerifiedAt) {
+      throw OrdersErrors.validation('Check the original paper prescription the driver brings before preparing this order.');
+    }
 
     const lines = await this.orders.findLinesByOrderId(fulfillment.orderId);
     const rxLines = lines.filter(

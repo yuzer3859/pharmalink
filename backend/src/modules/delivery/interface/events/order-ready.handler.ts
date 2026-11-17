@@ -1,9 +1,10 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, Optional } from '@nestjs/common';
 import { DomainEvent } from '../../../../shared/events/domain-event';
 import { EVENT_BUS, IEventBus } from '../../../../shared/events/event-bus.service';
 import { AppLogger } from '../../../../shared/logging/app-logger.service';
 import { OrdersEventType, OrderReadyPayload } from '../../../orders/domain/events';
 import { CreateDeliveryJobCommand } from '../../application/commands/create-delivery-job.command';
+import { DELIVERY_PAPER_REPOSITORY, IDeliveryPaperRepository } from '../../domain/repositories/delivery-paper.repository';
 
 /**
  * Reacts to Module 06's `order.ready` by cutting the delivery job (§11.1, F-JOB-01, BRULE-27).
@@ -42,6 +43,7 @@ export class OrderReadyHandler implements OnModuleInit {
     @Inject(EVENT_BUS) private readonly bus: IEventBus,
     private readonly createDeliveryJob: CreateDeliveryJobCommand,
     private readonly logger: AppLogger,
+    @Optional() @Inject(DELIVERY_PAPER_REPOSITORY) private readonly paper?: IDeliveryPaperRepository,
   ) {
     this.logger.setContext(OrderReadyHandler.name);
   }
@@ -60,6 +62,8 @@ export class OrderReadyHandler implements OnModuleInit {
         // one `RunSettlementCommand` records for a scheduled run.
         actorUserId: null,
       });
+      // Work 136: a paper-prescription job already exists (created at acceptance); the medicine is now ready for its driver.
+      if (result.replay) await this.paper?.markGoodsReady(result.job.id, new Date());
       this.logger.log({
         message: result.replay ? 'Delivery job already existed' : 'Delivery job created',
         orderId: event.payload.orderId,

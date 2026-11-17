@@ -76,5 +76,20 @@ A prescription older than `prescriptions.maxAgeDays` (default 14, the proposed p
 
 ## Still to come
 
-- **Work 136:** the driver's round trip for an original paper prescription.
+
 - **Works 137–139:** the portal, customer app and driver app screens.
+
+## The original paper prescription (Work 136)
+
+When the quote says the original paper is needed (`orders.paperRxRequired`), one driver makes a round trip: customer, then pharmacy, then customer.
+
+1. **The job starts at acceptance.** When the pharmacy accepts the order, its delivery job is created and dispatched (for other orders this happens at *ready*). The job is marked `paperRxRequired`.
+2. **The driver collects the paper** from the customer: `POST /delivery/jobs/:id/paper-collected`. This is only possible before arriving at the pharmacy. `arrived-pickup` is refused until the paper is collected.
+3. **The pharmacist checks the paper** the driver brought, once the driver is at the pharmacy and before the order is prepared:
+   - `POST /pharmacy/orders/:fulfillmentId/paper-prescription/verify`: the pharmacist keeps the paper where the law asks it to be retained. Preparing the order is refused until this is recorded.
+   - `POST /pharmacy/orders/:fulfillmentId/paper-prescription/reject` with `{ reason }`: the order is cancelled the way a customer cancellation is. The stock is released, an authorised prepayment is voided, nothing has been dispensed, and the delivery job is cancelled with the order. The driver returns the paper to the customer.
+
+   Only a PHARMACIST of the filling pharmacy can do either.
+4. **The medicine goes out.** The pharmacy prepares the order and marks it ready, which records `goodsReadyAt` on the same job. `picked-up` is refused before that. The rest of the delivery is as usual.
+
+The pharmacy's order view carries `paper: { collectedAt, driverAtPharmacy, verifiedAt }` on such an order.

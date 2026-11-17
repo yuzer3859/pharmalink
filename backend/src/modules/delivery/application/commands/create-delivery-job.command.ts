@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { DELIVERY_PAPER_REPOSITORY, IDeliveryPaperRepository } from '../../domain/repositories/delivery-paper.repository';
 import { randomUUID } from 'crypto';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { OutboxService, OutboxCapableClient } from '../../../../shared/outbox/outbox.service';
@@ -104,6 +105,8 @@ export class CreateDeliveryJobCommand {
     @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
+    // Work 136: optional so a spec that does not exercise the paper round trip need not supply it.
+    @Optional() @Inject(DELIVERY_PAPER_REPOSITORY) private readonly paper?: IDeliveryPaperRepository,
   ) {}
 
   async execute(input: CreateDeliveryJobInput): Promise<CreateDeliveryJobResult> {
@@ -134,6 +137,11 @@ export class CreateDeliveryJobCommand {
         }
 
         const written = await this.jobs.create(job, tx);
+        // Work 136: the driver collects the original paper prescription from the customer first.
+        if (fulfillment.paperRxRequired && this.paper) {
+          await this.paper.markRequired(written.id, tx);
+          if (fulfillment.status === 'READY') await this.paper.markGoodsReady(written.id, new Date(), tx);
+        }
 
         await this.audit.record(
           {

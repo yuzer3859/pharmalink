@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
+import { RecordPaperCollectedCommand } from '../../application/commands/record-paper-collected.command';
 import { RequirePermissions } from '../../../../shared/rbac/permissions.decorator';
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { CurrentUser } from '../../../identity/interface/decorators/current-user.decorator';
@@ -89,6 +90,7 @@ export class DriverJobController {
     private readonly advance: AdvanceDeliveryJobCommand,
     private readonly jobStatus: GetDeliveryJobStatusQuery,
     @Inject(DRIVER_PROFILE_REPOSITORY) private readonly profiles: IDriverProfileRepository,
+    private readonly recordPaper: RecordPaperCollectedCommand,
   ) {}
 
   /** §11.2. Assigns the job to the caller, or explains which check refused. */
@@ -128,6 +130,18 @@ export class DriverJobController {
   // That is what makes a handset's retry-on-timeout safe (§12, NFR-LOC-04), and it is why none of
   // these is a self-loop in the state machine.
   // -------------------------------------------------------------------------------------------
+
+  /**
+   * Work 136: the driver took the original paper prescription from the customer. On such a job it
+   * comes first: the pharmacy refuses `arrived-pickup` until it is recorded.
+   */
+  @Post(':id/paper-collected')
+  @RequirePermissions('delivery:update:own')
+  @HttpCode(HttpStatus.OK)
+  async paperCollected(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') jobId: string) {
+    const paper = await this.recordPaper.execute({ userId: user.userId, jobId });
+    return { jobId: paper.jobId, status: paper.status, paperRxRequired: paper.paperRxRequired, paperCollectedAt: paper.paperCollectedAt, goodsReadyAt: paper.goodsReadyAt };
+  }
 
   /** The driver has reached the pharmacy. */
   @Post(':id/arrived-pickup')
