@@ -6,6 +6,8 @@ import {
   FULFILLMENT_STATUSES,
   nextActions,
   orderStageLabel,
+  paperCheckable,
+  paperStage,
   paymentLabel,
   pharmacyOrderQuery,
   rejectReasonProblem,
@@ -71,6 +73,27 @@ describe('declineReasonProblem', () => {
   });
 });
 
+describe('the original paper prescription (Work 137)', () => {
+  const paper = (over: Partial<NonNullable<PharmacyOrder['paper']>> = {}) => ({ collectedAt: null, driverAtPharmacy: false, verifiedAt: null, ...over });
+
+  it('blocks preparing until the paper is checked', () => {
+    expect(nextActions('ACCEPTED', null, 'PAID', paper())).toEqual([]);
+    expect(nextActions('ACCEPTED', null, 'PAID', paper({ verifiedAt: '2026-11-18T10:00:00Z' }))).toEqual(['prepare']);
+    expect(nextActions('ACCEPTED', null, 'PAID', null)).toEqual(['prepare']);
+    expect(nextActions('PENDING', null, 'PAID', paper())).toEqual(['accept', 'decline']);
+  });
+
+  it('can be checked only with the driver here with it, once', () => {
+    expect(paperCheckable({ status: 'ACCEPTED', paper: paper({ collectedAt: 'x', driverAtPharmacy: true }) })).toBe(true);
+    expect(paperCheckable({ status: 'ACCEPTED', paper: paper({ collectedAt: 'x' }) })).toBe(false);
+    expect(paperCheckable({ status: 'ACCEPTED', paper: paper({ collectedAt: 'x', driverAtPharmacy: true, verifiedAt: 'y' }) })).toBe(false);
+    expect(paperCheckable({ status: 'ACCEPTED', paper: null })).toBe(false);
+    expect(paperStage({ status: 'ACCEPTED', paper: paper({ collectedAt: 'x', driverAtPharmacy: true }) })).toMatch(/check it/);
+    expect(paperStage({ status: 'ACCEPTED', paper: paper({ collectedAt: 'x' }) })).toMatch(/on the way/);
+    expect(paperStage({ status: 'ACCEPTED', paper: paper({ verifiedAt: 'y' }) })).toMatch(/Prepare/);
+  });
+});
+
 describe('rejectReasonProblem', () => {
   it('follows the server rule: 3 to 500 characters after trimming', () => {
     expect(rejectReasonProblem(' No ')).not.toBeNull();
@@ -113,10 +136,14 @@ describe('pharmacyOrdersService', () => {
     expect(request).toHaveBeenLastCalledWith('/pharmacy/orders/f-1/prescription/approve', { method: 'POST', body: { legibilityOk: true, validityOk: true } });
     await service.rejectPrescription('f-1', '  Not legible ');
     expect(request).toHaveBeenLastCalledWith('/pharmacy/orders/f-1/prescription/reject', { method: 'POST', body: { reason: 'Not legible' } });
+    await service.verifyPaper('f-1');
+    expect(request).toHaveBeenLastCalledWith('/pharmacy/orders/f-1/paper-prescription/verify', { method: 'POST' });
+    await service.rejectPaper('f-1', ' Another patient ');
+    expect(request).toHaveBeenLastCalledWith('/pharmacy/orders/f-1/paper-prescription/reject', { method: 'POST', body: { reason: 'Another patient' } });
   });
 
   it('offers no other operation', () => {
     const service = createPharmacyOrdersService(vi.fn() as unknown as SessionRequest);
-    expect(Object.keys(service).sort()).toEqual(['accept', 'approvePrescription', 'decline', 'get', 'list', 'prepare', 'ready', 'rejectPrescription']);
+    expect(Object.keys(service).sort()).toEqual(['accept', 'approvePrescription', 'decline', 'get', 'list', 'prepare', 'ready', 'rejectPaper', 'rejectPrescription', 'verifyPaper']);
   });
 });

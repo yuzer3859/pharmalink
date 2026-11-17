@@ -75,6 +75,20 @@ export function rxReviewErrorMessage(error: unknown): string {
   return 'The decision could not be recorded.';
 }
 
+/** Work 137: the pharmacist's check of the original paper prescription the driver brought. */
+export function usePaperDecision() {
+  const qc = useQueryClient();
+  const notify = useNotify();
+  return useMutation({
+    mutationFn: (d: { id: string; kind: 'verify' } | { id: string; kind: 'reject'; reason: string }) =>
+      d.kind === 'verify' ? pharmacyOrdersService.verifyPaper(d.id) : pharmacyOrdersService.rejectPaper(d.id, d.reason),
+    onSuccess: (_r, d) =>
+      notify(d.kind === 'verify' ? 'Paper checked. You can prepare the order now.' : 'Paper rejected. The order is cancelled; give the paper back to the driver.'),
+    onError: (error) => notify(rxReviewErrorMessage(error), 'error'),
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
 /** Work 132: the pharmacist's decision on the prescription of an order. */
 export function useRxReviewDecision() {
   const qc = useQueryClient();

@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import { RxRequestsPage } from '@/features/rxRequests/RxRequestsPage';
 import type { PortalKey } from '@/types';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
@@ -68,7 +69,13 @@ const FINANCE_PAGES: Record<string, ComponentType> = {
   reports: AdminReportsPage,
 };
 
+// Pages only the pharmacy portal has (Work 137: prescription requests).
+const PHARMACY_PAGES: Record<string, ComponentType> = {
+  'rx-requests': RxRequestsPage,
+};
+
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {
+  pharmacy: PHARMACY_PAGES,
   admin: ADMIN_PAGES,
   superadmin: ADMIN_PAGES,
   finance: FINANCE_PAGES,

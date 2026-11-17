@@ -54,6 +54,8 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
       { label: 'Inventory', path: 'inventory', icon: Inventory2RoundedIcon, permission: 'inventory:view', section: OPS },
       { label: 'Orders', path: 'orders', icon: ReceiptLongRoundedIcon, permission: 'orders:view', section: OPS },
+      // Work 137: prescription requests offered to this pharmacy (owner decision 2026-11-17).
+      { label: 'Prescription requests', path: 'rx-requests', icon: MedicationRoundedIcon, permission: 'orders:view', section: OPS },
       { label: 'Analytics', path: 'analytics', icon: InsightsRoundedIcon, permission: 'analytics:view', section: INSIGHTS },
       // Work 116: the pharmacy's settlement statements (settlement:read:org).
       { label: 'Statements', path: 'reports', icon: SummarizeRoundedIcon, permission: 'reports:view', section: INSIGHTS },
