@@ -32,6 +32,7 @@ export function orderSnapshot(overrides: Partial<OrderSnapshot> = {}): OrderSnap
     prescriptionId: null,
     rxReviewStatus: null,
     rxReviewedAt: null,
+    paperRxRequired: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

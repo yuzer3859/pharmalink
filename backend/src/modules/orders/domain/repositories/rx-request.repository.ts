@@ -62,6 +62,35 @@ export interface NewRxRequestOfferData {
   distanceMeters: number;
 }
 
+/** Work 135: what the pharmacy offers, priced as checkout prices an order. */
+export interface RxQuoteLine {
+  catalogProductId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  controlledSchedule: string;
+  requiresRx: boolean;
+}
+
+export interface RxQuote {
+  lines: RxQuoteLine[];
+  subtotal: number;
+  deliveryFee: number;
+  platformFee: number;
+  grandTotal: number;
+  currency: string;
+  /** The pharmacist requires the original paper prescription. */
+  paperRequired: boolean;
+  /** The date on the prescription as the pharmacist read it (`YYYY-MM-DD`). */
+  prescriptionIssueDate: string;
+  legibilityOk: boolean;
+  validityOk: boolean;
+  quotedByUserId: string;
+  /** A note from the pharmacist to the customer (substitutions, what is not available). */
+  note: string | null;
+}
+
 export interface RxClaim {
   requestId: string;
   pharmacyId: string;
@@ -100,6 +129,21 @@ export interface IRxRequestRepository {
   /** Moves offers of the request from one of `from` to `to`; returns the pharmacies moved. */
   moveOffers(requestId: string, from: RxRequestOfferStatus[], to: RxRequestOfferStatus, now: Date, options?: { onlyPharmacyId?: string; exceptPharmacyId?: string; reason?: string }, tx?: unknown): Promise<string[]>;
 
-  /** Locks, for the sweeper, one request whose offer window or claim lapsed before `now`. */
+  /**
+   * Work 135: the holding pharmacy's quote, `CLAIMED -> QUOTED`, while its claim is unexpired.
+   * `false` when it no longer holds it or the claim lapsed.
+   */
+  saveQuote(requestId: string, pharmacyId: string, quote: RxQuote, now: Date, quoteExpiresAt: Date, tx?: unknown): Promise<boolean>;
+  /**
+   * Work 135: the customer accepts the quote, `QUOTED -> CONFIRMED`, while it is unexpired. A
+   * confirmation whose order was never placed (`CONFIRMED`, no `orderId`) may be confirmed again,
+   * so a retried confirmation finishes the same order.
+   */
+  confirm(requestId: string, customerUserId: string, now: Date, tx?: unknown): Promise<boolean>;
+  /** Work 135: back to `QUOTED` when placing the order failed; only while no order is linked. */
+  unconfirm(requestId: string, tx?: unknown): Promise<boolean>;
+  setOrder(requestId: string, orderId: string, tx?: unknown): Promise<void>;
+
+  /** Locks, for the sweeper, one request whose offer window, claim or quote lapsed before `now`. */
   lockNextDue(now: Date, excludeIds: readonly string[], tx: unknown): Promise<RxRequestSnapshot | null>;
 }

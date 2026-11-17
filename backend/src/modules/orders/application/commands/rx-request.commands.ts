@@ -248,6 +248,17 @@ export class RxRequestCommands {
         ...(moved.length > 0 ? [rxRequestEvents.withdrawn({ requestId: request.id, recipientUserIds: recipients(staff, moved), reason: RX_REQUEST_CLOSED_REASON.EXPIRED })] : []),
       ];
     }
+    // Work 135: the customer did not answer the quote in time; the quoting pharmacy is told.
+    if (request.status === 'QUOTED' && request.quoteExpiresAt && request.quoteExpiresAt <= now) {
+      const closed = await this.requests.close(request.id, ['QUOTED'], 'EXPIRED', RX_REQUEST_CLOSED_REASON.QUOTE_EXPIRED, now, tx);
+      if (!closed) return [];
+      const moved = await this.requests.moveOffers(request.id, ['WON'], 'CLOSED', now, { reason: RX_REQUEST_CLOSED_REASON.QUOTE_EXPIRED }, tx);
+      await this.audit.record({ actorUserId: null, action: 'RX_REQUEST_QUOTE_EXPIRED', resourceType: 'RxRequest', resourceId: request.id, context: {} }, tx);
+      return [
+        rxRequestEvents.ended({ requestId: request.id, customerUserId: request.customerUserId, status: 'QUOTE_EXPIRED' }),
+        ...(moved.length > 0 ? [rxRequestEvents.withdrawn({ requestId: request.id, recipientUserIds: recipients(staff, moved), reason: RX_REQUEST_CLOSED_REASON.QUOTE_EXPIRED })] : []),
+      ];
+    }
     if (request.status === 'CLAIMED' && request.claimExpiresAt && request.claimExpiresAt <= now && request.claimedPharmacyId) {
       return this.letGoIn(request, staff, request.claimedPharmacyId, 'LAPSED', RX_REQUEST_CLOSED_REASON.CLAIM_LAPSED, null, now, tx);
     }

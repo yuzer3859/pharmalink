@@ -34,6 +34,11 @@ export interface IRxRequestPharmaciesPort {
   customerNames(userIds: string[]): Promise<Map<string, string | null>>;
   /** What a pharmacist sees of a prescription before opening its file. */
   prescriptionSummaries(prescriptionIds: string[]): Promise<Map<string, RxPrescriptionSummary>>;
+  /**
+   * Work 135: what `branchId` can sell now of each product — its enabled, live listings' stored
+   * `sellable`. A guide for the quote; the reservation at confirmation is the real check.
+   */
+  sellableAt(branchId: string, productIds: string[]): Promise<Map<string, number>>;
 }
 
 export interface RxPrescriptionSummary {

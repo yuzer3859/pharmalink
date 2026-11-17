@@ -54,6 +54,8 @@ export enum NotificationTemplateCode {
   RX_REQUEST_ACCEPTED = 'RX_REQUEST_ACCEPTED',
   RX_REQUEST_REOPENED = 'RX_REQUEST_REOPENED',
   RX_REQUEST_ENDED = 'RX_REQUEST_ENDED',
+  // Work 135: the pharmacy sent its medicines and price.
+  RX_REQUEST_QUOTED = 'RX_REQUEST_QUOTED',
 }
 
 /** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
@@ -513,7 +515,11 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
             ? 'Another pharmacy accepted this prescription request.'
             : d.reason === 'cancelled-by-customer'
               ? 'The customer cancelled this prescription request.'
-              : 'This prescription request has ended.',
+              : d.reason === 'quote-declined-by-customer'
+                ? 'The customer declined your quote for this prescription request.'
+                : d.reason === 'quote-not-answered-in-time'
+                  ? 'The customer did not answer your quote in time; the request has ended.'
+                  : 'This prescription request has ended.',
       }),
       am: (d) => ({
         title: 'የመድኃኒት ማዘዣ ጥያቄው አይገኝም',
@@ -522,7 +528,11 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
             ? 'ሌላ ፋርማሲ ይህን የመድኃኒት ማዘዣ ጥያቄ ተቀብሏል።'
             : d.reason === 'cancelled-by-customer'
               ? 'ደንበኛው ይህን የመድኃኒት ማዘዣ ጥያቄ ሰርዟል።'
-              : 'ይህ የመድኃኒት ማዘዣ ጥያቄ አብቅቷል።',
+              : d.reason === 'quote-declined-by-customer'
+                ? 'ደንበኛው ለዚህ የመድኃኒት ማዘዣ ጥያቄ ያቀረቡትን ዋጋ አልተቀበለም።'
+                : d.reason === 'quote-not-answered-in-time'
+                  ? 'ደንበኛው በጊዜው ለዋጋዎ መልስ አልሰጠም፤ ጥያቄው አብቅቷል።'
+                  : 'ይህ የመድኃኒት ማዘዣ ጥያቄ አብቅቷል።',
       }),
     },
   },
@@ -561,14 +571,31 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         body:
           d.status === 'EXPIRED'
             ? 'No pharmacy accepted your prescription in time. You can send it again.'
-            : 'No pharmacy nearby can fill your prescription right now. You can send it again later.',
+            : d.status === 'QUOTE_EXPIRED'
+              ? 'The pharmacy’s offer was not confirmed in time, so your request has ended. You can send it again.'
+              : 'No pharmacy nearby can fill your prescription right now. You can send it again later.',
       }),
       am: (d) => ({
         title: 'ጥያቄዎን የተቀበለ ፋርማሲ የለም',
         body:
           d.status === 'EXPIRED'
             ? 'በጊዜው የመድኃኒት ማዘዣዎን የተቀበለ ፋርማሲ የለም። እንደገና መላክ ይችላሉ።'
-            : 'አሁን በአቅራቢያዎ የመድኃኒት ማዘዣዎን ማቅረብ የሚችል ፋርማሲ የለም። በኋላ እንደገና መላክ ይችላሉ።',
+            : d.status === 'QUOTE_EXPIRED'
+              ? 'የፋርማሲው ዋጋ በጊዜው ስላልተረጋገጠ ጥያቄዎ አብቅቷል። እንደገና መላክ ይችላሉ።'
+              : 'አሁን በአቅራቢያዎ የመድኃኒት ማዘዣዎን ማቅረብ የሚችል ፋርማሲ የለም። በኋላ እንደገና መላክ ይችላሉ።',
+      }),
+    },
+  },
+  [NotificationTemplateCode.RX_REQUEST_QUOTED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Your medicines and price are ready',
+        body: `The pharmacy checked your prescription. ${typeof d.grandTotal === 'number' ? `Total ${formatMinorUnits(d.grandTotal)} ${d.currency ?? 'ETB'}. ` : ''}Confirm it to place your order.`,
+      }),
+      am: (d) => ({
+        title: 'መድኃኒቶችዎና ዋጋው ዝግጁ ናቸው',
+        body: `ፋርማሲው የመድኃኒት ማዘዣዎን አይቷል። ${typeof d.grandTotal === 'number' ? `ጠቅላላ ${formatMinorUnits(d.grandTotal)} ${d.currency ?? 'ETB'}። ` : ''}ትዕዛዝዎን ለማስገባት ያረጋግጡ።`,
       }),
     },
   },

@@ -6,6 +6,7 @@ import {
 import {
   IRxRequestRepository,
   RX_REQUEST_REPOSITORY,
+  RxQuote,
   RxRequestOfferStatus,
   RxRequestSnapshot,
 } from '../../domain/repositories/rx-request.repository';
@@ -25,11 +26,16 @@ export interface CustomerRxRequestView {
   offeredTo: number;
   stillConsidering: number;
   pharmacy: { name: string | null; acceptedAt: Date | null; quoteDueAt: Date | null } | null;
+  /** Work 135: the pharmacy's medicines and price, once it quoted, and until when it can be confirmed. */
+  quote: CustomerRxQuoteView | null;
+  quoteExpiresAt: Date | null;
   orderId: string | null;
   closedReason: string | null;
   closedAt: Date | null;
   createdAt: Date;
 }
+
+export type CustomerRxQuoteView = Omit<RxQuote, 'quotedByUserId' | 'legibilityOk' | 'validityOk'>;
 
 /** What a pharmacy sees of a request offered to it. */
 export interface PharmacyRxRequestView {
@@ -45,6 +51,10 @@ export interface PharmacyRxRequestView {
   note: string | null;
   expiresAt: Date;
   claimExpiresAt: Date | null;
+  /** Work 135: this pharmacy's own quote, once sent. */
+  quote: RxQuote | null;
+  quoteExpiresAt: Date | null;
+  orderId: string | null;
   createdAt: Date;
 }
 
@@ -119,10 +129,20 @@ export class RxRequestQueries {
         note: r.note,
         expiresAt: r.expiresAt,
         claimExpiresAt: offer.status === 'WON' ? r.claimExpiresAt : null,
+        quote: offer.status === 'WON' ? ((r.quote as RxQuote | null) ?? null) : null,
+        quoteExpiresAt: offer.status === 'WON' ? r.quoteExpiresAt : null,
+        orderId: offer.status === 'WON' ? r.orderId : null,
         createdAt: r.createdAt,
       };
     });
   }
+}
+
+function customerQuote(quote: RxQuote | null): CustomerRxQuoteView | null {
+  if (!quote) return null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { quotedByUserId, legibilityOk, validityOk, ...rest } = quote;
+  return rest;
 }
 
 function customerView(r: RxRequestSnapshot, names: Map<string, string>): CustomerRxRequestView {
@@ -139,6 +159,8 @@ function customerView(r: RxRequestSnapshot, names: Map<string, string>): Custome
     pharmacy: r.claimedPharmacyId
       ? { name: names.get(r.claimedPharmacyId) ?? null, acceptedAt: r.claimedAt, quoteDueAt: r.claimExpiresAt }
       : null,
+    quote: customerQuote(r.quote as RxQuote | null),
+    quoteExpiresAt: r.quoteExpiresAt,
     orderId: r.orderId,
     closedReason: r.closedReason,
     closedAt: r.closedAt,

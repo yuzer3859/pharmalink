@@ -387,6 +387,11 @@ export const RxRequestNotifications = {
     templateCode: NotificationTemplateCode.RX_REQUEST_REOPENED,
     data: { requestId: p.requestId },
   }),
+  quoted: (p: RxRequestCustomerPayload): NotificationIntent => ({
+    recipientUserId: p.customerUserId,
+    templateCode: NotificationTemplateCode.RX_REQUEST_QUOTED,
+    data: { requestId: p.requestId, grandTotal: p.grandTotal ?? null, currency: p.currency ?? null },
+  }),
   ended: (p: RxRequestCustomerPayload): NotificationIntent => ({
     recipientUserId: p.customerUserId,
     templateCode: NotificationTemplateCode.RX_REQUEST_ENDED,

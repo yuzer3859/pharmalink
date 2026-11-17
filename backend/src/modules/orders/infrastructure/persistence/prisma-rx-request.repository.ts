@@ -6,6 +6,7 @@ import {
   NewRxRequestData,
   NewRxRequestOfferData,
   RxClaim,
+  RxQuote,
   RxRequestOfferSnapshot,
   RxRequestOfferStatus,
   RxRequestSnapshot,
@@ -168,13 +169,43 @@ export class PrismaRxRequestRepository implements IRxRequestRepository {
     return rows.map((r) => r.pharmacyId);
   }
 
+  async saveQuote(requestId: string, pharmacyId: string, quote: RxQuote, now: Date, quoteExpiresAt: Date, tx?: unknown): Promise<boolean> {
+    const result = await this.db(tx).rxRequest.updateMany({
+      where: { id: requestId, status: 'CLAIMED', claimedPharmacyId: pharmacyId, claimExpiresAt: { gt: now } },
+      data: { status: 'QUOTED', quote: quote as unknown as Prisma.InputJsonValue, quotedAt: now, quoteExpiresAt },
+    });
+    return result.count === 1;
+  }
+
+  async confirm(requestId: string, customerUserId: string, now: Date, tx?: unknown): Promise<boolean> {
+    const result = await this.db(tx).rxRequest.updateMany({
+      where: {
+        id: requestId,
+        customerUserId,
+        OR: [{ status: 'QUOTED', quoteExpiresAt: { gt: now } }, { status: 'CONFIRMED', orderId: null }],
+      },
+      data: { status: 'CONFIRMED' },
+    });
+    return result.count === 1;
+  }
+
+  async unconfirm(requestId: string, tx?: unknown): Promise<boolean> {
+    const result = await this.db(tx).rxRequest.updateMany({ where: { id: requestId, status: 'CONFIRMED', orderId: null }, data: { status: 'QUOTED' } });
+    return result.count === 1;
+  }
+
+  async setOrder(requestId: string, orderId: string, tx?: unknown): Promise<void> {
+    await this.db(tx).rxRequest.update({ where: { id: requestId }, data: { orderId } });
+  }
+
   async lockNextDue(now: Date, excludeIds: readonly string[], tx: unknown): Promise<RxRequestSnapshot | null> {
     const db = this.db(tx);
     const exclude = excludeIds.length > 0 ? Prisma.sql`AND r."id" NOT IN (${Prisma.join([...excludeIds])})` : Prisma.empty;
     const rows = await db.$queryRaw<Array<{ id: string }>>`
       SELECT r."id" FROM "rx_requests" r
       WHERE ((r."status" = 'OPEN' AND r."expiresAt" <= ${now})
-          OR (r."status" = 'CLAIMED' AND r."claimExpiresAt" <= ${now}))
+          OR (r."status" = 'CLAIMED' AND r."claimExpiresAt" <= ${now})
+          OR (r."status" = 'QUOTED' AND r."quoteExpiresAt" <= ${now}))
       ${exclude}
       ORDER BY r."updatedAt" ASC
       LIMIT 1

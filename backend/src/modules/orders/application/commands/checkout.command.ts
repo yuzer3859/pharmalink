@@ -80,6 +80,15 @@ export interface CheckoutInput {
    * medicine. The order then waits for the pharmacist's review before it is paid.
    */
   prescriptionId?: string;
+  /**
+   * Work 135: a prescription request's confirmed quote, in place of the cart. The order is placed
+   * at that pharmacy only (`pharmacyId`, never re-matched elsewhere), for exactly the quoted lines;
+   * `confirmedUnitPrice` is the price the customer agreed to, so a catalogue change since raises
+   * `PRICE_CHANGED` as a stale cart does. Never set over HTTP checkout.
+   */
+  source?: { pharmacyId: string; items: Array<{ catalogProductId: string; quantity: number; confirmedUnitPrice: number }> };
+  /** Work 135: the pharmacist requires the original paper prescription. */
+  paperRxRequired?: boolean;
 }
 
 /** Gateway methods a customer may prepay with (COD and wallet are not gateway payments). */
@@ -223,9 +232,12 @@ export class CheckoutCommand {
     }
 
     // Step 2 — load + validate the cart.
-    const cart = await this.carts.findActiveByCustomer(input.customerUserId);
-    CartPolicy.assertNotEmpty(cart?.items ?? []);
-    const cartItems = cart!.items;
+    // Work 135: a prescription request's quote stands in for the cart.
+    const cart = input.source ? null : await this.carts.findActiveByCustomer(input.customerUserId);
+    const cartItems = input.source
+      ? input.source.items.map((i) => ({ catalogProductId: i.catalogProductId, quantity: i.quantity, indicativePrice: i.confirmedUnitPrice }))
+      : (cart?.items ?? []);
+    CartPolicy.assertNotEmpty(cartItems);
 
     // Step 3 — resolve the delivery address (ownership-checked by the port itself).
     const address = await this.addresses.getAddress(input.addressId, input.customerUserId);
@@ -302,6 +314,8 @@ export class CheckoutCommand {
       matchRequestId: findResult.matchRequest.id,
       customerUserId: input.customerUserId,
       lines: matchLines,
+      // Work 135: a quoted request is filled by the pharmacy that quoted it, or not at all.
+      ...(input.source ? { pharmacyId: input.source.pharmacyId } : {}),
     });
     const chosenResult = selected.chosenResult;
     if (!chosenResult) {
@@ -437,6 +451,7 @@ export class CheckoutCommand {
             placedAt: new Date(),
             prescriptionId,
             rxReviewStatus: awaitingReview ? 'PENDING' : null,
+            paperRxRequired: input.paperRxRequired ?? false,
           },
           {
             fromStatus: null,
@@ -506,7 +521,7 @@ export class CheckoutCommand {
           );
         }
 
-        await this.carts.markConverted(cart!.id, tx);
+        if (cart) await this.carts.markConverted(cart.id, tx);
 
         await this.audit.record(
           {

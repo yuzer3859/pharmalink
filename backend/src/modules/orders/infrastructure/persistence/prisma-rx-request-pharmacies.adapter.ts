@@ -115,6 +115,17 @@ export class PrismaRxRequestPharmaciesAdapter implements IRxRequestPharmaciesPor
     return new Map(rows.map((r) => [r.id, { id: r.id, fileType: r.fileType, doctorName: r.doctorName, hospitalName: r.hospitalName, uploadedAt: r.createdAt }]));
   }
 
+  async sellableAt(branchId: string, productIds: string[]): Promise<Map<string, number>> {
+    if (productIds.length === 0) return new Map();
+    const rows = await this.prisma.inventoryListing.findMany({
+      where: { branchId, catalogProductId: { in: productIds }, isEnabled: true, deletedAt: null },
+      select: { catalogProductId: true, sellable: true },
+    });
+    const result = new Map<string, number>();
+    for (const r of rows) result.set(r.catalogProductId, (result.get(r.catalogProductId) ?? 0) + r.sellable);
+    return result;
+  }
+
   private async pharmaciesOf(organizationIds: string[]): Promise<PharmacistPharmacy[]> {
     const unique = [...new Set(organizationIds)];
     if (unique.length === 0) return [];

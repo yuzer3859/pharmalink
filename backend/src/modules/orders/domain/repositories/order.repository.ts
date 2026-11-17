@@ -41,6 +41,8 @@ export interface OrderSnapshot {
   /** Work 129: the pharmacist's review of that prescription; `null` when there is none. */
   rxReviewStatus: OrderRxReviewStatus | null;
   rxReviewedAt: Date | null;
+  /** Work 135: the original paper prescription must reach the pharmacy before the medicine goes out. */
+  paperRxRequired: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -143,6 +145,8 @@ export interface NewOrderData {
   /** Work 129: set together, on an order with a prescription medicine (review `PENDING`). */
   prescriptionId?: string | null;
   rxReviewStatus?: OrderRxReviewStatus | null;
+  /** Work 135: from a prescription request's quote. */
+  paperRxRequired?: boolean;
 }
 
 /** Data required to insert one `OrderLine` (checkout saga §4 step 6) — created alongside the

@@ -37,6 +37,7 @@ export class CatalogPortAdapter implements ICatalogPort {
       rxClassification: product.rxClassification,
       price: product.price,
       name: product.nameEn ?? product.genericName ?? product.brandName ?? '',
+      controlledSchedule: product.controlledSchedule,
     };
   }
 }

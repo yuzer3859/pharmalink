@@ -12,6 +12,7 @@ import { CancelOrderCommand } from './application/commands/cancel-order.command'
 import { PayOrderCommand } from './application/commands/pay-order.command';
 import { ReviewOrderPrescriptionCommand } from './application/commands/review-order-prescription.command';
 import { RxRequestCommands } from './application/commands/rx-request.commands';
+import { RxRequestQuoteCommands } from './application/commands/rx-request-quote.commands';
 import { RxRequestQueries } from './application/queries/rx-request.queries';
 import { RX_REQUEST_PHARMACIES_PORT } from './application/ports/outbound/rx-request-pharmacies.port';
 import { RX_REQUEST_REPOSITORY } from './domain/repositories/rx-request.repository';
@@ -218,6 +219,7 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     PayOrderCommand,
     ReviewOrderPrescriptionCommand,
     RxRequestCommands,
+    RxRequestQuoteCommands,
     RxRequestQueries,
     RxRequestExpirySweeper,
     { provide: RX_REQUEST_REPOSITORY, useClass: PrismaRxRequestRepository },

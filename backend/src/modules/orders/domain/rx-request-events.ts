@@ -18,6 +18,8 @@ export const RxRequestEventType = {
   Reopened: 'rx_request.reopened',
   /** To the customer: it ended without a pharmacy (nobody in time, or nobody available). */
   Ended: 'rx_request.ended',
+  /** Work 135: to the customer: the pharmacy sent its medicines and price. */
+  Quoted: 'rx_request.quoted',
 } as const;
 
 export interface RxRequestPharmaciesPayload {
@@ -34,6 +36,9 @@ export interface RxRequestCustomerPayload {
   pharmacyName?: string;
   /** For `ended`: `EXPIRED` or `NO_PHARMACY`. */
   status?: string;
+  /** For `quoted`: the total in minor units, and its currency. */
+  grandTotal?: number;
+  currency?: string;
 }
 
 function event<T extends { requestId: string }>(type: string, payload: T): DomainEvent<T> {
@@ -47,4 +52,5 @@ export const rxRequestEvents = {
   accepted: (p: RxRequestCustomerPayload) => event(RxRequestEventType.Accepted, p),
   reopened: (p: RxRequestCustomerPayload) => event(RxRequestEventType.Reopened, p),
   ended: (p: RxRequestCustomerPayload) => event(RxRequestEventType.Ended, p),
+  quoted: (p: RxRequestCustomerPayload) => event(RxRequestEventType.Quoted, p),
 };

@@ -74,6 +74,7 @@ function toOrderSnapshot(row: PrismaOrder): OrderSnapshot {
     prescriptionId: row.prescriptionId,
     rxReviewStatus: row.rxReviewStatus,
     rxReviewedAt: row.rxReviewedAt,
+    paperRxRequired: row.paperRxRequired,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -262,6 +263,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         placedAt: data.placedAt ?? null,
         prescriptionId: data.prescriptionId ?? null,
         rxReviewStatus: data.rxReviewStatus ?? null,
+        paperRxRequired: data.paperRxRequired ?? false,
         statusHistory: {
           create: {
             fromStatus: initialHistoryEntry.fromStatus,
