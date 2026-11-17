@@ -5,6 +5,7 @@ import { IPrescriptionRepository, PRESCRIPTION_REPOSITORY, PrescriptionSnapshot 
 import { ApprovePrescriptionCommand } from '../../commands/approve-prescription.command';
 import { AssignVerifyingPharmacyCommand } from '../../commands/assign-verifying-pharmacy.command';
 import { RejectPrescriptionCommand } from '../../commands/reject-prescription.command';
+import { PrescriptionFileService } from '../../services/prescription-file.service';
 import { ApprovedRxLine, IPrescriptionReviewRoutingPort, RequestedRxItem } from './prescription-review-routing.port';
 
 /** Work 129: see `IPrescriptionReviewRoutingPort`. */
@@ -15,7 +16,18 @@ export class PrescriptionReviewRoutingAdapter implements IPrescriptionReviewRout
     private readonly assign: AssignVerifyingPharmacyCommand,
     private readonly approve: ApprovePrescriptionCommand,
     private readonly reject: RejectPrescriptionCommand,
+    private readonly files: PrescriptionFileService,
   ) {}
+
+  /** Work 134: the caller (Module 06) has checked the request is offered to `organizationId`. */
+  offeredFileLink(input: { prescriptionId: string; userId: string; organizationId: string; ip?: string | null }) {
+    return this.files.previewLink({
+      prescriptionId: input.prescriptionId,
+      userId: input.userId,
+      ip: input.ip ?? null,
+      offeredToOrganizationId: input.organizationId,
+    });
+  }
 
   async assertAttachable(input: { customerUserId: string; prescriptionId: string }): Promise<void> {
     await this.attachable(input.customerUserId, input.prescriptionId);

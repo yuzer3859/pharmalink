@@ -119,4 +119,18 @@ describe('GetPrescriptionQuery', () => {
     const result = await query.execute({ prescriptionId: 'prescription-1', requestingUserId: 'customer-1' });
     expect(result.displayStatus).toBe('CONSUMED');
   });
+
+  it('Work 134: a pharmacist of a pharmacy a request is offered to may read it; anyone else there may not', async () => {
+    const { query, identity, prescriptions } = build();
+    prescriptions.findById.mockResolvedValue(prescriptionSnapshot({ verifyingPharmacyId: null, status: 'UPLOADED' }));
+    identity.hasRoleAtOrganization.mockImplementation(async (userId, orgId, role) => userId === 'pharmacist-2' && orgId === 'org-offered' && role === 'PHARMACIST');
+
+    await expect(query.execute({ prescriptionId: 'prescription-1', requestingUserId: 'pharmacist-2', offeredToOrganizationId: 'org-offered' })).resolves.toMatchObject({ id: 'prescription-1' });
+    expect(prescriptions.logAccess).toHaveBeenLastCalledWith(expect.objectContaining({ outcome: 'ALLOW', role: 'PHARMACIST' }));
+
+    await expect(query.execute({ prescriptionId: 'prescription-1', requestingUserId: 'cashier-2', offeredToOrganizationId: 'org-offered' })).rejects.toBeDefined();
+    expect(prescriptions.logAccess).toHaveBeenLastCalledWith(expect.objectContaining({ outcome: 'DENY' }));
+    // Without the offer, the same pharmacist is refused.
+    await expect(query.execute({ prescriptionId: 'prescription-1', requestingUserId: 'pharmacist-2' })).rejects.toBeDefined();
+  });
 });

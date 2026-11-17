@@ -14,6 +14,12 @@ export interface GetPrescriptionInput {
   /** `true` for a platform admin — bypasses the owner/reviewer-scoped access check (§2.2). */
   isAdmin?: boolean;
   accessType?: PrescriptionAccessType;
+  /**
+   * Work 134: the organisation a prescription request is offered to right now, as Module 06 has
+   * checked (the offer is open, or won, for that pharmacy). A PHARMACIST there may read it, so the
+   * pharmacies offered a request can judge it before accepting. Never set from a client.
+   */
+  offeredToOrganizationId?: string;
 }
 
 /** Derived, non-persisted status shown to callers (§10.1, §20 Decision 5, §3.11 invariant 4) —
@@ -72,12 +78,16 @@ export class GetPrescriptionQuery {
           PHARMACIST_ROLE_KEY,
         )
       : false;
-    const allowed = Boolean(input.isAdmin) || isOwner || isReviewingPharmacist;
+    const isOfferedPharmacist =
+      !isReviewingPharmacist && input.offeredToOrganizationId
+        ? await this.identity.hasRoleAtOrganization(input.requestingUserId, input.offeredToOrganizationId, PHARMACIST_ROLE_KEY)
+        : false;
+    const allowed = Boolean(input.isAdmin) || isOwner || isReviewingPharmacist || isOfferedPharmacist;
 
     await this.prescriptions.logAccess({
       prescriptionId: prescription.id,
       actorUserId: input.requestingUserId,
-      role: input.isAdmin ? 'ADMIN' : isOwner ? 'CUSTOMER' : isReviewingPharmacist ? 'PHARMACIST' : null,
+      role: input.isAdmin ? 'ADMIN' : isOwner ? 'CUSTOMER' : isReviewingPharmacist || isOfferedPharmacist ? 'PHARMACIST' : null,
       accessType,
       outcome: allowed ? 'ALLOW' : 'DENY',
     });

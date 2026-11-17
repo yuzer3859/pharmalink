@@ -45,4 +45,9 @@ export interface IPrescriptionReviewRoutingPort {
     validityOk: boolean;
   }): Promise<ApprovedRxLine[]>;
   rejectForOrder(input: { prescriptionId: string; reviewerUserId: string; reason: string }): Promise<void>;
+  /**
+   * Work 134: a short-lived, access-logged link to the file of a prescription request offered to
+   * `organizationId` — the caller has checked that offer. The user must be a PHARMACIST there.
+   */
+  offeredFileLink(input: { prescriptionId: string; userId: string; organizationId: string; ip?: string | null }): Promise<{ url: string; expiresAt: string; contentType: string }>;
 }

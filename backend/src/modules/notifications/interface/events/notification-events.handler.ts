@@ -17,6 +17,7 @@ import {
   OrderReadyPayload,
   OrdersEventType,
 } from '../../../orders/domain/events';
+import { RxRequestCustomerPayload, RxRequestEventType, RxRequestPharmaciesPayload } from '../../../orders/domain/rx-request-events';
 import {
   PaymentCapturedPayload,
   PaymentEventType,
@@ -66,6 +67,7 @@ import {
   DeliveryNotifications,
   DriverNotifications,
   PaymentNotifications,
+  RxRequestNotifications,
   PharmacyNotifications,
   PrescriptionNotifications,
 } from '../../application/support/event-notifications';
@@ -172,6 +174,27 @@ export class NotificationEventsHandler implements OnModuleInit {
 
     this.onPharmacy<PharmacyActivatedPayload>(PharmacyInventoryEventType.PharmacyActivated, PharmacyNotifications.pharmacyActivated);
     this.onPharmacy<PharmacySuspendedPayload>(PharmacyInventoryEventType.PharmacySuspended, PharmacyNotifications.pharmacySuspended);
+
+    // Work 134: prescription requests — to the pharmacies' owners and pharmacists, and to the customer.
+    this.onEach<RxRequestPharmaciesPayload>(RxRequestEventType.Offered, RxRequestNotifications.offered);
+    this.onEach<RxRequestPharmaciesPayload>(RxRequestEventType.Withdrawn, RxRequestNotifications.withdrawn);
+    this.onEach<RxRequestPharmaciesPayload>(RxRequestEventType.Reoffered, RxRequestNotifications.reoffered);
+    this.on<RxRequestCustomerPayload>(RxRequestEventType.Accepted, RxRequestNotifications.accepted);
+    this.on<RxRequestCustomerPayload>(RxRequestEventType.Reopened, RxRequestNotifications.reopened);
+    this.on<RxRequestCustomerPayload>(RxRequestEventType.Ended, RxRequestNotifications.ended);
+  }
+
+  /**
+   * Work 134: one event, several named recipients — one notification each. A failure for one
+   * recipient is logged by the bus and does not stop the rest (each is recorded in turn, and a
+   * replay of the event writes no duplicates).
+   */
+  private onEach<T extends { recipientUserIds: string[] }>(eventType: string, toIntent: (payload: T, recipientUserId: string) => NotificationIntent): void {
+    this.bus.subscribe<T>(eventType, async (event: DomainEvent<T>) => {
+      for (const recipientUserId of new Set(event.payload.recipientUserIds ?? [])) {
+        await this.record.execute({ eventId: event.id, eventType: event.type, intent: toIntent(event.payload, recipientUserId) });
+      }
+    });
   }
 
   private on<T>(eventType: string, toIntent: (payload: T) => NotificationIntent): void {

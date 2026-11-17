@@ -21,7 +21,7 @@ function build() {
   const assign = { execute: jest.fn() } as unknown as jest.Mocked<AssignVerifyingPharmacyCommand>;
   const approve = { execute: jest.fn() } as unknown as jest.Mocked<ApprovePrescriptionCommand>;
   const reject = { execute: jest.fn() } as unknown as jest.Mocked<RejectPrescriptionCommand>;
-  return { adapter: new PrescriptionReviewRoutingAdapter(prescriptions, assign, approve, reject), prescriptions, assign, approve, reject };
+  return { adapter: new PrescriptionReviewRoutingAdapter(prescriptions, assign, approve, reject, {} as never), prescriptions, assign, approve, reject };
 }
 
 describe('PrescriptionReviewRoutingAdapter (Work 129: the prescription travels with the order)', () => {

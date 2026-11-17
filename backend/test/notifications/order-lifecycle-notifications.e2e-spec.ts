@@ -278,6 +278,8 @@ describe('Order lifecycle notifications (e2e)', () => {
       expect([...imports].sort()).toEqual([
         'orders/application/ports/inbound/order-recipient-read.port',
         'orders/domain/events',
+        // Work 134: the prescription request event contract.
+        'orders/domain/rx-request-events',
         'orders/orders.module',
       ]);
     });

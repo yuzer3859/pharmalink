@@ -540,6 +540,8 @@ describe('In-app notification center (e2e)', () => {
         'identity/interface/decorators/public.decorator',
         'orders/application/ports/inbound/order-recipient-read.port',
         'orders/domain/events',
+        // Work 134: the prescription request event contract (each event names its recipients).
+        'orders/domain/rx-request-events',
         'orders/orders.module',
         'payment/application/ports/inbound/payment-recipient-read.port',
         'payment/domain/events',

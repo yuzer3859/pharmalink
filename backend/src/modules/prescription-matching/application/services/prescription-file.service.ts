@@ -86,13 +86,21 @@ export class PrescriptionFileService {
     }
   }
 
-  async previewLink(input: { prescriptionId: string; userId: string; isAdmin?: boolean; ip?: string | null }): Promise<{ url: string; expiresAt: string; contentType: string }> {
+  async previewLink(input: {
+    prescriptionId: string;
+    userId: string;
+    isAdmin?: boolean;
+    ip?: string | null;
+    /** Work 134: set only by Module 06, for a pharmacy a prescription request is offered to. */
+    offeredToOrganizationId?: string;
+  }): Promise<{ url: string; expiresAt: string; contentType: string }> {
     // The prescription's own policy decides (owner, reviewing pharmacist, admin) and logs the access.
     const prescription = await this.getPrescription.execute({
       prescriptionId: input.prescriptionId,
       requestingUserId: input.userId,
       isAdmin: input.isAdmin,
       accessType: PrescriptionAccessType.DOWNLOAD,
+      offeredToOrganizationId: input.offeredToOrganizationId,
     });
     const ref = prescription.fileRef ? parseDocumentRef(prescription.fileRef) : null;
     const info = ref ? await this.storage.describe(ref) : null;

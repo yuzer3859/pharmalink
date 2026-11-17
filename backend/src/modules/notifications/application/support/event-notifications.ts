@@ -37,6 +37,7 @@ import type {
   RematchTriggeredPayload,
 } from '../../../prescription-matching/domain/events';
 import type { PharmacyActivatedPayload, PharmacySuspendedPayload } from '../../../pharmacy-inventory/domain/events';
+import type { RxRequestCustomerPayload, RxRequestPharmaciesPayload } from '../../../orders/domain/rx-request-events';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** The currency `WalletMovementPayload.amount` is defined in by Module 07's event contract. */
@@ -356,6 +357,43 @@ export const PrescriptionNotifications = {
  * platform code (`LICENSE_EXPIRED` | `MANUAL`), not free text. Not kept: `organizationId` (the
  * recipient's own organization adds nothing for them).
  */
+/**
+ * Work 134: prescription requests. Each event names its recipients; only the request's id (and, for
+ * the customer, the accepting pharmacy's display name) is kept — no prescription content.
+ */
+export const RxRequestNotifications = {
+  offered: (p: RxRequestPharmaciesPayload, recipientUserId: string): NotificationIntent => ({
+    recipientUserId,
+    templateCode: NotificationTemplateCode.RX_REQUEST_NEW,
+    data: { requestId: p.requestId },
+  }),
+  withdrawn: (p: RxRequestPharmaciesPayload, recipientUserId: string): NotificationIntent => ({
+    recipientUserId,
+    templateCode: NotificationTemplateCode.RX_REQUEST_NO_LONGER_AVAILABLE,
+    data: { requestId: p.requestId, reason: p.reason ?? null },
+  }),
+  reoffered: (p: RxRequestPharmaciesPayload, recipientUserId: string): NotificationIntent => ({
+    recipientUserId,
+    templateCode: NotificationTemplateCode.RX_REQUEST_AVAILABLE_AGAIN,
+    data: { requestId: p.requestId },
+  }),
+  accepted: (p: RxRequestCustomerPayload): NotificationIntent => ({
+    recipientUserId: p.customerUserId,
+    templateCode: NotificationTemplateCode.RX_REQUEST_ACCEPTED,
+    data: { requestId: p.requestId, pharmacyName: p.pharmacyName ?? null },
+  }),
+  reopened: (p: RxRequestCustomerPayload): NotificationIntent => ({
+    recipientUserId: p.customerUserId,
+    templateCode: NotificationTemplateCode.RX_REQUEST_REOPENED,
+    data: { requestId: p.requestId },
+  }),
+  ended: (p: RxRequestCustomerPayload): NotificationIntent => ({
+    recipientUserId: p.customerUserId,
+    templateCode: NotificationTemplateCode.RX_REQUEST_ENDED,
+    data: { requestId: p.requestId, status: p.status ?? null },
+  }),
+};
+
 export const PharmacyNotifications = {
   pharmacyActivated: (p: PharmacyActivatedPayload, ownerUserId: string): NotificationIntent => ({
     recipientUserId: ownerUserId,

@@ -11,6 +11,14 @@ import { AddCartItemCommand } from './application/commands/add-cart-item.command
 import { CancelOrderCommand } from './application/commands/cancel-order.command';
 import { PayOrderCommand } from './application/commands/pay-order.command';
 import { ReviewOrderPrescriptionCommand } from './application/commands/review-order-prescription.command';
+import { RxRequestCommands } from './application/commands/rx-request.commands';
+import { RxRequestQueries } from './application/queries/rx-request.queries';
+import { RX_REQUEST_PHARMACIES_PORT } from './application/ports/outbound/rx-request-pharmacies.port';
+import { RX_REQUEST_REPOSITORY } from './domain/repositories/rx-request.repository';
+import { PrismaRxRequestRepository } from './infrastructure/persistence/prisma-rx-request.repository';
+import { PrismaRxRequestPharmaciesAdapter } from './infrastructure/persistence/prisma-rx-request-pharmacies.adapter';
+import { RxRequestExpirySweeper } from './infrastructure/scheduling/rx-request-expiry.sweeper';
+import { PharmacyRxRequestsController, RxRequestsController } from './interface/controllers/rx-requests.controller';
 import { CheckoutCommand } from './application/commands/checkout.command';
 import { ClearCartCommand } from './application/commands/clear-cart.command';
 import { QuoteCheckoutCommand } from './application/commands/quote-checkout.command';
@@ -116,7 +124,16 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
   // `ScheduleModule.forRoot()` activates the reference reconciler's `@Cron` (Work 45), registered here
   // rather than relied upon from another module's registration, as `DeliveryModule` does for its own.
   imports: [PrescriptionMatchingModule, PharmacyInventoryModule, PaymentModule, DeliveryModule, ScheduleModule.forRoot()],
-  controllers: [CartController, CheckoutController, OrdersController, PharmacyOrdersController, PharmacyDashboardController],
+  controllers: [
+    CartController,
+    CheckoutController,
+    OrdersController,
+    PharmacyOrdersController,
+    PharmacyDashboardController,
+    // Work 134: prescription requests offered to nearby pharmacies.
+    RxRequestsController,
+    PharmacyRxRequestsController,
+  ],
   providers: [
     // Repositories
     { provide: CART_REPOSITORY, useClass: PrismaCartRepository },
@@ -200,6 +217,11 @@ import { PharmacyOrdersController } from './interface/controllers/pharmacy-order
     CancelOrderCommand,
     PayOrderCommand,
     ReviewOrderPrescriptionCommand,
+    RxRequestCommands,
+    RxRequestQueries,
+    RxRequestExpirySweeper,
+    { provide: RX_REQUEST_REPOSITORY, useClass: PrismaRxRequestRepository },
+    { provide: RX_REQUEST_PHARMACIES_PORT, useClass: PrismaRxRequestPharmaciesAdapter },
 
     // Pharmacy fulfillment (§9.4)
     ListPharmacyOrdersQuery,

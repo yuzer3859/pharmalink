@@ -257,3 +257,98 @@ model Outbox {
   @@index([publishedAt])
   @@map("outbox")
 }
+
+// ---------------------------------------------------------------------------------------------
+// Work 134 (owner decision 2026-11-17): a prescription request, ride-hailing style. The customer
+// sends a prescription; it is offered to every eligible pharmacy near the delivery address; the
+// first pharmacy to accept owns it. A decline, a release or a lapsed acceptance offers it again.
+// ---------------------------------------------------------------------------------------------
+
+enum RxRequestStatus {
+  /// Offered to the eligible pharmacies; none has accepted yet.
+  OPEN
+  /// One pharmacy accepted it and is preparing its quote (Work 135).
+  CLAIMED
+  /// The pharmacy quoted; waiting for the customer (Work 135).
+  QUOTED
+  /// The customer confirmed the quote; `orderId` is the order (Work 135).
+  CONFIRMED
+  /// The customer turned the quote down, or cancelled the request.
+  CANCELLED
+  /// Nobody accepted in time, or the customer did not answer the quote in time.
+  EXPIRED
+  /// Every eligible pharmacy declined, or none was eligible.
+  NO_PHARMACY
+}
+
+enum RxRequestOfferStatus {
+  /// The pharmacy can accept it.
+  OPEN
+  /// This pharmacy accepted it first.
+  WON
+  /// Another pharmacy accepted it; reopens if that one lets it go.
+  TAKEN
+  /// This pharmacy declined it, or released it after accepting.
+  DECLINED
+  /// This pharmacy accepted it but did not quote in time.
+  LAPSED
+  /// The request ended.
+  CLOSED
+}
+
+model RxRequest {
+  id                    String          @id @default(uuid())
+  customerUserId        String
+  /// One request per prescription; the prescription goes to the order this request becomes.
+  prescriptionId        String          @unique
+  addressId             String
+  deliveryLat           Float
+  deliveryLng           Float
+  /// What the customer says the prescription's date is; the pharmacist confirms it (Work 135).
+  prescriptionIssueDate DateTime
+  note                  String?
+  status                RxRequestStatus @default(OPEN)
+  /// The end of the offer to pharmacies.
+  expiresAt             DateTime
+  claimedPharmacyId     String?
+  claimedBranchId       String?
+  claimedByUserId       String?
+  claimedAt             DateTime?
+  /// The accepting pharmacy must quote before this, or the request is offered again.
+  claimExpiresAt        DateTime?
+  quote                 Json?
+  quotedAt              DateTime?
+  quoteExpiresAt        DateTime?
+  orderId               String?
+  closedReason          String?
+  closedAt              DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  offers RxRequestOffer[]
+
+  @@index([customerUserId, createdAt])
+  @@index([status, expiresAt])
+  @@index([status, claimExpiresAt])
+  @@map("rx_requests")
+}
+
+model RxRequestOffer {
+  id             String               @id @default(uuid())
+  requestId      String
+  pharmacyId     String
+  /// The pharmacy's branch nearest the delivery address.
+  branchId       String
+  distanceMeters Int
+  status         RxRequestOfferStatus @default(OPEN)
+  respondedAt    DateTime?
+  reason         String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  request RxRequest @relation(fields: [requestId], references: [id])
+
+  @@unique([requestId, pharmacyId])
+  @@index([pharmacyId, status])
+  @@map("rx_request_offers")
+}
