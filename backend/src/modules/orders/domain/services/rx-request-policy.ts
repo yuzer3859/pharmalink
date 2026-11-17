@@ -10,6 +10,7 @@
  * | `rxRequests.offerMinutes` | 30 | how long pharmacies have to accept |
  * | `rxRequests.claimMinutes` | 15 | how long the accepting pharmacy has to quote, before it is offered again |
  * | `rxRequests.radiusMeters` | 10000 | how far from the delivery address a pharmacy's branch may be |
+ * | `rxRequests.quoteResponseMinutes` | 30 | how long the customer has to confirm the pharmacy's quote (Work 135) |
  * | `prescriptions.maxAgeDays` | 14 | the oldest prescription accepted (proposed policy) |
  * | `prescriptions.maxAgeDaysBySchedule` | `{}` | a stricter (or looser) limit per controlled schedule, e.g. `{ "SCHEDULE_2": 7 }` (Work 135 applies it to the quoted medicines) |
  */
@@ -18,6 +19,7 @@ export const RX_REQUEST_DEFAULTS = {
   offerMinutes: 30,
   claimMinutes: 15,
   radiusMeters: 10_000,
+  quoteResponseMinutes: 30,
   maxAgeDays: 14,
 } as const;
 
@@ -28,6 +30,8 @@ export const RX_REQUEST_CLOSED_REASON = {
   NO_PHARMACY: 'no-pharmacy-available',
   CANCELLED: 'cancelled-by-customer',
   CLAIM_LAPSED: 'not-quoted-in-time',
+  QUOTE_DECLINED: 'quote-declined-by-customer',
+  QUOTE_EXPIRED: 'quote-not-answered-in-time',
 } as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -42,6 +46,8 @@ function positiveNumber(value: unknown, fallback: number): number {
 export const RxRequestPolicy = {
   offerMinutes: (config: ConfigReader) => positiveNumber(config.get('rxRequests.offerMinutes'), RX_REQUEST_DEFAULTS.offerMinutes),
   claimMinutes: (config: ConfigReader) => positiveNumber(config.get('rxRequests.claimMinutes'), RX_REQUEST_DEFAULTS.claimMinutes),
+  quoteResponseMinutes: (config: ConfigReader) =>
+    positiveNumber(config.get('rxRequests.quoteResponseMinutes'), RX_REQUEST_DEFAULTS.quoteResponseMinutes),
   radiusMeters: (config: ConfigReader) => positiveNumber(config.get('rxRequests.radiusMeters'), RX_REQUEST_DEFAULTS.radiusMeters),
 
   /**

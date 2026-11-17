@@ -182,6 +182,7 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.on<RxRequestCustomerPayload>(RxRequestEventType.Accepted, RxRequestNotifications.accepted);
     this.on<RxRequestCustomerPayload>(RxRequestEventType.Reopened, RxRequestNotifications.reopened);
     this.on<RxRequestCustomerPayload>(RxRequestEventType.Ended, RxRequestNotifications.ended);
+    this.on<RxRequestCustomerPayload>(RxRequestEventType.Quoted, RxRequestNotifications.quoted);
   }
 
   /**

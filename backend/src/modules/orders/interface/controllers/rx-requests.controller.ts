@@ -3,9 +3,12 @@ import { RequirePermissions } from '../../../../shared/rbac/permissions.decorato
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { CurrentUser } from '../../../identity/interface/decorators/current-user.decorator';
 import { RxRequestCommands } from '../../application/commands/rx-request.commands';
+import { RxRequestQuoteCommands } from '../../application/commands/rx-request-quote.commands';
 import { RxRequestQueries } from '../../application/queries/rx-request.queries';
 import {
+  ConfirmRxRequestDto,
   CreateRxRequestDto,
+  QuoteRxRequestDto,
   DeclineRxRequestDto,
   PharmacyRxRequestListDto,
   ReleaseRxRequestDto,
@@ -21,8 +24,30 @@ import {
 export class RxRequestsController {
   constructor(
     private readonly commands: RxRequestCommands,
+    private readonly quotes: RxRequestQuoteCommands,
     private readonly queries: RxRequestQueries,
   ) {}
+
+  /**
+   * Work 135: the customer accepts the pharmacy's quote; it becomes an order at that pharmacy.
+   * Answers the request and the new order's id. A declined prepayment answers
+   * `PAYMENT_AUTH_FAILED` with the cancelled order's id, as checkout does.
+   */
+  @Post(':id/confirm')
+  @RequirePermissions('order:create:own')
+  @HttpCode(HttpStatus.OK)
+  async confirm(@CurrentUser() user: AuthenticatedPrincipal, @Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmRxRequestDto) {
+    const { orderId } = await this.quotes.confirm({ requestId: id, customerUserId: user.userId, payment: dto.payment });
+    return { request: await this.queries.getMine(user.userId, id), orderId };
+  }
+
+  @Post(':id/decline-quote')
+  @RequirePermissions('prescription:upload:own')
+  @HttpCode(HttpStatus.OK)
+  async declineQuote(@CurrentUser() user: AuthenticatedPrincipal, @Param('id', ParseUUIDPipe) id: string) {
+    await this.quotes.declineQuote({ requestId: id, customerUserId: user.userId });
+    return this.queries.getMine(user.userId, id);
+  }
 
   @Post()
   @RequirePermissions('prescription:upload:own')
@@ -68,8 +93,27 @@ export class RxRequestsController {
 export class PharmacyRxRequestsController {
   constructor(
     private readonly commands: RxRequestCommands,
+    private readonly quotes: RxRequestQuoteCommands,
     private readonly queries: RxRequestQueries,
   ) {}
+
+  /** Work 135: the holding pharmacy's medicines, price and paper decision, for the customer to confirm. */
+  @Post(':id/quote')
+  @RequirePermissions('prescription:verify')
+  @HttpCode(HttpStatus.OK)
+  async quote(@CurrentUser() user: AuthenticatedPrincipal, @Param('id', ParseUUIDPipe) id: string, @Body() dto: QuoteRxRequestDto) {
+    await this.quotes.quote({
+      requestId: id,
+      actorUserId: user.userId,
+      lines: dto.lines,
+      prescriptionIssueDate: new Date(`${dto.prescriptionIssueDate.slice(0, 10)}T00:00:00.000Z`),
+      paperRequired: dto.paperRequired,
+      legibilityOk: dto.legibilityOk,
+      validityOk: dto.validityOk,
+      note: dto.note ?? null,
+    });
+    return this.queries.getForPharmacy(user.userId, id);
+  }
 
   @Get()
   @RequirePermissions('order:fulfill:org')

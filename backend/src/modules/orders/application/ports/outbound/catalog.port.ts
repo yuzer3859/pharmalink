@@ -10,6 +10,8 @@ export interface CatalogProductView {
   rxClassification: string | null;
   price: number;
   name: string;
+  /** Work 135: the controlled schedule (`NONE`, `SCHEDULE_1`…`SCHEDULE_5`, `PROHIBITED`). */
+  controlledSchedule?: string;
 }
 
 /**
