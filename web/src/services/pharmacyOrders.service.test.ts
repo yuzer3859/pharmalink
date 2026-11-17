@@ -41,6 +41,9 @@ describe('nextActions', () => {
     expect(nextActions('PENDING', 'PENDING')).toEqual([]);
     expect(nextActions('PENDING', 'APPROVED')).toEqual(['accept', 'decline']);
     expect(nextActions('PENDING', null)).toEqual(['accept', 'decline']);
+    // Approved but not paid yet: the customer pays first.
+    expect(nextActions('PENDING', 'APPROVED', 'PENDING_PAYMENT')).toEqual([]);
+    expect(nextActions('PENDING', 'APPROVED', 'PAID')).toEqual(['accept', 'decline']);
   });
 
   it('says where an order with a prescription is, including the payment after the approval', () => {

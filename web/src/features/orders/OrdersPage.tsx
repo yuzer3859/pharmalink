@@ -187,7 +187,7 @@ function OrderDrawer({ fulfillmentId, onClose }: { fulfillmentId: string | null;
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const reasonProblem = declineReasonProblem(reason);
-  const actions = f && can('orders:manage') ? nextActions(f.status, f.order.rxReviewStatus) : [];
+  const actions = f && can('orders:manage') ? nextActions(f.status, f.order.rxReviewStatus, f.order.status) : [];
   const busy = action.isPending;
   const run = (name: 'accept' | 'prepare' | 'ready') => f && action.mutate({ id: f.id, action: name });
 

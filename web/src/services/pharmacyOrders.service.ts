@@ -106,8 +106,10 @@ export function awaitingRxReview(order: Pick<PharmacyOrder, 'order'>): boolean {
  * prescription waits for review the only decision is the review itself (the server refuses a
  * decline then), and a prepaid order is accepted only once the customer has paid.
  */
-export function nextActions(status: FulfillmentStatus, rxReviewStatus?: RxReviewStatus | null): FulfillmentAction[] {
+export function nextActions(status: FulfillmentStatus, rxReviewStatus?: RxReviewStatus | null, orderStatus?: string): FulfillmentAction[] {
   if (rxReviewStatus === 'PENDING') return [];
+  // Approved, but the customer has not paid yet: nothing to accept until they do.
+  if (orderStatus === 'PENDING_PAYMENT') return [];
   switch (status) {
     case 'PENDING':
       return ['accept', 'decline'];
