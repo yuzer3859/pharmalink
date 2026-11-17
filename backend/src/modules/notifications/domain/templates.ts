@@ -47,6 +47,13 @@ export enum NotificationTemplateCode {
   DRIVER_JOB_ASSIGNED = 'DRIVER_JOB_ASSIGNED',
   MATCHING_ORDER_MATCHED = 'MATCHING_ORDER_MATCHED',
   MATCHING_REMATCH_TRIGGERED = 'MATCHING_REMATCH_TRIGGERED',
+  // Work 134: prescription requests offered to nearby pharmacies.
+  RX_REQUEST_NEW = 'RX_REQUEST_NEW',
+  RX_REQUEST_NO_LONGER_AVAILABLE = 'RX_REQUEST_NO_LONGER_AVAILABLE',
+  RX_REQUEST_AVAILABLE_AGAIN = 'RX_REQUEST_AVAILABLE_AGAIN',
+  RX_REQUEST_ACCEPTED = 'RX_REQUEST_ACCEPTED',
+  RX_REQUEST_REOPENED = 'RX_REQUEST_REOPENED',
+  RX_REQUEST_ENDED = 'RX_REQUEST_ENDED',
 }
 
 /** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
@@ -485,6 +492,84 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     render: {
       en: () => ({ title: 'Moved to another pharmacy', body: 'Your request has been moved to another pharmacy.' }),
       am: () => ({ title: 'ወደ ሌላ ፋርማሲ ተዛውሯል', body: 'ጥያቄዎ ወደ ሌላ ፋርማሲ ተዛውሯል።' }),
+    },
+  },
+  // ---- Prescription requests (Work 134) ---------------------------------------------------
+  // The Amharic here is a draft awaiting the owner's review, like Work 131's.
+  [NotificationTemplateCode.RX_REQUEST_NEW]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'New prescription request', body: 'A customer nearby sent a prescription. Review it and accept it if your pharmacy can fill it.' }),
+      am: () => ({ title: 'አዲስ የመድኃኒት ማዘዣ ጥያቄ', body: 'በአቅራቢያዎ ያለ ደንበኛ የመድኃኒት ማዘዣ ልኳል። ይመልከቱት፣ ፋርማሲዎ ማቅረብ ከቻለ ይቀበሉት።' }),
+    },
+  },
+  [NotificationTemplateCode.RX_REQUEST_NO_LONGER_AVAILABLE]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Prescription request no longer available',
+        body:
+          d.reason === 'accepted-by-another-pharmacy'
+            ? 'Another pharmacy accepted this prescription request.'
+            : d.reason === 'cancelled-by-customer'
+              ? 'The customer cancelled this prescription request.'
+              : 'This prescription request has ended.',
+      }),
+      am: (d) => ({
+        title: 'የመድኃኒት ማዘዣ ጥያቄው አይገኝም',
+        body:
+          d.reason === 'accepted-by-another-pharmacy'
+            ? 'ሌላ ፋርማሲ ይህን የመድኃኒት ማዘዣ ጥያቄ ተቀብሏል።'
+            : d.reason === 'cancelled-by-customer'
+              ? 'ደንበኛው ይህን የመድኃኒት ማዘዣ ጥያቄ ሰርዟል።'
+              : 'ይህ የመድኃኒት ማዘዣ ጥያቄ አብቅቷል።',
+      }),
+    },
+  },
+  [NotificationTemplateCode.RX_REQUEST_AVAILABLE_AGAIN]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Prescription request available again', body: 'A prescription request you were offered is open again. Accept it if your pharmacy can fill it.' }),
+      am: () => ({ title: 'የመድኃኒት ማዘዣ ጥያቄው እንደገና ይገኛል', body: 'የቀረበልዎ የመድኃኒት ማዘዣ ጥያቄ እንደገና ክፍት ሆኗል። ፋርማሲዎ ማቅረብ ከቻለ ይቀበሉት።' }),
+    },
+  },
+  [NotificationTemplateCode.RX_REQUEST_ACCEPTED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'A pharmacy accepted your request',
+        body: `${d.pharmacyName ? d.pharmacyName : 'A pharmacy'} is checking your prescription and will send you the medicines and price.`,
+      }),
+      am: (d) => ({
+        title: 'ፋርማሲ ጥያቄዎን ተቀብሏል',
+        body: `${d.pharmacyName ? d.pharmacyName : 'አንድ ፋርማሲ'} የመድኃኒት ማዘዣዎን እያየ ነው፤ መድኃኒቶቹንና ዋጋውን ይልክልዎታል።`,
+      }),
+    },
+  },
+  [NotificationTemplateCode.RX_REQUEST_REOPENED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: () => ({ title: 'Looking for another pharmacy', body: 'The pharmacy could not fill your prescription. We are offering it to other pharmacies nearby.' }),
+      am: () => ({ title: 'ሌላ ፋርማሲ እየተፈለገ ነው', body: 'ፋርማሲው የመድኃኒት ማዘዣዎን ማቅረብ አልቻለም። በአቅራቢያ ላሉ ሌሎች ፋርማሲዎች እየቀረበ ነው።' }),
+    },
+  },
+  [NotificationTemplateCode.RX_REQUEST_ENDED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'No pharmacy could take your request',
+        body:
+          d.status === 'EXPIRED'
+            ? 'No pharmacy accepted your prescription in time. You can send it again.'
+            : 'No pharmacy nearby can fill your prescription right now. You can send it again later.',
+      }),
+      am: (d) => ({
+        title: 'ጥያቄዎን የተቀበለ ፋርማሲ የለም',
+        body:
+          d.status === 'EXPIRED'
+            ? 'በጊዜው የመድኃኒት ማዘዣዎን የተቀበለ ፋርማሲ የለም። እንደገና መላክ ይችላሉ።'
+            : 'አሁን በአቅራቢያዎ የመድኃኒት ማዘዣዎን ማቅረብ የሚችል ፋርማሲ የለም። በኋላ እንደገና መላክ ይችላሉ።',
+      }),
     },
   },
 };

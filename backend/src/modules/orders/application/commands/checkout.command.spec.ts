@@ -226,7 +226,7 @@ function build() {
     assertAttachable: jest.fn().mockResolvedValue(undefined),
     attachToOrder: jest.fn().mockResolvedValue(undefined),
     approveForOrder: jest.fn(),
-    rejectForOrder: jest.fn(),
+    rejectForOrder: jest.fn(), offeredFileLink: jest.fn(),
   };
   const pharmacies = {
     getOrganizationId: jest.fn().mockResolvedValue('organization-1'),
