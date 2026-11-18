@@ -17,7 +17,8 @@ const quickActions = [
   { label: 'Find medicine', desc: 'Search nearby pharmacies', icon: Pill, to: '/search', tone: 'brand' },
   { label: 'Doctors', desc: 'Coming later', icon: Stethoscope, to: '/doctors', tone: 'accent' },
   { label: 'Lab & imaging', desc: 'Coming later', icon: FlaskConical, to: '/diagnostics', tone: 'violet' },
-  { label: 'Upload Rx', desc: 'A pharmacist checks it', icon: Upload, to: '/prescriptions', tone: 'success' },
+  // Work 138: send a prescription to nearby pharmacies; the first to accept offers the medicines.
+  { label: 'Send a prescription', desc: 'Nearby pharmacies offer it', icon: Upload, to: '/requests/new', tone: 'success' },
 ]
 
 const FEATURED_COUNT = 4

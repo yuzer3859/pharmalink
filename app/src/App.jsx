@@ -11,6 +11,7 @@ import Diagnostics from './pages/Diagnostics'
 import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import Checkout from './pages/Checkout'
+import RxRequests, { RxRequestDetail, SendRxRequest } from './pages/RxRequests'
 import DesignSystem from './pages/DesignSystem'
 import Register from './pages/auth/Register'
 import VerifyEmail from './pages/auth/VerifyEmail'
@@ -51,6 +52,10 @@ export default function App() {
           <Route path="/tracking" element={<Page><RequireCustomer><Orders /></RequireCustomer></Page>} />
           <Route path="/checkout" element={<Page><RequireCustomer><Checkout /></RequireCustomer></Page>} />
           <Route path="/prescriptions" element={<Page><RequireCustomer><Prescriptions /></RequireCustomer></Page>} />
+          {/* Work 138: prescription requests offered to nearby pharmacies. */}
+          <Route path="/requests" element={<Page><RequireCustomer><RxRequests /></RequireCustomer></Page>} />
+          <Route path="/requests/new" element={<Page><RequireCustomer><SendRxRequest /></RequireCustomer></Page>} />
+          <Route path="/requests/:id" element={<Page><RequireCustomer><RxRequestDetail /></RequireCustomer></Page>} />
           <Route path="/design-system" element={<Page><DesignSystem /></Page>} />
           <Route path="/register" element={<Page><Register /></Page>} />
           <Route path="/verify-email" element={<Page><VerifyEmail /></Page>} />
