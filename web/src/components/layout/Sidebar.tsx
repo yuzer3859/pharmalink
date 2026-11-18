@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Box,
+  Chip,
   List,
   ListItemButton,
   ListItemIcon,
@@ -17,7 +18,8 @@ import { NAV_SECTIONS, PORTALS } from '@/config/navigation';
 
 export const DRAWER_WIDTH = 264;
 
-export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+/** `badges`: a count shown beside a nav item, keyed by its path (Work 140: prescription requests waiting). */
+export function SidebarContent({ onNavigate, badges }: { onNavigate?: () => void; badges?: Record<string, number> }) {
   const { user, can } = useAuth();
   const location = useLocation();
   if (!user) return null;
@@ -98,6 +100,15 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                       primary={item.label}
                       primaryTypographyProps={{ fontWeight: active ? 700 : 500, fontSize: 14 }}
                     />
+                    {badges?.[item.path] ? (
+                      <Chip
+                        label={badges[item.path]}
+                        size="small"
+                        color="warning"
+                        aria-label={`${badges[item.path]} waiting`}
+                        sx={{ height: 20, fontWeight: 700 }}
+                      />
+                    ) : null}
                   </ListItemButton>
                 );
               })}

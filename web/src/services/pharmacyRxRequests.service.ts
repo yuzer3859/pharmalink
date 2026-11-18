@@ -118,6 +118,32 @@ export function quoteProblem(q: QuoteInput): string | null {
   return null;
 }
 
+/**
+ * Work 140: what is waiting for this pharmacy, for the portal-wide alert. `toAnswer`: offered to
+ * it and still open, to accept or decline. `toQuote`: accepted by it, waiting for the medicines and price.
+ */
+export function rxRequestsWaiting(items: Array<Pick<PharmacyRxRequest, 'id' | 'status' | 'offer' | 'mine'>>): { toAnswer: string[]; toQuote: string[] } {
+  return {
+    toAnswer: items.filter((r) => r.status === 'OPEN' && r.offer.status === 'OPEN').map((r) => r.id),
+    toQuote: items.filter((r) => r.status === 'CLAIMED' && r.mine).map((r) => r.id),
+  };
+}
+
+/** The ids not seen before: the requests that arrived since the last check. */
+export function newlyArrived(seen: ReadonlySet<string>, ids: string[]): string[] {
+  return ids.filter((id) => !seen.has(id));
+}
+
+/** The banner's sentence, or `null` when nothing is waiting. */
+export function rxRequestAlertText(w: { toAnswer: number; toQuote: number }): string | null {
+  const parts: string[] = [];
+  if (w.toAnswer === 1) parts.push('A new prescription request is waiting for your answer.');
+  else if (w.toAnswer > 1) parts.push(`${w.toAnswer} new prescription requests are waiting for your answer.`);
+  if (w.toQuote === 1) parts.push('A request you accepted is waiting for its medicines and price.');
+  else if (w.toQuote > 1) parts.push(`${w.toQuote} requests you accepted are waiting for their medicines and price.`);
+  return parts.length ? parts.join(' ') : null;
+}
+
 export function rxRequestQuery(scope: 'active' | 'all', page?: number, size?: number): string {
   const params = new URLSearchParams({ scope });
   if (page) params.set('page', String(page));
