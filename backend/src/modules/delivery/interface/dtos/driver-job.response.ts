@@ -34,6 +34,12 @@ export interface DriverJobSummaryResponse {
   status: string;
   pickupAddress: string | null;
   dropoffAddress: string | null;
+  /**
+   * Work 141: the pharmacy and the customer as map points, for the driver app's map and directions,
+   * or `null` where the job has none. The same places the addresses name; no more than they say.
+   */
+  pickup: { lat: number; lng: number } | null;
+  dropoff: { lat: number; lng: number } | null;
   isColdChain: boolean;
   isCod: boolean;
   /** ETB minor units (ADR-005), or `null` when this is not a cash delivery. */
@@ -122,6 +128,8 @@ export function toDriverJobSummaryResponse(job: DeliveryJobProps, settings?: Dri
     status: job.status,
     pickupAddress: job.pickupAddress,
     dropoffAddress: job.dropoffAddress,
+    pickup: job.pickupPoint ? { lat: job.pickupPoint.lat, lng: job.pickupPoint.lng } : null,
+    dropoff: job.dropoffPoint ? { lat: job.dropoffPoint.lat, lng: job.dropoffPoint.lng } : null,
     isColdChain: job.isColdChain,
     isCod: job.isCod,
     codAmount: job.codAmount,

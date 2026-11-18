@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { birr } from '../jobs/driverService'
 import { useDriverJobs, useDriverService } from '../jobs/hooks'
-import { canFail, collectsPaperFirst, destination, headline, mapsLink, nextStep, sharesLiveLocation, stepErrorMessage, waitsForPharmacist } from '../jobs/jobSteps'
+import { canFail, collectsPaperFirst, destination, directionsLink, headline, nextStep, sharesLiveLocation, stepErrorMessage, validPoint, waitsForPharmacist } from '../jobs/jobSteps'
 import { useJobTracking } from '../jobs/useJobTracking'
+
+// Work 141: the map loads on its own, so the job's steps never wait for it.
+const JobMap = lazy(() => import('../map/JobMap'))
 
 const TRACKING_TEXT = {
   locating: 'Finding your location…',
@@ -54,10 +57,28 @@ export default function ActiveJob() {
     )
   }
 
+  const directions = directionsLink(to)
+  const me = validPoint(tracking.lastFix)
+
   return (
-    <main className="mx-auto max-w-md px-5 py-6">
-      <Link to="/" className="text-sm font-semibold text-brand-700">← All deliveries</Link>
-      <h1 className="mt-2 text-xl font-bold">{headline(job)}</h1>
+    <div className="mx-auto min-h-full max-w-md">
+      {to?.point ? (
+        <section className="relative h-[46vh] min-h-[260px] w-full overflow-hidden bg-slate-200" aria-label="Map">
+          <Suspense fallback={<p className="grid h-full place-items-center text-sm text-slate-500">Loading the map…</p>}>
+            <JobMap target={{ ...to.point, kind: to.kind }} me={me} label={to.label} />
+          </Suspense>
+          <Link to="/" className="absolute left-3 top-3 z-[1000] rounded-full bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow">← All deliveries</Link>
+          {directions ? (
+            <a href={directions} target="_blank" rel="noopener noreferrer" className="absolute bottom-6 left-3 z-[1000] flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-slate-900 shadow-lg ring-1 ring-slate-200">
+              <span aria-hidden="true">➤</span> Directions in Google Maps
+            </a>
+          ) : null}
+        </section>
+      ) : null}
+    <main className={`relative px-5 pb-8 ${to?.point ? '-mt-4 rounded-t-3xl bg-slate-50 pt-5 shadow-[0_-8px_24px_rgba(0,0,0,0.08)]' : 'pt-6'}`}>
+      {to?.point ? null : <Link to="/" className="text-sm font-semibold text-brand-700">← All deliveries</Link>}
+      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{to?.kind === 'pickup' ? 'Heading to the pharmacy' : to ? 'Heading to the customer' : 'Delivery'}</p>
+      <h1 className="mt-1 text-xl font-bold">{headline(job)}</h1>
 
       {job.paper ? (
         // Work 139: the original paper prescription's round trip (Work 136).
@@ -73,14 +94,18 @@ export default function ActiveJob() {
       ) : null}
 
       {to ? (
-        <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4" aria-label="Destination">
-          <p className="text-sm text-slate-500">{to.label}</p>
-          <p className="font-semibold">{to.address ?? 'Address not given'}</p>
-          {mapsLink(to.address) ? (
-            <a href={mapsLink(to.address)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm font-semibold text-brand-700">
-              Open in maps
-            </a>
-          ) : null}
+        <section className="mt-4 flex gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-label="Destination">
+          <span className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${to.kind === 'pickup' ? 'bg-brand-600' : 'bg-warning'}`} aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-slate-500">{to.label}</p>
+            <p className="break-words font-semibold">{to.address ?? 'Address not given'}</p>
+            {directions ? (
+              <a href={directions} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm font-semibold text-brand-700">
+                {to.point ? 'Open in Google Maps' : 'Open in maps'}
+              </a>
+            ) : null}
+            {to.point ? null : <p className="mt-1 text-xs text-slate-500">No map point for this address: search it in maps.</p>}
+          </div>
         </section>
       ) : null}
 
@@ -102,13 +127,13 @@ export default function ActiveJob() {
           type="button"
           disabled={state.busy}
           onClick={() => run(() => service.advance(job.jobId, step.action, tracking.lastFix))}
-          className="mt-5 w-full rounded-lg bg-brand-700 py-3.5 text-lg font-semibold text-white disabled:opacity-60"
+          className="mt-5 w-full rounded-xl bg-brand-700 py-4 text-lg font-bold text-white shadow-lg disabled:opacity-60"
         >
           {state.busy ? 'Saving…' : step.label}
         </button>
       ) : null}
       {job.status === 'ARRIVED_DROPOFF' ? (
-        <Link to={`/jobs/${job.jobId}/deliver`} className="mt-5 block w-full rounded-lg bg-brand-700 py-3.5 text-center text-lg font-semibold text-white">
+        <Link to={`/jobs/${job.jobId}/deliver`} className="mt-5 block w-full rounded-xl bg-brand-700 py-4 text-center text-lg font-bold text-white shadow-lg">
           Record proof of delivery
         </Link>
       ) : null}
@@ -139,5 +164,6 @@ export default function ActiveJob() {
         )
       ) : null}
     </main>
+    </div>
   )
 }

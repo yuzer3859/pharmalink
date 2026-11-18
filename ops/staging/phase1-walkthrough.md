@@ -161,7 +161,7 @@ This is the owner's ride-hailing style request (decision of 2026-11-17), alongsi
 3. **Quote:** add a medicine from the branch's stock with a quantity, confirm the date, choose **Required** under *Original paper prescription*, tick both attestations, then **Send the quote**.
 4. **Customer:** the page shows the medicines, the total and *Keep the original paper prescription ready*. Choose **Cash on delivery**, then **Confirm and place order**. The order opens; it is paid, and the prescription is approved by the pharmacist.
 5. **Pharmacy:** on **Orders**, **Accept** the order. Preparing isn't offered yet, because the paper comes first.
-6. **Driver** (driver app, `driver.walk@`): accept the offer.
+6. **Driver** (driver app, `driver.walk@`): accept the offer. A sound plays when the offer appears (Work 141). The job opens on a map of where to go: the customer first here, for the paper; **Directions in Google Maps** opens turn-by-turn navigation.
    - The job reads *Collect the paper prescription from the customer*. Press **I have the paper prescription**, then **I am at the pharmacy**.
    - It waits while the pharmacist checks the paper.
 7. **Pharmacist:** in the order, choose **The paper matches: keep it**, then **Start preparing** and **Ready for pickup**.

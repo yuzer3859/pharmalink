@@ -173,6 +173,19 @@ describe('Driver jobs list (e2e)', () => {
     expect(page(res).items.map((j) => j.jobId).sort()).toEqual([first, second].sort());
   });
 
+  it('gives the pharmacy and the customer as map points, on jobs and offers (Work 141)', async () => {
+    const driver = await seedDriver();
+    await carrying(driver);
+    const { jobId: offeredJob } = await seedJob();
+    await dispatch.execute({ jobId: offeredJob });
+
+    const res = page(await list(driver.token));
+
+    // The fixture's jobs have a pharmacy point and no customer point.
+    expect(res.items[0]).toMatchObject({ pickup: PICKUP, dropoff: null });
+    expect(res.offers[0].job).toMatchObject({ pickup: PICKUP, dropoff: null });
+  });
+
   it('says on every job and offer what completing it demands (Work 121)', async () => {
     const driver = await seedDriver();
     await carrying(driver);

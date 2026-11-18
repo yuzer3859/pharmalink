@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { canFail, destination, mapsLink, nextStep, sharesLiveLocation, stepErrorMessage } from './jobSteps'
+import { canFail, destination, directionsLink, mapsLink, validPoint, nextStep, sharesLiveLocation, stepErrorMessage } from './jobSteps'
 import { connectDriverTracking } from './trackingSocket'
 import { createDriverService } from './driverService'
 
@@ -122,5 +122,30 @@ describe('the original paper prescription round trip (Work 139)', () => {
     // A job without the paper is unchanged.
     expect(nextStep('ASSIGNED', job('ASSIGNED', null))).toMatchObject({ action: 'arrived-pickup' })
     expect(headline(job('ASSIGNED', null))).toBe('Go to the pharmacy')
+  })
+})
+
+describe('where to go on the map (Work 141)', () => {
+  const at = { pickup: { lat: 9.01, lng: 38.76 }, dropoff: { lat: 9.05, lng: 38.7 }, pickupAddress: 'Bole Main', dropoffAddress: 'Bole Road 12' }
+
+  it('gives the pharmacy point until pickup, then the customer point', () => {
+    expect(destination({ ...at, status: 'ASSIGNED' }).point).toEqual({ lat: 9.01, lng: 38.76 })
+    expect(destination({ ...at, status: 'EN_ROUTE' }).point).toEqual({ lat: 9.05, lng: 38.7 })
+    expect(destination({ ...at, status: 'ASSIGNED', paper: { collectedAt: null, goodsReady: false } }).point).toEqual({ lat: 9.05, lng: 38.7 })
+    expect(destination({ status: 'ASSIGNED', pickupAddress: 'Bole Main' }).point).toBeNull()
+  })
+
+  it('accepts only real coordinates', () => {
+    expect(validPoint({ lat: 9, lng: 38 })).toEqual({ lat: 9, lng: 38 })
+    expect(validPoint({ lat: 91, lng: 38 })).toBeNull()
+    expect(validPoint({ lat: Number.NaN, lng: 38 })).toBeNull()
+    expect(validPoint(null)).toBeNull()
+  })
+
+  it('opens Google Maps directions to the point, or searches the address', () => {
+    expect(directionsLink({ point: { lat: 9.01, lng: 38.76 }, address: 'Bole Main' })).toBe('https://www.google.com/maps/dir/?api=1&destination=9.01,38.76&travelmode=driving')
+    expect(directionsLink({ point: null, address: 'Bole Main' })).toBe('https://www.google.com/maps/search/?api=1&query=Bole%20Main')
+    expect(directionsLink({ point: null, address: null })).toBeNull()
+    expect(directionsLink(null)).toBeNull()
   })
 })

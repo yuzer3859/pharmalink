@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// Work 141: the Leaflet map itself is not under test here (jsdom draws no tiles); where it shows is.
+vi.mock('./map/JobMap', () => ({ default: ({ label, target }) => <div data-testid="job-map">{`${label} at ${target.lat},${target.lng}`}</div> }))
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
@@ -118,5 +121,34 @@ describe('a job carrying the original paper prescription (Work 139)', () => {
     expect(await screen.findByText(/the pharmacist is checking the paper/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'I have picked up the order' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Check again' })).toBeTruthy()
+  })
+})
+
+describe('the map of where to go (Work 141)', () => {
+  it('shows the pharmacy until pickup, then the customer, with Google Maps directions to the exact point', async () => {
+    await openJob({
+      'GET /driver/jobs': [
+        page(job('ASSIGNED', { pickup: { lat: 9.01, lng: 38.76 }, dropoff: { lat: 9.05, lng: 38.7 } })),
+        page(job('PICKED_UP', { pickup: { lat: 9.01, lng: 38.76 }, dropoff: { lat: 9.05, lng: 38.7 } })),
+      ],
+      'POST /delivery/jobs/job-1/arrived-pickup': ok({}),
+    })
+    expect((await screen.findByTestId('job-map')).textContent).toBe('Pharmacy at 9.01,38.76')
+    expect(screen.getByText('Heading to the pharmacy')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Directions in Google Maps/ }).getAttribute('href')).toBe(
+      'https://www.google.com/maps/dir/?api=1&destination=9.01,38.76&travelmode=driving',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'I am at the pharmacy' }))
+    await waitFor(() => expect(screen.getByTestId('job-map').textContent).toBe('Customer at 9.05,38.7'))
+    expect(screen.getByText('Heading to the customer')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Directions in Google Maps/ }).getAttribute('href')).toContain('destination=9.05,38.7')
+  })
+
+  it('has no map without a point, and searches the address in maps instead', async () => {
+    await openJob({ 'GET /driver/jobs': [page(job('ASSIGNED'))] })
+    expect(await screen.findByText('Go to the pharmacy')).toBeTruthy()
+    expect(screen.queryByTestId('job-map')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Open in maps' }).getAttribute('href')).toMatch(/maps\/search/)
   })
 })
