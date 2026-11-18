@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { playOfferAlert } from './alerts/offerAlert'
+
+// Work 141: the sound itself needs a real browser; whether it is played is what matters here.
+vi.mock('./alerts/offerAlert', async (importOriginal) => ({ ...(await importOriginal()), playOfferAlert: vi.fn(), unlockSound: vi.fn() }))
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
@@ -103,4 +107,19 @@ describe('availability and offers (Work 119)', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/not verified to drive/)
     expect(screen.getByText('Offline')).toBeTruthy()
   })
+})
+
+describe('the sound for a new offer (Work 141)', () => {
+  it('plays once when an offer appears, not again while the same offer stays', async () => {
+    playOfferAlert.mockClear()
+    await signedInApp({
+      'PUT /driver/availability': ok(driverProfile({ availability: 'ONLINE', onShift: true })),
+      'GET /driver/jobs': [ok({ items: [], offers: [], total: 0, page: 1, size: 20 }), ok({ items: [], offers: [offer()], total: 0, page: 1, size: 20 })],
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Go online' }))
+    expect(await screen.findByText(/Waiting for a delivery offer/)).toBeTruthy()
+    expect(playOfferAlert).not.toHaveBeenCalled()
+    expect(await screen.findByRole('article', { name: 'Delivery offer' }, { timeout: 8000 })).toBeTruthy()
+    expect(playOfferAlert).toHaveBeenCalledTimes(1)
+  }, 15000)
 })

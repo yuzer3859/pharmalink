@@ -40,11 +40,18 @@ export function headline(job) {
 /** Where the driver is heading now: the pharmacy until pickup, then the customer. */
 export function destination(job) {
   if (!job) return null
-  if (collectsPaperFirst(job)) return { kind: 'dropoff', label: 'Customer: collect the paper prescription', address: job.dropoffAddress }
+  // Work 141: `point` is the place on the map ({ lat, lng }), or null when the job has none.
+  if (collectsPaperFirst(job)) return { kind: 'dropoff', label: 'Customer: collect the paper prescription', address: job.dropoffAddress, point: validPoint(job.dropoff) }
   const toPharmacy = job.status === 'ASSIGNED' || job.status === 'ARRIVED_PICKUP'
   return toPharmacy
-    ? { kind: 'pickup', label: 'Pharmacy', address: job.pickupAddress }
-    : { kind: 'dropoff', label: 'Customer', address: job.dropoffAddress }
+    ? { kind: 'pickup', label: 'Pharmacy', address: job.pickupAddress, point: validPoint(job.pickup) }
+    : { kind: 'dropoff', label: 'Customer', address: job.dropoffAddress, point: validPoint(job.dropoff) }
+}
+
+/** A usable map point, or null. */
+export function validPoint(p) {
+  if (!p) return null
+  return Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180 ? { lat: p.lat, lng: p.lng } : null
 }
 
 /** A delivery can be reported failed only once the driver holds the goods (the backend's rule). */
@@ -71,6 +78,16 @@ export const STATUS_TEXT = {
 /** A maps search link for an address (opens the phone's maps app); null when there is none. */
 export function mapsLink(address) {
   return address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null
+}
+
+/**
+ * Work 141: turn-by-turn directions in Google Maps to where the driver is heading: to the exact point
+ * when the job has one, else a search for the address; null when there is neither.
+ */
+export function directionsLink(to) {
+  if (!to) return null
+  if (to.point) return `https://www.google.com/maps/dir/?api=1&destination=${to.point.lat},${to.point.lng}&travelmode=driving`
+  return mapsLink(to.address)
 }
 
 export function stepErrorMessage(error) {
