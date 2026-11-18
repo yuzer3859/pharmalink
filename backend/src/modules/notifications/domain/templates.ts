@@ -497,12 +497,12 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     },
   },
   // ---- Prescription requests (Work 134) ---------------------------------------------------
-  // The Amharic here is a draft awaiting the owner's review, like Work 131's.
+  // Amharic reviewed by the owner, a native speaker, on 2026-11-18 (Work 142).
   [NotificationTemplateCode.RX_REQUEST_NEW]: {
     category: NotificationCategory.TRANSACTIONAL,
     render: {
       en: () => ({ title: 'New prescription request', body: 'A customer nearby sent a prescription. Review it and accept it if your pharmacy can fill it.' }),
-      am: () => ({ title: 'አዲስ የመድኃኒት ማዘዣ ጥያቄ', body: 'በአቅራቢያዎ ያለ ደንበኛ የመድኃኒት ማዘዣ ልኳል። ይመልከቱት፣ ፋርማሲዎ ማቅረብ ከቻለ ይቀበሉት።' }),
+      am: () => ({ title: 'አዲስ የሐኪም ማዘዣ ጥያቄ', body: 'በአቅራቢያዎ ያለ ደንበኛ የሐኪም ማዘዣ ልኳል። ይመልከቱት፤ ፋርማሲዎ ማቅረብ ከቻለ ይቀበሉት።' }),
     },
   },
   [NotificationTemplateCode.RX_REQUEST_NO_LONGER_AVAILABLE]: {
@@ -522,17 +522,17 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
                   : 'This prescription request has ended.',
       }),
       am: (d) => ({
-        title: 'የመድኃኒት ማዘዣ ጥያቄው አይገኝም',
+        title: 'የሐኪም ማዘዣ ጥያቄው ከአሁን በኋላ አይገኝም',
         body:
           d.reason === 'accepted-by-another-pharmacy'
-            ? 'ሌላ ፋርማሲ ይህን የመድኃኒት ማዘዣ ጥያቄ ተቀብሏል።'
+            ? 'ሌላ ፋርማሲ ይህን የሐኪም ማዘዣ ጥያቄ ተቀብሏል።'
             : d.reason === 'cancelled-by-customer'
-              ? 'ደንበኛው ይህን የመድኃኒት ማዘዣ ጥያቄ ሰርዟል።'
+              ? 'ደንበኛው ይህን የሐኪም ማዘዣ ጥያቄ ሰርዟል።'
               : d.reason === 'quote-declined-by-customer'
-                ? 'ደንበኛው ለዚህ የመድኃኒት ማዘዣ ጥያቄ ያቀረቡትን ዋጋ አልተቀበለም።'
+                ? 'ደንበኛው ለዚህ የሐኪም ማዘዣ ጥያቄ ያቀረቡትን ዋጋ አልተቀበለም።'
                 : d.reason === 'quote-not-answered-in-time'
                   ? 'ደንበኛው በጊዜው ለዋጋዎ መልስ አልሰጠም፤ ጥያቄው አብቅቷል።'
-                  : 'ይህ የመድኃኒት ማዘዣ ጥያቄ አብቅቷል።',
+                  : 'ይህ የሐኪም ማዘዣ ጥያቄ አብቅቷል።',
       }),
     },
   },
@@ -540,7 +540,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     category: NotificationCategory.TRANSACTIONAL,
     render: {
       en: () => ({ title: 'Prescription request available again', body: 'A prescription request you were offered is open again. Accept it if your pharmacy can fill it.' }),
-      am: () => ({ title: 'የመድኃኒት ማዘዣ ጥያቄው እንደገና ይገኛል', body: 'የቀረበልዎ የመድኃኒት ማዘዣ ጥያቄ እንደገና ክፍት ሆኗል። ፋርማሲዎ ማቅረብ ከቻለ ይቀበሉት።' }),
+      am: () => ({ title: 'የሐኪም ማዘዣ ጥያቄው እንደገና ይገኛል', body: 'የቀረበልዎ የሐኪም ማዘዣ ጥያቄ እንደገና ክፍት ሆኗል። ፋርማሲዎ ማቅረብ ከቻለ ይቀበሉት።' }),
     },
   },
   [NotificationTemplateCode.RX_REQUEST_ACCEPTED]: {
@@ -552,7 +552,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
       }),
       am: (d) => ({
         title: 'ፋርማሲ ጥያቄዎን ተቀብሏል',
-        body: `${d.pharmacyName ? d.pharmacyName : 'አንድ ፋርማሲ'} የመድኃኒት ማዘዣዎን እያየ ነው፤ መድኃኒቶቹንና ዋጋውን ይልክልዎታል።`,
+        body: `${d.pharmacyName ? d.pharmacyName : 'አንድ ፋርማሲ'} የሐኪም ማዘዣዎን እያየ ነው፤ መድኃኒቶቹንና ዋጋውን ይልክልዎታል።`,
       }),
     },
   },
@@ -560,7 +560,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
     category: NotificationCategory.TRANSACTIONAL,
     render: {
       en: () => ({ title: 'Looking for another pharmacy', body: 'The pharmacy could not fill your prescription. We are offering it to other pharmacies nearby.' }),
-      am: () => ({ title: 'ሌላ ፋርማሲ እየተፈለገ ነው', body: 'ፋርማሲው የመድኃኒት ማዘዣዎን ማቅረብ አልቻለም። በአቅራቢያ ላሉ ሌሎች ፋርማሲዎች እየቀረበ ነው።' }),
+      am: () => ({ title: 'ሌላ ፋርማሲ እየተፈለገ ነው', body: 'ፋርማሲው የሐኪም ማዘዣዎን ማቅረብ አልቻለም። በአቅራቢያ ላሉ ሌሎች ፋርማሲዎች እየቀረበ ነው።' }),
     },
   },
   [NotificationTemplateCode.RX_REQUEST_ENDED]: {
@@ -579,10 +579,10 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         title: 'ጥያቄዎን የተቀበለ ፋርማሲ የለም',
         body:
           d.status === 'EXPIRED'
-            ? 'በጊዜው የመድኃኒት ማዘዣዎን የተቀበለ ፋርማሲ የለም። እንደገና መላክ ይችላሉ።'
+            ? 'በጊዜው የሐኪም ማዘዣዎን የተቀበለ ፋርማሲ የለም። እንደገና መላክ ይችላሉ።'
             : d.status === 'QUOTE_EXPIRED'
               ? 'የፋርማሲው ዋጋ በጊዜው ስላልተረጋገጠ ጥያቄዎ አብቅቷል። እንደገና መላክ ይችላሉ።'
-              : 'አሁን በአቅራቢያዎ የመድኃኒት ማዘዣዎን ማቅረብ የሚችል ፋርማሲ የለም። በኋላ እንደገና መላክ ይችላሉ።',
+              : 'አሁን በአቅራቢያዎ የሐኪም ማዘዣዎን ማቅረብ የሚችል ፋርማሲ የለም። በኋላ እንደገና መላክ ይችላሉ።',
       }),
     },
   },
@@ -595,7 +595,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
       }),
       am: (d) => ({
         title: 'መድኃኒቶችዎና ዋጋው ዝግጁ ናቸው',
-        body: `ፋርማሲው የመድኃኒት ማዘዣዎን አይቷል። ${typeof d.grandTotal === 'number' ? `ጠቅላላ ${formatMinorUnits(d.grandTotal)} ${d.currency ?? 'ETB'}። ` : ''}ትዕዛዝዎን ለማስገባት ያረጋግጡ።`,
+        body: `ፋርማሲው የሐኪም ማዘዣዎን አይቷል። ${typeof d.grandTotal === 'number' ? `ጠቅላላ ${formatMinorUnits(d.grandTotal)} ${d.currency ?? 'ETB'}። ` : ''}ትዕዛዝዎን ለማስገባት ያረጋግጡ።`,
       }),
     },
   },
