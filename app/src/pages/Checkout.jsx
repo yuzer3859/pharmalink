@@ -81,7 +81,7 @@ export function AddressForm({ onSaved, orders, locate = requestLocation }) {
  * signed link) and its id goes with checkout; the pharmacist of the filling pharmacy reviews it on
  * the order, before anything is charged.
  */
-export function PrescriptionAttach({ value, onChange }) {
+export function PrescriptionAttach({ value, onChange, intro }) {
   const prescriptions = usePrescriptions()
   async function choose(e) {
     const file = e.target.files?.[0]
@@ -101,7 +101,7 @@ export function PrescriptionAttach({ value, onChange }) {
     <Card className="space-y-3 p-4" aria-label="Prescription">
       <h2 className="flex items-center gap-2 text-h3 text-fg"><FileText className="h-5 w-5 text-brand-500" aria-hidden="true" /> Prescription</h2>
       <p className="text-caption text-muted">
-        An item in your cart needs a prescription. Add a photo or PDF of it; the pharmacist checks it before your order goes ahead, and sees your name with it.
+        {intro ?? 'An item in your cart needs a prescription. Add a photo or PDF of it; the pharmacist checks it before your order goes ahead, and sees your name with it.'}
       </p>
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border p-3">
         <Upload className="h-5 w-5 text-brand-500" aria-hidden="true" />

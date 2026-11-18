@@ -257,6 +257,16 @@ export default function OrderDetail() {
 
       <PrescriptionPanel order={order} onChanged={load} />
 
+      {order.paperRxRequired && !['DELIVERED', 'COMPLETED', 'CANCELLED'].includes(order.status) && (
+        // Work 138: the original paper goes to the pharmacist first (Work 136).
+        <Card className="flex items-start gap-3 border-warning/40 p-4" role="note" aria-label="Paper prescription">
+          <FileText className="mt-0.5 h-5 w-5 text-warning" aria-hidden="true" />
+          <p className="text-caption text-fg">
+            <strong>Keep the original paper prescription ready.</strong> The driver collects it from you first and takes it to the pharmacist, then brings your medicines.
+          </p>
+        </Card>
+      )}
+
       {delivering && (
         <Card className="p-4">
           <h2 className="mb-2 text-h3 text-fg">Delivery</h2>
