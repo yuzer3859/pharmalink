@@ -23,7 +23,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { StatusChip } from '@/components/common/StatusChip';
 import { useAuth } from '@/context/AuthContext';
 import { useNotify } from '@/context/NotificationContext';
-import { rxReviewErrorMessage, useFulfillmentAction, usePharmacyOrder, usePharmacyOrders, useRxReviewDecision } from '@/hooks/usePharmacyOrders';
+import { rxReviewErrorMessage, useFulfillmentAction, usePaperDecision, usePharmacyOrder, usePharmacyOrders, useRxReviewDecision } from '@/hooks/usePharmacyOrders';
 import { usePortal } from '@/hooks/usePortal';
 import { ApiError } from '@/services/apiClient';
 import { fromMinorUnits } from '@/services/adminOrders.service';
@@ -35,6 +35,8 @@ import {
   FULFILLMENT_STATUSES,
   nextActions,
   orderStageLabel,
+  paperCheckable,
+  paperStage,
   paymentLabel,
   PHARMACY_ORDER_PAGE_SIZES,
   REJECT_REASON_MAX,
@@ -180,6 +182,63 @@ function PrescriptionSection({ f }: { f: PharmacyOrder }) {
   );
 }
 
+/** Work 137: the original paper prescription the driver brings, checked before preparing (Work 136). */
+function PaperSection({ f }: { f: PharmacyOrder }) {
+  const { can } = useAuth();
+  const decision = usePaperDecision();
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  const paper = f.paper;
+  if (!paper) return null;
+  const pharmacist = can('prescriptions:verify');
+  const problem = rejectReasonProblem(reason);
+  const busy = decision.isPending;
+  const checkable = paperCheckable(f);
+
+  return (
+    <Stack spacing={1}>
+      <Typography variant="subtitle2">Original paper prescription</Typography>
+      <Typography variant="body2">{paperStage(f)}</Typography>
+      {checkable && pharmacist ? (
+        rejecting ? (
+          <Stack spacing={1}>
+            <TextField
+              size="small"
+              multiline
+              minRows={2}
+              label="Why does the paper not match? (the customer sees this)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              error={reason !== '' && !!problem}
+              helperText={reason !== '' ? problem ?? ' ' : 'The order is cancelled; give the paper back to the driver for the customer.'}
+              inputProps={{ maxLength: REJECT_REASON_MAX }}
+            />
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" color="error" disabled={busy || !!problem} onClick={() => decision.mutate({ id: f.id, kind: 'reject', reason })}>
+                Reject the paper
+              </Button>
+              <Button disabled={busy} onClick={() => setRejecting(false)}>
+                Back
+              </Button>
+            </Stack>
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={1}>
+            <Button variant="contained" color="success" disabled={busy} onClick={() => decision.mutate({ id: f.id, kind: 'verify' })}>
+              The paper matches: keep it
+            </Button>
+            <Button color="error" disabled={busy} onClick={() => setRejecting(true)}>
+              It does not match
+            </Button>
+          </Stack>
+        )
+      ) : checkable ? (
+        <Alert severity="info">A pharmacist of your pharmacy checks the paper.</Alert>
+      ) : null}
+    </Stack>
+  );
+}
+
 function OrderDrawer({ fulfillmentId, onClose }: { fulfillmentId: string | null; onClose: () => void }) {
   const { can } = useAuth();
   const { data: f, isLoading, error } = usePharmacyOrder(fulfillmentId);
@@ -187,7 +246,7 @@ function OrderDrawer({ fulfillmentId, onClose }: { fulfillmentId: string | null;
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const reasonProblem = declineReasonProblem(reason);
-  const actions = f && can('orders:manage') ? nextActions(f.status, f.order.rxReviewStatus, f.order.status) : [];
+  const actions = f && can('orders:manage') ? nextActions(f.status, f.order.rxReviewStatus, f.order.status, f.paper) : [];
   const busy = action.isPending;
   const run = (name: 'accept' | 'prepare' | 'ready') => f && action.mutate({ id: f.id, action: name });
 
@@ -235,6 +294,12 @@ function OrderDrawer({ fulfillmentId, onClose }: { fulfillmentId: string | null;
               <>
                 <Divider />
                 <PrescriptionSection key={f.id} f={f} />
+              </>
+            ) : null}
+            {f.paper ? (
+              <>
+                <Divider />
+                <PaperSection key={`paper-${f.id}`} f={f} />
               </>
             ) : null}
 

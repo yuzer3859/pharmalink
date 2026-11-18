@@ -1,3 +1,4 @@
+import { RxRequestsPage } from '@/features/rxRequests/RxRequestsPage';
 import { describe, expect, it } from 'vitest';
 import { AdminOrdersPage } from '@/features/orders/AdminOrdersPage';
 import { OrdersPage } from '@/features/orders/OrdersPage';
@@ -49,6 +50,12 @@ describe('pageFor', () => {
     expect(pageFor('superadmin', 'roles')).toBe(AdminRolesPage);
     expect(pageFor('pharmacy', 'staff')).toBe(StaffPage);
     expect(pageFor('pharmacy', 'roles')).toBe(RolesPage);
+  });
+
+  it('routes prescription requests in the pharmacy portal only (Work 137)', () => {
+    expect(pageFor('pharmacy', 'rx-requests')).toBe(RxRequestsPage);
+    expect(pageFor('admin', 'rx-requests')).toBeUndefined();
+    expect(PORTALS.pharmacy.nav.find((i) => i.path === 'rx-requests')?.permission).toBe('orders:view');
   });
 
   it('has no separate prescriptions page: the pharmacist reviews the prescription inside the order (Work 132)', () => {

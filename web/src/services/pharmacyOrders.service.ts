@@ -61,6 +61,8 @@ export interface PharmacyOrder {
   /** The customer's name from their profile; no contact data. */
   customerName?: string | null;
   prescription?: PharmacyOrderPrescription | null;
+  /** Work 136: the original paper prescription's round trip; `null` when the order does not need it. */
+  paper?: { collectedAt: string | null; driverAtPharmacy: boolean; verifiedAt: string | null } | null;
   lines: PharmacyOrderLine[];
   requiresRx: boolean;
 }
@@ -106,10 +108,17 @@ export function awaitingRxReview(order: Pick<PharmacyOrder, 'order'>): boolean {
  * prescription waits for review the only decision is the review itself (the server refuses a
  * decline then), and a prepaid order is accepted only once the customer has paid.
  */
-export function nextActions(status: FulfillmentStatus, rxReviewStatus?: RxReviewStatus | null, orderStatus?: string): FulfillmentAction[] {
+export function nextActions(
+  status: FulfillmentStatus,
+  rxReviewStatus?: RxReviewStatus | null,
+  orderStatus?: string,
+  paper?: PharmacyOrder['paper'],
+): FulfillmentAction[] {
   if (rxReviewStatus === 'PENDING') return [];
   // Approved, but the customer has not paid yet: nothing to accept until they do.
   if (orderStatus === 'PENDING_PAYMENT') return [];
+  // Work 136: an order that needs the original paper is prepared only after the pharmacist checked it.
+  if (status === 'ACCEPTED' && paper && !paper.verifiedAt) return [];
   switch (status) {
     case 'PENDING':
       return ['accept', 'decline'];
@@ -148,6 +157,22 @@ export function orderStageLabel(f: Pick<PharmacyOrder, 'status' | 'order'>): str
   if (f.order.rxReviewStatus === 'REJECTED') return 'Prescription rejected: the order is cancelled';
   if (f.status === 'PENDING' && f.order.status === 'PENDING_PAYMENT') return 'Prescription approved: waiting for the customer to pay';
   return stageLabel(f.status);
+}
+
+/** Work 137: the pharmacist may check the paper now: accepted, the driver at the pharmacy with it, not yet checked. */
+export function paperCheckable(f: Pick<PharmacyOrder, 'status' | 'paper'>): boolean {
+  return !!f.paper && f.status === 'ACCEPTED' && !!f.paper.collectedAt && f.paper.driverAtPharmacy && !f.paper.verifiedAt;
+}
+
+/** Where the original paper prescription is. */
+export function paperStage(f: Pick<PharmacyOrder, 'status' | 'paper'>): string {
+  const p = f.paper;
+  if (!p) return '';
+  if (p.verifiedAt) return 'Checked and kept. Prepare the order.';
+  if (f.status === 'CANCELLED') return 'The order was cancelled.';
+  if (p.collectedAt && p.driverAtPharmacy) return 'The driver is here with the paper: check it against the order.';
+  if (p.collectedAt) return 'The driver has the paper and is on the way to you.';
+  return f.status === 'PENDING' ? 'Accept the order: a driver then collects the paper from the customer.' : 'A driver is collecting the paper from the customer.';
 }
 
 /** The payment column: COD, paid, or still to be paid. */
@@ -191,6 +216,11 @@ export function createPharmacyOrdersService(request: SessionRequest) {
     /** Both attestations are required by the server. A COD order is then confirmed; a prepaid one waits for the customer to pay. */
     approvePrescription: (fulfillmentId: string, attest: { legibilityOk: boolean; validityOk: boolean }) =>
       request<unknown>(`/pharmacy/orders/${encodeURIComponent(fulfillmentId)}/prescription/approve`, { method: 'POST', body: attest }),
+    /** Work 137: the original paper matches; the pharmacist keeps it (Work 136). */
+    verifyPaper: (fulfillmentId: string) => request<unknown>(`/pharmacy/orders/${encodeURIComponent(fulfillmentId)}/paper-prescription/verify`, { method: 'POST' }),
+    /** Work 137: the paper does not match: the order is cancelled. */
+    rejectPaper: (fulfillmentId: string, reason: string) =>
+      request<unknown>(`/pharmacy/orders/${encodeURIComponent(fulfillmentId)}/paper-prescription/reject`, { method: 'POST', body: { reason: reason.trim() } }),
     /** Cancels the order and releases its stock; the customer sees the reason. */
     rejectPrescription: (fulfillmentId: string, reason: string) =>
       request<unknown>(`/pharmacy/orders/${encodeURIComponent(fulfillmentId)}/prescription/reject`, { method: 'POST', body: { reason: reason.trim() } }),
