@@ -98,3 +98,29 @@ describe('driver tracking socket', () => {
     expect(onError).toHaveBeenCalledWith({ code: 'FORBIDDEN' })
   })
 })
+
+describe('the original paper prescription round trip (Work 139)', () => {
+  const job = (status, paper) => ({ status, pickupAddress: 'Bole Pharmacy', dropoffAddress: 'Bole Road 12', paper })
+
+  it('goes to the customer first for the paper, then the pharmacy, then waits for the medicine', async () => {
+    const { collectsPaperFirst, headline, waitsForPharmacist } = await import('./jobSteps')
+    const first = job('ASSIGNED', { collectedAt: null, goodsReady: false })
+    expect(collectsPaperFirst(first)).toBe(true)
+    expect(nextStep('ASSIGNED', first)).toMatchObject({ action: 'paper-collected' })
+    expect(destination(first)).toMatchObject({ kind: 'dropoff', address: 'Bole Road 12' })
+    expect(headline(first)).toMatch(/Collect the paper/)
+
+    const collected = job('ASSIGNED', { collectedAt: '2026-11-18T10:00:00Z', goodsReady: false })
+    expect(nextStep('ASSIGNED', collected)).toMatchObject({ action: 'arrived-pickup' })
+    expect(destination(collected)).toMatchObject({ kind: 'pickup' })
+
+    const waiting = job('ARRIVED_PICKUP', { collectedAt: '2026-11-18T10:00:00Z', goodsReady: false })
+    expect(waitsForPharmacist(waiting)).toBe(true)
+    expect(nextStep('ARRIVED_PICKUP', waiting)).toBeNull()
+    expect(nextStep('ARRIVED_PICKUP', { ...waiting, paper: { ...waiting.paper, goodsReady: true } })).toMatchObject({ action: 'picked-up' })
+
+    // A job without the paper is unchanged.
+    expect(nextStep('ASSIGNED', job('ASSIGNED', null))).toMatchObject({ action: 'arrived-pickup' })
+    expect(headline(job('ASSIGNED', null))).toBe('Go to the pharmacy')
+  })
+})
