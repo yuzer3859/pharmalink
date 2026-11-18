@@ -1,4 +1,5 @@
-import { Controller, Get, Inject, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Optional, Query } from '@nestjs/common';
+import { DELIVERY_PAPER_REPOSITORY, IDeliveryPaperRepository } from '../../domain/repositories/delivery-paper.repository';
 import { CONFIG_PORT, IConfigPort } from '../../../../shared/config/config.port';
 import { resolveCodSettings } from '../../application/services/cod-settings';
 import { resolvePodSettings } from '../../application/services/pod-requirement';
@@ -57,6 +58,7 @@ export class DriverJobsListController {
   constructor(
     private readonly jobs: ListDriverJobsQuery,
     @Inject(CONFIG_PORT) private readonly config: IConfigPort,
+    @Optional() @Inject(DELIVERY_PAPER_REPOSITORY) private readonly paper?: IDeliveryPaperRepository,
   ) {}
 
   @Get()
@@ -65,7 +67,7 @@ export class DriverJobsListController {
     @CurrentUser() user: AuthenticatedPrincipal,
     @Query() query: ListDriverJobsQueryDto,
   ): Promise<DriverJobsPageResponse> {
-    return toDriverJobsPageResponse(
+    const page = toDriverJobsPageResponse(
       await this.jobs.execute({
         // From the token, never from the request.
         userId: user.userId,
@@ -76,5 +78,15 @@ export class DriverJobsListController {
       // Work 121: each job says what completing it demands, from the live settings.
       { pod: resolvePodSettings(this.config), cod: resolveCodSettings(this.config) },
     );
+    // Work 139: a job carrying the original paper prescription says where that round trip is (Work 136).
+    if (this.paper) {
+      for (const job of [...page.items, ...page.offers.map((o) => o.job)]) {
+        const state = await this.paper.findByJobId(job.jobId);
+        job.paper = state?.paperRxRequired
+          ? { collectedAt: state.paperCollectedAt?.toISOString() ?? null, goodsReady: state.goodsReadyAt !== null }
+          : null;
+      }
+    }
+    return page;
   }
 }

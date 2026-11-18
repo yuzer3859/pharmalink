@@ -98,6 +98,10 @@ describe('The original paper prescription round trip (Work 136)', () => {
     // The pharmacist cannot check a paper the driver has not brought.
     await pharmacist.post(`/pharmacy/orders/${fulfillment.id}/paper-prescription/verify`).expect(400);
 
+    // Work 139: the driver's job list says the paper comes first.
+    const before = body(await d.get('/driver/jobs').expect(200)) as { items: Array<{ jobId: string; paper: unknown }> };
+    expect(before.items.find((j) => j.jobId === jobId)?.paper).toEqual({ collectedAt: null, goodsReady: false });
+
     const collected = body(await d.post(`/delivery/jobs/${jobId}/paper-collected`).expect(200));
     expect(collected.paperCollectedAt).toEqual(expect.any(String));
     await d.post(`/delivery/jobs/${jobId}/paper-collected`).expect(200); // repeating it changes nothing

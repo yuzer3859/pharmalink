@@ -96,3 +96,27 @@ describe('the active job (Work 120)', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/changed meanwhile/)
   })
 })
+
+describe('a job carrying the original paper prescription (Work 139)', () => {
+  it('sends the driver to the customer for the paper, then to the pharmacy, then waits for the medicine', async () => {
+    const backend = await openJob({
+      'GET /driver/jobs': [
+        page(job('ASSIGNED', { paper: { collectedAt: null, goodsReady: false } })),
+        page(job('ASSIGNED', { paper: { collectedAt: '2026-11-18T10:00:00Z', goodsReady: false } })),
+        page(job('ARRIVED_PICKUP', { paper: { collectedAt: '2026-11-18T10:00:00Z', goodsReady: false } })),
+      ],
+      'POST /delivery/jobs/job-1/paper-collected': ok({}),
+      'POST /delivery/jobs/job-1/arrived-pickup': ok({}),
+    })
+    expect(await screen.findByText('Collect the paper prescription from the customer')).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Destination' }).textContent).toMatch(/Bole Road 12/)
+    fireEvent.click(screen.getByRole('button', { name: 'I have the paper prescription' }))
+    expect(await screen.findByText(/Take it to the pharmacy/)).toBeTruthy()
+    await waitFor(() => expect(backend.callsTo('POST /delivery/jobs/job-1/paper-collected')).toHaveLength(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'I am at the pharmacy' }))
+    expect(await screen.findByText(/the pharmacist is checking the paper/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'I have picked up the order' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeTruthy()
+  })
+})

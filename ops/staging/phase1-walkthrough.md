@@ -149,6 +149,30 @@ the payment is captured at this point (Work 96).
 Every sign-in needs your password, and for finance your authenticator code. You type them
 yourself.
 
+## 10. Prescription request: send it to nearby pharmacies (Works 134–139)
+
+This is the owner's ride-hailing style request (decision of 2026-11-17), alongside the cart checkout. Pharmacies within 10 km of the address, with a pharmacist, are offered it, and the first to accept owns it. `backend/docs/rx-requests.md` has the rules and settings.
+
+1. **Customer** (app): Home → **Send a prescription**. Upload a PDF or photo, keep today's date, choose the address, and **Send to nearby pharmacies**. The page reads *Looking for a pharmacy* and how many pharmacies are considering it.
+   - A date older than 14 days is refused.
+2. **Pharmacist** (portal, `owner.bole@`): **Prescription requests** shows it within 10 seconds, with the customer's name. Open it, **Open the prescription**, then **Accept**.
+   - A second pharmacist accepting the same request is told it's no longer available.
+   - The customer's page reads *Seed Bole Pharmacy accepted it*.
+3. **Quote:** add a medicine from the branch's stock with a quantity, confirm the date, choose **Required** under *Original paper prescription*, tick both attestations, then **Send the quote**.
+4. **Customer:** the page shows the medicines, the total and *Keep the original paper prescription ready*. Choose **Cash on delivery**, then **Confirm and place order**. The order opens; it is paid, and the prescription is approved by the pharmacist.
+5. **Pharmacy:** on **Orders**, **Accept** the order. Preparing isn't offered yet, because the paper comes first.
+6. **Driver** (driver app, `driver.walk@`): accept the offer.
+   - The job reads *Collect the paper prescription from the customer*. Press **I have the paper prescription**, then **I am at the pharmacy**.
+   - It waits while the pharmacist checks the paper.
+7. **Pharmacist:** in the order, choose **The paper matches: keep it**, then **Start preparing** and **Ready for pickup**.
+   - **It does not match** with a reason cancels the order and its delivery instead.
+8. **Driver:** **Check again**, then **I have picked up the order**, and deliver as in step 8.
+
+Other paths to try:
+- **Let it go:** after accepting, **We cannot fill it** offers the request to the other pharmacies again, and the customer is told.
+- **Decline the quote:** the customer's **Decline** ends the request, and the pharmacy is told.
+- **Time limits:** an unanswered request expires after 30 minutes; an unquoted acceptance reopens after 15.
+
 ## Record the result
 
 In `architecture/phase-1-status.md`, note the date, the order numbers and any step that didn't

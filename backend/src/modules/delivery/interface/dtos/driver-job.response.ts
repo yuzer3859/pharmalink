@@ -44,6 +44,11 @@ export interface DriverJobSummaryResponse {
   createdAt: string;
   /** Work 121: present on `GET /driver/jobs`; what completing the job demands. */
   rules?: DriverJobDeliveryRules;
+  /**
+   * Work 139: on `GET /driver/jobs`, the original paper prescription's round trip, or `null` when
+   * the job does not carry one: collect it from the customer first, then the pharmacy, then the medicine.
+   */
+  paper?: { collectedAt: string | null; goodsReady: boolean } | null;
 }
 
 /**

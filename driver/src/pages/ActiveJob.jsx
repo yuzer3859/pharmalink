@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { birr } from '../jobs/driverService'
 import { useDriverJobs, useDriverService } from '../jobs/hooks'
-import { canFail, destination, mapsLink, nextStep, sharesLiveLocation, STATUS_TEXT, stepErrorMessage } from '../jobs/jobSteps'
+import { canFail, collectsPaperFirst, destination, headline, mapsLink, nextStep, sharesLiveLocation, stepErrorMessage, waitsForPharmacist } from '../jobs/jobSteps'
 import { useJobTracking } from '../jobs/useJobTracking'
 
 const TRACKING_TEXT = {
@@ -29,7 +29,7 @@ export default function ActiveJob() {
   const [failing, setFailing] = useState(false)
   const [reason, setReason] = useState('')
 
-  const step = job ? nextStep(job.status) : null
+  const step = job ? nextStep(job.status, job) : null
   const to = destination(job)
 
   async function run(action) {
@@ -57,7 +57,20 @@ export default function ActiveJob() {
   return (
     <main className="mx-auto max-w-md px-5 py-6">
       <Link to="/" className="text-sm font-semibold text-brand-700">← All deliveries</Link>
-      <h1 className="mt-2 text-xl font-bold">{STATUS_TEXT[job.status] ?? job.status}</h1>
+      <h1 className="mt-2 text-xl font-bold">{headline(job)}</h1>
+
+      {job.paper ? (
+        // Work 139: the original paper prescription's round trip (Work 136).
+        <p className="mt-3 rounded-lg bg-warning-soft px-3 py-2 text-sm" role="note">
+          {collectsPaperFirst(job)
+            ? 'This delivery needs the original paper prescription. Go to the customer first and take the paper; then take it to the pharmacy.'
+            : waitsForPharmacist(job)
+              ? 'Give the paper to the pharmacist. Wait here: you pick the medicine up once they have checked it and prepared the order.'
+              : job.status === 'ASSIGNED'
+                ? 'You have the paper prescription. Take it to the pharmacy.'
+                : 'The pharmacist has the paper prescription.'}
+        </p>
+      ) : null}
 
       {to ? (
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4" aria-label="Destination">
@@ -78,6 +91,11 @@ export default function ActiveJob() {
       {live && TRACKING_TEXT[tracking.status] ? <p className="mt-3 text-xs text-slate-600" role="status">{TRACKING_TEXT[tracking.status]}</p> : null}
 
       {state.error ? <p role="alert" className="mt-3 text-sm text-danger">{state.error}</p> : null}
+      {waitsForPharmacist(job) ? (
+        <button type="button" disabled={state.busy} onClick={() => run(async () => {})} className="mt-5 w-full rounded-lg border border-slate-300 py-3 font-semibold">
+          {state.busy ? 'Checking…' : 'Check again'}
+        </button>
+      ) : null}
 
       {step ? (
         <button

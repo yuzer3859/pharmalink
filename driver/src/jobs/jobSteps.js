@@ -8,14 +8,39 @@ const STEPS = {
   EN_ROUTE: { action: 'arrived-dropoff', label: 'I have arrived at the customer', next: 'ARRIVED_DROPOFF' },
 }
 
-/** The next status step, or null when the next thing is proof of delivery (or nothing). */
-export function nextStep(status) {
+/**
+ * Work 139: a job carrying the original paper prescription (Work 136) starts at the customer — the
+ * driver collects the paper, takes it to the pharmacist, and picks the medicine up once it is ready.
+ */
+export function collectsPaperFirst(job) {
+  return !!job?.paper && !job.paper.collectedAt && job.status === 'ASSIGNED'
+}
+
+/** At the pharmacy with the paper, while the pharmacist checks it and prepares the medicine. */
+export function waitsForPharmacist(job) {
+  return !!job?.paper && job.status === 'ARRIVED_PICKUP' && !job.paper.goodsReady
+}
+
+const COLLECT_PAPER = { action: 'paper-collected', label: 'I have the paper prescription', next: 'ASSIGNED' }
+
+/** The next status step, or null when the next thing is proof of delivery (or nothing, or waiting). */
+export function nextStep(status, job) {
+  if (job && collectsPaperFirst(job)) return COLLECT_PAPER
+  if (job && waitsForPharmacist(job)) return null
   return STEPS[status] ?? null
+}
+
+/** The heading: the status, or the paper's own first leg. */
+export function headline(job) {
+  if (collectsPaperFirst(job)) return 'Collect the paper prescription from the customer'
+  if (waitsForPharmacist(job)) return 'At the pharmacy: the pharmacist is checking the paper'
+  return STATUS_TEXT[job?.status] ?? job?.status
 }
 
 /** Where the driver is heading now: the pharmacy until pickup, then the customer. */
 export function destination(job) {
   if (!job) return null
+  if (collectsPaperFirst(job)) return { kind: 'dropoff', label: 'Customer: collect the paper prescription', address: job.dropoffAddress }
   const toPharmacy = job.status === 'ASSIGNED' || job.status === 'ARRIVED_PICKUP'
   return toPharmacy
     ? { kind: 'pickup', label: 'Pharmacy', address: job.pickupAddress }
