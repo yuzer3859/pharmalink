@@ -1,7 +1,9 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNotify } from '@/context/NotificationContext';
 import { ApiError } from '@/services/apiClient';
-import { pharmacyRxRequestsService, type QuoteInput } from '@/services/pharmacyRxRequests.service';
+import { newlyArrived, pharmacyRxRequestsService, rxRequestsWaiting, type QuoteInput } from '@/services/pharmacyRxRequests.service';
+import { playChime } from '@/utils/chime';
 
 const KEY = ['pharmacy-rx-requests'] as const;
 
@@ -24,6 +26,37 @@ export function usePharmacyRxRequest(id: string | null) {
     enabled: !!id,
     refetchInterval: REFRESH_MS,
   });
+}
+
+/**
+ * Work 140: the portal-wide alert. Polls what is waiting for the pharmacy on every page, and chimes
+ * when a request arrives that was not there at the last check (not for the ones already waiting
+ * when the portal opens). Call it once, in the layout.
+ */
+export function useRxRequestAlert(enabled: boolean): { toAnswer: number; toQuote: number } {
+  const query = useQuery({
+    queryKey: [...KEY, 'alert'] as const,
+    queryFn: () => pharmacyRxRequestsService.list('active', 1, 50),
+    enabled,
+    refetchInterval: REFRESH_MS,
+    refetchIntervalInBackground: true,
+    retry: false,
+  });
+  const seen = useRef<Set<string> | null>(null);
+  const waiting = useMemo(() => rxRequestsWaiting(query.data?.items ?? []), [query.data]);
+
+  useEffect(() => {
+    if (!query.data) return;
+    if (seen.current === null) {
+      seen.current = new Set(waiting.toAnswer);
+      return;
+    }
+    const arrived = newlyArrived(seen.current, waiting.toAnswer);
+    for (const id of arrived) seen.current.add(id);
+    if (arrived.length) playChime();
+  }, [query.data, waiting]);
+
+  return enabled ? { toAnswer: waiting.toAnswer.length, toQuote: waiting.toQuote.length } : { toAnswer: 0, toQuote: 0 };
 }
 
 export function rxRequestErrorMessage(error: unknown, fallback = 'The action could not be completed.'): string {

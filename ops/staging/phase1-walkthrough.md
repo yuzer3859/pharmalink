@@ -155,7 +155,7 @@ This is the owner's ride-hailing style request (decision of 2026-11-17), alongsi
 
 1. **Customer** (app): Home → **Send a prescription**. Upload a PDF or photo, keep today's date, choose the address, and **Send to nearby pharmacies**. The page reads *Looking for a pharmacy* and how many pharmacies are considering it.
    - A date older than 14 days is refused.
-2. **Pharmacist** (portal, `owner.bole@`): **Prescription requests** shows it within 10 seconds, with the customer's name. Open it, **Open the prescription**, then **Accept**.
+2. **Pharmacist** (portal, `owner.bole@`): **Prescription requests** shows it within 10 seconds, with the customer's name. On any other portal page, a banner with **Open**, a count beside **Prescription requests** and a short chime announce it (Work 140). Open it, **Open the prescription**, then **Accept**.
    - A second pharmacist accepting the same request is told it's no longer available.
    - The customer's page reads *Seed Bole Pharmacy accepted it*.
 3. **Quote:** add a medicine from the branch's stock with a quantity, confirm the date, choose **Required** under *Original paper prescription*, tick both attestations, then **Send the quote**.

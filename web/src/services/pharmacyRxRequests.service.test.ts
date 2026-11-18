@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SessionRequest } from './auth.service';
 import {
   createPharmacyRxRequestsService,
+  newlyArrived,
   quoteProblem,
   reasonProblem,
   rxRequestActions,
+  rxRequestAlertText,
+  rxRequestsWaiting,
   rxRequestQuery,
   rxRequestStage,
   type PharmacyRxRequest,
@@ -77,5 +80,35 @@ describe('pharmacyRxRequestsService', () => {
     expect(request).toHaveBeenLastCalledWith('/pharmacy/rx-requests/r-1/release', { method: 'POST', body: { reason: 'Ran out' } });
     await service.quote('r-1', { ...quote, note: '  Generic brand ', paperRequired: true });
     expect(request).toHaveBeenLastCalledWith('/pharmacy/rx-requests/r-1/quote', { method: 'POST', body: { ...quote, paperRequired: true, note: 'Generic brand' } });
+  });
+});
+
+describe('the portal-wide alert for waiting requests (Work 140)', () => {
+  const item = (id: string, status: PharmacyRxRequest['status'], offer: PharmacyRxRequest['offer']['status'], mine = false) => ({ id, ...r(status, offer, mine) });
+
+  it('counts the open offers to answer and the accepted ones to quote, nothing else', () => {
+    const waiting = rxRequestsWaiting([
+      item('a', 'OPEN', 'OPEN'),
+      item('b', 'OPEN', 'DECLINED'),
+      item('c', 'CLAIMED', 'WON', true),
+      item('d', 'CLAIMED', 'TAKEN'),
+      item('e', 'QUOTED', 'WON', true),
+      item('f', 'OPEN', 'OPEN'),
+    ]);
+    expect(waiting).toEqual({ toAnswer: ['a', 'f'], toQuote: ['c'] });
+  });
+
+  it('finds the requests not seen at the last check', () => {
+    expect(newlyArrived(new Set(['a']), ['a', 'b', 'c'])).toEqual(['b', 'c']);
+    expect(newlyArrived(new Set(['a', 'b']), ['b'])).toEqual([]);
+  });
+
+  it('says what is waiting in one sentence each, or nothing', () => {
+    expect(rxRequestAlertText({ toAnswer: 0, toQuote: 0 })).toBeNull();
+    expect(rxRequestAlertText({ toAnswer: 1, toQuote: 0 })).toBe('A new prescription request is waiting for your answer.');
+    expect(rxRequestAlertText({ toAnswer: 3, toQuote: 2 })).toBe(
+      '3 new prescription requests are waiting for your answer. 2 requests you accepted are waiting for their medicines and price.',
+    );
+    expect(rxRequestAlertText({ toAnswer: 0, toQuote: 1 })).toBe('A request you accepted is waiting for its medicines and price.');
   });
 });
