@@ -366,7 +366,7 @@ proved it end to end with no `staging:actors` stand-ins. The scripts stay for au
 | 127 | #80 | Operations portal: COD cash received and reconciled |
 | 128 | — | Second live walk recorded; walkthrough rewritten for the apps; close-out |
 
-**Amharic (G12):** reviewed by the owner on 2026-11-16 and applied in Work 131. Everything else
+**Amharic (G12):** reviewed by the owner on 2026-11-16 and applied in Work 131. The prescription request notifications (Works 134–135) were reviewed on 2026-11-18 and applied in Work 142. Everything else
 in "Not built, or still open" that is not done is outside this mission: the real Telebirr
 gateway, payout destination rules, COD corrections after remittance, Phase 3 search, and
 Modules 09–12.

@@ -39,7 +39,7 @@ Owner decision of 2026-11-17: a customer who doesn't know what to pick sends a p
 11. **If nobody accepts within `rxRequests.offerMinutes`**, the request ends `EXPIRED`.
 12. **The customer can cancel** while no quote has been sent.
 
-The customer is notified at each change of state. The Amharic of the six new templates is a draft awaiting the owner's review.
+The customer is notified at each change of state. The Amharic of the seven templates was reviewed by the owner, a native speaker, on 2026-11-18 (Work 142).
 
 ## Prescription date
 
