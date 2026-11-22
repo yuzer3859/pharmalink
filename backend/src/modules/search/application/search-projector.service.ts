@@ -77,6 +77,7 @@ export class SearchProjectorService {
       dosageForm: source.dosageForm,
       strength: source.strength,
       categories: source.categories,
+      imageUrl: source.imageUrl,
     } as unknown as Prisma.InputJsonValue;
     const data = {
       title: source.nameEn ?? source.genericName ?? source.brandName ?? source.nameAm ?? '',

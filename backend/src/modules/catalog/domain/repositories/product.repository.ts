@@ -28,6 +28,8 @@ export interface ProductSummaryRow {
   rxClassification: string | null;
   manufacturerName: string | null;
   primaryCategoryId: string | null;
+  /** Work 145: the product's main image (primary, else the first), or `null`. */
+  imageUrl: string | null;
 }
 
 export interface SearchProductsCriteria {
@@ -57,6 +59,10 @@ export interface IProductRepository {
   setCategories(productId: string, categoryIds: string[], tx?: unknown): Promise<void>;
   /** Category ids currently assigned to a product (§8.1 detail view `categories[]`). */
   categoryIdsFor(productId: string): Promise<string[]>;
+  /** Work 145: replaces the product's images; the first URL is the primary one. */
+  setImages(productId: string, urls: string[], tx?: unknown): Promise<void>;
+  /** Work 145: the product's image URLs, primary first, then in their order. */
+  imageUrlsFor(productId: string): Promise<string[]>;
   /**
    * Returns the id of an existing, non-deleted `MEDICINE` product matching `criteria`
    * (case-insensitive on `genericName`), excluding `excludeId` (for PATCH re-checks), or `null`

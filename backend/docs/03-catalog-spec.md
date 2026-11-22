@@ -594,3 +594,9 @@ Following `00-implementation-roadmap.md` §5 and the proof-of-pattern establishe
 ---
 
 **Next step:** Architect review is complete (§14) and the spec is **READY FOR IMPLEMENTATION**. Implementation proceeds per the folder layout in §10, in the order: domain → application → infrastructure → interface → tests (per `00-implementation-roadmap.md` §1 and §5), following the exact hardening pattern (transactional outbox, audit-in-transaction, Serializable isolation, bounded retry) already proven in Module 02.
+
+## Work 145: product images
+
+- `POST`/`PATCH /admin/catalog/products` take `images`: up to 8 URLs, in order; the first is the main image. Each is an `https://` URL or a path on the customer app's own site (`/products/…`). Protocol-relative (`//host`), `http:`, `javascript:` and anything with spaces or quotes are refused. On `PATCH`, the list replaces the images, and `[]` removes them. The change is audited as `PRODUCT_UPDATED` with the field `images`, and `catalog.product.updated` refreshes search.
+- The product detail returns `images` (primary first) and `imageUrl`; list rows and search hits return `imageUrl` (or `null`).
+- Images live in `product_images` (`isPrimary`, `sortOrder`); the table existed but was unused before.

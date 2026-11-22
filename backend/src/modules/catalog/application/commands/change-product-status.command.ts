@@ -96,12 +96,14 @@ export class ChangeProductStatusCommand {
 
     const categoryIds = await this.products.categoryIdsFor(product.id);
     const categoryEntities = await this.categories.findManyByIds(categoryIds);
+    const images = await this.products.imageUrlsFor(product.id);
     return toProductDetailView(
       product,
       categoryEntities.map((c) => {
         const props = c.toProps();
         return { id: props.id, slug: props.slug, nameAm: props.nameAm, nameEn: props.nameEn };
       }),
+      images,
     );
   }
 }

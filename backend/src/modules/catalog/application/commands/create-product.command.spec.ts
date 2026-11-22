@@ -24,6 +24,8 @@ function build() {
     save: jest.fn(),
     setCategories: jest.fn().mockResolvedValue(undefined),
     categoryIdsFor: jest.fn().mockResolvedValue([]),
+    setImages: jest.fn().mockResolvedValue(undefined),
+    imageUrlsFor: jest.fn().mockResolvedValue([]),
     findDuplicateCandidate: jest.fn().mockResolvedValue(null),
     search: jest.fn(),
     listByCategory: jest.fn(),

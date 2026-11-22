@@ -22,6 +22,8 @@ export interface SearchProductSource {
   controlledSchedule: string;
   onlineSaleProhibited: boolean;
   categories: Array<{ categoryId: string; slug: string; nameEn: string | null; nameAm: string | null }>;
+  /** Work 145: the main image, or `null`. */
+  imageUrl: string | null;
 }
 
 export interface ICatalogSearchSourcePort {

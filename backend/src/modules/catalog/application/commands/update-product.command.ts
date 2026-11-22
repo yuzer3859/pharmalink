@@ -39,6 +39,8 @@ export interface UpdateProductInput {
   warnings?: string;
   price?: number | null;
   categoryIds?: string[];
+  /** Work 145: replaces the images; the first URL is the primary one. */
+  images?: string[];
 }
 
 const DEDUP_KEY_FIELDS: (keyof UpdateProductInput)[] = [
@@ -147,6 +149,10 @@ export class UpdateProductCommand {
           changedFields.push('categoryIds');
         }
       }
+      if (input.images !== undefined) {
+        await this.products.setImages(found.id, input.images, tx);
+        changedFields.push('images');
+      }
 
       await this.audit.record(
         {
@@ -180,12 +186,14 @@ export class UpdateProductCommand {
 
     const categoryIds = await this.products.categoryIdsFor(product.id);
     const categoryEntities = await this.categories.findManyByIds(categoryIds);
+    const images = await this.products.imageUrlsFor(product.id);
     return toProductDetailView(
       product,
       categoryEntities.map((c) => {
         const props = c.toProps();
         return { id: props.id, slug: props.slug, nameAm: props.nameAm, nameEn: props.nameEn };
       }),
+      images,
     );
   }
 }
