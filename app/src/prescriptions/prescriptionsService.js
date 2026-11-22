@@ -1,4 +1,5 @@
 import { ApiError } from '../auth/apiClient'
+import { t } from '../auth/strings'
 
 // Work 101: the customer's prescriptions (Module 05) with their files in document storage. The file
 // goes straight to storage through a signed, short-lived link; the API then records it.
@@ -7,13 +8,13 @@ export const PRESCRIPTION_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/
 export const MAX_PRESCRIPTION_BYTES = 10 * 1024 * 1024
 
 const isRecord = (value) => typeof value === 'object' && value !== null
-const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', 'The server sent an unexpected response.')
+const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', t('common.unexpected'))
 
 /** A refusal before any network call: the wrong kind of file, or too big. */
 export function checkFile(file) {
-  if (!file) return 'Choose a file.'
-  if (!PRESCRIPTION_FILE_TYPES.includes(file.type)) return 'Choose a PDF, JPEG or PNG file.'
-  if (file.size < 1 || file.size > MAX_PRESCRIPTION_BYTES) return 'The file must be smaller than 10 MB.'
+  if (!file) return t('rx.error.chooseFile')
+  if (!PRESCRIPTION_FILE_TYPES.includes(file.type)) return t('rx.error.type')
+  if (file.size < 1 || file.size > MAX_PRESCRIPTION_BYTES) return t('rx.error.size')
   return null
 }
 
@@ -41,9 +42,9 @@ export function createPrescriptionsService({ request, fetcher = (...args) => fet
           body: file,
         })
       } catch {
-        throw new ApiError(0, 'NETWORK_ERROR', 'The file could not be uploaded. Check your connection and try again.')
+        throw new ApiError(0, 'NETWORK_ERROR', t('rx.error.offline'))
       }
-      if (!stored.ok) throw new ApiError(stored.status, 'UPLOAD_FAILED', 'The file could not be uploaded. Try again.')
+      if (!stored.ok) throw new ApiError(stored.status, 'UPLOAD_FAILED', t('rx.error.failed'))
       const body = { fileRef: issued.fileRef, fileType: file.type }
       if (doctorName?.trim()) body.doctorName = doctorName.trim()
       if (hospitalName?.trim()) body.hospitalName = hospitalName.trim()

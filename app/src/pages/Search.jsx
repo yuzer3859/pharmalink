@@ -5,13 +5,15 @@ import { Button, Card, Badge, Input, Segmented, Skeleton } from '../components/u
 import { formatMinorUnits } from '../lib/utils'
 import { RxBadge } from './Medicines'
 import { SEARCH_PAGE_SIZE, requestLocation, useSearch } from '../search/searchService'
+import { t } from '../auth/strings'
 
 const SEARCH_DEBOUNCE_MS = 350
 
+// Labels are message keys, read with t() when drawn (Work 143).
 const rxOptions = [
-  { value: '', label: 'Any' },
-  { value: 'RX', label: 'Prescription (Rx)' },
-  { value: 'OTC', label: 'Over the counter' },
+  { value: '', label: 'common.any' },
+  { value: 'RX', label: 'common.rx' },
+  { value: 'OTC', label: 'common.otc' },
 ]
 
 function readFilters(params) {
@@ -29,7 +31,7 @@ function readFilters(params) {
 
 function distance(meters) {
   if (meters == null) return null
-  return meters < 1000 ? `${meters} m away` : `${(meters / 1000).toFixed(1)} km away`
+  return meters < 1000 ? `${meters} m` : `${(meters / 1000).toFixed(1)} km`
 }
 
 function ResultCard({ hit }) {
@@ -57,11 +59,12 @@ function ResultCard({ hit }) {
           <p className="mt-2 text-caption" data-testid="availability">
             {a.pharmacyCount > 0 ? (
               <span className="text-success">
-                {a.pharmacyCount === 1 ? '1 pharmacy' : `${a.pharmacyCount} pharmacies`} · from {formatMinorUnits(a.minPrice, a.currency)}
-                {distance(a.nearestDistanceMeters) ? ` · nearest ${distance(a.nearestDistanceMeters)}` : ''}
+                {a.pharmacyCount === 1 ? t('search.pharmacies.one') : t('search.pharmacies.many', { count: a.pharmacyCount })}{' '}
+                {t('search.from', { price: formatMinorUnits(a.minPrice, a.currency) })}
+                {distance(a.nearestDistanceMeters) ? ` ${t('search.nearest', { distance: distance(a.nearestDistanceMeters) })}` : ''}
               </span>
             ) : (
-              <span className="text-muted">Not available {hit.availability.nearestDistanceMeters === null ? 'right now' : 'nearby'}</span>
+              <span className="text-muted">{t(hit.availability.nearestDistanceMeters === null ? 'search.notNow' : 'search.notNearby')}</span>
             )}
           </p>
         </div>
@@ -131,39 +134,39 @@ export default function SearchPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-h1 text-fg">Search</h1>
-        <p className="text-body text-muted">Find a medicine by its English or Amharic name and see which pharmacies have it now.</p>
+        <h1 className="font-display text-h1 text-fg">{t('search.title')}</h1>
+        <p className="text-body text-muted">{t('search.subtitle')}</p>
       </div>
 
       <div className="space-y-3">
         <Input
           type="search"
           role="searchbox"
-          aria-label="Search medicines"
+          aria-label={t('search.label')}
           icon={SearchIcon}
-          placeholder="e.g. paracetamol, ፓራሲታሞል"
+          placeholder={t('search.placeholder')}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
         <div className="flex flex-wrap items-center gap-3">
-          <Segmented options={rxOptions} value={filters.rx} onChange={(rx) => update({ rx })} />
+          <Segmented options={rxOptions.map((o) => ({ ...o, label: t(o.label) }))} value={filters.rx} onChange={(rx) => update({ rx })} />
           {filters.location ? (
             <>
-              <Badge tone="info"><MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Near you</Badge>
+              <Badge tone="info"><MapPin className="h-3.5 w-3.5" aria-hidden="true" /> {t('search.nearYou')}</Badge>
               <label className="flex items-center gap-2 text-caption text-muted">
                 <input type="checkbox" checked={filters.availableOnly} onChange={(e) => update({ available: e.target.checked ? '1' : '' })} />
-                Available nearby only
+                {t('search.nearbyOnly')}
               </label>
-              <Button variant="ghost" size="sm" onClick={() => update({ lat: '', lng: '', available: '' })}>Clear location</Button>
+              <Button variant="ghost" size="sm" onClick={() => update({ lat: '', lng: '', available: '' })}>{t('search.clearLocation')}</Button>
             </>
           ) : (
             <Button variant="secondary" size="sm" onClick={nearMe} disabled={locating}>
-              <Navigation className="h-4 w-4" aria-hidden="true" /> {locating ? 'Finding you…' : 'Near me'}
+              <Navigation className="h-4 w-4" aria-hidden="true" /> {t(locating ? 'checkout.location.finding' : 'search.nearMe')}
             </Button>
           )}
         </div>
         {locationRefused && (
-          <p role="status" className="text-caption text-muted">Your location isn't available, so results are not sorted by distance.</p>
+          <p role="status" className="text-caption text-muted">{t('search.noLocation')}</p>
         )}
       </div>
 
@@ -173,27 +176,27 @@ export default function SearchPage() {
         )}
         {results.status === 'error' && (
           <Card className="flex flex-col items-center gap-3 p-8 text-center">
-            <p className="text-body text-fg">Search isn't available right now.</p>
+            <p className="text-body text-fg">{t('search.unavailable')}</p>
             <Button variant="secondary" size="sm" onClick={() => setAttempt((n) => n + 1)}>
-              <RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again
+              <RefreshCw className="h-4 w-4" aria-hidden="true" /> {t('common.tryAgain')}
             </Button>
           </Card>
         )}
         {results.status === 'ready' && results.items.length === 0 && (
           <Card className="flex flex-col items-center gap-2 p-8 text-center">
             <PackageSearch className="h-8 w-8 text-subtle" aria-hidden="true" />
-            <p className="text-body text-fg">No medicines match {filters.q ? `“${filters.q}”` : 'these filters'}.</p>
+            <p className="text-body text-fg">{filters.q ? t('search.noMatch.query', { query: filters.q }) : t('search.noMatch.filters')}</p>
           </Card>
         )}
         {results.status === 'ready' && results.items.length > 0 && (
           <div className="space-y-3">
-            <p className="text-caption text-muted">{results.total === 1 ? '1 result' : `${results.total} results`}</p>
+            <p className="text-caption text-muted">{results.total === 1 ? t('search.count.one') : t('search.count.many', { count: results.total })}</p>
             {results.items.map((hit) => <ResultCard key={hit.productId} hit={hit} />)}
             {pages > 1 && (
               <div className="flex items-center justify-between pt-2">
-                <Button variant="ghost" size="sm" disabled={filters.page <= 1} onClick={() => update({ page: filters.page - 1 }, { resetPage: false })}>Previous</Button>
-                <span className="text-caption text-muted">Page {filters.page} of {pages}</span>
-                <Button variant="ghost" size="sm" disabled={filters.page >= pages} onClick={() => update({ page: filters.page + 1 }, { resetPage: false })}>Next</Button>
+                <Button variant="ghost" size="sm" disabled={filters.page <= 1} onClick={() => update({ page: filters.page - 1 }, { resetPage: false })}>{t('common.previous')}</Button>
+                <span className="text-caption text-muted">{t('common.pageOf', { page: filters.page, pages })}</span>
+                <Button variant="ghost" size="sm" disabled={filters.page >= pages} onClick={() => update({ page: filters.page + 1 }, { resetPage: false })}>{t('common.next')}</Button>
               </div>
             )}
           </div>
@@ -201,7 +204,7 @@ export default function SearchPage() {
       </section>
 
       <p className="text-caption text-subtle">
-        Prefer to browse? <Link to="/medicines" className="font-semibold text-brand-600">See the full catalogue</Link>
+        {t('search.browse')} <Link to="/medicines" className="font-semibold text-brand-600">{t('search.catalogue')}</Link>
       </p>
     </div>
   )

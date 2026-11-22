@@ -9,19 +9,22 @@ import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/theme'
 import { cn } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
-import { t } from '../auth/strings'
+import { t, useLanguage } from '../auth/strings'
 import { Avatar, Button, Input, Skeleton } from './ui'
 
 const nav = [
-  { to: '/', label: 'Home', icon: Home },
-  { to: '/medicines', label: 'Medicines', icon: Pill },
-  { to: '/prescriptions', label: 'Prescriptions', icon: Upload },
-  { to: '/requests', label: 'Requests', icon: Send },
-  { to: '/doctors', label: 'Doctors', icon: Stethoscope },
-  { to: '/diagnostics', label: 'Diagnostics', icon: FlaskConical },
-  { to: '/orders', label: 'My orders', icon: Truck },
+  { to: '/', labelKey: 'layout.nav.home', icon: Home },
+  { to: '/medicines', labelKey: 'layout.nav.medicines', icon: Pill },
+  { to: '/prescriptions', labelKey: 'layout.nav.prescriptions', icon: Upload },
+  { to: '/requests', labelKey: 'layout.nav.requests', icon: Send },
+  { to: '/doctors', labelKey: 'layout.nav.doctors', icon: Stethoscope },
+  { to: '/diagnostics', labelKey: 'layout.nav.diagnostics', icon: FlaskConical },
+  { to: '/orders', labelKey: 'layout.nav.orders', icon: Truck },
+  // The design system page is for the team and stays in English.
   { to: '/design-system', label: 'Design system', icon: Palette },
 ]
+
+const navLabel = (item) => (item.labelKey ? t(item.labelKey) : item.label)
 
 function Logo({ compact }) {
   return (
@@ -48,7 +51,7 @@ function Sidebar() {
         <Logo />
       </div>
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {nav.map(({ to, label, icon: Icon }) => (
+        {nav.map(({ to, icon: Icon, ...item }) => (
           <NavLink
             key={to}
             to={to}
@@ -66,7 +69,7 @@ function Sidebar() {
                   <motion.span layoutId="nav-active" className="absolute left-0 h-6 w-1 rounded-r-full bg-brand-500" />
                 )}
                 <Icon className="h-5 w-5" />
-                {label}
+                {navLabel(item)}
               </>
             )}
           </NavLink>
@@ -75,10 +78,10 @@ function Sidebar() {
       <div className="m-3 rounded-2xl border border-border bg-surface-2 p-4">
         <div className="flex items-center gap-2 text-muted">
           <ShieldAlert className="h-5 w-5" />
-          <span className="text-caption font-semibold">Fayda verification: not yet connected</span>
+          <span className="text-caption font-semibold">{t('layout.fayda.title')}</span>
         </div>
         <p className="mt-2 text-caption leading-relaxed text-muted">
-          Official Fayda ID verification is not connected in this demo. A verified e-mail address is not an identity check.
+          {t('layout.fayda.body')}
         </p>
       </div>
     </aside>
@@ -189,8 +192,8 @@ function HeaderSearch() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         maxLength={100}
-        placeholder="Search medicines and health products…"
-        aria-label="Search medicines and health products"
+        placeholder={t('layout.search.placeholder')}
+        aria-label={t('layout.search.label')}
       />
     </form>
   )
@@ -204,7 +207,7 @@ function Topbar({ onMenu }) {
         <button
           onClick={onMenu}
           className="grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 lg:hidden"
-          aria-label="Open menu"
+          aria-label={t('layout.openMenu')}
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -218,7 +221,7 @@ function Topbar({ onMenu }) {
           <button
             onClick={toggle}
             className="grid h-10 w-10 place-items-center rounded-xl text-muted transition-colors hover:bg-surface-2 hover:text-fg"
-            aria-label="Toggle dark mode"
+            aria-label={t('layout.darkMode')}
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
@@ -232,11 +235,11 @@ function Topbar({ onMenu }) {
               </motion.span>
             </AnimatePresence>
           </button>
-          <button className="relative grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Notifications">
+          <button className="relative grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label={t('layout.notifications')}>
             <Bell className="h-5 w-5" />
             <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-surface" />
           </button>
-          <Link to="/checkout" className="relative grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Cart">
+          <Link to="/checkout" className="relative grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label={t('layout.cart')}>
             <ShoppingBag className="h-5 w-5" />
             <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white">3</span>
           </Link>
@@ -252,7 +255,7 @@ function MobileNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border glass pb-[env(safe-area-inset-bottom)] lg:hidden">
       <div className="grid grid-cols-5">
-        {items.map(({ to, label, icon: Icon }) => (
+        {items.map(({ to, icon: Icon, ...item }) => (
           <NavLink
             key={to}
             to={to}
@@ -265,7 +268,7 @@ function MobileNav() {
             }
           >
             <Icon className="h-5 w-5" />
-            {label}
+            {navLabel(item)}
           </NavLink>
         ))}
       </div>
@@ -322,12 +325,12 @@ function MobileDrawer({ open, onClose }) {
           >
             <div className="flex items-center justify-between px-2 py-2">
               <Logo />
-              <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2" aria-label="Close menu">
+              <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2" aria-label={t('layout.closeMenu')}>
                 <X className="h-5 w-5" />
               </button>
             </div>
             <nav className="mt-4 space-y-1">
-              {nav.map(({ to, label, icon: Icon }) => (
+              {nav.map(({ to, icon: Icon, ...item }) => (
                 <NavLink
                   key={to} to={to} end={to === '/'} onClick={onClose}
                   className={cn(
@@ -335,7 +338,7 @@ function MobileDrawer({ open, onClose }) {
                     loc.pathname === to ? 'bg-brand-500/12 text-brand-700 dark:text-brand-300' : 'text-muted hover:bg-surface-2',
                   )}
                 >
-                  <Icon className="h-5 w-5" /> {label}
+                  <Icon className="h-5 w-5" /> {navLabel(item)}
                 </NavLink>
               ))}
             </nav>
@@ -351,6 +354,8 @@ function MobileDrawer({ open, onClose }) {
 
 export default function Layout({ children }) {
   const [drawer, setDrawer] = useState(false)
+  // Work 143: the menu and top bar draw again in the new language.
+  useLanguage()
   return (
     <div className="min-h-screen">
       <Sidebar />

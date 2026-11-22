@@ -20,6 +20,7 @@ import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
 import Account from './pages/auth/Account'
 import { RequireCustomer } from './auth/AuthContext'
+import { useLanguage } from './auth/strings'
 
 function Page({ children }) {
   return (
@@ -36,6 +37,8 @@ function Page({ children }) {
 
 export default function App() {
   const location = useLocation()
+  // Work 143: the pages draw again (without losing their state) when the language changes.
+  useLanguage()
   return (
     <Layout>
       <AnimatePresence mode="wait">

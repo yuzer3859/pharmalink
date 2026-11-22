@@ -56,7 +56,7 @@ describe('medicine listing', () => {
     expect(within(card).getByText('Rx required')).toBeTruthy()
     expect(within(card).getByText('Amoxicillin · Capsule · 500 mg')).toBeTruthy()
     expect(within(screen.getByRole('link', { name: /Hand sanitiser/ })).getByText('Health product')).toBeTruthy()
-    expect(screen.getByText('2')).toBeTruthy()
+    expect(screen.getByText('2 products')).toBeTruthy()
     expect(params(callsTo(PRODUCTS)[0])).toEqual({ size: '20' })
     // No fake price, rating, pharmacy, stock, distance or working "Add" button.
     expect(within(main()).queryByRole('button', { name: /^Add$/ })).toBeNull()

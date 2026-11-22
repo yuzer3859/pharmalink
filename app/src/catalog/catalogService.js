@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import { API_BASE_URL } from '../config/env'
 import { ApiError, createApiClient } from '../auth/apiClient'
+import { t } from '../auth/strings'
 
 // Read-only client for the public Catalog (module 03) and Inventory availability (module 04)
 // endpoints. Every route here is `@Public()` on the backend, so no token is sent. Only the query
@@ -17,7 +18,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const isUuid = (value) => typeof value === 'string' && UUID.test(value)
 
 const isRecord = (value) => typeof value === 'object' && value !== null
-const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', 'The server sent an unexpected response.')
+const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', t('common.unexpected'))
 
 /** Builds the `GET /catalog/products` query string from allowlisted, validated values only. */
 export function buildProductQuery({ q, type, rx, categoryId, sort, page, size } = {}) {
@@ -72,7 +73,7 @@ export function createCatalogService({ api }) {
 
     async getProduct(id, { signal } = {}) {
       // A malformed id can't name a product; answer "not found" without asking the server.
-      if (!isUuid(id)) throw new ApiError(404, 'NOT_FOUND', 'Resource not found')
+      if (!isUuid(id)) throw new ApiError(404, 'NOT_FOUND', t('common.notFound'))
       const data = await api.get(`/catalog/products/${id}`, { signal })
       if (!isRecord(data) || data.id !== id || typeof data.type !== 'string' || typeof data.status !== 'string') {
         throw malformed()
@@ -82,7 +83,7 @@ export function createCatalogService({ api }) {
 
     /** No `lat`/`lng` are ever sent: the app has no customer location yet (Work 64). */
     async getAvailability(productId, { signal } = {}) {
-      if (!isUuid(productId)) throw new ApiError(404, 'NOT_FOUND', 'Resource not found')
+      if (!isUuid(productId)) throw new ApiError(404, 'NOT_FOUND', t('common.notFound'))
       const data = await api.get(`/availability/product/${productId}?limit=${AVAILABILITY_LIMIT}`, { signal })
       if (!Array.isArray(data)) throw malformed()
       return data.map(readAvailabilityItem)

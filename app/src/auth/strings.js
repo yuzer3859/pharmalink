@@ -1,8 +1,11 @@
 // Every customer-facing authentication string, in one place so it can be translated. English and
 // Amharic; the Amharic was reviewed by a native speaker (Work 131). A key with no Amharic shows
-// its English. `t(key, vars)` replaces `{name}` placeholders.
+// its English. `t(key, vars)` replaces `{name}` placeholders. Work 143 adds the pages' text from
+// ../i18n/pages.js.
+import { useSyncExternalStore } from 'react'
+import { pageMessages } from '../i18n/pages'
 
-export const messages = {
+const authMessages = {
   en: {
     'nav.login': 'Sign in',
     'nav.register': 'Create account',
@@ -245,6 +248,13 @@ export const messages = {
   },
 }
 
+export const messages = {
+  en: { ...authMessages.en, ...pageMessages.en },
+  am: { ...authMessages.am, ...pageMessages.am },
+}
+
+const listeners = new Set()
+
 const LANGUAGE_KEY = 'pharmalink.customer.language'
 
 function storedLanguage() {
@@ -273,6 +283,17 @@ export function setLanguage(next) {
     // Storage can be unavailable (private mode); the choice then lasts for this visit.
   }
   if (globalThis.document?.documentElement) globalThis.document.documentElement.lang = language
+  for (const listener of listeners) listener()
+}
+
+function subscribe(listener) {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+/** Work 143: the current language; a component that uses it draws again when the language changes. */
+export function useLanguage() {
+  return useSyncExternalStore(subscribe, getLanguage, getLanguage)
 }
 
 export function t(key, vars) {

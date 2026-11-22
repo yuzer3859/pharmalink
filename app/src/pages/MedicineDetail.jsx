@@ -8,6 +8,7 @@ import { formatMinorUnits } from '../lib/utils'
 import { useCatalog } from '../catalog/catalogService'
 import { categoryName, humanize, productName, strength, summarizeAvailability } from '../catalog/format'
 import { RxBadge } from './Medicines'
+import { t } from '../auth/strings'
 
 /**
  * Work 100: puts the product in the signed-in customer's cart (Module 06). A signed-out visitor is
@@ -27,28 +28,28 @@ function AddToCart({ product }) {
       await orders.addToCart(product.id, quantity)
       setState({ status: 'added', error: null })
     } catch (error) {
-      setState({ status: 'idle', error: error?.message || 'It could not be added to your cart.' })
+      setState({ status: 'idle', error: error?.message || t('product.addFailed') })
     }
   }
 
   return (
     <Card className="space-y-3 p-4">
       {status !== 'signedIn' ? (
-        <Button as={Link} to="/login" state={{ from: location.pathname }} className="w-full">Log in to add to cart</Button>
+        <Button as={Link} to="/login" state={{ from: location.pathname }} className="w-full">{t('product.loginToAdd')}</Button>
       ) : (
         <>
           <div className="flex items-center gap-3">
-            <label className="text-caption text-muted" htmlFor="qty">Quantity</label>
+            <label className="text-caption text-muted" htmlFor="qty">{t('common.quantity')}</label>
             <input id="qty" type="number" min={1} max={99} value={quantity} onChange={(e) => setQuantity(Math.max(1, Math.min(99, Number(e.target.value) || 1)))} className="h-10 w-20 rounded-xl border border-border bg-surface px-3 text-body text-fg" />
           </div>
-          <Button className="w-full" disabled={state.status === 'adding'} onClick={add}>{state.status === 'adding' ? 'Adding…' : 'Add to cart'}</Button>
+          <Button className="w-full" disabled={state.status === 'adding'} onClick={add}>{t(state.status === 'adding' ? 'product.adding' : 'product.add')}</Button>
           {state.status === 'added' && (
-            <p role="status" className="text-caption text-success">Added. <Link to="/checkout" className="font-semibold underline">Go to checkout</Link></p>
+            <p role="status" className="text-caption text-success">{t('product.added')} <Link to="/checkout" className="font-semibold underline">{t('common.goToCheckout')}</Link></p>
           )}
           {state.error && <p role="alert" className="text-caption text-danger">{state.error}</p>}
         </>
       )}
-      {product.rxClassification === 'RX' && <p className="text-caption text-subtle">Prescription medicine: a pharmacist checks your prescription before it is sent.</p>}
+      {product.rxClassification === 'RX' && <p className="text-caption text-subtle">{t('product.rxNote')}</p>}
     </Card>
   )
 }
@@ -95,8 +96,8 @@ function Availability({ product }) {
         <div className="flex items-start gap-3">
           <Ban className="mt-0.5 h-5 w-5 shrink-0 text-danger" aria-hidden="true" />
           <div>
-            <p className="text-body-lg font-semibold text-fg">Not available for online sale</p>
-            <p className="mt-1 text-body text-muted">This product can't be sold through PharmaLink. Ask a pharmacist or your doctor.</p>
+            <p className="text-body-lg font-semibold text-fg">{t('product.notForSale')}</p>
+            <p className="mt-1 text-body text-muted">{t('product.notForSale.body')}</p>
           </div>
         </div>
       </Card>
@@ -108,12 +109,12 @@ function Availability({ product }) {
     <Card className="p-5" aria-live="polite" aria-busy={state.status === 'loading'}>
       <div className="flex items-center gap-2">
         <Store className="h-5 w-5 text-brand-500" aria-hidden="true" />
-        <h2 className="text-h3 text-fg">Pharmacy availability</h2>
+        <h2 className="text-h3 text-fg">{t('product.availability')}</h2>
       </div>
 
       {state.status === 'loading' && (
         <div role="status" className="mt-4 space-y-2">
-          <span className="sr-only">Checking pharmacy availability…</span>
+          <span className="sr-only">{t('product.availability.checking')}</span>
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-8 w-56" />
         </div>
@@ -122,36 +123,34 @@ function Availability({ product }) {
       {state.status === 'error' && (
         <div role="alert" className="mt-4 space-y-3">
           <p className="text-body text-muted">
-            {state.error?.code === 'NETWORK_ERROR'
-              ? 'We could not reach PharmaLink to check availability.'
-              : 'Availability could not be checked right now.'}{' '}
-            This does not mean the product is out of stock.
+            {t(state.error?.code === 'NETWORK_ERROR' ? 'product.availability.offline' : 'product.availability.error')}{' '}
+            {t('product.availability.notOut')}
           </p>
           <Button variant="secondary" size="sm" onClick={() => setAttempt((n) => n + 1)}>
-            <RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again
+            <RefreshCw className="h-4 w-4" aria-hidden="true" /> {t('common.tryAgain')}
           </Button>
         </div>
       )}
 
       {state.status === 'ready' && summary.count === 0 && (
-        <p className="mt-4 text-body text-muted">No pharmacy listings are available for this product right now.</p>
+        <p className="mt-4 text-body text-muted">{t('product.availability.none')}</p>
       )}
 
       {state.status === 'ready' && summary.count > 0 && (
         <div className="mt-4 space-y-3">
           <Badge tone="success" dot>
-            {summary.atLeast ? `${summary.count}+` : summary.count} available {summary.count === 1 ? 'listing' : 'listings'}
+            {t(summary.count === 1 ? 'product.listings.one' : 'product.listings.many', { count: summary.atLeast ? `${summary.count}+` : summary.count })}
           </Badge>
           {summary.ranges.map((r) => (
             <div key={r.currency}>
               <p className="text-caption font-semibold text-muted">
-                {r.min === r.max ? 'Pharmacy selling price' : 'Pharmacy selling prices'}
+                {t(r.min === r.max ? 'product.price.one' : 'product.price.many')}
               </p>
               <p className="text-h2 font-bold text-fg">{r.label}</p>
             </div>
           ))}
           <p className="text-caption text-subtle">
-            Prices are set by each pharmacy. Pharmacy names and distances aren't shown yet; ordering is not available in this version.
+            {t('product.price.note')}
           </p>
         </div>
       )}
@@ -182,7 +181,7 @@ export default function MedicineDetail() {
 
   const backLink = (
     <Link to={back} className="inline-flex items-center gap-1.5 text-caption font-semibold text-brand-600 hover:underline dark:text-brand-300">
-      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to medicines
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t('product.back')}
     </Link>
   )
 
@@ -190,7 +189,7 @@ export default function MedicineDetail() {
     return (
       <div className="space-y-5" role="status" aria-live="polite">
         {backLink}
-        <span className="sr-only">Loading product…</span>
+        <span className="sr-only">{t('product.loading')}</span>
         <Skeleton className="h-10 w-2/3" />
         <Skeleton className="h-48 rounded-2xl" />
       </div>
@@ -203,17 +202,13 @@ export default function MedicineDetail() {
       <div className="mx-auto max-w-xl space-y-5 py-6">
         {backLink}
         <Card role="alert" className="flex flex-col items-center gap-3 p-8 text-center">
-          <p className="text-body-lg font-semibold text-fg">{notFound ? 'Product not found' : "We couldn't load this product."}</p>
+          <p className="text-body-lg font-semibold text-fg">{t(notFound ? 'product.notFound' : 'product.loadFailed')}</p>
           <p className="text-body text-muted">
-            {notFound
-              ? 'This product is not in the catalog, or is no longer available.'
-              : state.error?.code === 'NETWORK_ERROR'
-                ? 'PharmaLink could not be reached. Check your connection and try again.'
-                : 'The catalog service returned an error. Please try again.'}
+            {t(notFound ? 'product.notFound.body' : state.error?.code === 'NETWORK_ERROR' ? 'common.offline' : 'common.catalogError')}
           </p>
           {!notFound && (
             <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
-              <RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again
+              <RefreshCw className="h-4 w-4" aria-hidden="true" /> {t('common.tryAgain')}
             </Button>
           )}
         </Card>
@@ -237,8 +232,8 @@ export default function MedicineDetail() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <RxBadge rx={p.rxClassification} />
-            <Badge tone="neutral">{p.type === 'HEALTH_PRODUCT' ? 'Health product' : 'Medicine'}</Badge>
-            {controlled && <Badge tone="danger">Controlled: {humanize(p.controlledSchedule)}</Badge>}
+            <Badge tone="neutral">{t(p.type === 'HEALTH_PRODUCT' ? 'common.healthProduct' : 'common.medicine')}</Badge>
+            {controlled && <Badge tone="danger">{t('product.controlled', { schedule: humanize(p.controlledSchedule) })}</Badge>}
           </div>
           <h1 className="mt-2 font-display text-h1 text-fg">{name}</h1>
           {p.nameAm && p.nameAm !== name && <p lang="am" className="text-body-lg text-muted">{p.nameAm}</p>}
@@ -249,14 +244,14 @@ export default function MedicineDetail() {
       {p.status === 'DEPRECATED' && (
         <Card role="note" className="flex items-start gap-3 border-warning/40 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden="true" />
-          <p className="text-body text-muted">This product has been discontinued in the PharmaLink catalog and no longer appears in search.</p>
+          <p className="text-body text-muted">{t('product.discontinued')}</p>
         </Card>
       )}
 
       {p.rxClassification === 'RX' && (
         <Card role="note" className="flex items-start gap-3 p-4">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden="true" />
-          <p className="text-body text-muted">Prescription-only medicine. A valid prescription and pharmacist review are required.</p>
+          <p className="text-body text-muted">{t('product.rxOnly')}</p>
         </Card>
       )}
 
@@ -264,15 +259,15 @@ export default function MedicineDetail() {
         <div className="space-y-5 lg:col-span-3">
           <Card className="px-5">
             <dl className="divide-y divide-border">
-              <Row label="Brand">{p.brandName}</Row>
-              <Row label="Generic name">{p.genericName}</Row>
-              <Row label="Dosage form">{humanize(p.dosageForm)}</Row>
-              <Row label="Strength">{strength(p)}</Row>
-              <Row label="Pack size">{p.packSize}</Row>
-              <Row label="Classification">
-                {p.rxClassification === 'RX' ? 'Prescription only (Rx)' : p.rxClassification === 'OTC' ? 'Over the counter (OTC)' : null}
+              <Row label={t('product.brand')}>{p.brandName}</Row>
+              <Row label={t('product.generic')}>{p.genericName}</Row>
+              <Row label={t('product.form')}>{humanize(p.dosageForm)}</Row>
+              <Row label={t('product.strength')}>{strength(p)}</Row>
+              <Row label={t('product.pack')}>{p.packSize}</Row>
+              <Row label={t('product.classification')}>
+                {p.rxClassification === 'RX' ? t('product.class.rx') : p.rxClassification === 'OTC' ? t('product.class.otc') : null}
               </Row>
-              <Row label="Storage">
+              <Row label={t('product.storage')}>
                 {p.storageRequirement && (
                   <span className="inline-flex items-center gap-1.5">
                     <Thermometer className="h-4 w-4 text-muted" aria-hidden="true" /> {humanize(p.storageRequirement)}
@@ -280,9 +275,9 @@ export default function MedicineDetail() {
                 )}
               </Row>
               {referencePrice && (
-                <Row label="Catalog reference price">
+                <Row label={t('product.refPrice')}>
                   {referencePrice}
-                  <span className="block text-caption text-subtle">Platform reference only, not a pharmacy selling price.</span>
+                  <span className="block text-caption text-subtle">{t('product.refPrice.note')}</span>
                 </Row>
               )}
             </dl>
@@ -292,7 +287,7 @@ export default function MedicineDetail() {
             <Card className="p-5">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-warning" aria-hidden="true" />
-                <h2 className="text-h3 text-fg">Warnings</h2>
+                <h2 className="text-h3 text-fg">{t('product.warnings')}</h2>
               </div>
               <p className="mt-2 whitespace-pre-line text-body text-muted">{p.warnings}</p>
             </Card>
@@ -300,18 +295,18 @@ export default function MedicineDetail() {
 
           {(p.descriptionEn || p.descriptionAm) && (
             <Card className="p-5">
-              <h2 className="text-h3 text-fg">About this product</h2>
+              <h2 className="text-h3 text-fg">{t('product.about')}</h2>
               {p.descriptionEn && <p className="mt-2 whitespace-pre-line text-body text-muted">{p.descriptionEn}</p>}
               {p.descriptionAm && <p lang="am" className="mt-2 whitespace-pre-line text-body text-muted">{p.descriptionAm}</p>}
             </Card>
           )}
 
           <p className="text-caption text-subtle">
-            Product information comes from the PharmaLink catalog. It is not medical advice; ask a pharmacist or doctor before use.
+            {t('product.disclaimer')}
           </p>
 
           {p.categories.length > 0 && (
-            <div className="flex flex-wrap gap-2" aria-label="Categories">
+            <div className="flex flex-wrap gap-2" aria-label={t('product.categories')}>
               {p.categories.map((c) => (
                 <Link key={c.id} to={`/medicines?category=${c.id}`}>
                   <Badge tone="brand">{categoryName(c)}</Badge>

@@ -1,4 +1,5 @@
 import { ApiError } from '../auth/apiClient'
+import { t } from '../auth/strings'
 
 // Work 138 (owner decision 2026-11-17): the customer's prescription requests (Works 134–136). The
 // customer sends an uploaded prescription with a delivery address and its date; nearby pharmacies
@@ -6,7 +7,7 @@ import { ApiError } from '../auth/apiClient'
 // quote into an order (paying now or on delivery) or declines it.
 
 const isRecord = (value) => typeof value === 'object' && value !== null
-const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', 'The server sent an unexpected response.')
+const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', t('common.unexpected'))
 
 /** Requests a customer can still withdraw. */
 export const LIVE_STATUSES = ['OPEN', 'CLAIMED']
@@ -24,25 +25,33 @@ export function todayIso(now = new Date()) {
 export function requestStage(r) {
   switch (r?.status) {
     case 'OPEN':
-      return { title: 'Looking for a pharmacy', tone: 'info', body: r.stillConsidering > 0 ? `Sent to ${r.offeredTo} pharmacies nearby; ${r.stillConsidering} still considering it.` : 'Sent to pharmacies nearby.' }
+      return {
+        title: t('req.stage.open'),
+        tone: 'info',
+        body: r.stillConsidering > 0 ? t('req.stage.open.body', { offered: r.offeredTo, considering: r.stillConsidering }) : t('req.stage.open.sent'),
+      }
     case 'CLAIMED':
-      return { title: `${r.pharmacy?.name || 'A pharmacy'} accepted it`, tone: 'brand', body: 'The pharmacist is checking your prescription and will send you the medicines and price.' }
+      return { title: t('req.stage.claimed', { name: r.pharmacy?.name || t('req.stage.claimed.noname') }), tone: 'brand', body: t('req.stage.claimed.body') }
     case 'QUOTED':
-      return { title: 'Your medicines and price are ready', tone: 'warning', body: 'Check them and confirm to place your order.' }
+      return { title: t('req.stage.quoted'), tone: 'warning', body: t('req.stage.quoted.body') }
     case 'CONFIRMED':
-      return { title: 'Confirmed', tone: 'success', body: 'It is an order now.' }
+      return { title: t('req.stage.confirmed'), tone: 'success', body: t('req.stage.confirmed.body') }
     case 'CANCELLED':
-      return { title: 'Cancelled', tone: 'neutral', body: r.closedReason === 'quote-declined-by-customer' ? 'You declined the pharmacy’s quote.' : 'You cancelled this request.' }
+      return {
+        title: t('orders.status.CANCELLED'),
+        tone: 'neutral',
+        body: t(r.closedReason === 'quote-declined-by-customer' ? 'req.stage.cancelled.declined' : 'req.stage.cancelled.byYou'),
+      }
     case 'EXPIRED':
       return {
-        title: 'Expired',
+        title: t('rx.status.EXPIRED'),
         tone: 'neutral',
-        body: r.closedReason === 'quote-not-answered-in-time' ? 'The quote was not confirmed in time.' : 'No pharmacy accepted it in time.',
+        body: t(r.closedReason === 'quote-not-answered-in-time' ? 'req.stage.expired.quote' : 'req.stage.expired.open'),
       }
     case 'NO_PHARMACY':
-      return { title: 'No pharmacy available', tone: 'danger', body: 'No pharmacy nearby can fill it right now.' }
+      return { title: t('req.stage.none'), tone: 'danger', body: t('req.stage.none.body') }
     default:
-      return { title: 'Prescription request', tone: 'neutral', body: '' }
+      return { title: t('req.title'), tone: 'neutral', body: '' }
   }
 }
 
