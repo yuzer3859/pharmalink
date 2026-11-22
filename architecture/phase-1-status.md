@@ -173,7 +173,7 @@ following `ops/staging/phase1-walkthrough.md`. The customer was `yuzer3859+custo
 
 | Item | Status |
 |---|---|
-| Amharic for the app screens other than sign-in and My account (medicines, cart, checkout, orders) | **Done, Work 143:** the page text is in `app/src/i18n/pages.js`, with the Amharic the owner reviewed on 2026-11-22 (377 correct, 5 corrected); the pages redraw when the language changes. Nine short texts found while wiring (for example "Added." and "1 item") show in English until their Amharic is reviewed. |
+| Amharic for the app screens other than sign-in and My account (medicines, cart, checkout, orders) | **Done, Work 143:** the page text is in `app/src/i18n/pages.js`, with the Amharic the owner reviewed on 2026-11-22 (377 correct, 5 corrected); the pages redraw when the language changes. Nine short texts found while wiring (for example "Added." and "1 item") were reviewed the same day and applied in Work 144, so every page text now has Amharic. |
 | Pharmacy portal order, inventory and prescription pages (`web/`, still in-memory) | **Done, Works 107–116 (#60–#69).** Every pharmacy portal page reads and writes the real API: orders, prescriptions, inventory, staff, roles, dashboard, analytics and statements. The mock seed is deleted. |
 | Driver app | **Done, Works 117–123 (#70–#76):** `driver/` covers sign-in, availability, offers, the active job with live tracking, proof of delivery, cash collected and earnings, with its own CI. |
 | Portal action to record COD cash received (found in the second live walk) | **Done, Work 127 (#80):** Finance → COD cash records the remittance (which makes the COD sale payable) and reconciles it. |

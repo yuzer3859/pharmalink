@@ -57,6 +57,10 @@ describe('the pages in Amharic (Work 143)', () => {
     expect(t('layout.openMenu')).toBe('ምርጫውን ክፈት')
     expect(t('home.hero.title')).toBe('የጤናዎ አገልግሎትን፣ በጥንቃቄ እስከ በርዎ።')
     expect(t('req.stage.open.body', { offered: 3, considering: 2 })).toBe('በአቅራቢያ ላሉ 3 ፋርማሲዎች ተልኳል፤ 2 አሁንም እያጤኑት ነው።')
+    // Work 144: the short texts found while wiring, reviewed the same day.
+    expect(t('order.items.many', { count: 3 })).toBe('3 ዕቃዎች')
+    expect(t('rx.doctorName', { name: 'Abebe' })).toBe('ዶ/ር Abebe')
+    expect(Object.keys(pageMessages.en).filter((key) => !(key in pageMessages.am))).toEqual([])
   })
 
   it('draws the menu and the page in Amharic, and again in English when the language changes', async () => {

@@ -395,7 +395,7 @@ export const pageMessages = {
     'common.notFound': 'Resource not found',
     'common.catalogEmpty': 'The catalog has no products yet.',
 
-    // Awaiting the Amharic review (Work 143 follow-up)
+    // Short texts found while wiring (Work 144)
     'product.added': 'Added.',
     'product.listings.one': '{count} available listing',
     'product.listings.many': '{count} available listings',
@@ -798,5 +798,16 @@ export const pageMessages = {
     'common.unexpected': 'አገልጋዩ ያልተጠበቀ ምላሽ ልኳል።',
     'common.notFound': 'የተፈለገው አልተገኘም',
     'common.catalogEmpty': 'ካታሎጉ ገና ምንም ምርት የለውም።',
+
+    // Short texts found while wiring (Work 144)
+    'product.added': 'ታክሏል።',
+    'product.listings.one': '{count} የሚገኝ ዝርዝር',
+    'product.listings.many': '{count} የሚገኙ ዝርዝሮች',
+    'product.controlled': 'ቁጥጥር የሚደረግበት፦ {schedule}',
+    'order.payOnline': 'በመስመር ላይ ይክፈሉ',
+    'order.paidOnline': 'በመስመር ላይ ተከፍሏል',
+    'order.items.one': '1 ዕቃ',
+    'order.items.many': '{count} ዕቃዎች',
+    'rx.doctorName': 'ዶ/ር {name}',
   },
 }
