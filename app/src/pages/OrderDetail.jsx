@@ -8,25 +8,27 @@ import { useOrders } from './Checkout'
 import { statusOf } from './Orders'
 import { followDelivery } from '../orders/trackingSocket'
 import { PAYMENT_METHODS } from '../orders/ordersService'
+import { t } from '../auth/strings'
 
+/** The delivery's state, as a message key (Work 143). */
 const DELIVERY_STATUS = {
-  CREATED: 'Finding a driver',
-  OFFERED: 'Finding a driver',
-  REASSIGNING: 'Finding another driver',
-  ASSIGNED: 'Driver assigned',
-  ARRIVED_PICKUP: 'Driver at the pharmacy',
-  PICKED_UP: 'Picked up',
-  EN_ROUTE: 'On the way to you',
-  ARRIVED_DROPOFF: 'Driver has arrived',
-  DELIVERED: 'Delivered',
-  COMPLETED: 'Delivered',
-  FAILED: 'Delivery failed',
-  CANCELLED: 'Delivery cancelled',
+  CREATED: 'delivery.status.finding',
+  OFFERED: 'delivery.status.finding',
+  REASSIGNING: 'delivery.status.REASSIGNING',
+  ASSIGNED: 'delivery.status.ASSIGNED',
+  ARRIVED_PICKUP: 'delivery.status.ARRIVED_PICKUP',
+  PICKED_UP: 'delivery.status.PICKED_UP',
+  EN_ROUTE: 'delivery.status.EN_ROUTE',
+  ARRIVED_DROPOFF: 'delivery.status.ARRIVED_DROPOFF',
+  DELIVERED: 'orders.status.DELIVERED',
+  COMPLETED: 'orders.status.DELIVERED',
+  FAILED: 'delivery.status.FAILED',
+  CANCELLED: 'delivery.status.CANCELLED',
 }
 
 function minutes(seconds) {
   const m = Math.max(1, Math.round(seconds / 60))
-  return m === 1 ? 'about 1 minute' : `about ${m} minutes`
+  return m === 1 ? t('delivery.minutes.one') : t('delivery.minutes.many', { count: m })
 }
 
 /** Live delivery: the snapshot, then pushed updates while the delivery is moving. */
@@ -66,27 +68,31 @@ function LiveTracking({ orderId }) {
   }, [orders, orderId])
 
   if (view.status === 'loading') return <Skeleton className="h-24" />
-  if (view.status === 'none') return <p className="text-caption text-muted">A driver is assigned once the pharmacy has prepared your order.</p>
-  if (view.status === 'error') return <p className="text-caption text-muted">Live tracking isn't available right now.</p>
-  const t = view.data
+  if (view.status === 'none') return <p className="text-caption text-muted">{t('delivery.assignedLater')}</p>
+  if (view.status === 'error') return <p className="text-caption text-muted">{t('delivery.trackingUnavailable')}</p>
+  const track = view.data
   return (
     <div className="space-y-2" data-testid="tracking">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={t.isFinished ? 'success' : 'brand'}>{DELIVERY_STATUS[t.status] ?? t.status}</Badge>
-        {live && !t.isFinished && <span className="text-caption text-success">Live</span>}
+        <Badge tone={track.isFinished ? 'success' : 'brand'}>{DELIVERY_STATUS[track.status] ? t(DELIVERY_STATUS[track.status]) : track.status}</Badge>
+        {live && !track.isFinished && <span className="text-caption text-success">{t('delivery.live')}</span>}
       </div>
-      {t.eta && !t.isFinished && (
+      {track.eta && !track.isFinished && (
         <p className="flex items-center gap-1.5 text-body text-fg">
           <Navigation className="h-4 w-4 text-brand-500" aria-hidden="true" />
-          {t.eta.destination === 'PICKUP' ? 'Reaching the pharmacy in ' : 'Arriving in '}{minutes(t.eta.durationSeconds)}
+          {t(track.eta.destination === 'PICKUP' ? 'delivery.eta.pickup' : 'delivery.eta.dropoff', { minutes: minutes(track.eta.durationSeconds) })}
         </p>
       )}
-      {t.location && (
+      {track.location && (
         <p className="flex items-center gap-1.5 text-caption text-muted">
-          <MapPin className="h-4 w-4" aria-hidden="true" /> Driver last seen at {t.location.lat.toFixed(4)}, {t.location.lng.toFixed(4)} ({new Date(t.location.recordedAt).toLocaleTimeString()})
+          <MapPin className="h-4 w-4" aria-hidden="true" />{' '}
+          {t('delivery.lastSeen', {
+            position: `${track.location.lat.toFixed(4)}, ${track.location.lng.toFixed(4)}`,
+            time: new Date(track.location.recordedAt).toLocaleTimeString(),
+          })}
         </p>
       )}
-      {(t.status === 'DELIVERED' || t.status === 'COMPLETED') && <ProofOfDelivery jobId={t.jobId} />}
+      {(track.status === 'DELIVERED' || track.status === 'COMPLETED') && <ProofOfDelivery jobId={track.jobId} />}
     </div>
   )
 }
@@ -104,18 +110,18 @@ function ProofOfDelivery({ jobId }) {
       const link = await orders.proofLink(jobId)
       window.open(link.url, '_blank', 'noopener')
     } catch (e) {
-      setError(e?.message || 'The photo could not be opened.')
+      setError(e?.message || t('pod.openFailed'))
     }
   }
   return (
-    <Card className="space-y-1 p-3" aria-label="Proof of delivery">
+    <Card className="space-y-1 p-3" aria-label={t('pod.title')}>
       <p className="flex items-center gap-1.5 text-body font-semibold text-fg">
-        {proof.type === 'SIGNATURE' ? <PenLine className="h-4 w-4" aria-hidden="true" /> : <Camera className="h-4 w-4" aria-hidden="true" />} Proof of delivery
+        {proof.type === 'SIGNATURE' ? <PenLine className="h-4 w-4" aria-hidden="true" /> : <Camera className="h-4 w-4" aria-hidden="true" />} {t('pod.title')}
       </p>
       <p className="text-caption text-muted">
-        {proof.recipientName ? `Received by ${proof.recipientName}` : 'Handed over'} · {new Date(proof.capturedAt).toLocaleString()}
+        {proof.recipientName ? t('pod.receivedBy', { name: proof.recipientName }) : t('pod.handedOver')} · {new Date(proof.capturedAt).toLocaleString()}
       </p>
-      {proof.artifact?.available && <Button variant="ghost" size="sm" onClick={open}>View the {proof.type === 'SIGNATURE' ? 'signature' : 'photo'}</Button>}
+      {proof.artifact?.available && <Button variant="ghost" size="sm" onClick={open}>{t(proof.type === 'SIGNATURE' ? 'pod.viewSignature' : 'pod.viewPhoto')}</Button>}
       {error && <p role="alert" className="text-caption text-danger">{error}</p>}
     </Card>
   )
@@ -143,34 +149,34 @@ export function PrescriptionPanel({ order, onChanged }) {
       setPaying({ busy: false, error: null })
       onChanged()
     } catch (error) {
-      setPaying({ busy: false, error: error?.message || 'The payment could not be made.' })
+      setPaying({ busy: false, error: error?.message || t('order.payFailed') })
       if (error?.code === 'PAYMENT_AUTH_FAILED') onChanged()
     }
   }
 
   if (review === 'PENDING') {
     return (
-      <Card className="flex items-start gap-3 p-4" role="status" aria-label="Prescription">
+      <Card className="flex items-start gap-3 p-4" role="status" aria-label={t('common.prescription')}>
         <FileText className="mt-0.5 h-5 w-5 text-brand-500" aria-hidden="true" />
         <div>
-          <p className="text-body font-semibold text-fg">With the pharmacist</p>
+          <p className="text-body font-semibold text-fg">{t('common.withPharmacist')}</p>
           <p className="text-caption text-muted">
-            The pharmacist is checking your prescription. Nothing is charged yet.{' '}
-            {order.isCod ? 'Once it is approved, the pharmacy prepares your order.' : 'Once it is approved, you can pay here.'}
+            {t('order.rx.checking')}{' '}
+            {t(order.isCod ? 'order.rx.thenPrepare' : 'order.rx.thenPay')}
           </p>
-          <Button variant="ghost" size="sm" className="mt-2" onClick={onChanged}><RefreshCw className="h-4 w-4" aria-hidden="true" /> Check again</Button>
+          <Button variant="ghost" size="sm" className="mt-2" onClick={onChanged}><RefreshCw className="h-4 w-4" aria-hidden="true" /> {t('common.checkAgain')}</Button>
         </div>
       </Card>
     )
   }
   if (review === 'REJECTED') {
     return (
-      <Card role="alert" className="flex items-start gap-3 border-danger/40 p-4" aria-label="Prescription">
+      <Card role="alert" className="flex items-start gap-3 border-danger/40 p-4" aria-label={t('common.prescription')}>
         <XCircle className="mt-0.5 h-5 w-5 text-danger" aria-hidden="true" />
         <div>
-          <p className="text-body font-semibold text-fg">Prescription not accepted</p>
+          <p className="text-body font-semibold text-fg">{t('order.rx.rejected')}</p>
           <p className="text-caption text-muted">
-            {order.cancelReason ? `${order.cancelReason} ` : ''}Your order was cancelled and nothing was charged.
+            {order.cancelReason ? `${order.cancelReason} ` : ''}{t('common.cancelledNothingCharged')}
           </p>
         </div>
       </Card>
@@ -178,10 +184,10 @@ export function PrescriptionPanel({ order, onChanged }) {
   }
   if (order.status === 'PENDING_PAYMENT' && !order.isCod) {
     return (
-      <Card className="space-y-3 p-4" aria-label="Prescription">
-        <p className="flex items-center gap-2 text-body font-semibold text-fg"><Check className="h-5 w-5 text-success" aria-hidden="true" /> Prescription approved: pay now</p>
-        <p className="text-caption text-muted">Pay {formatMinorUnits(order.grandTotal, order.currency)} to send your order to the pharmacy.</p>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Payment method">
+      <Card className="space-y-3 p-4" aria-label={t('common.prescription')}>
+        <p className="flex items-center gap-2 text-body font-semibold text-fg"><Check className="h-5 w-5 text-success" aria-hidden="true" /> {t('order.rx.approvedPay')}</p>
+        <p className="text-caption text-muted">{t('order.pay')} {formatMinorUnits(order.grandTotal, order.currency)}</p>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('common.paymentMethod')}>
           {PAYMENT_METHODS.filter((m) => m.id !== 'COD').map((m) => (
             <button
               key={m.id}
@@ -191,24 +197,24 @@ export function PrescriptionPanel({ order, onChanged }) {
               onClick={() => setMethod(m.id)}
               className={`rounded-xl border px-3 py-2 text-body ${method === m.id ? 'border-brand-500 bg-brand-500/5' : 'border-border'}`}
             >
-              {m.label}
+              {t(m.label)}
             </button>
           ))}
         </div>
         {PAYMENTS_TEST_MODE && (
           <div>
-            <Input aria-label="Test gateway token" placeholder="Test token (e.g. test-decline)" value={token} onChange={(e) => setToken(e.target.value)} maxLength={512} />
-            <p className="mt-1 text-caption text-subtle">Test mode: no real money moves.</p>
+            <Input aria-label={t('common.testToken')} placeholder={t('common.testToken.placeholder')} value={token} onChange={(e) => setToken(e.target.value)} maxLength={512} />
+            <p className="mt-1 text-caption text-subtle">{t('order.testMode')}</p>
           </div>
         )}
-        <Button onClick={pay} disabled={paying.busy}>{paying.busy ? 'Paying…' : 'Pay now'}</Button>
+        <Button onClick={pay} disabled={paying.busy}>{t(paying.busy ? 'order.paying' : 'order.payNow')}</Button>
         {paying.error && <p role="alert" className="text-caption text-danger">{paying.error}</p>}
       </Card>
     )
   }
   return (
-    <p className="flex items-center gap-1.5 text-caption text-success" aria-label="Prescription">
-      <Check className="h-4 w-4" aria-hidden="true" /> Prescription approved by the pharmacist.
+    <p className="flex items-center gap-1.5 text-caption text-success" aria-label={t('common.prescription')}>
+      <Check className="h-4 w-4" aria-hidden="true" /> {t('order.rx.approved')}
     </p>
   )
 }
@@ -229,20 +235,20 @@ export default function OrderDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [orders, id])
 
-  const back = <Link to="/orders" className="inline-flex items-center gap-1 text-caption font-semibold text-brand-600"><ArrowLeft className="h-4 w-4" aria-hidden="true" /> My orders</Link>
+  const back = <Link to="/orders" className="inline-flex items-center gap-1 text-caption font-semibold text-brand-600"><ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t('common.myOrders')}</Link>
   if (state.status === 'loading') return <div className="space-y-3">{back}<Skeleton className="h-40" /></div>
-  if (state.status === 'missing') return <div className="space-y-3">{back}<p className="text-body text-fg">This order was not found.</p></div>
+  if (state.status === 'missing') return <div className="space-y-3">{back}<p className="text-body text-fg">{t('order.notFound')}</p></div>
   if (state.status === 'error') {
     return (
       <div className="space-y-3">
         {back}
-        <Button variant="secondary" size="sm" onClick={load}><RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again</Button>
+        <Button variant="secondary" size="sm" onClick={load}><RefreshCw className="h-4 w-4" aria-hidden="true" /> {t('common.tryAgain')}</Button>
       </div>
     )
   }
 
   const { order, lines = [], statusHistory = [] } = state.data
-  const s = order.rxReviewStatus === 'PENDING' ? { label: 'With the pharmacist', tone: 'warning' } : statusOf(order.status)
+  const s = order.rxReviewStatus === 'PENDING' ? { label: t('common.withPharmacist'), tone: 'warning' } : statusOf(order.status)
   const delivering = ['READY', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(order.status)
   return (
     <div className="space-y-6">
@@ -252,31 +258,31 @@ export default function OrderDetail() {
         <Badge tone={s.tone}>{s.label}</Badge>
       </div>
       <p className="text-body text-muted">
-        {formatMinorUnits(order.grandTotal, order.currency)} · {order.isCod ? 'cash on delivery' : order.status === 'PENDING_PAYMENT' || order.status === 'CANCELLED' ? 'pay online' : 'paid online'} · {lines.length === 1 ? '1 item' : `${lines.length} items`}
+        {formatMinorUnits(order.grandTotal, order.currency)} · {order.isCod ? t('orders.cod').replace(/^·\s*/, '') : order.status === 'PENDING_PAYMENT' || order.status === 'CANCELLED' ? t('order.payOnline') : t('order.paidOnline')} · {lines.length === 1 ? t('order.items.one') : t('order.items.many', { count: lines.length })}
       </p>
 
       <PrescriptionPanel order={order} onChanged={load} />
 
       {order.paperRxRequired && !['DELIVERED', 'COMPLETED', 'CANCELLED'].includes(order.status) && (
         // Work 138: the original paper goes to the pharmacist first (Work 136).
-        <Card className="flex items-start gap-3 border-warning/40 p-4" role="note" aria-label="Paper prescription">
+        <Card className="flex items-start gap-3 border-warning/40 p-4" role="note" aria-label={t('order.paper.title')}>
           <FileText className="mt-0.5 h-5 w-5 text-warning" aria-hidden="true" />
           <p className="text-caption text-fg">
-            <strong>Keep the original paper prescription ready.</strong> The driver collects it from you first and takes it to the pharmacist, then brings your medicines.
+            <strong>{t('common.paperReady')}</strong> {t('order.paper.body')}
           </p>
         </Card>
       )}
 
       {delivering && (
         <Card className="p-4">
-          <h2 className="mb-2 text-h3 text-fg">Delivery</h2>
+          <h2 className="mb-2 text-h3 text-fg">{t('common.delivery')}</h2>
           <LiveTracking orderId={order.id} />
         </Card>
       )}
 
       <Card className="p-4">
-        <h2 className="mb-3 text-h3 text-fg">History</h2>
-        <ol className="space-y-2" aria-label="Order history">
+        <h2 className="mb-3 text-h3 text-fg">{t('order.history')}</h2>
+        <ol className="space-y-2" aria-label={t('order.history.label')}>
           {statusHistory.map((h, i) => (
             <li key={h.id ?? i} className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 text-success" aria-hidden="true" />

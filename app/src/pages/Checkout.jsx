@@ -10,6 +10,7 @@ import { PAYMENT_METHODS, createOrdersService, newIdempotencyKey } from '../orde
 import { requestLocation } from '../search/searchService'
 import { PRESCRIPTION_FILE_TYPES, checkFile } from '../prescriptions/prescriptionsService'
 import { usePrescriptions } from './Prescriptions'
+import { t } from '../auth/strings'
 
 const METHOD_ICONS = { COD: Wallet, TELEBIRR: Smartphone, CARD: CreditCard }
 
@@ -29,7 +30,7 @@ const money = (amount, currency = 'ETB') => formatMinorUnits(amount, currency) ?
  * The location goes only into this address.
  */
 export function AddressForm({ onSaved, orders, locate = requestLocation }) {
-  const [form, setForm] = useState({ recipientName: '', recipientPhone: '', city: 'Addis Ababa', addressLine: '' })
+  const [form, setForm] = useState({ recipientName: '', recipientPhone: '', city: t('checkout.address.cityDefault'), addressLine: '' })
   const [location, setLocation] = useState({ status: 'none', point: null })
   const [state, setState] = useState({ saving: false, error: null })
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -41,7 +42,7 @@ export function AddressForm({ onSaved, orders, locate = requestLocation }) {
   async function save(e) {
     e.preventDefault()
     if (!location.point) {
-      setState({ saving: false, error: 'Share the delivery location first, so the driver can find you.' })
+      setState({ saving: false, error: t('checkout.address.locationFirst') })
       return
     }
     setState({ saving: true, error: null })
@@ -50,27 +51,27 @@ export function AddressForm({ onSaved, orders, locate = requestLocation }) {
       setState({ saving: false, error: null })
       onSaved(saved)
     } catch (error) {
-      setState({ saving: false, error: error?.message || 'The address could not be saved.' })
+      setState({ saving: false, error: error?.message || t('checkout.address.saveFailed') })
     }
   }
   return (
-    <form onSubmit={save} className="grid gap-3 sm:grid-cols-2" aria-label="New delivery address">
-      <Input aria-label="Recipient name" placeholder="Recipient name" value={form.recipientName} onChange={set('recipientName')} required />
-      <Input aria-label="Recipient phone" placeholder="+2519…" value={form.recipientPhone} onChange={set('recipientPhone')} required />
-      <Input aria-label="City" placeholder="City" value={form.city} onChange={set('city')} required />
-      <Input aria-label="Street and building" placeholder="Street, building" value={form.addressLine} onChange={set('addressLine')} required />
+    <form onSubmit={save} className="grid gap-3 sm:grid-cols-2" aria-label={t('checkout.address.title')}>
+      <Input aria-label={t('checkout.address.recipient')} placeholder={t('checkout.address.recipient')} value={form.recipientName} onChange={set('recipientName')} required />
+      <Input aria-label={t('checkout.address.phone')} placeholder="+2519…" value={form.recipientPhone} onChange={set('recipientPhone')} required />
+      <Input aria-label={t('checkout.address.city')} placeholder={t('checkout.address.city')} value={form.city} onChange={set('city')} required />
+      <Input aria-label={t('checkout.address.street')} placeholder={t('checkout.address.streetPlaceholder')} value={form.addressLine} onChange={set('addressLine')} required />
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <Button type="button" variant="secondary" onClick={useMyLocation} disabled={location.status === 'locating'}>
-          {location.status === 'locating' ? 'Finding your location…' : location.point ? 'Update my location' : 'Use my current location'}
+          {t(location.status === 'locating' ? 'checkout.location.finding' : location.point ? 'checkout.location.update' : 'checkout.location.use')}
         </Button>
         <span className="text-caption text-muted" aria-live="polite">
-          {location.status === 'found' && 'Location shared for this address.'}
-          {location.status === 'refused' && 'Your location is unavailable. Allow location access in the browser and try again.'}
-          {location.status === 'none' && 'The driver needs the delivery location.'}
+          {location.status === 'found' && t('checkout.location.shared')}
+          {location.status === 'refused' && t('checkout.location.denied')}
+          {location.status === 'none' && t('checkout.location.needed')}
         </span>
       </div>
       {state.error && <p role="alert" className="text-caption text-danger sm:col-span-2">{state.error}</p>}
-      <Button type="submit" variant="secondary" disabled={state.saving || !location.point} className="sm:col-span-2">{state.saving ? 'Saving…' : 'Save address'}</Button>
+      <Button type="submit" variant="secondary" disabled={state.saving || !location.point} className="sm:col-span-2">{t(state.saving ? 'common.saving' : 'checkout.address.save')}</Button>
     </form>
   )
 }
@@ -94,30 +95,30 @@ export function PrescriptionAttach({ value, onChange, intro }) {
       const saved = await prescriptions.upload(file)
       onChange({ status: 'attached', id: saved.id, name: file.name, error: null })
     } catch (error) {
-      onChange({ status: 'error', id: null, name: null, error: error?.message || 'The prescription could not be uploaded.' })
+      onChange({ status: 'error', id: null, name: null, error: error?.message || t('checkout.rx.uploadFailed') })
     }
   }
   return (
-    <Card className="space-y-3 p-4" aria-label="Prescription">
-      <h2 className="flex items-center gap-2 text-h3 text-fg"><FileText className="h-5 w-5 text-brand-500" aria-hidden="true" /> Prescription</h2>
+    <Card className="space-y-3 p-4" aria-label={t('common.prescription')}>
+      <h2 className="flex items-center gap-2 text-h3 text-fg"><FileText className="h-5 w-5 text-brand-500" aria-hidden="true" /> {t('common.prescription')}</h2>
       <p className="text-caption text-muted">
-        {intro ?? 'An item in your cart needs a prescription. Add a photo or PDF of it; the pharmacist checks it before your order goes ahead, and sees your name with it.'}
+        {intro ?? t('checkout.rx.intro')}
       </p>
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border p-3">
         <Upload className="h-5 w-5 text-brand-500" aria-hidden="true" />
         <span className="text-body text-fg">
-          {value.status === 'uploading' ? `Uploading ${value.name}…` : value.status === 'attached' ? `Attached: ${value.name}` : 'Choose a photo or PDF'}
+          {value.status === 'uploading' ? `${t('common.uploading')} ${value.name}` : value.status === 'attached' ? value.name : t('checkout.rx.choose')}
         </span>
         <input
           type="file"
           className="sr-only"
-          aria-label="Prescription file"
+          aria-label={t('rx.file')}
           accept={PRESCRIPTION_FILE_TYPES.join(',')}
           onChange={choose}
           disabled={value.status === 'uploading'}
         />
       </label>
-      {value.status === 'attached' && <p className="flex items-center gap-1.5 text-caption text-success" role="status"><Check className="h-4 w-4" aria-hidden="true" /> Prescription attached. Choose another file to replace it.</p>}
+      {value.status === 'attached' && <p className="flex items-center gap-1.5 text-caption text-success" role="status"><Check className="h-4 w-4" aria-hidden="true" /> {t('checkout.rx.attached')}</p>}
       {value.status === 'error' && <p role="alert" className="text-caption text-danger">{value.error}</p>}
     </Card>
   )
@@ -202,7 +203,7 @@ export default function Checkout() {
       else await orders.setQuantity(item.id, quantity)
       await loadCart()
     } catch (error) {
-      setCartError(error?.message || 'The cart could not be updated.')
+      setCartError(error?.message || t('checkout.cart.updateFailed'))
     }
   }
 
@@ -221,7 +222,7 @@ export default function Checkout() {
       if (error?.code === 'PAYMENT_AUTH_FAILED') {
         setOutcome({ kind: 'declined', message: error.message, orderId: error.details?.orderId ?? null })
       } else {
-        setOutcome({ kind: 'error', message: error?.message || 'The order could not be placed.' })
+        setOutcome({ kind: 'error', message: error?.message || t('checkout.placeFailed') })
       }
     } finally {
       setPlacing(false)
@@ -248,17 +249,17 @@ export default function Checkout() {
         <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-brand-500/15 text-brand-600">
           <FileText className="h-10 w-10" aria-hidden="true" />
         </div>
-        <h1 className="mt-5 font-display text-h1 text-fg">Sent to the pharmacist</h1>
+        <h1 className="mt-5 font-display text-h1 text-fg">{t('checkout.sent.title')}</h1>
         <p className="mt-2 text-body text-muted">
-          Order <span className="font-semibold text-fg">{o.orderNumber}</span> · {money(o.grandTotal, o.currency)}
+          {t('checkout.orderNumber', { number: o.orderNumber })} · {money(o.grandTotal, o.currency)}
         </p>
         <p className="mt-1 text-caption text-muted">
-          The pharmacist checks your prescription first. Nothing is charged yet.{' '}
-          {o.isCod ? 'Once it is approved, the pharmacy prepares your order and you pay the driver in cash.' : 'Once it is approved, you pay from the order page.'}
+          {t('checkout.sent.body')}{' '}
+          {t(o.isCod ? 'checkout.sent.cod' : 'checkout.sent.prepaid')}
         </p>
         <div className="mt-6 flex flex-col gap-2">
-          <Button as={Link} to={`/orders/${o.orderId}`} size="lg"><Truck className="h-4 w-4" aria-hidden="true" /> Follow your order</Button>
-          <Button as={Link} to="/search" variant="ghost">Continue shopping</Button>
+          <Button as={Link} to={`/orders/${o.orderId}`} size="lg"><Truck className="h-4 w-4" aria-hidden="true" /> {t('common.followOrder')}</Button>
+          <Button as={Link} to="/search" variant="ghost">{t('common.continueShopping')}</Button>
         </div>
       </div>
     )
@@ -271,16 +272,16 @@ export default function Checkout() {
         <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-success/15 text-success">
           <Check className="h-10 w-10" strokeWidth={3} aria-hidden="true" />
         </div>
-        <h1 className="mt-5 font-display text-h1 text-fg">Order placed</h1>
+        <h1 className="mt-5 font-display text-h1 text-fg">{t('checkout.placed.title')}</h1>
         <p className="mt-2 text-body text-muted">
-          Order <span className="font-semibold text-fg">{o.orderNumber}</span> · {money(o.grandTotal, o.currency)}
+          {t('checkout.orderNumber', { number: o.orderNumber })} · {money(o.grandTotal, o.currency)}
         </p>
         <p className="mt-1 text-caption text-muted">
-          {o.isCod ? 'Pay the driver in cash when it arrives.' : o.payment?.status === 'AUTHORIZED' ? 'Payment approved.' : 'Waiting for the payment to be confirmed.'}
+          {t(o.isCod ? 'checkout.placed.cod' : o.payment?.status === 'AUTHORIZED' ? 'checkout.placed.paid' : 'checkout.placed.pending')}
         </p>
         <div className="mt-6 flex flex-col gap-2">
-          <Button as={Link} to={`/orders/${o.orderId}`} size="lg"><Truck className="h-4 w-4" aria-hidden="true" /> Follow your order</Button>
-          <Button as={Link} to="/search" variant="ghost">Continue shopping</Button>
+          <Button as={Link} to={`/orders/${o.orderId}`} size="lg"><Truck className="h-4 w-4" aria-hidden="true" /> {t('common.followOrder')}</Button>
+          <Button as={Link} to="/search" variant="ghost">{t('common.continueShopping')}</Button>
         </div>
       </div>
     )
@@ -292,8 +293,8 @@ export default function Checkout() {
   if (cart.status === 'error') {
     return (
       <Card className="flex flex-col items-center gap-3 p-8 text-center">
-        <p className="text-body text-fg">Your cart could not be loaded.</p>
-        <Button variant="secondary" size="sm" onClick={loadCart}><RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again</Button>
+        <p className="text-body text-fg">{t('checkout.loadFailed')}</p>
+        <Button variant="secondary" size="sm" onClick={loadCart}><RefreshCw className="h-4 w-4" aria-hidden="true" /> {t('common.tryAgain')}</Button>
       </Card>
     )
   }
@@ -303,13 +304,13 @@ export default function Checkout() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-h1 text-fg">Checkout</h1>
+      <h1 className="font-display text-h1 text-fg">{t('checkout.title')}</h1>
 
       {outcome?.kind === 'declined' && (
         <Card role="alert" className="flex flex-col gap-3 border-danger/40 p-4">
-          <p className="flex items-center gap-2 text-body font-semibold text-fg"><XCircle className="h-5 w-5 text-danger" aria-hidden="true" /> Payment declined</p>
-          <p className="text-caption text-muted">{outcome.message} Your order was cancelled and nothing was charged.</p>
-          {outcome.orderId && <Button variant="secondary" size="sm" onClick={putBack}>Put the items back in my cart</Button>}
+          <p className="flex items-center gap-2 text-body font-semibold text-fg"><XCircle className="h-5 w-5 text-danger" aria-hidden="true" /> {t('checkout.declined.title')}</p>
+          <p className="text-caption text-muted">{outcome.message} {t('common.cancelledNothingCharged')}</p>
+          {outcome.orderId && <Button variant="secondary" size="sm" onClick={putBack}>{t('checkout.declined.restore')}</Button>}
         </Card>
       )}
       {outcome?.kind === 'error' && <p role="alert" className="text-caption text-danger">{outcome.message}</p>}
@@ -317,8 +318,8 @@ export default function Checkout() {
       {items.length === 0 ? (
         <Card className="flex flex-col items-center gap-3 p-8 text-center">
           <Pill className="h-8 w-8 text-subtle" aria-hidden="true" />
-          <p className="text-body text-fg">Your cart is empty.</p>
-          <Button as={Link} to="/search" variant="secondary">Find medicines</Button>
+          <p className="text-body text-fg">{t('checkout.empty')}</p>
+          <Button as={Link} to="/search" variant="secondary">{t('common.findMedicines')}</Button>
         </Card>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
@@ -327,17 +328,17 @@ export default function Checkout() {
               {items.map((item) => (
                 <div key={item.id} className="flex items-center gap-3 p-4" data-testid="cart-item">
                   <div className="min-w-0 flex-1">
-                    <p className="text-body font-semibold text-fg">{names[item.catalogProductId] ?? 'Loading…'}</p>
+                    <p className="text-body font-semibold text-fg">{names[item.catalogProductId] ?? t('common.loading')}</p>
                     <p className="text-caption text-muted">
-                      {item.indicativePrice != null ? `${money(item.indicativePrice)} each` : 'Price at checkout'}
-                      {item.requiresRx ? ' · prescription needed' : ''}
+                      {item.indicativePrice != null ? t('checkout.item.each', { price: money(item.indicativePrice) }) : t('checkout.item.priceAtCheckout')}
+                      {item.requiresRx ? ` ${t('checkout.item.rxNeeded')}` : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" aria-label="Decrease quantity" onClick={() => change(item, item.quantity - 1)}><Minus className="h-4 w-4" /></Button>
-                    <span className="w-8 text-center text-body" aria-label="Quantity">{item.quantity}</span>
-                    <Button variant="ghost" size="sm" aria-label="Increase quantity" onClick={() => change(item, item.quantity + 1)}><Plus className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="sm" aria-label="Remove" onClick={() => change(item, 0)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" aria-label={t('checkout.item.decrease')} onClick={() => change(item, item.quantity - 1)}><Minus className="h-4 w-4" /></Button>
+                    <span className="w-8 text-center text-body" aria-label={t('common.quantity')}>{item.quantity}</span>
+                    <Button variant="ghost" size="sm" aria-label={t('checkout.item.increase')} onClick={() => change(item, item.quantity + 1)}><Plus className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" aria-label={t('checkout.item.remove')} onClick={() => change(item, 0)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
               ))}
@@ -345,7 +346,7 @@ export default function Checkout() {
             {cartError && <p role="alert" className="text-caption text-danger">{cartError}</p>}
 
             <Card className="space-y-3 p-4">
-              <h2 className="flex items-center gap-2 text-h3 text-fg"><MapPin className="h-5 w-5 text-brand-500" aria-hidden="true" /> Delivery address</h2>
+              <h2 className="flex items-center gap-2 text-h3 text-fg"><MapPin className="h-5 w-5 text-brand-500" aria-hidden="true" /> {t('checkout.address.heading')}</h2>
               {addresses.items.map((a) => (
                 <label key={a.id} className="flex items-start gap-3 rounded-xl border border-border p-3">
                   <input type="radio" name="address" value={a.id} checked={addressId === a.id} onChange={() => setAddressId(a.id)} />
@@ -354,7 +355,7 @@ export default function Checkout() {
                   </span>
                 </label>
               ))}
-              {addresses.status === 'ready' && addresses.items.length === 0 && !adding && <p className="text-caption text-muted">Add an address to see your delivery fee.</p>}
+              {addresses.status === 'ready' && addresses.items.length === 0 && !adding && <p className="text-caption text-muted">{t('checkout.address.addToSeeFee')}</p>}
               {adding ? (
                 <AddressForm
                   orders={orders}
@@ -365,15 +366,15 @@ export default function Checkout() {
                   }}
                 />
               ) : (
-                <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>Add a new address</Button>
+                <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>{t('common.addAddress')}</Button>
               )}
             </Card>
 
             {rxRequired && <PrescriptionAttach value={rx} onChange={setRx} />}
 
             <Card className="space-y-3 p-4">
-              <h2 className="text-h3 text-fg">Payment</h2>
-              <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Payment method">
+              <h2 className="text-h3 text-fg">{t('checkout.payment')}</h2>
+              <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t('common.paymentMethod')}>
                 {PAYMENT_METHODS.map((m) => {
                   const Icon = METHOD_ICONS[m.id]
                   return (
@@ -386,39 +387,39 @@ export default function Checkout() {
                       className={`flex items-center gap-3 rounded-xl border p-3 text-left ${method === m.id ? 'border-brand-500 bg-brand-500/5' : 'border-border'}`}
                     >
                       <Icon className="h-5 w-5 text-brand-500" aria-hidden="true" />
-                      <span><span className="block text-body font-semibold text-fg">{m.label}</span><span className="text-caption text-muted">{m.desc}</span></span>
+                      <span><span className="block text-body font-semibold text-fg">{t(m.label)}</span><span className="text-caption text-muted">{t(m.desc)}</span></span>
                     </button>
                   )
                 })}
               </div>
-              {rxRequired && method !== 'COD' && <p className="text-caption text-muted">You pay once the pharmacist approves your prescription. Nothing is charged before.</p>}
+              {rxRequired && method !== 'COD' && <p className="text-caption text-muted">{t('checkout.payAfterApproval')}</p>}
               {PAYMENTS_TEST_MODE && method !== 'COD' && !rxRequired && (
                 <div>
-                  <Input aria-label="Test gateway token" placeholder="Test token (e.g. test-decline)" value={token} onChange={(e) => setToken(e.target.value)} maxLength={512} />
-                  <p className="mt-1 text-caption text-subtle">Test mode: no real money moves. The token test-decline makes the payment fail.</p>
+                  <Input aria-label={t('common.testToken')} placeholder={t('common.testToken.placeholder')} value={token} onChange={(e) => setToken(e.target.value)} maxLength={512} />
+                  <p className="mt-1 text-caption text-subtle">{t('checkout.testMode')}</p>
                 </div>
               )}
             </Card>
           </div>
 
-          <Card className="h-fit space-y-3 p-4" aria-label="Order summary">
-            <h2 className="text-h3 text-fg">Summary</h2>
+          <Card className="h-fit space-y-3 p-4" aria-label={t('checkout.summary')}>
+            <h2 className="text-h3 text-fg">{t('checkout.summary.label')}</h2>
             {quote.status === 'loading' && <Skeleton className="h-24" />}
-            {quote.status === 'error' && <p role="alert" className="text-caption text-danger">{quote.error?.message || 'The total could not be calculated.'}</p>}
-            {quote.status === 'idle' && <p className="text-caption text-muted">Choose an address to see the total.</p>}
+            {quote.status === 'error' && <p role="alert" className="text-caption text-danger">{quote.error?.message || t('checkout.totalFailed')}</p>}
+            {quote.status === 'idle' && <p className="text-caption text-muted">{t('checkout.chooseAddress')}</p>}
             {totals && (
               <dl className="space-y-1 text-body">
-                <div className="flex justify-between"><dt className="text-muted">Items</dt><dd>{money(totals.subtotal, totals.currency)}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted">Delivery</dt><dd>{money(totals.deliveryFee, totals.currency)}</dd></div>
-                {totals.discountTotal > 0 && <div className="flex justify-between"><dt className="text-muted">Discount</dt><dd>−{money(totals.discountTotal, totals.currency)}</dd></div>}
-                <div className="flex justify-between border-t border-border pt-2 font-semibold"><dt>Total</dt><dd data-testid="grand-total">{money(totals.grandTotal, totals.currency)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted">{t('checkout.items')}</dt><dd>{money(totals.subtotal, totals.currency)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted">{t('common.delivery')}</dt><dd>{money(totals.deliveryFee, totals.currency)}</dd></div>
+                {totals.discountTotal > 0 && <div className="flex justify-between"><dt className="text-muted">{t('checkout.discount')}</dt><dd>−{money(totals.discountTotal, totals.currency)}</dd></div>}
+                <div className="flex justify-between border-t border-border pt-2 font-semibold"><dt>{t('common.total')}</dt><dd data-testid="grand-total">{money(totals.grandTotal, totals.currency)}</dd></div>
               </dl>
             )}
-            {rxRequired && rx.status !== 'attached' && <p className="text-caption text-warning">Add your prescription to place this order.</p>}
+            {rxRequired && rx.status !== 'attached' && <p className="text-caption text-warning">{t('checkout.addRx')}</p>}
             <Button size="lg" className="w-full" disabled={!canPlace} onClick={place}>
-              {placing ? 'Placing order…' : rxRequired ? 'Send to the pharmacist' : method === 'COD' ? 'Place order' : 'Pay and place order'}
+              {t(placing ? 'checkout.placing' : rxRequired ? 'checkout.submit.rx' : method === 'COD' ? 'checkout.submit.place' : 'checkout.submit.pay')}
             </Button>
-            <p className="flex items-center gap-1.5 text-caption text-subtle"><ShieldCheck className="h-4 w-4" aria-hidden="true" /> Licensed pharmacies only. The pharmacy confirms your order.</p>
+            <p className="flex items-center gap-1.5 text-caption text-subtle"><ShieldCheck className="h-4 w-4" aria-hidden="true" /> {t('checkout.licensed')}</p>
           </Card>
         </div>
       )}

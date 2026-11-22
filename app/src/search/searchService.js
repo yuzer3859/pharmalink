@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import { API_BASE_URL } from '../config/env'
 import { ApiError, createApiClient } from '../auth/apiClient'
+import { t } from '../auth/strings'
 import { isUuid } from '../catalog/catalogService'
 
 // Read-only client for Module 14's public search (Work 98). No token is sent. Only the query
@@ -10,7 +11,7 @@ export const SEARCH_PAGE_SIZE = 20
 export const DEFAULT_RADIUS_KM = 25
 
 const isRecord = (value) => typeof value === 'object' && value !== null
-const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', 'The server sent an unexpected response.')
+const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', t('common.unexpected'))
 const isCoordinate = (value, limit) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= limit
 
 /** `GET /search/medicines` query string, from allowlisted, validated values only. */
@@ -56,7 +57,7 @@ export function createSearchService({ api }) {
 
     /** Where a product can be bought now; nearest first when a location is given. */
     async whereToBuy(productId, location, { signal } = {}) {
-      if (!isUuid(productId)) throw new ApiError(404, 'NOT_FOUND', 'Resource not found')
+      if (!isUuid(productId)) throw new ApiError(404, 'NOT_FOUND', t('common.notFound'))
       const params = new URLSearchParams({ limit: '20' })
       if (location && isCoordinate(location.lat, 90) && isCoordinate(location.lng, 180)) {
         params.set('lat', String(location.lat))

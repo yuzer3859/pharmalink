@@ -109,7 +109,7 @@ describe('sending a prescription to nearby pharmacies (Work 138)', () => {
       [`POST /rx-requests/${REQUEST_ID}/confirm`]: ok({ request: view({ status: 'CONFIRMED', orderId: ORDER_ID }), orderId: ORDER_ID }),
       [`GET /orders/${ORDER_ID}`]: ok({ order: { id: ORDER_ID, orderNumber: 'ORD-9', status: 'PAID', grandTotal: 6500, currency: 'ETB', isCod: true }, lines: [], statusHistory: [] }),
     })
-    expect(await screen.findByText(/Bole Pharmacy offers/)).toBeTruthy()
+    expect(await screen.findByText(/Quote: Bole Pharmacy/)).toBeTruthy()
     expect(screen.getByText('2 × Amoxicillin 500mg')).toBeTruthy()
     expect(screen.getByTestId('quote-total').textContent).toMatch(/65/)
     expect(screen.getByText(/You keep your paper prescription/)).toBeTruthy()

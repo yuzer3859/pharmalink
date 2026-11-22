@@ -20,6 +20,7 @@ import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
 import Account from './pages/auth/Account'
 import { RequireCustomer } from './auth/AuthContext'
+import { useLanguage } from './auth/strings'
 
 function Page({ children }) {
   return (
@@ -39,7 +40,7 @@ export default function App() {
   return (
     <Layout>
       <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
+        <Routes location={location} key={`${location.pathname}:${language}`}>
           <Route path="/" element={<Page><Home /></Page>} />
           <Route path="/search" element={<Page><SearchPage /></Page>} />
           <Route path="/medicines" element={<Page><Medicines /></Page>} />

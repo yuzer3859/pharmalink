@@ -4,15 +4,17 @@ import { FileText, RefreshCw, Upload } from 'lucide-react'
 import { Badge, Button, Card, Input, Skeleton } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { checkFile, createPrescriptionsService } from '../prescriptions/prescriptionsService'
+import { t } from '../auth/strings'
 
+/** Each state's tone; its label is the message rx.status.<state> (Work 143). */
 const STATUS = {
-  UPLOADED: { label: 'Waiting for a pharmacist', tone: 'info' },
-  UNDER_REVIEW: { label: 'Being checked', tone: 'info' },
-  CLARIFICATION_REQUESTED: { label: 'Pharmacist has a question', tone: 'warning' },
-  APPROVED: { label: 'Approved', tone: 'success' },
-  REJECTED: { label: 'Not accepted', tone: 'danger' },
-  CONSUMED: { label: 'Used', tone: 'neutral' },
-  EXPIRED: { label: 'Expired', tone: 'neutral' },
+  UPLOADED: 'info',
+  UNDER_REVIEW: 'info',
+  CLARIFICATION_REQUESTED: 'warning',
+  APPROVED: 'success',
+  REJECTED: 'danger',
+  CONSUMED: 'neutral',
+  EXPIRED: 'neutral',
 }
 
 export function usePrescriptions() {
@@ -57,7 +59,7 @@ export default function Prescriptions() {
       e.target.reset()
       load()
     } catch (error) {
-      setUpload({ status: 'idle', error: error?.message || 'The prescription could not be uploaded.' })
+      setUpload({ status: 'idle', error: error?.message || t('checkout.rx.uploadFailed') })
     }
   }
 
@@ -66,63 +68,64 @@ export default function Prescriptions() {
       const link = await service.fileLink(id)
       window.open(link.url, '_blank', 'noopener')
     } catch (error) {
-      setUpload({ status: 'idle', error: error?.message || 'The file could not be opened.' })
+      setUpload({ status: 'idle', error: error?.message || t('rx.openFailed') })
     }
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-h1 text-fg">Prescriptions</h1>
-        <p className="text-body text-muted">Upload a prescription and a licensed pharmacist checks it before your medicine is sent.</p>
+        <h1 className="font-display text-h1 text-fg">{t('rx.title')}</h1>
+        <p className="text-body text-muted">{t('rx.subtitle')}</p>
       </div>
 
       <Card className="p-5">
-        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2" aria-label="Upload a prescription">
+        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2" aria-label={t('common.uploadPrescription')}>
           <label className="sm:col-span-2">
-            <span className="mb-1 block text-caption text-muted">Prescription file (PDF, JPEG or PNG, up to 10 MB)</span>
+            <span className="mb-1 block text-caption text-muted">{t('rx.fileLabel')}</span>
             <input
               type="file"
               accept="application/pdf,image/jpeg,image/png"
-              aria-label="Prescription file"
+              aria-label={t('rx.file')}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="block w-full text-body text-fg"
             />
           </label>
-          <Input aria-label="Doctor's name (optional)" placeholder="Doctor's name (optional)" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} maxLength={200} />
-          <Input aria-label="Hospital or clinic (optional)" placeholder="Hospital or clinic (optional)" value={hospitalName} onChange={(e) => setHospitalName(e.target.value)} maxLength={200} />
+          <Input aria-label={t('rx.doctor')} placeholder={t('rx.doctor')} value={doctorName} onChange={(e) => setDoctorName(e.target.value)} maxLength={200} />
+          <Input aria-label={t('rx.hospital')} placeholder={t('rx.hospital')} value={hospitalName} onChange={(e) => setHospitalName(e.target.value)} maxLength={200} />
           {upload.error && <p role="alert" className="text-caption text-danger sm:col-span-2">{upload.error}</p>}
-          {upload.status === 'done' && <p role="status" className="text-caption text-success sm:col-span-2">Uploaded. A pharmacist will check it.</p>}
+          {upload.status === 'done' && <p role="status" className="text-caption text-success sm:col-span-2">{t('rx.uploaded')}</p>}
           <Button type="submit" disabled={upload.status === 'uploading'} className="sm:col-span-2">
-            <Upload className="h-4 w-4" aria-hidden="true" /> {upload.status === 'uploading' ? 'Uploading…' : 'Upload prescription'}
+            <Upload className="h-4 w-4" aria-hidden="true" /> {t(upload.status === 'uploading' ? 'common.uploading' : 'rx.upload')}
           </Button>
         </form>
       </Card>
 
       <section aria-live="polite">
-        <h2 className="mb-3 text-h3 text-fg">Your prescriptions</h2>
+        <h2 className="mb-3 text-h3 text-fg">{t('rx.list')}</h2>
         {list.status === 'loading' && <Skeleton className="h-20" />}
         {list.status === 'error' && (
           <Card className="flex items-center justify-between gap-3 p-4">
-            <p className="text-body text-fg">Your prescriptions could not be loaded.</p>
-            <Button variant="secondary" size="sm" onClick={load}><RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again</Button>
+            <p className="text-body text-fg">{t('rx.loadFailed')}</p>
+            <Button variant="secondary" size="sm" onClick={load}><RefreshCw className="h-4 w-4" aria-hidden="true" /> {t('common.tryAgain')}</Button>
           </Card>
         )}
-        {list.status === 'ready' && list.items.length === 0 && <p className="text-caption text-muted">You have not uploaded a prescription yet.</p>}
+        {list.status === 'ready' && list.items.length === 0 && <p className="text-caption text-muted">{t('rx.empty')}</p>}
         {list.status === 'ready' && list.items.length > 0 && (
           <div className="space-y-3">
             {list.items.map((p) => {
-              const s = STATUS[p.displayStatus ?? p.status] ?? { label: p.status, tone: 'neutral' }
+              const code = p.displayStatus ?? p.status
+              const s = STATUS[code] ? { label: t(`rx.status.${code}`), tone: STATUS[code] } : { label: p.status, tone: 'neutral' }
               return (
                 <Card key={p.id} className="flex flex-wrap items-center gap-3 p-4" data-testid="prescription">
                   <FileText className="h-5 w-5 text-brand-500" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-body font-semibold text-fg">{p.doctorName ? `Dr. ${p.doctorName}` : 'Prescription'}{p.hospitalName ? ` · ${p.hospitalName}` : ''}</p>
-                    <p className="text-caption text-muted">Uploaded {new Date(p.createdAt).toLocaleDateString()}</p>
+                    <p className="text-body font-semibold text-fg">{p.doctorName ? t('rx.doctorName', { name: p.doctorName }) : t('common.prescription')}{p.hospitalName ? ` · ${p.hospitalName}` : ''}</p>
+                    <p className="text-caption text-muted">{t('rx.uploadedOn', { date: new Date(p.createdAt).toLocaleDateString() })}</p>
                   </div>
                   <Badge tone={s.tone}>{s.label}</Badge>
                   {typeof p.fileRef === 'string' && p.fileRef.startsWith('doc:') && (
-                    <Button variant="ghost" size="sm" onClick={() => open(p.id)}>Open file</Button>
+                    <Button variant="ghost" size="sm" onClick={() => open(p.id)}>{t('rx.openFile')}</Button>
                   )}
                 </Card>
               )
@@ -132,7 +135,7 @@ export default function Prescriptions() {
       </section>
 
       <p className="text-caption text-subtle">
-        To order a prescription medicine, add it to your cart: checkout asks for the prescription, and the pharmacist checks it on your order. <Link to="/checkout" className="font-semibold text-brand-600">Go to checkout</Link>. Not sure what to buy? <Link to="/requests/new" className="font-semibold text-brand-600">Send a prescription to nearby pharmacies</Link>.
+        {t('rx.howToOrder')} <Link to="/checkout" className="font-semibold text-brand-600">{t('common.goToCheckout')}</Link>. {t('rx.notSure')} <Link to="/requests/new" className="font-semibold text-brand-600">{t('rx.sendNearby')}</Link>.
       </p>
     </div>
   )

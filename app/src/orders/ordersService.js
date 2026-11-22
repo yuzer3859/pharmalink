@@ -1,4 +1,5 @@
 import { ApiError } from '../auth/apiClient'
+import { t } from '../auth/strings'
 import { isUuid } from '../catalog/catalogService'
 
 // Work 100: the customer's cart, checkout and orders over the real API (Modules 02 and 06), signed
@@ -6,13 +7,14 @@ import { isUuid } from '../catalog/catalogService'
 
 /** Ways to pay at checkout. COD needs no gateway; the others go through the payment gateway. */
 export const PAYMENT_METHODS = [
-  { id: 'COD', label: 'Cash on delivery', desc: 'Pay the driver when it arrives' },
-  { id: 'TELEBIRR', label: 'Telebirr', desc: 'Pay now' },
-  { id: 'CARD', label: 'Card', desc: 'Pay now' },
+  // label and desc are message keys (Work 143), read with t() when drawn.
+  { id: 'COD', label: 'pay.cod', desc: 'pay.cod.sub' },
+  { id: 'TELEBIRR', label: 'pay.telebirr', desc: 'pay.now.sub' },
+  { id: 'CARD', label: 'pay.card', desc: 'pay.now.sub' },
 ]
 
 const isRecord = (value) => typeof value === 'object' && value !== null
-const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', 'The server sent an unexpected response.')
+const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', t('common.unexpected'))
 
 /** `null` from the API means the customer has no cart yet: an empty one. */
 function readCart(data) {
@@ -32,7 +34,7 @@ export function createOrdersService({ request }) {
       return readCart(await request('GET', '/cart'))
     },
     async addToCart(catalogProductId, quantity = 1) {
-      if (!isUuid(catalogProductId)) throw new ApiError(404, 'NOT_FOUND', 'Resource not found')
+      if (!isUuid(catalogProductId)) throw new ApiError(404, 'NOT_FOUND', t('common.notFound'))
       await request('POST', '/cart/items', { catalogProductId, quantity })
     },
     async setQuantity(itemId, quantity) {

@@ -88,7 +88,7 @@ describe('search page (Work 99)', () => {
     expect(geolocation.getCurrentPosition).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: /Near me/ }))
     await waitFor(() => expect(params(callsTo(SEARCH).at(-1))).toMatchObject({ lat: '9.0301', lng: '38.7468', radiusKm: '25' }))
-    expect(await screen.findByText(/nearest 850 m away/)).toBeTruthy()
+    expect(await screen.findByText(/nearest 850 m/)).toBeTruthy()
   })
 
   it('the header search box opens the search page', async () => {
