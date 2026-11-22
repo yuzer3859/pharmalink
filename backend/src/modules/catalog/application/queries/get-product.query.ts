@@ -41,6 +41,6 @@ export class GetProductQuery {
       return { id: props.id, slug: props.slug, nameAm: props.nameAm, nameEn: props.nameEn };
     });
 
-    return toProductDetailView(product, categorySummaries);
+    return toProductDetailView(product, categorySummaries, await this.products.imageUrlsFor(product.id));
   }
 }

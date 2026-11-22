@@ -41,9 +41,12 @@ export interface ProductDetailView {
   createdAt: Date;
   updatedAt: Date;
   categories: CategorySummary[];
+  /** Work 145: image URLs, primary first; `imageUrl` is the first of them, or `null`. */
+  images: string[];
+  imageUrl: string | null;
 }
 
-export function toProductDetailView(product: Product, categories: CategorySummary[]): ProductDetailView {
+export function toProductDetailView(product: Product, categories: CategorySummary[], images: string[] = []): ProductDetailView {
   const props = product.toProps();
   return {
     id: props.id,
@@ -71,5 +74,7 @@ export function toProductDetailView(product: Product, categories: CategorySummar
     createdAt: props.createdAt,
     updatedAt: props.updatedAt,
     categories,
+    images,
+    imageUrl: images[0] ?? null,
   };
 }

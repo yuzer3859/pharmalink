@@ -50,9 +50,13 @@ function toDomain(row: PrismaProduct): Product {
   });
 }
 
+/** Work 145: the primary image first, then the rest in their order. */
+const IMAGE_ORDER = [{ isPrimary: 'desc' }, { sortOrder: 'asc' }] as const satisfies Prisma.ProductImageOrderByWithRelationInput[];
+
 type SummaryRow = PrismaProduct & {
   manufacturer: { name: string } | null;
   categories: { categoryId: string }[];
+  images: { url: string }[];
 };
 
 function toSummaryView(row: SummaryRow): ProductSummaryRow {
@@ -69,12 +73,14 @@ function toSummaryView(row: SummaryRow): ProductSummaryRow {
     rxClassification: row.rxClassification,
     manufacturerName: row.manufacturer?.name ?? null,
     primaryCategoryId: row.categories[0]?.categoryId ?? null,
+    imageUrl: row.images[0]?.url ?? null,
   };
 }
 
 const SUMMARY_INCLUDE = {
   manufacturer: { select: { name: true } },
   categories: { take: 1, select: { categoryId: true } },
+  images: { take: 1, orderBy: IMAGE_ORDER, select: { url: true } },
 } as const;
 
 @Injectable()
@@ -167,6 +173,21 @@ export class PrismaProductRepository implements IProductRepository {
         data: categoryIds.map((categoryId) => ({ productId, categoryId })),
       });
     }
+  }
+
+  async setImages(productId: string, urls: string[], tx?: unknown): Promise<void> {
+    const client = (tx as Client) ?? this.prisma;
+    await client.productImage.deleteMany({ where: { productId } });
+    if (urls.length > 0) {
+      await client.productImage.createMany({
+        data: urls.map((url, index) => ({ productId, url, isPrimary: index === 0, sortOrder: index })),
+      });
+    }
+  }
+
+  async imageUrlsFor(productId: string): Promise<string[]> {
+    const rows = await this.prisma.productImage.findMany({ where: { productId }, orderBy: [...IMAGE_ORDER], select: { url: true } });
+    return rows.map((r) => r.url);
   }
 
   async categoryIdsFor(productId: string): Promise<string[]> {

@@ -22,7 +22,7 @@ import { toApprovedProductResponse } from '../interface/dtos/catalog-approval.re
 import { ApproveCatalogProductCommand } from './commands/approve-catalog-product.command';
 
 /** `products` in memory, with the Prisma adapter's guarded-write semantics for `expectedStatus`. */
-class Products implements Pick<IProductRepository, 'findById' | 'save' | 'categoryIdsFor'> {
+class Products implements Pick<IProductRepository, 'findById' | 'save' | 'categoryIdsFor' | 'imageUrlsFor'> {
   rows = new Map<string, ProductProps>();
   writes = 0;
   async findById(id: string) {
@@ -38,6 +38,10 @@ class Products implements Pick<IProductRepository, 'findById' | 'save' | 'catego
     this.rows.set(props.id, { ...props });
     this.writes++;
   }
+  async imageUrlsFor() {
+    return [];
+  }
+
   async categoryIdsFor() {
     return [];
   }

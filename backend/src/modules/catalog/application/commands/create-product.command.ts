@@ -40,6 +40,8 @@ export interface CreateProductInput {
   warnings?: string;
   price?: number;
   categoryIds?: string[];
+  /** Work 145: the product's images; the first URL is the primary one. */
+  images?: string[];
 }
 
 /**
@@ -128,6 +130,9 @@ export class CreateProductCommand {
       if (categoryIds.length > 0) {
         await this.products.setCategories(created.id, categoryIds, tx);
       }
+      if (input.images && input.images.length > 0) {
+        await this.products.setImages(created.id, input.images, tx);
+      }
 
       const props = created.toProps();
       await this.audit.record(
@@ -165,6 +170,7 @@ export class CreateProductCommand {
         const props = c.toProps();
         return { id: props.id, slug: props.slug, nameAm: props.nameAm, nameEn: props.nameEn };
       }),
+      input.images ?? [],
     );
   }
 }

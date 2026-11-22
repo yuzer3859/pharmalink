@@ -24,6 +24,9 @@ import {
  * required for `MEDICINE`, `manufacturerId` required for `MEDICINE` per §3.6 invariant 8,
  * resolved §14.6) happens in `CreateProductCommand`, not here — same split as Module 02's DOB
  * rule. */
+/** Work 145: an `https://` URL, or a site path that is not protocol-relative; no spaces or quotes. */
+export const PRODUCT_IMAGE_URL = /^(?:https:\/\/[^\s"'<>]+|\/(?!\/)[^\s"'<>]*)$/;
+
 export class CreateProductDto {
   @IsIn(['MEDICINE', 'HEALTH_PRODUCT'])
   type!: string;
@@ -114,6 +117,16 @@ export class CreateProductDto {
   @ArrayMaxSize(20)
   @IsUUID('4', { each: true })
   categoryIds?: string[];
+
+  /** Work 145: image URLs, the first being the primary one. An `https://` URL, or a path on the
+   * customer app's own site (`/products/…`); never `//host` or `javascript:`. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @Length(1, 500, { each: true })
+  @Matches(PRODUCT_IMAGE_URL, { each: true, message: 'each image must be an https:// URL or a /path' })
+  images?: string[];
 }
 
 /** `PATCH /admin/catalog/products/:id` — `type` immutable after create, omitted entirely

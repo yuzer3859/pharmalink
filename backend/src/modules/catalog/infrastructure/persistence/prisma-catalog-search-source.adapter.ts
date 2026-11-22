@@ -10,7 +10,11 @@ export class PrismaCatalogSearchSourceAdapter implements ICatalogSearchSourcePor
   async product(productId: string): Promise<SearchProductSource | null> {
     const row = await this.prisma.product.findUnique({
       where: { id: productId },
-      include: { manufacturer: { select: { name: true } }, categories: { include: { category: true } } },
+      include: {
+        manufacturer: { select: { name: true } },
+        categories: { include: { category: true } },
+        images: { take: 1, orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }], select: { url: true } },
+      },
     });
     if (!row) return null;
     const strength = row.strengthValue !== null ? `${row.strengthValue}${row.strengthUnit ?? ''}` : null;
@@ -35,6 +39,7 @@ export class PrismaCatalogSearchSourceAdapter implements ICatalogSearchSourcePor
         nameEn: pc.category.nameEn,
         nameAm: pc.category.nameAm,
       })),
+      imageUrl: row.images[0]?.url ?? null,
     };
   }
 

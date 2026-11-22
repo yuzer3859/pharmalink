@@ -44,6 +44,8 @@ export interface MedicineHit {
   dosageForm: string | null;
   rxClassification: string | null;
   categories: Array<{ categoryId: string; slug: string; nameEn: string | null; nameAm: string | null }>;
+  /** Work 145: the product's main image, or `null`. */
+  imageUrl: string | null;
   availability: {
     pharmacyCount: number;
     minPrice: number | null;
@@ -145,6 +147,7 @@ export class SearchQueryService {
           dosageForm: str('dosageForm'),
           rxClassification: str('rxClassification'),
           categories: Array.isArray(a.categories) ? (a.categories as MedicineHit['categories']) : [],
+          imageUrl: str('imageUrl'),
           availability: {
             pharmacyCount: r.pharmacyCount ?? 0,
             minPrice: r.minPrice ?? null,

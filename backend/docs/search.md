@@ -13,6 +13,8 @@ part. Doctors, providers and diagnostics (Modules 09–12) are out of scope.
 | `GET /search/medicines/{productId}/pharmacies?lat&lng&radiusKm&limit` | Where the product can be bought now: pharmacy, branch, city, price, quantity and distance. Nearest first with a location, otherwise cheapest. |
 | `GET /search/pharmacies?q&lat&lng&radiusKm&page&size` | Transacting pharmacies by name, branch or city. Nearest first with a location. |
 
+Each medicine hit also carries `imageUrl`: the product's main image, or `null` (Work 145).
+
 Rules:
 - `lat` and `lng` must come together.
 - `radiusKm` defaults to 25 and may be at most 200.
