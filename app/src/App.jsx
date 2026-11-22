@@ -37,10 +37,12 @@ function Page({ children }) {
 
 export default function App() {
   const location = useLocation()
+  // Work 143: the pages draw again (without losing their state) when the language changes.
+  useLanguage()
   return (
     <Layout>
       <AnimatePresence mode="wait">
-        <Routes location={location} key={`${location.pathname}:${language}`}>
+        <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Page><Home /></Page>} />
           <Route path="/search" element={<Page><SearchPage /></Page>} />
           <Route path="/medicines" element={<Page><Medicines /></Page>} />
