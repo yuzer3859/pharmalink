@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, Pill, Upload, ShieldCheck, X, ChevronLeft, ChevronRight, RefreshCw, PackageSearch, ArrowRight } from 'lucide-react'
+import { Search, Upload, ShieldCheck, X, ChevronLeft, ChevronRight, RefreshCw, PackageSearch, ArrowRight } from 'lucide-react'
 import { Button, Card, Badge, Input, Segmented, IconTile, Skeleton } from '../components/ui'
 import { cn } from '../lib/utils'
 import { PAGE_SIZE, PRODUCT_TYPES, RX_CLASSES, SORTS, isUuid, useCatalog } from '../catalog/catalogService'
 import { flattenCategories, productDetailsLine, productName } from '../catalog/format'
 import { t } from '../auth/strings'
+import ProductImage from '../components/ProductImage'
+import { formatMinorUnits } from '../lib/utils'
 
 const SEARCH_DEBOUNCE_MS = 350
 
@@ -41,38 +43,56 @@ function readFilters(params) {
   }
 }
 
-export function RxBadge({ rx }) {
-  if (rx === 'RX') return <Badge tone="warning">{t('medicines.rxRequired')}</Badge>
-  if (rx === 'OTC') return <Badge tone="success">OTC</Badge>
+export function RxBadge({ rx, className }) {
+  if (rx === 'RX') return <Badge tone="warning" className={className}>{t('medicines.rxRequired')}</Badge>
+  if (rx === 'OTC') return <Badge tone="success" className={className}>OTC</Badge>
   return null
 }
 
-export function ProductCard({ product, from }) {
+/** Badges laid over a picture get a frosted backing so they stay readable on any photo. */
+const ON_PICTURE = '!bg-white/90 shadow-sm backdrop-blur dark:!bg-slate-900/80'
+
+/**
+ * Work 147: an image-first product card. The picture zooms gently on hover and the card lifts; a
+ * price shows when the caller has one (search results carry the lowest pharmacy price).
+ */
+export function ProductCard({ product, from, price = null, currency = 'ETB' }) {
   const details = productDetailsLine(product)
+  const priceLabel = price == null ? null : formatMinorUnits(price, currency)
   return (
-    <Card interactive className="h-full">
-      <Link
-        to={`/medicines/${product.id}`}
-        state={{ from }}
-        className="flex h-full flex-col rounded-2xl p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-      >
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-surface-2 text-brand-500">
-            <Pill className="h-6 w-6" aria-hidden="true" />
+    <motion.div whileHover={{ y: -4 }} transition={{ type: 'spring', stiffness: 320, damping: 24 }} className="h-full">
+      <Card interactive className="group h-full overflow-hidden">
+        <Link
+          to={`/medicines/${product.id}`}
+          state={{ from }}
+          className="flex h-full flex-col rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <div className="relative">
+            <ProductImage src={product.imageUrl} zoom className="aspect-square w-full" />
+            <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1">
+              <RxBadge rx={product.rxClassification} className={ON_PICTURE} />
+              {product.type === 'HEALTH_PRODUCT' && <Badge tone="info" className={ON_PICTURE}>{t('common.healthProduct')}</Badge>}
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <RxBadge rx={product.rxClassification} />
-            {product.type === 'HEALTH_PRODUCT' && <Badge tone="info">{t('common.healthProduct')}</Badge>}
+          <div className="flex flex-1 flex-col p-4">
+            <p className="line-clamp-2 text-body font-semibold leading-snug text-fg">{productName(product)}</p>
+            {details && <p className="mt-0.5 line-clamp-1 text-caption text-muted">{details}</p>}
+            {product.manufacturerName && <p className="mt-0.5 line-clamp-1 text-caption text-subtle">{product.manufacturerName}</p>}
+            <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+              {priceLabel ? (
+                <p className="font-display text-body-lg font-bold text-fg" data-testid="card-price">{priceLabel}</p>
+              ) : (
+                <span className="text-caption font-semibold text-brand-600 dark:text-brand-300">{t('medicines.viewDetails')}</span>
+              )}
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-500/10 text-brand-600 transition-all duration-300 group-hover:translate-x-0.5 group-hover:bg-brand-500 group-hover:text-white dark:text-brand-300">
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </span>
+            </div>
           </div>
-        </div>
-        <p className="text-body-lg font-semibold text-fg">{productName(product)}</p>
-        {details && <p className="text-caption text-muted">{details}</p>}
-        {product.manufacturerName && <p className="mt-1 text-caption text-subtle">{product.manufacturerName}</p>}
-        <span className="mt-auto inline-flex items-center gap-1 pt-4 text-caption font-semibold text-brand-600 dark:text-brand-300">
-          {t('medicines.viewDetails')} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </span>
-      </Link>
-    </Card>
+        </Link>
+      </Card>
+    </motion.div>
   )
 }
 
@@ -253,7 +273,7 @@ export default function Medicines() {
         {results.status === 'loading' && (
           <div role="status" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
             <span className="sr-only">{t('common.loadingProducts')}</span>
-            {Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-44 rounded-2xl" />)}
+            {Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="aspect-[3/4] rounded-2xl" />)}
           </div>
         )}
 

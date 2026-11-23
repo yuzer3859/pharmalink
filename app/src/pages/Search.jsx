@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search as SearchIcon, MapPin, Pill, RefreshCw, PackageSearch, ArrowRight, Navigation } from 'lucide-react'
+import { Search as SearchIcon, MapPin, RefreshCw, PackageSearch, ArrowRight, Navigation } from 'lucide-react'
+import ProductImage from '../components/ProductImage'
 import { Button, Card, Badge, Input, Segmented, Skeleton } from '../components/ui'
 import { formatMinorUnits } from '../lib/utils'
 import { RxBadge } from './Medicines'
@@ -40,15 +41,13 @@ function ResultCard({ hit }) {
     .filter(Boolean)
     .join(' · ')
   return (
-    <Card interactive>
+    <Card interactive className="group">
       <Link
         to={`/medicines/${hit.productId}`}
         state={{ from: '/search' }}
-        className="flex items-start gap-4 rounded-2xl p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        className="flex items-start gap-4 rounded-2xl p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:p-4"
       >
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface-2 text-brand-500">
-          <Pill className="h-5 w-5" aria-hidden="true" />
-        </div>
+        <ProductImage src={hit.imageUrl} zoom iconSize="h-6 w-6" className="h-20 w-20 shrink-0 rounded-2xl sm:h-24 sm:w-24" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-body-lg font-semibold text-fg">{hit.nameEn || hit.genericName || hit.nameAm}</p>
