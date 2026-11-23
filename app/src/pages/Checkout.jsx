@@ -11,6 +11,7 @@ import { requestLocation } from '../search/searchService'
 import { PRESCRIPTION_FILE_TYPES, checkFile } from '../prescriptions/prescriptionsService'
 import { usePrescriptions } from './Prescriptions'
 import { t } from '../auth/strings'
+import { cartChanged, cartItemCount } from '../lib/cartEvents'
 
 const METHOD_ICONS = { COD: Wallet, TELEBIRR: Smartphone, CARD: CreditCard }
 
@@ -151,6 +152,7 @@ export default function Checkout() {
     try {
       const data = await orders.cart()
       setCart({ status: 'ready', data })
+      cartChanged(cartItemCount(data))
       for (const item of data.items) {
         if (names[item.catalogProductId]) continue
         catalog
@@ -218,6 +220,8 @@ export default function Checkout() {
         prescriptionId: rxRequired ? rx.id : undefined,
       })
       setOutcome({ kind: 'placed', order })
+      // The order took the cart's items.
+      cartChanged(0)
     } catch (error) {
       if (error?.code === 'PAYMENT_AUTH_FAILED') {
         setOutcome({ kind: 'declined', message: error.message, orderId: error.details?.orderId ?? null })

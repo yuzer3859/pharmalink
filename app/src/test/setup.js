@@ -6,6 +6,24 @@ import { setLanguage } from '../auth/strings'
 // unreachable network. Tests that need responses inject a scripted fetch (src/test/fakeBackend.js).
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Network access is disabled in tests'))))
+  // Work 147: the pages reveal sections as they scroll into view. jsdom has no
+  // IntersectionObserver; this one reports every element as visible straight away.
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(callback) {
+        this.callback = callback
+      }
+      observe(target) {
+        this.callback([{ target, isIntersecting: true, intersectionRatio: 1 }], this)
+      }
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return []
+      }
+    },
+  )
 })
 
 afterEach(() => {

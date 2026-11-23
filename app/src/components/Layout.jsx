@@ -10,6 +10,8 @@ import { useTheme } from '../lib/theme'
 import { cn } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
 import { t, useLanguage } from '../auth/strings'
+import { useOrders } from '../pages/Checkout'
+import { cartItemCount, onCartChanged } from '../lib/cartEvents'
 import { Avatar, Button, Input, Skeleton } from './ui'
 
 const nav = [
@@ -199,8 +201,42 @@ function HeaderSearch() {
   )
 }
 
+/**
+ * Work 147: how many items are in the signed-in customer's cart, read again when the page changes
+ * or the cart changes; 0 when signed out or when it can't be read. Checkout reads the cart itself
+ * and reports the count, so on that page the top bar doesn't read it a second time.
+ */
+function useCartCount() {
+  const { status } = useAuth()
+  const orders = useOrders()
+  const location = useLocation()
+  const [count, setCount] = useState(0)
+  const [version, setVersion] = useState(0)
+  useEffect(
+    () => onCartChanged((known) => (Number.isInteger(known) ? setCount(known) : setVersion((v) => v + 1))),
+    [],
+  )
+  useEffect(() => {
+    if (status !== 'signedIn') {
+      setCount(0)
+      return undefined
+    }
+    if (location.pathname === '/checkout') return undefined
+    let active = true
+    orders
+      .cart()
+      .then((cart) => active && setCount(cartItemCount(cart)))
+      .catch(() => active && setCount(0))
+    return () => {
+      active = false
+    }
+  }, [status, orders, location.pathname, version])
+  return count
+}
+
 function Topbar({ onMenu }) {
   const { theme, toggle } = useTheme()
+  const cartCount = useCartCount()
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-border glass">
       <div className="flex h-full items-center gap-3 px-4 sm:px-6 lg:pl-8 lg:pr-8">
@@ -241,7 +277,21 @@ function Topbar({ onMenu }) {
           </button>
           <Link to="/checkout" className="relative grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label={t('layout.cart')}>
             <ShoppingBag className="h-5 w-5" />
-            <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white">3</span>
+            <AnimatePresence>
+              {cartCount > 0 && (
+                <motion.span
+                  key={cartCount}
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.4, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                  data-testid="cart-count"
+                  className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white"
+                >
+                  {cartCount > 99 ? '99+' : cartCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </Link>
           <AccountMenu />
         </div>

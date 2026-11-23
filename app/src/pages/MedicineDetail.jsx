@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useOrders } from './Checkout'
-import { AlertTriangle, ArrowLeft, Ban, Pill, RefreshCw, ShieldAlert, Store, Thermometer } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Ban, RefreshCw, ShieldAlert, Store, Thermometer } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Badge, Button, Card, Skeleton } from '../components/ui'
+import ProductImage from '../components/ProductImage'
+import { cartChanged } from '../lib/cartEvents'
+import { cn } from '../lib/utils'
 import { formatMinorUnits } from '../lib/utils'
 import { useCatalog } from '../catalog/catalogService'
 import { categoryName, humanize, productName, strength, summarizeAvailability } from '../catalog/format'
@@ -27,6 +31,7 @@ function AddToCart({ product }) {
     try {
       await orders.addToCart(product.id, quantity)
       setState({ status: 'added', error: null })
+      cartChanged()
     } catch (error) {
       setState({ status: 'idle', error: error?.message || t('product.addFailed') })
     }
@@ -51,6 +56,46 @@ function AddToCart({ product }) {
       )}
       {product.rxClassification === 'RX' && <p className="text-caption text-subtle">{t('product.rxNote')}</p>}
     </Card>
+  )
+}
+
+/**
+ * Work 147: the product's pictures, the main one large with a soft entrance and hover zoom, and the
+ * others as thumbnails to switch between. With no picture, a placeholder takes its place.
+ */
+function Gallery({ images }) {
+  const [current, setCurrent] = useState(0)
+  const list = images.filter(Boolean)
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      className="space-y-3"
+    >
+      <div className="group overflow-hidden rounded-3xl border border-border shadow-lg">
+        <ProductImage key={list[current] ?? 'none'} src={list[current]} zoom eager iconSize="h-16 w-16" className="aspect-square w-full" />
+      </div>
+      {list.length > 1 && (
+        <div className="flex gap-2">
+          {list.map((src, i) => (
+            <button
+              key={src}
+              type="button"
+              onClick={() => setCurrent(i)}
+              aria-pressed={i === current}
+              aria-label={String(i + 1)}
+              className={cn(
+                'overflow-hidden rounded-xl border-2 transition-all',
+                i === current ? 'border-brand-500 shadow-md' : 'border-transparent opacity-70 hover:opacity-100',
+              )}
+            >
+              <ProductImage src={src} className="h-16 w-16" iconSize="h-5 w-5" />
+            </button>
+          ))}
+        </div>
+      )}
+    </motion.div>
   )
 }
 
@@ -225,20 +270,24 @@ export default function MedicineDetail() {
     <div className="space-y-5">
       {backLink}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl bg-surface-2 text-brand-500">
-          <Pill className="h-9 w-9" aria-hidden="true" />
-        </div>
-        <div className="min-w-0 flex-1">
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:items-center">
+        <Gallery images={Array.isArray(p.images) && p.images.length > 0 ? p.images : [p.imageUrl]} />
+        <motion.div
+          className="min-w-0"
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        >
           <div className="flex flex-wrap items-center gap-2">
             <RxBadge rx={p.rxClassification} />
             <Badge tone="neutral">{t(p.type === 'HEALTH_PRODUCT' ? 'common.healthProduct' : 'common.medicine')}</Badge>
             {controlled && <Badge tone="danger">{t('product.controlled', { schedule: humanize(p.controlledSchedule) })}</Badge>}
           </div>
-          <h1 className="mt-2 font-display text-h1 text-fg">{name}</h1>
-          {p.nameAm && p.nameAm !== name && <p lang="am" className="text-body-lg text-muted">{p.nameAm}</p>}
+          <h1 className="mt-3 font-display text-h1 text-fg sm:text-display">{name}</h1>
+          {p.nameAm && p.nameAm !== name && <p lang="am" className="mt-1 text-body-lg text-muted">{p.nameAm}</p>}
           {p.genericName && p.genericName !== name && <p className="text-body text-muted">{p.genericName}</p>}
-        </div>
+          {p.descriptionEn && <p className="mt-4 max-w-prose text-body-lg text-muted">{p.descriptionEn}</p>}
+        </motion.div>
       </div>
 
       {p.status === 'DEPRECATED' && (
@@ -293,10 +342,10 @@ export default function MedicineDetail() {
             </Card>
           )}
 
-          {(p.descriptionEn || p.descriptionAm) && (
+          {/* Work 147: the English description now opens the page, beside the picture. */}
+          {p.descriptionAm && (
             <Card className="p-5">
               <h2 className="text-h3 text-fg">{t('product.about')}</h2>
-              {p.descriptionEn && <p className="mt-2 whitespace-pre-line text-body text-muted">{p.descriptionEn}</p>}
               {p.descriptionAm && <p lang="am" className="mt-2 whitespace-pre-line text-body text-muted">{p.descriptionAm}</p>}
             </Card>
           )}
