@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, CreditCard, FileText, MapPin, Minus, Pill, Plus, RefreshCw, ShieldCheck, Smartphone, Trash2, Truck, Upload, Wallet, XCircle } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Check, CreditCard, FileText, MapPin, Pill, RefreshCw, ShieldCheck, Smartphone, Truck, Upload, Wallet, XCircle } from 'lucide-react'
+import { CartLine, useCartProducts } from '../components/CartLine'
 import { Badge, Button, Card, Input, Skeleton } from '../components/ui'
 import { formatMinorUnits } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
-import { useCatalog } from '../catalog/catalogService'
-import { productName } from '../catalog/format'
 import { PAYMENT_METHODS, createOrdersService, newIdempotencyKey } from '../orders/ordersService'
 import { requestLocation } from '../search/searchService'
 import { PRESCRIPTION_FILE_TYPES, checkFile } from '../prescriptions/prescriptionsService'
@@ -126,6 +126,93 @@ export function PrescriptionAttach({ value, onChange, intro }) {
 }
 
 /**
+ * Work 148: where the customer is in checkout: the address, then payment, then the summary. A
+ * step turns green with a tick once it's done; the bar between steps fills as they complete.
+ */
+function CheckoutSteps({ done }) {
+  const steps = [
+    { label: t('checkout.address.heading'), icon: MapPin },
+    { label: t('checkout.payment'), icon: Wallet },
+    { label: t('checkout.summary'), icon: ShieldCheck },
+  ]
+  const current = done.findIndex((d) => !d)
+  return (
+    <ol className="flex items-center gap-2" aria-label={t('checkout.title')}>
+      {steps.map((step, i) => {
+        const complete = done[i]
+        const active = i === current
+        const Icon = complete ? Check : step.icon
+        return (
+          <li key={step.label} className="flex flex-1 items-center gap-2" aria-current={active ? 'step' : undefined}>
+            <motion.span
+              animate={{ scale: active ? 1.08 : 1 }}
+              className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 transition-colors duration-300 ${
+                complete ? 'border-success bg-success text-white' : active ? 'border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-300' : 'border-border text-subtle'
+              }`}
+            >
+              <Icon className="h-4 w-4" aria-hidden="true" />
+            </motion.span>
+            <span className={`hidden text-caption font-semibold sm:inline ${complete || active ? 'text-fg' : 'text-subtle'}`}>{step.label}</span>
+            {i < steps.length - 1 && (
+              <span className="relative h-1 flex-1 overflow-hidden rounded-full bg-border">
+                <motion.span
+                  className="absolute inset-y-0 left-0 rounded-full bg-success"
+                  initial={false}
+                  animate={{ width: complete ? '100%' : '0%' }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                />
+              </span>
+            )}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** Work 148: a tick that draws itself in a circle that pops, for a placed order. */
+function SuccessMark({ tone = 'success', icon: Icon = null }) {
+  const ring = tone === 'success' ? 'bg-success/15 text-success' : 'bg-brand-500/15 text-brand-600'
+  return (
+    <div className="relative mx-auto h-24 w-24">
+      <motion.span
+        className={`absolute inset-0 rounded-full ${ring}`}
+        initial={{ scale: 0.4, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+      />
+      <motion.span
+        className={`absolute inset-0 rounded-full ${ring}`}
+        initial={{ scale: 1, opacity: 0.6 }}
+        animate={{ scale: 1.6, opacity: 0 }}
+        transition={{ duration: 1.2, delay: 0.25, ease: 'easeOut' }}
+      />
+      <span className="absolute inset-0 grid place-items-center">
+        {Icon ? (
+          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring' }}>
+            <Icon className="h-11 w-11" aria-hidden="true" />
+          </motion.span>
+        ) : (
+          <svg viewBox="0 0 52 52" className="h-12 w-12" aria-hidden="true">
+            <motion.path
+              d="M14 27 l8 8 l16 -18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.5, delay: 0.25, ease: 'easeOut' }}
+            />
+          </svg>
+        )}
+      </span>
+    </div>
+  )
+}
+
+/**
  * Work 100: checkout on the real API (Module 06, with Module 07's payment). The cart, addresses,
  * the server's quote, then either cash on delivery or a gateway payment. A declined payment
  * cancels the order and releases its stock on the server; the customer can put the items back in
@@ -133,9 +220,7 @@ export function PrescriptionAttach({ value, onChange, intro }) {
  */
 export default function Checkout() {
   const orders = useOrders()
-  const catalog = useCatalog()
   const [cart, setCart] = useState({ status: 'loading', data: null })
-  const [names, setNames] = useState({})
   const [addresses, setAddresses] = useState({ status: 'loading', items: [] })
   const [addressId, setAddressId] = useState('')
   const [adding, setAdding] = useState(false)
@@ -153,18 +238,10 @@ export default function Checkout() {
       const data = await orders.cart()
       setCart({ status: 'ready', data })
       cartChanged(cartItemCount(data))
-      for (const item of data.items) {
-        if (names[item.catalogProductId]) continue
-        catalog
-          .getProduct(item.catalogProductId)
-          .then((p) => setNames((n) => ({ ...n, [item.catalogProductId]: productName(p) })))
-          .catch(() => {})
-      }
     } catch {
       setCart({ status: 'error', data: null })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, catalog])
+  }, [orders])
 
   useEffect(() => {
     loadCart()
@@ -179,6 +256,7 @@ export default function Checkout() {
   }, [orders, loadCart])
 
   const items = cart.data?.items ?? []
+  const products = useCartProducts(items)
   // Work 133: the server says whether this cart needs a prescription on its order.
   const rxRequired = quote.data ? quote.data.prescriptionRequired === true || quote.data.rxGateResult?.allowed === false : items.some((i) => i.requiresRx)
   const itemsKey = items.map((i) => `${i.id}:${i.quantity}`).join(',')
@@ -250,9 +328,7 @@ export default function Checkout() {
     const o = outcome.order
     return (
       <div className="mx-auto max-w-md py-12 text-center">
-        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-brand-500/15 text-brand-600">
-          <FileText className="h-10 w-10" aria-hidden="true" />
-        </div>
+        <SuccessMark tone="brand" icon={FileText} />
         <h1 className="mt-5 font-display text-h1 text-fg">{t('checkout.sent.title')}</h1>
         <p className="mt-2 text-body text-muted">
           {t('checkout.orderNumber', { number: o.orderNumber })} · {money(o.grandTotal, o.currency)}
@@ -273,9 +349,7 @@ export default function Checkout() {
     const o = outcome.order
     return (
       <div className="mx-auto max-w-md py-12 text-center">
-        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-success/15 text-success">
-          <Check className="h-10 w-10" strokeWidth={3} aria-hidden="true" />
-        </div>
+        <SuccessMark />
         <h1 className="mt-5 font-display text-h1 text-fg">{t('checkout.placed.title')}</h1>
         <p className="mt-2 text-body text-muted">
           {t('checkout.orderNumber', { number: o.orderNumber })} · {money(o.grandTotal, o.currency)}
@@ -309,6 +383,11 @@ export default function Checkout() {
   return (
     <div className="space-y-6">
       <h1 className="font-display text-h1 text-fg">{t('checkout.title')}</h1>
+      {items.length > 0 && (
+        <CheckoutSteps
+          done={[Boolean(addressId), Boolean(addressId) && (!rxRequired || rx.status === 'attached'), false]}
+        />
+      )}
 
       {outcome?.kind === 'declined' && (
         <Card role="alert" className="flex flex-col gap-3 border-danger/40 p-4">
@@ -328,24 +407,12 @@ export default function Checkout() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <Card className="divide-y divide-border">
-              {items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-4" data-testid="cart-item">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-body font-semibold text-fg">{names[item.catalogProductId] ?? t('common.loading')}</p>
-                    <p className="text-caption text-muted">
-                      {item.indicativePrice != null ? t('checkout.item.each', { price: money(item.indicativePrice) }) : t('checkout.item.priceAtCheckout')}
-                      {item.requiresRx ? ` ${t('checkout.item.rxNeeded')}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" aria-label={t('checkout.item.decrease')} onClick={() => change(item, item.quantity - 1)}><Minus className="h-4 w-4" /></Button>
-                    <span className="w-8 text-center text-body" aria-label={t('common.quantity')}>{item.quantity}</span>
-                    <Button variant="ghost" size="sm" aria-label={t('checkout.item.increase')} onClick={() => change(item, item.quantity + 1)}><Plus className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="sm" aria-label={t('checkout.item.remove')} onClick={() => change(item, 0)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </div>
-              ))}
+            <Card className="divide-y divide-border overflow-hidden">
+              <AnimatePresence initial={false}>
+                {items.map((item) => (
+                  <CartLine key={item.id} item={item} product={products[item.catalogProductId]} onChange={change} />
+                ))}
+              </AnimatePresence>
             </Card>
             {cartError && <p role="alert" className="text-caption text-danger">{cartError}</p>}
 

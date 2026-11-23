@@ -5,13 +5,14 @@ import {
   Search, Bell, Moon, Sun, ShoppingBag, Menu, X, ShieldAlert, Upload,
   LogIn, LogOut, UserPlus, UserRound, Send,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/theme'
 import { cn } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
 import { t, useLanguage } from '../auth/strings'
 import { useOrders } from '../pages/Checkout'
 import { cartItemCount, onCartChanged } from '../lib/cartEvents'
+import CartDrawer from './CartDrawer'
 import { Avatar, Button, Input, Skeleton } from './ui'
 
 const nav = [
@@ -237,6 +238,33 @@ function useCartCount() {
 function Topbar({ onMenu }) {
   const { theme, toggle } = useTheme()
   const cartCount = useCartCount()
+  const { status } = useAuth()
+  const location = useLocation()
+  const [cartOpen, setCartOpen] = useState(false)
+  const closeCart = useCallback(() => setCartOpen(false), [])
+  // Work 148: a signed-in customer's cart slides in; on checkout, or signed out, the icon is a link.
+  const drawer = status === 'signedIn' && location.pathname !== '/checkout'
+  const cartClass = 'relative grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg'
+  const cartIcon = (
+    <>
+      <ShoppingBag className="h-5 w-5" />
+      <AnimatePresence>
+        {cartCount > 0 && (
+          <motion.span
+            key={cartCount}
+            initial={{ scale: 0.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.4, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+            data-testid="cart-count"
+            className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white"
+          >
+            {cartCount > 99 ? '99+' : cartCount}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </>
+  )
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-border glass">
       <div className="flex h-full items-center gap-3 px-4 sm:px-6 lg:pl-8 lg:pr-8">
@@ -275,27 +303,19 @@ function Topbar({ onMenu }) {
             <Bell className="h-5 w-5" />
             <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-surface" />
           </button>
-          <Link to="/checkout" className="relative grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label={t('layout.cart')}>
-            <ShoppingBag className="h-5 w-5" />
-            <AnimatePresence>
-              {cartCount > 0 && (
-                <motion.span
-                  key={cartCount}
-                  initial={{ scale: 0.4, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.4, opacity: 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 18 }}
-                  data-testid="cart-count"
-                  className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white"
-                >
-                  {cartCount > 99 ? '99+' : cartCount}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </Link>
+          {drawer ? (
+            <button type="button" onClick={() => setCartOpen(true)} className={cartClass} aria-label={t('layout.cart')} aria-haspopup="dialog" aria-expanded={cartOpen}>
+              {cartIcon}
+            </button>
+          ) : (
+            <Link to="/checkout" className={cartClass} aria-label={t('layout.cart')}>
+              {cartIcon}
+            </Link>
+          )}
           <AccountMenu />
         </div>
       </div>
+      {drawer && <CartDrawer open={cartOpen} onClose={closeCart} />}
     </header>
   )
 }

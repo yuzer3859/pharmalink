@@ -396,6 +396,7 @@ export const pageMessages = {
     'common.catalogEmpty': 'The catalog has no products yet.',
 
     // Short texts found while wiring (Work 144)
+    'common.close': 'Close',
     'product.added': 'Added.',
     'product.listings.one': '{count} available listing',
     'product.listings.many': '{count} available listings',
@@ -800,6 +801,7 @@ export const pageMessages = {
     'common.catalogEmpty': 'ካታሎጉ ገና ምንም ምርት የለውም።',
 
     // Short texts found while wiring (Work 144)
+    'common.close': 'ዝጋ',
     'product.added': 'ታክሏል።',
     'product.listings.one': '{count} የሚገኝ ዝርዝር',
     'product.listings.many': '{count} የሚገኙ ዝርዝሮች',
