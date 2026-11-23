@@ -7,6 +7,7 @@ import {
   FIXTURE_ORGANIZATIONS,
   FIXTURE_PRODUCTS,
 } from '../../src/cli/staging-seed/fixtures';
+import { SHELF_CATEGORIES, SHELF_INITIAL_QUANTITY, SHELF_PRODUCTS, WALK_PRODUCT_SHELF } from '../../src/cli/staging-seed/shelf-fixtures';
 import { DOCUMENT_STORAGE_PORT, IDocumentStoragePort, parseDocumentRef } from '../../src/shared/storage/document-storage.port';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 
@@ -52,6 +53,9 @@ describe('Staging seed (e2e)', () => {
       collections: await p.codCollection.count(),
       disputes: await p.codDispute.count(),
       flags: await p.featureFlag.count(),
+      categories: await p.category.count(),
+      images: await p.productImage.count(),
+      listings: await p.inventoryListing.count(),
     };
   }
 
@@ -131,6 +135,36 @@ describe('Staging seed (e2e)', () => {
     }
     const statuses = new Set(FIXTURE_PRODUCTS.map((p) => p.outcome));
     expect(statuses).toEqual(new Set(['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'REJECTED', 'DEPRECATED', 'DELISTED']));
+  });
+
+  it('stocks the pharmacy shelf: every category, and every product active, pictured, priced and in stock at Bole Main (Work 146)', async () => {
+    const categories = await ctx.prisma.category.findMany({ where: { slug: { in: SHELF_CATEGORIES.map((c) => c.slug) } } });
+    expect(categories.map((c) => c.slug).sort()).toEqual(SHELF_CATEGORIES.map((c) => c.slug).sort());
+
+    for (const fixture of SHELF_PRODUCTS) {
+      const product = await ctx.prisma.product.findFirstOrThrow({
+        where: { nameEn: fixture.nameEn },
+        include: { images: true, categories: { include: { category: true } } },
+      });
+      expect({ key: fixture.key, status: product.status, type: product.type, price: product.price }).toEqual({
+        key: fixture.key,
+        status: 'ACTIVE',
+        type: fixture.type,
+        price: fixture.price,
+      });
+      expect(product.images.map((i) => ({ url: i.url, isPrimary: i.isPrimary }))).toEqual([{ url: `/products/${fixture.image}`, isPrimary: true }]);
+      expect(product.categories.map((c) => c.category.slug)).toEqual([fixture.category]);
+      const listing = await ctx.prisma.inventoryListing.findFirstOrThrow({ where: { catalogProductId: product.id }, include: { branch: true } });
+      expect(listing.branch.name).toBe('Bole Main');
+      expect(listing.price).toBe(fixture.price);
+    }
+    expect(SHELF_INITIAL_QUANTITY).toBeGreaterThan(0);
+
+    for (const walk of WALK_PRODUCT_SHELF) {
+      const fixture = FIXTURE_PRODUCTS.find((p) => p.key === walk.fixtureKey)!;
+      const product = await ctx.prisma.product.findFirstOrThrow({ where: { nameEn: fixture.nameEn }, include: { images: true } });
+      expect(product.images.map((i) => i.url)).toEqual([`/products/${walk.image}`]);
+    }
   });
 
   it('leaves payments, refunds, a settlement and COD collections with one open dispute', async () => {
