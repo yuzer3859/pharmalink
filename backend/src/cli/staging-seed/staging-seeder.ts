@@ -14,6 +14,8 @@ import { ToggleFeatureFlagCommand } from '../../modules/admin/application/comman
 import { ChangeProductStatusCommand } from '../../modules/catalog/application/commands/change-product-status.command';
 import { CreateManufacturerCommand } from '../../modules/catalog/application/commands/create-manufacturer.command';
 import { CreateProductCommand } from '../../modules/catalog/application/commands/create-product.command';
+import { CreateCategoryCommand } from '../../modules/catalog/application/commands/create-category.command';
+import { SHELF_CATEGORIES, SHELF_INITIAL_QUANTITY, SHELF_MANUFACTURER, SHELF_PRODUCTS, ShelfProduct, WALK_PRODUCT_SHELF } from './shelf-fixtures';
 import { AcceptJobOfferCommand } from '../../modules/delivery/application/commands/accept-job-offer.command';
 import { AdvanceDeliveryJobCommand } from '../../modules/delivery/application/commands/advance-delivery-job.command';
 import { CreateDeliveryJobCommand } from '../../modules/delivery/application/commands/create-delivery-job.command';
@@ -103,6 +105,7 @@ export class StagingSeeder {
     await this.ensureDriverReady('driverWalkSpare', 'AA-3-STG81');
     for (const product of FIXTURE_PRODUCTS) await this.ensureProduct(product);
     await this.ensureMarketplace();
+    await this.ensureShelf();
     for (const order of FIXTURE_ORDERS) await this.ensureOrder(order);
     await this.ensureSettlement();
     await this.ensureFeatureFlag();
@@ -419,13 +422,13 @@ export class StagingSeeder {
   // ---------------------------------------------------------------------------------------------
 
   /** MEDICINE products must name a manufacturer (module-03 §3.6 invariant 8). */
-  private async ensureManufacturer(): Promise<string> {
-    const found = await this.prisma.manufacturer.findFirst({ where: { name: FIXTURE_MANUFACTURER } });
+  private async ensureManufacturer(name: string = FIXTURE_MANUFACTURER): Promise<string> {
+    const found = await this.prisma.manufacturer.findFirst({ where: { name } });
     if (found) return found.id;
     const created = await this.app
       .get(CreateManufacturerCommand)
-      .execute({ actorUserId: this.account('operator'), name: FIXTURE_MANUFACTURER, country: 'ET' });
-    this.note(true, 'manufacturer');
+      .execute({ actorUserId: this.account('operator'), name, country: 'ET' });
+    this.note(true, `manufacturer ${name}`);
     return created.id;
   }
 
@@ -519,6 +522,113 @@ export class StagingSeeder {
       }
       this.note(!listing, `stock ${key} at Bole Main`);
     }
+  }
+
+  /**
+   * Work 146: the pharmacy shelf (`shelf-fixtures.ts`). Categories, then every shelf product with
+   * its picture and category, submitted and approved through the catalogue review, priced, and
+   * stocked at Bole Main. The walk products get a picture and a category too. Idempotent: a
+   * category is found by slug, a product by `nameEn`, a listing by branch and product.
+   */
+  private async ensureShelf(): Promise<void> {
+    const org = this.orgs.get('transacting');
+    if (!org?.pharmacyId || !org.branchId) return;
+    const operator = this.account('operator');
+    const ownerId = (await this.prisma.organization.findUniqueOrThrow({ where: { id: org.organizationId } })).ownerUserId;
+
+    const categoryIds = new Map<string, string>();
+    for (const [index, c] of SHELF_CATEGORIES.entries()) {
+      const found = await this.prisma.category.findUnique({ where: { slug: c.slug } });
+      const id =
+        found?.id ??
+        (
+          await this.app.get(CreateCategoryCommand).execute({
+            actorUserId: operator,
+            slug: c.slug,
+            nameEn: c.nameEn,
+            nameAm: c.nameAm,
+            appliesTo: c.appliesTo,
+            sortOrder: (index + 1) * 10,
+          })
+        ).id;
+      categoryIds.set(c.slug, id);
+      this.note(!found, `category ${c.slug}`);
+    }
+
+    for (const walk of WALK_PRODUCT_SHELF) {
+      const productId = this.products.get(walk.fixtureKey);
+      if (!productId) continue;
+      const hasImage = (await this.prisma.productImage.count({ where: { productId } })) > 0;
+      if (!hasImage) {
+        await this.app.get(UpdateProductCommand).execute({
+          actorUserId: operator,
+          productId,
+          images: [`/products/${walk.image}`],
+          categoryIds: [categoryIds.get(walk.category)!],
+        });
+      }
+      this.note(!hasImage, `picture and category for ${walk.fixtureKey}`);
+    }
+
+    for (const product of SHELF_PRODUCTS) {
+      await this.ensureShelfProduct(product, categoryIds.get(product.category)!, operator);
+      const productId = this.products.get(`shelf:${product.key}`)!;
+      const listing = await this.prisma.inventoryListing.findFirst({ where: { branchId: org.branchId, catalogProductId: productId } });
+      if (!listing) {
+        await this.app.get(CreateListingCommand).execute({
+          actorUserId: ownerId,
+          pharmacyId: org.pharmacyId,
+          branchId: org.branchId,
+          catalogProductId: productId,
+          price: product.price,
+          batchNumber: `STG-SHELF-${product.key}`,
+          initialQuantity: SHELF_INITIAL_QUANTITY,
+          expiryDate: '2028-12-31',
+        });
+      }
+      this.note(!listing, `stock ${product.key} at Bole Main`);
+    }
+  }
+
+  private async ensureShelfProduct(product: ShelfProduct, categoryId: string, operator: string): Promise<void> {
+    const existing = await this.prisma.product.findFirst({ where: { nameEn: product.nameEn } });
+    const common = {
+      actorUserId: operator,
+      nameEn: product.nameEn,
+      packSize: product.packSize,
+      descriptionEn: product.descriptionEn,
+      price: product.price,
+      categoryIds: [categoryId],
+      images: [`/products/${product.image}`],
+    };
+    const productId =
+      existing?.id ??
+      (
+        await this.app.get(CreateProductCommand).execute(
+          product.type === 'MEDICINE'
+            ? {
+                ...common,
+                type: 'MEDICINE',
+                manufacturerId: await this.ensureManufacturer(SHELF_MANUFACTURER),
+                genericName: product.genericName,
+                dosageForm: product.dosageForm,
+                strengthValue: product.strength?.value,
+                strengthUnit: product.strength?.unit,
+                rxClassification: product.rx,
+              }
+            : { ...common, type: 'HEALTH_PRODUCT' },
+        )
+      ).id;
+    this.products.set(`shelf:${product.key}`, productId);
+
+    const status = async () => (await this.prisma.product.findUniqueOrThrow({ where: { id: productId } })).status;
+    if ((await status()) === 'DRAFT') {
+      await this.app.get(SubmitCatalogProductCommand).execute({ actorUserId: operator, productId });
+    }
+    if ((await status()) === 'PENDING_REVIEW') {
+      await this.app.get(ApproveCatalogProductCommand).execute({ actorUserId: operator, productId });
+    }
+    this.note(!existing, `shelf product ${product.key}`);
   }
 
   // ---------------------------------------------------------------------------------------------
