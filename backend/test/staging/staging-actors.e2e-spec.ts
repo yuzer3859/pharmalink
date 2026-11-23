@@ -24,8 +24,10 @@ describe('Staging walk: marketplace seed and actors (Work 103, e2e)', () => {
   it('stocks the OTC walk product and the Rx Amoxicillin at Bole Main, priced, and makes the owner a pharmacist there', async () => {
     const org = await ctx.prisma.organization.findFirstOrThrow({ where: { name: FIXTURE_ORGANIZATIONS.find((o) => o.key === 'transacting')!.legalName } });
     const pharmacyRow = await ctx.prisma.pharmacy.findUniqueOrThrow({ where: { organizationId: org.id } });
-    const listings = await ctx.prisma.inventoryListing.findMany({ where: { pharmacyId: pharmacyRow.id } });
-    const products = await ctx.prisma.product.findMany({ where: { id: { in: listings.map((l) => l.catalogProductId) } } });
+    // Work 146 also stocks the shelf there; this checks the two walk products (named "Seed …") only.
+    const stocked = await ctx.prisma.inventoryListing.findMany({ where: { pharmacyId: pharmacyRow.id } });
+    const products = await ctx.prisma.product.findMany({ where: { id: { in: stocked.map((l) => l.catalogProductId) }, nameEn: { startsWith: 'Seed ' } } });
+    const listings = stocked.filter((l) => products.some((p) => p.id === l.catalogProductId));
     expect(products.map((p) => [p.nameEn, p.status, p.rxClassification, p.price !== null]).sort()).toEqual(
       [
         ['Seed Amoxicillin 500 mg capsule', 'ACTIVE', 'RX', true],
