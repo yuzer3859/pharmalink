@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, Input, IconTile, SectionHead, Skeleton } from '../components/ui'
 import ProductImage from '../components/ProductImage'
+import { Glow } from '../components/PageHero'
 import { useCatalog } from '../catalog/catalogService'
 import { useSearch } from '../search/searchService'
 import { categoryName } from '../catalog/format'
@@ -85,19 +86,6 @@ function HeroCollage() {
         </motion.div>
       ))}
     </div>
-  )
-}
-
-/** Soft blobs of light that breathe behind the hero. */
-function HeroGlow() {
-  const still = useReducedMotion()
-  const breathe = (delay) => (still ? {} : { animate: { scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }, transition: { duration: 9, repeat: Infinity, ease: 'easeInOut', delay } })
-  return (
-    <>
-      <motion.div className="pointer-events-none absolute -right-20 -top-24 h-80 w-80 rounded-full bg-white/15 blur-3xl" {...breathe(0)} />
-      <motion.div className="pointer-events-none absolute -bottom-28 -left-16 h-96 w-96 rounded-full bg-accent-400/30 blur-3xl" {...breathe(3)} />
-      <motion.div className="pointer-events-none absolute left-1/2 top-1/3 h-64 w-64 rounded-full bg-brand-300/20 blur-3xl" {...breathe(6)} />
-    </>
   )
 }
 
@@ -197,7 +185,7 @@ export default function Home() {
     <div className="space-y-12">
       {/* Hero */}
       <section className="relative overflow-hidden rounded-[2rem] gradient-brand px-6 py-10 text-white shadow-xl sm:px-10 sm:py-14">
-        <HeroGlow />
+        <Glow />
         <div className="relative grid items-center gap-8 lg:grid-cols-[1.15fr_1fr]">
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
             <h1 className="font-display text-display font-extrabold leading-[1.05] tracking-tight sm:text-display-lg">

@@ -8,6 +8,8 @@ import { AddressForm, PrescriptionAttach, useOrders } from './Checkout'
 import { PAYMENT_METHODS } from '../orders/ordersService'
 import { ENDED_STATUSES, LIVE_STATUSES, createRxRequestsService, requestStage, todayIso } from '../rxRequests/rxRequestsService'
 import { t } from '../auth/strings'
+import { PageHero, StaggerItem, StaggerList } from '../components/PageHero'
+import { PAGE_PICTURES } from '../catalog/images'
 
 const METHOD_ICONS = { COD: Wallet, TELEBIRR: Smartphone, CARD: CreditCard }
 const PAYMENTS_TEST_MODE = import.meta.env.VITE_PAYMENTS_TEST_MODE === 'true'
@@ -65,10 +67,7 @@ export function SendRxRequest() {
   return (
     <div className="space-y-6">
       <Link to="/requests" className="inline-flex items-center gap-1 text-caption font-semibold text-brand-600"><ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t('req.my')}</Link>
-      <div>
-        <h1 className="font-display text-h1 text-fg">{t('common.sendPrescription')}</h1>
-        <p className="mt-1 text-body text-muted">{t('req.send.intro')}</p>
-      </div>
+      <PageHero icon={Send} title={t('common.sendPrescription')} subtitle={t('req.send.intro')} pictures={PAGE_PICTURES.requests} />
 
       <PrescriptionAttach value={rx} onChange={setRx} intro={t('req.send.file')} />
 
@@ -252,10 +251,9 @@ export function RxRequestDetail() {
   return (
     <div className="space-y-6">
       {back}
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-h1 text-fg">{t('req.title')}</h1>
-        <Badge tone={stage.tone}>{stage.title}</Badge>
-      </div>
+      <PageHero icon={FileText} title={t('req.title')} pictures={PAGE_PICTURES.requests}>
+        <Badge tone={stage.tone} className="ring-1 ring-white/40">{stage.title}</Badge>
+      </PageHero>
       <Card className="space-y-1 p-4" role="status" aria-live="polite">
         <p className="text-body font-semibold text-fg">{stage.title}</p>
         <p className="text-caption text-muted">{stage.body}</p>
@@ -288,10 +286,9 @@ export default function RxRequests() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-h1 text-fg">{t('req.list.title')}</h1>
-        <Button as={Link} to="/requests/new"><Send className="h-4 w-4" aria-hidden="true" /> {t('common.sendPrescription')}</Button>
-      </div>
+      <PageHero icon={FileText} title={t('req.list.title')} pictures={PAGE_PICTURES.requests}>
+        <Button as={Link} to="/requests/new" variant="secondary" className="mt-1"><Send className="h-4 w-4" aria-hidden="true" /> {t('common.sendPrescription')}</Button>
+      </PageHero>
       {state.status === 'loading' && <Skeleton className="h-24" />}
       {state.status === 'error' && <p role="alert" className="text-caption text-danger">{t('req.list.loadFailed')}</p>}
       {state.status === 'ready' && state.items.length === 0 && (
@@ -300,12 +297,14 @@ export default function RxRequests() {
           <p className="text-body text-fg">{t('req.list.empty')}</p>
         </Card>
       )}
-      <div className="space-y-3">
+      <StaggerList className="space-y-3">
         {state.items.map((r) => {
           const s = requestStage(r)
           return (
-            <Card key={r.id} interactive>
+            <StaggerItem key={r.id} lift>
+            <Card interactive>
               <Link to={`/requests/${r.id}`} className="flex items-center gap-3 rounded-2xl p-4">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-500/12 text-brand-600 dark:text-brand-300" aria-hidden="true"><Store className="h-5 w-5" /></span>
                 <div className="min-w-0 flex-1">
                   <p className="text-body font-semibold text-fg">{r.pharmacy?.name || t('req.title')}</p>
                   <p className="text-caption text-muted">{when(r.createdAt)}{r.quote ? ` · ${money(r.quote.grandTotal, r.quote.currency)}` : ''}</p>
@@ -313,9 +312,10 @@ export default function RxRequests() {
                 <Badge tone={s.tone}>{s.title}</Badge>
               </Link>
             </Card>
+            </StaggerItem>
           )
         })}
-      </div>
+      </StaggerList>
     </div>
   )
 }

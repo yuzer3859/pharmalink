@@ -5,6 +5,8 @@ import { Badge, Button, Card, Input, Skeleton } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { checkFile, createPrescriptionsService } from '../prescriptions/prescriptionsService'
 import { t } from '../auth/strings'
+import { PageHero, StaggerItem, StaggerList } from '../components/PageHero'
+import { PAGE_PICTURES } from '../catalog/images'
 
 /** Each state's tone; its label is the message rx.status.<state> (Work 143). */
 const STATUS = {
@@ -74,21 +76,19 @@ export default function Prescriptions() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-h1 text-fg">{t('rx.title')}</h1>
-        <p className="text-body text-muted">{t('rx.subtitle')}</p>
-      </div>
+      <PageHero icon={FileText} title={t('rx.title')} subtitle={t('rx.subtitle')} pictures={PAGE_PICTURES.prescriptions} />
 
-      <Card className="p-5">
+      <Card className="p-5 sm:p-6">
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2" aria-label={t('common.uploadPrescription')}>
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-caption text-muted">{t('rx.fileLabel')}</span>
+          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-brand-500/35 bg-brand-500/5 p-5 text-center transition-colors hover:border-brand-500/60 hover:bg-brand-500/10 sm:col-span-2">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-500/12 text-brand-600 dark:text-brand-300" aria-hidden="true"><Upload className="h-6 w-6" /></span>
+            <span className="block text-caption text-muted">{t('rx.fileLabel')}</span>
             <input
               type="file"
               accept="application/pdf,image/jpeg,image/png"
               aria-label={t('rx.file')}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-body text-fg"
+              className="block w-full max-w-sm text-body text-fg file:mr-3 file:rounded-xl file:border-0 file:bg-brand-500 file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-brand-600"
             />
           </label>
           <Input aria-label={t('rx.doctor')} placeholder={t('rx.doctor')} value={doctorName} onChange={(e) => setDoctorName(e.target.value)} maxLength={200} />
@@ -112,13 +112,14 @@ export default function Prescriptions() {
         )}
         {list.status === 'ready' && list.items.length === 0 && <p className="text-caption text-muted">{t('rx.empty')}</p>}
         {list.status === 'ready' && list.items.length > 0 && (
-          <div className="space-y-3">
+          <StaggerList className="space-y-3">
             {list.items.map((p) => {
               const code = p.displayStatus ?? p.status
               const s = STATUS[code] ? { label: t(`rx.status.${code}`), tone: STATUS[code] } : { label: p.status, tone: 'neutral' }
               return (
-                <Card key={p.id} className="flex flex-wrap items-center gap-3 p-4" data-testid="prescription">
-                  <FileText className="h-5 w-5 text-brand-500" aria-hidden="true" />
+                <StaggerItem key={p.id}>
+                <Card className="flex flex-wrap items-center gap-3 p-4" data-testid="prescription">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-500/12 text-brand-600 dark:text-brand-300" aria-hidden="true"><FileText className="h-5 w-5" /></span>
                   <div className="min-w-0 flex-1">
                     <p className="text-body font-semibold text-fg">{p.doctorName ? t('rx.doctorName', { name: p.doctorName }) : t('common.prescription')}{p.hospitalName ? ` · ${p.hospitalName}` : ''}</p>
                     <p className="text-caption text-muted">{t('rx.uploadedOn', { date: new Date(p.createdAt).toLocaleDateString() })}</p>
@@ -128,9 +129,10 @@ export default function Prescriptions() {
                     <Button variant="ghost" size="sm" onClick={() => open(p.id)}>{t('rx.openFile')}</Button>
                   )}
                 </Card>
+                </StaggerItem>
               )
             })}
-          </div>
+          </StaggerList>
         )}
       </section>
 

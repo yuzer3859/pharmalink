@@ -3,6 +3,8 @@ import { CheckCircle2, LogOut, ShieldAlert, UserRound, XCircle } from 'lucide-re
 import { Badge, Button, Card } from '../../components/ui'
 import { useAuth } from '../../auth/AuthContext'
 import { t } from '../../auth/strings'
+import { PageHero, StaggerItem, StaggerList } from '../../components/PageHero'
+import { PAGE_PICTURES } from '../../catalog/images'
 
 function formatDate(value) {
   const date = value ? new Date(value) : null
@@ -86,17 +88,10 @@ export default function Account() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
-      <div className="flex items-center gap-3">
-        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-500/12 text-brand-600 dark:text-brand-300">
-          <UserRound className="h-6 w-6" aria-hidden="true" />
-        </span>
-        <div>
-          <h1 className="font-display text-h1 text-fg">{t('account.title')}</h1>
-          <p className="text-body text-muted">{t('account.subtitle')}</p>
-        </div>
-      </div>
+    <StaggerList className="mx-auto max-w-2xl space-y-5">
+      <PageHero icon={UserRound} title={t('account.title')} subtitle={t('account.subtitle')} pictures={PAGE_PICTURES.account} />
 
+      <StaggerItem>
       <Card className="px-5 sm:px-6">
         <dl className="divide-y divide-border">
           <Row label={t('account.email')}>{user.email ?? t('account.notProvided')}</Row>
@@ -123,7 +118,9 @@ export default function Account() {
           </Row>
         </dl>
       </Card>
+      </StaggerItem>
 
+      <StaggerItem>
       <Card className="p-5 sm:p-6">
         <div className="flex items-start gap-3">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
@@ -134,12 +131,13 @@ export default function Account() {
           </div>
         </div>
       </Card>
+      </StaggerItem>
 
       {user.deletionRequestedAt && <p className="text-caption text-warning">{t('account.deletionPending')}</p>}
 
       <Button variant="secondary" onClick={onLogout} loading={leaving} disabled={leaving}>
         <LogOut className="h-4 w-4" aria-hidden="true" /> {t('account.logout')}
       </Button>
-    </div>
+    </StaggerList>
   )
 }
