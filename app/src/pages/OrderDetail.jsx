@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Camera, Check, FileText, MapPin, Navigation, PenLine, RefreshCw, XCircle } from 'lucide-react'
+import { ArrowLeft, Camera, Check, FileText, MapPin, Navigation, PackageCheck, PenLine, RefreshCw, Store, Truck, XCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Badge, Button, Card, Input, Skeleton } from '../components/ui'
 import { formatMinorUnits } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
@@ -123,6 +124,63 @@ function ProofOfDelivery({ jobId }) {
       </p>
       {proof.artifact?.available && <Button variant="ghost" size="sm" onClick={open}>{t(proof.type === 'SIGNATURE' ? 'pod.viewSignature' : 'pod.viewPhoto')}</Button>}
       {error && <p role="alert" className="text-caption text-danger">{error}</p>}
+    </Card>
+  )
+}
+
+/** Work 148: the journey of an order, in order; COMPLETED counts as delivered. */
+const JOURNEY = [
+  { status: 'PAID', icon: Store },
+  { status: 'ACCEPTED', icon: PackageCheck },
+  { status: 'READY', icon: Check },
+  { status: 'DISPATCHED', icon: Truck },
+  { status: 'DELIVERED', icon: MapPin },
+]
+
+/**
+ * Work 148: where the order is on its way to the customer. Steps already passed are filled, the
+ * current one pulses, and the line between them grows as the order moves on. Not shown for an
+ * order waiting for payment, cancelled or refunded.
+ */
+export function OrderProgress({ status }) {
+  const reached = JOURNEY.findIndex((s) => s.status === (status === 'COMPLETED' ? 'DELIVERED' : status))
+  if (reached < 0) return null
+  const done = status === 'DELIVERED' || status === 'COMPLETED'
+  return (
+    <Card className="p-5">
+      <ol className="relative flex justify-between" aria-label={t('common.followOrder')} data-testid="order-progress">
+        <span className="absolute left-[10%] right-[10%] top-5 h-1 rounded-full bg-border" aria-hidden="true" />
+        <motion.span
+          className="absolute left-[10%] top-5 h-1 rounded-full bg-gradient-to-r from-brand-500 to-success"
+          initial={{ width: 0 }}
+          animate={{ width: `${(reached / (JOURNEY.length - 1)) * 80}%` }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          aria-hidden="true"
+        />
+        {JOURNEY.map((step, i) => {
+          const passed = i < reached || (done && i === reached)
+          const current = i === reached && !done
+          const Icon = step.icon
+          return (
+            <li key={step.status} className="relative z-10 flex w-1/5 flex-col items-center gap-2 text-center" aria-current={current ? 'step' : undefined}>
+              <span className="relative grid h-11 w-11 place-items-center">
+                {current && <span className="absolute inset-0 animate-pulse-ring rounded-full bg-brand-500/40" aria-hidden="true" />}
+                <motion.span
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.12 * i, type: 'spring', stiffness: 300, damping: 18 }}
+                  className={`relative grid h-11 w-11 place-items-center rounded-full border-2 ${
+                    passed ? 'border-success bg-success text-white' : current ? 'border-brand-500 bg-brand-500 text-white shadow-lg shadow-brand-500/30' : 'border-border bg-surface text-subtle'
+                  }`}
+                >
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </motion.span>
+              </span>
+              <span className={`text-[11px] font-semibold leading-tight sm:text-caption ${passed || current ? 'text-fg' : 'text-subtle'}`}>{t(`orders.status.${step.status}`)}</span>
+            </li>
+          )
+        })}
+      </ol>
     </Card>
   )
 }
@@ -260,6 +318,8 @@ export default function OrderDetail() {
       <p className="text-body text-muted">
         {formatMinorUnits(order.grandTotal, order.currency)} · {order.isCod ? t('orders.cod').replace(/^·\s*/, '') : order.status === 'PENDING_PAYMENT' || order.status === 'CANCELLED' ? t('order.payOnline') : t('order.paidOnline')} · {lines.length === 1 ? t('order.items.one') : t('order.items.many', { count: lines.length })}
       </p>
+
+      {order.rxReviewStatus !== 'PENDING' && <OrderProgress status={order.status} />}
 
       <PrescriptionPanel order={order} onChanged={load} />
 
