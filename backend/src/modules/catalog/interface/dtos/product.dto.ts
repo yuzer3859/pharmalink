@@ -129,6 +129,17 @@ export class CreateProductDto {
   images?: string[];
 }
 
+/** Work 150: `POST /admin/catalog/products/:id/images/uploads`, one picture to upload. */
+export class RequestImageUploadDto {
+  @IsIn(['image/jpeg', 'image/png', 'image/webp'])
+  contentType!: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(5 * 1024 * 1024)
+  bytes!: number;
+}
+
 /** `PATCH /admin/catalog/products/:id` — `type` immutable after create, omitted entirely
  * (`forbidNonWhitelisted` rejects any attempt to send it, §4.1). */
 export class UpdateProductDto extends PartialType(OmitType(CreateProductDto, ['type'] as const)) {}

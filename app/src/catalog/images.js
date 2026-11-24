@@ -1,11 +1,14 @@
 // Work 147: product pictures. The catalogue sends image URLs; the app shows only an `https://` URL
 // or a path on this site (never `//host`, `javascript:` or anything else), whatever the API says.
+// Work 150: a picture uploaded by catalogue staff is served by the API, at `/media/...`.
+import { API_BASE_URL } from '../config/env'
 
 const SAFE_IMAGE = /^(?:https:\/\/[^\s"'<>]+|\/(?!\/)[^\s"'<>]*)$/
 
 /** The URL when it is safe to put in an <img>, otherwise null. */
 export function safeImageUrl(url) {
-  return typeof url === 'string' && SAFE_IMAGE.test(url) ? url : null
+  if (typeof url !== 'string' || !SAFE_IMAGE.test(url)) return null
+  return url.startsWith('/media/') ? `${API_BASE_URL.replace(/\/+$/, '')}${url}` : url
 }
 
 /**

@@ -17,6 +17,7 @@ import { PRODUCT_REPOSITORY, IProductRepository } from '../../domain/repositorie
 import { UNIT_OF_WORK, IUnitOfWork } from '../ports/unit-of-work.port';
 import { ProductDetailView, toProductDetailView } from '../queries/product-view';
 import { runWithDedupRetry } from '../support/dedup-conflict';
+import { CatalogImageService } from '../services/catalog-image.service';
 
 export interface UpdateProductInput {
   actorUserId: string;
@@ -66,6 +67,7 @@ export class UpdateProductCommand {
     @Inject(UNIT_OF_WORK) private readonly uow: IUnitOfWork,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
+    private readonly catalogImages: CatalogImageService,
   ) {}
 
   async execute(input: UpdateProductInput): Promise<ProductDetailView> {
@@ -74,6 +76,8 @@ export class UpdateProductCommand {
     if (!hasAnyField) {
       throw CatalogErrors.validation('At least one field is required.');
     }
+    // Work 150: a stored picture must be this product's own and actually uploaded.
+    if (input.images) await this.catalogImages.assertUsable(input.productId, input.images);
 
     const dedupKeyTouched = DEDUP_KEY_FIELDS.some((f) => input[f] !== undefined);
 

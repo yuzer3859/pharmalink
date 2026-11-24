@@ -51,14 +51,18 @@ import { PrismaCatalogReviewSummaryReadAdapter } from './infrastructure/persiste
 import { PrismaUnitOfWork } from './infrastructure/persistence/prisma-unit-of-work';
 import { AdminCatalogController } from './interface/controllers/admin-catalog.controller';
 import { CatalogController } from './interface/controllers/catalog.controller';
+import { CatalogMediaController } from './interface/controllers/catalog-media.controller';
+import { CatalogImageService } from './application/services/catalog-image.service';
 
 /**
  * Catalog module composition root (module-03 §10). No new `APP_GUARD`s — `JwtAuthGuard` and
  * `PermissionsGuard` are already global from `IdentityModule` (§2, §7.2).
  */
 @Module({
-  controllers: [CatalogController, AdminCatalogController],
+  controllers: [CatalogController, AdminCatalogController, CatalogMediaController],
   providers: [
+    // Work 150: product pictures
+    CatalogImageService,
     // Repositories
     { provide: PRODUCT_REPOSITORY, useClass: PrismaProductRepository },
     { provide: CATEGORY_REPOSITORY, useClass: PrismaCategoryRepository },

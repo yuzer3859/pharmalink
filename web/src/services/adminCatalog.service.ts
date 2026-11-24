@@ -1,6 +1,45 @@
 import type { CatalogHistory, CatalogProductStatus, CatalogProductType, CatalogReviewPage, CatalogReviewSummary } from '@/types';
 import { ApiError } from './apiClient';
 import { authService, type SessionRequest } from './auth.service';
+import { API_BASE_URL, CUSTOMER_APP_URL } from '@/config/env';
+
+// ---- Work 150: product pictures ----------------------------------------------------------------
+
+export const PICTURE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const MAX_PICTURE_BYTES = 5 * 1024 * 1024;
+export const MAX_PICTURES = 8;
+
+/** Why a file can't be a product picture, or null when it can. */
+export function pictureProblem(file: { type: string; size: number }): string | null {
+  if (!(PICTURE_TYPES as readonly string[]).includes(file.type)) return 'Choose a JPEG, PNG or WebP picture.';
+  if (file.size < 1 || file.size > MAX_PICTURE_BYTES) return 'A picture must be smaller than 5 MB.';
+  return null;
+}
+
+/**
+ * Where to load a saved picture from: an uploaded one (`/media/…`) from the API, one shipped with
+ * the customer app (`/products/…`) from that app, an https URL as it is; anything else, nowhere.
+ */
+export function pictureSrc(url: string): string | null {
+  if (/^https:\/\/[^\s"'<>]+$/.test(url)) return url;
+  if (url.startsWith('/media/')) return `${API_BASE_URL}${url}`;
+  if (/^\/(?!\/)[^\s"'<>]*$/.test(url)) return `${CUSTOMER_APP_URL}${url}`;
+  return null;
+}
+
+/** Moves the picture at `from` to `to` (the first is the main picture). */
+export function movePicture(list: string[], from: number, to: number): string[] {
+  if (to < 0 || to >= list.length || from === to) return list;
+  const next = [...list];
+  const [picked] = next.splice(from, 1);
+  next.splice(to, 0, picked);
+  return next;
+}
+
+export interface PictureUpload {
+  imageUrl: string;
+  upload: { url: string; method: 'PUT' | 'GET'; headers: Record<string, string> };
+}
 
 /** Filters of `GET /admin/catalog/review` (`catalog:manage:any`). */
 export interface CatalogReviewFilters {
@@ -96,6 +135,33 @@ export function createAdminCatalogService(request: SessionRequest) {
     approve: (id: string) => decide(id, 'approve'),
     resubmit: (id: string) => decide(id, 'resubmit'),
     reject: (id: string, reason: string) => decide(id, 'reject', { reason: reason.trim() }),
+
+    /** Work 150: the product's pictures, main first. */
+    async pictures(id: string): Promise<string[]> {
+      const detail = await request<{ images?: string[] }>(`/admin/catalog/products/${encodeURIComponent(id)}`, { method: 'GET' });
+      return Array.isArray(detail.images) ? detail.images : [];
+    },
+    /** Asks for an upload link, sends the file straight to storage, and returns the picture's URL. */
+    async uploadPicture(id: string, file: File, put: typeof fetch = (...args) => fetch(...args)): Promise<string> {
+      const problem = pictureProblem(file);
+      if (problem) throw new ApiError(400, 'VALIDATION_ERROR', problem);
+      const issued = await request<PictureUpload>(`/admin/catalog/products/${encodeURIComponent(id)}/images/uploads`, {
+        method: 'POST',
+        body: { contentType: file.type, bytes: file.size },
+      });
+      let stored: Response;
+      try {
+        stored = await put(issued.upload.url, { method: issued.upload.method, headers: { ...issued.upload.headers, 'Content-Type': file.type }, body: file });
+      } catch {
+        throw new ApiError(0, 'NETWORK_ERROR', 'The picture could not be uploaded. Check the connection and try again.');
+      }
+      if (!stored.ok) throw new ApiError(stored.status, 'UPLOAD_FAILED', 'The picture could not be uploaded. Try again.');
+      return issued.imageUrl;
+    },
+    /** Saves the pictures in this order; the first is the main one. */
+    savePictures(id: string, images: string[]): Promise<{ images: string[] }> {
+      return request<{ images: string[] }>(`/admin/catalog/products/${encodeURIComponent(id)}`, { method: 'PATCH', body: { images } });
+    },
   };
 }
 

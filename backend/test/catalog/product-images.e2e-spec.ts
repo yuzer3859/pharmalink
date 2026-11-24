@@ -84,4 +84,66 @@ describe('Catalog — product images (Work 145, e2e)', () => {
     const productId = await createPricedProduct(ctx, { kind: 'OTC' });
     expect((await patch(customer.accessToken, productId, ['/products/a.jpg'])).status).toBe(403);
   });
+
+  // ---- Work 150: pictures uploaded by catalogue staff -------------------------------------
+  const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4c40000000049454e44ae426082', 'hex');
+  const pathOf = (url: string) => new URL(url, 'http://local').pathname;
+  const askUpload = (token: string, id: string, body: Record<string, unknown>) =>
+    request(ctx.server).post(`/admin/catalog/products/${id}/images/uploads`).set(...auth(token)).send(body);
+
+  async function uploaded(token: string, productId: string) {
+    const issued = body(await askUpload(token, productId, { contentType: 'image/png', bytes: PNG.length }).expect(201)) as { imageUrl: string; upload: { url: string } };
+    await request(ctx.server).put(pathOf(issued.upload.url)).set('Content-Type', 'image/png').send(PNG).expect(200);
+    return issued.imageUrl as string;
+  }
+
+  it('uploads a picture, saves it, and serves it publicly through a short-lived redirect (Work 150)', async () => {
+    const admin = await createUserWithRole(ctx, 'ADMIN');
+    const productId = await createPricedProduct(ctx, { kind: 'OTC' });
+    const imageUrl = await uploaded(admin.accessToken, productId);
+    expect(imageUrl).toMatch(new RegExp(`^/media/catalog/${productId}/[0-9a-f-]{36}$`));
+
+    const saved = body(await patch(admin.accessToken, productId, [imageUrl, '/products/ibuprofen-front.jpg']));
+    expect(saved).toEqual(expect.objectContaining({ images: [imageUrl, '/products/ibuprofen-front.jpg'], imageUrl }));
+
+    const served = await request(ctx.server).get(imageUrl).expect(302);
+    expect(served.headers['cache-control']).toBe('public, max-age=300');
+    const picture = await request(ctx.server).get(pathOf(served.headers.location)).buffer(true).parse((res, done) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => done(null, Buffer.concat(chunks)));
+    }).expect(200);
+    expect(picture.headers['content-type']).toMatch(/image\/png/);
+    expect(Buffer.compare(picture.body as Buffer, PNG)).toBe(0);
+
+    const audit = await ctx.prisma.auditLog.findFirst({ where: { action: 'CATALOG_IMAGE_UPLOAD_ISSUED', resourceId: productId } });
+    expect(audit?.actorUserId).toBe(admin.userId);
+  });
+
+  it('refuses a stored picture that is not uploaded yet, or belongs to another product (Work 150)', async () => {
+    const admin = await createUserWithRole(ctx, 'ADMIN');
+    const productId = await createPricedProduct(ctx, { kind: 'OTC' });
+    const other = await createPricedProduct(ctx, { kind: 'OTC' });
+
+    const notUploaded = body(await askUpload(admin.accessToken, productId, { contentType: 'image/png', bytes: PNG.length }).expect(201)).imageUrl as string;
+    const res = await patch(admin.accessToken, productId, [notUploaded]);
+    expect(res.status).toBe(400);
+    expect(errorOf(res).message).toMatch(/not been uploaded/);
+
+    const othersPicture = await uploaded(admin.accessToken, other);
+    expect((await patch(admin.accessToken, productId, [othersPicture])).status).toBe(400);
+    expect(await ctx.prisma.productImage.count({ where: { productId } })).toBe(0);
+    await request(ctx.server).get(notUploaded).expect(404);
+  });
+
+  it('accepts only jpeg, png or webp up to 5 MB, for an existing product, from catalogue staff (Work 150)', async () => {
+    const admin = await createUserWithRole(ctx, 'ADMIN');
+    const customer = await createUserWithRole(ctx, 'CUSTOMER');
+    const productId = await createPricedProduct(ctx, { kind: 'OTC' });
+    expect((await askUpload(admin.accessToken, productId, { contentType: 'application/pdf', bytes: 10 })).status).toBe(400);
+    expect((await askUpload(admin.accessToken, productId, { contentType: 'image/png', bytes: 5 * 1024 * 1024 + 1 })).status).toBe(400);
+    expect((await askUpload(admin.accessToken, '00000000-0000-4000-8000-000000000000', { contentType: 'image/png', bytes: 10 })).status).toBe(404);
+    expect((await askUpload(customer.accessToken, productId, { contentType: 'image/png', bytes: 10 })).status).toBe(403);
+    await request(ctx.server).get('/media/catalog/not-a-uuid/also-not').expect(404);
+  });
 });
