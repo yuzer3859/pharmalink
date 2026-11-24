@@ -189,7 +189,10 @@ describe('Admin pharmacy operations (e2e)', () => {
     const raw = JSON.stringify([listed, ...(await Promise.all([s.a, s.b].map((p) => get(`${BASE}/${p.id}`)))).map((r) => r.body)]);
     const orgs = await ctx.prisma.organization.findMany();
     // Work 153: each row names its organisation (the record's people come from `:id/people`, below).
-    expect(new Set(listed.items.map((i) => i.organizationId))).toEqual(new Set(orgs.map((o) => o.id)));
+    // (A deleted pharmacy is not listed, so its organisation may be missing from the rows.)
+    const orgIds = new Set(orgs.map((o) => o.id));
+    expect(listed.items.every((i) => orgIds.has(i.organizationId))).toBe(true);
+    expect(new Set(listed.items.map((i) => i.organizationId)).size).toBe(listed.items.length);
     for (const secret of ['LIC-SECRET', 'Africa Ave', '+251911000111', '9.0312', '38.7421', s.a.ownerId, s.a.ownerPhone!]) {
       expect({ secret: secret.slice(0, 10), found: raw.includes(secret) }).toEqual({ secret: secret.slice(0, 10), found: false });
     }
