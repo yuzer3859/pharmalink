@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ProductPictures } from './ProductPictures';
 import { Alert, Box, Button, Divider, Drawer, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
@@ -69,6 +70,9 @@ function ProductDrawer({ product, onClose }: { product: CatalogReviewItem | null
         <Field label="Online sale prohibited" value={product.onlineSaleProhibited ? 'Yes' : 'No'} />
         <Field label="Manufacturer" value={product.manufacturerName ?? '—'} />
         <Field label="Reference price" value={product.price !== null ? currency(fromMinorUnits(product.price)) : '—'} />
+
+        <Divider />
+        <ProductPictures productId={product.id} />
 
         {actions.length > 0 ? (
           <>

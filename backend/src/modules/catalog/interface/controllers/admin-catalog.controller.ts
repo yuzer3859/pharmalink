@@ -15,7 +15,8 @@ import { ListCategoriesAdminQuery } from '../../application/queries/list-categor
 import { ListManufacturersQuery } from '../../application/queries/list-manufacturers.query';
 import { CreateCategoryDto, UpdateCategoryDto } from '../dtos/category.dto';
 import { CreateManufacturerDto, UpdateManufacturerDto } from '../dtos/manufacturer.dto';
-import { ChangeProductStatusDto, CreateProductDto, UpdateProductDto } from '../dtos/product.dto';
+import { ChangeProductStatusDto, CreateProductDto, RequestImageUploadDto, UpdateProductDto } from '../dtos/product.dto';
+import { CatalogImageService } from '../../application/services/catalog-image.service';
 
 /**
  * Admin Catalog curation (module-03 §7.2/§8.2), all behind `catalog:manage:any`. No
@@ -37,6 +38,7 @@ export class AdminCatalogController {
     private readonly createManufacturer: CreateManufacturerCommand,
     private readonly updateManufacturer: UpdateManufacturerCommand,
     private readonly listManufacturers: ListManufacturersQuery,
+    private readonly catalogImages: CatalogImageService,
   ) {}
 
   // ---- Products ----------------------------------------------------------------------------
@@ -59,6 +61,17 @@ export class AdminCatalogController {
     @Body() dto: UpdateProductDto,
   ) {
     return this.updateProduct.execute({ actorUserId: user.userId, productId: id, ...dto });
+  }
+
+  /** Work 150: a signed upload link for one product picture; save its `imageUrl` in `images` after. */
+  @Post('products/:id/images/uploads')
+  @HttpCode(HttpStatus.CREATED)
+  requestImageUpload(
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Param('id') id: string,
+    @Body() dto: RequestImageUploadDto,
+  ) {
+    return this.catalogImages.requestUpload({ actorUserId: user.userId, productId: id, ...dto });
   }
 
   @Post('products/:id/status')

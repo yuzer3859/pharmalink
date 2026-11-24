@@ -22,6 +22,28 @@ export function useCatalogHistory(id: string | null) {
   });
 }
 
+/** Work 150: a product's saved pictures. */
+export function useCatalogPictures(id: string | null) {
+  return useQuery({
+    queryKey: ['admin-catalog', 'pictures', id] as const,
+    queryFn: () => adminCatalogService.pictures(id as string),
+    enabled: !!id,
+  });
+}
+
+export function useSavePictures() {
+  const qc = useQueryClient();
+  const notify = useNotify();
+  return useMutation({
+    mutationFn: ({ id, images }: { id: string; images: string[] }) => adminCatalogService.savePictures(id, images),
+    onSuccess: (_result, { id }) => {
+      qc.invalidateQueries({ queryKey: ['admin-catalog', 'pictures', id] });
+      notify('Pictures saved. Customers see them now.');
+    },
+    onError: (error) => notify(catalogErrorMessage(error, 'The pictures could not be saved.'), 'error'),
+  });
+}
+
 const DONE: Record<CatalogAction, string> = {
   submit: 'Submitted for review.',
   approve: 'Approved: the product is now active in the catalogue.',

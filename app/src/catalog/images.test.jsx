@@ -65,6 +65,8 @@ describe('product pictures (Work 147)', () => {
   it('shows only an https URL or a site path, never another scheme or host', () => {
     expect(safeImageUrl('/products/lipstick.webp')).toBe('/products/lipstick.webp')
     expect(safeImageUrl('https://cdn.example.et/a.jpg')).toBe('https://cdn.example.et/a.jpg')
+    // Work 150: a picture uploaded by catalogue staff is served by the API.
+    expect(safeImageUrl('/media/catalog/p/o')).toMatch(/^https?:\/\/[^/]+.*\/media\/catalog\/p\/o$/)
     for (const bad of ['//evil.example/a.jpg', 'http://plain.example/a.jpg', 'javascript:alert(1)', 'data:image/png;base64,AAAA', '/a b.jpg', '', null, 42]) {
       expect(safeImageUrl(bad)).toBeNull()
     }

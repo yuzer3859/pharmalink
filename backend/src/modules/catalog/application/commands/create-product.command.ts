@@ -63,6 +63,10 @@ export class CreateProductCommand {
   async execute(input: CreateProductInput): Promise<ProductDetailView> {
     const type = input.type as ProductType;
     const categoryIds = input.categoryIds ?? [];
+    // Work 150: pictures are uploaded for an existing product, so a new one can't name a stored picture.
+    if (input.images?.some((url) => url.startsWith('/media/'))) {
+      throw CatalogErrors.validation('Upload pictures after the product is created.', { field: 'images' });
+    }
 
     // ADR-010: the insert, category assignment, audit entry and outbox event all commit
     // atomically in this one transaction — a failure anywhere in the closure rolls back all of

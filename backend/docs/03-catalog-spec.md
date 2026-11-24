@@ -600,3 +600,10 @@ Following `00-implementation-roadmap.md` §5 and the proof-of-pattern establishe
 - `POST`/`PATCH /admin/catalog/products` take `images`: up to 8 URLs, in order; the first is the main image. Each is an `https://` URL or a path on the customer app's own site (`/products/…`). Protocol-relative (`//host`), `http:`, `javascript:` and anything with spaces or quotes are refused. On `PATCH`, the list replaces the images, and `[]` removes them. The change is audited as `PRODUCT_UPDATED` with the field `images`, and `catalog.product.updated` refreshes search.
 - The product detail returns `images` (primary first) and `imageUrl`; list rows and search hits return `imageUrl` (or `null`).
 - Images live in `product_images` (`isPrimary`, `sortOrder`); the table existed but was unused before.
+
+## Work 150: uploaded product pictures
+
+- `POST /admin/catalog/products/:id/images/uploads` (`catalog:manage:any`) with `{ contentType, bytes }` returns `{ imageUrl, upload }`: a signed upload link for one picture (`image/jpeg`, `image/png` or `image/webp`, at most 5 MiB), stored as `doc:catalog-image/<productId>/<uuid>`. Audited as `CATALOG_IMAGE_UPLOAD_ISSUED`. The client uploads the bytes straight to storage, then saves `imageUrl` in the product's `images`.
+- Saving `images` accepts a stored picture (`/media/catalog/<productId>/<uuid>`) only if it is this product's own and is in storage as an image. A new product (`POST`) cannot name one: pictures are uploaded after it exists.
+- `GET /media/catalog/:productId/:objectId` (public) redirects (302) to a 15-minute signed read of the picture, cacheable for 5 minutes. Storage stays private; an unknown or not-yet-uploaded picture is 404.
+- The customer app loads `/media/…` pictures from the API; the operations portal manages them in the catalogue drawer (`VITE_CUSTOMER_APP_URL` lets it show pictures shipped with the customer app).

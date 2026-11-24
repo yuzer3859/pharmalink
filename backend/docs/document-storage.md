@@ -83,3 +83,7 @@ touches a MinIO running elsewhere on the machine.
   These belong with the production provider decision.
 - **Other document owners.** Proof-of-delivery photos keep their own port (Module 08). Prescriptions
   are outside this work.
+
+## Product pictures (Work 150)
+
+Namespace `catalog-image/<productId>/<uuid>`: pictures uploaded by catalogue staff (jpeg, png or webp, at most 5 MiB). Unlike other documents they are public: `GET /media/catalog/<productId>/<uuid>` redirects anyone to a short-lived signed read. See `03-catalog-spec.md`.
