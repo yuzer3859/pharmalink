@@ -650,6 +650,8 @@ describe('Admin operational analytics (e2e)', () => {
         'identity/application/ports/inbound/identity-analytics-read.port',
         // Work 85: support impersonation.
         'identity/application/ports/inbound/identity-impersonation.port',
+        // Work 153: the organisation behind a pharmacy, for the Super Admin's record.
+        'identity/application/ports/inbound/identity-organization-read.port',
         // Work 88: admin activity monitoring reads who holds a platform role.
         'identity/application/ports/inbound/identity-staff-read.port',
         'identity/identity.module',
