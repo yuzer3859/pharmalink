@@ -254,3 +254,25 @@ The gaps above are partly closed: the operations portal has used the live API si
   - It is audited as `PHARMACY_SUSPENDED` with the reason. The licence is untouched, and a second call changes nothing (`changed: false`).
 - **Enable again.** `POST /pharmacy/activate`, which re-checks the organisation and its approved, current licence.
 - **Portal.** Admin portal → Pharmacies: a name search; a click opens the record (Overview, Owner & staff, Licence & files, History) with Disable / Enable.
+
+## The Super Admin registers a pharmacy (Work 154)
+
+An administrator with `provider:verify:any` can register a working pharmacy for an owner in one step.
+
+- **The owner** is an existing account: active, with a verified e-mail, found in the portal by e-mail or phone (`GET /admin/accounts?identifier=`). There is still no invitation e-mail, so a new owner signs up in the PharmaLink app first, as pharmacy staff do.
+- **Licence files.** `POST /admin/pharmacy-registrations/uploads` with `{ ownerUserId, contentType, bytes }` issues a signed upload for one PDF, JPEG or PNG. The file is stored under the owner, so only that owner's registration can use it.
+- **Registration.** `POST /admin/pharmacy-registrations` takes `{ ownerUserId, legalName, displayName, licenseNumber, licenseExpiresOn: 'YYYY-MM-DD', documents: [{ kind, storageRef }], idempotencyKey }` and runs the owner's own commands in order:
+  1. `ApplyPharmacyOrganizationCommand`: a new organisation; the owner gains `PHARMACY_OWNER` there.
+  2. `SubmitVerificationDocumentsCommand` (PHARMACY_LICENSE).
+  3. `ApproveVerificationCommand`, with the administrator as reviewer; the licence expires at the end of `licenseExpiresOn` (UTC).
+  4. `RegisterPharmacyCommand`, run as the owner.
+  5. `ActivatePharmacyCommand`.
+- **Audit.** Each step audits as it always does, and the whole is audited as `PHARMACY_REGISTERED_BY_ADMIN`.
+- **One owner, several pharmacies.** Each registration is a new organisation with its own licence.
+- **Retries.** The same `idempotencyKey` continues after a failure: the same organisation, an already-approved licence is not resubmitted, an existing storefront is reused, and activation is idempotent.
+- **Ports.** The admin module reaches these steps through `IDENTITY_PHARMACY_ONBOARDING_PORT` (Module 01) and `PHARMACY_ONBOARDING_PORT` (Module 04).
+- **Portal.** Pharmacies → **Register pharmacy**:
+  1. Find the owner.
+  2. Enter the legal and storefront names, licence number and expiry.
+  3. Upload the licence files.
+  4. Register. The new pharmacy's record opens.

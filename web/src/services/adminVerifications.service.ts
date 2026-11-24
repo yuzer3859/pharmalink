@@ -115,6 +115,16 @@ export function createAdminVerificationsService(request: SessionRequest) {
       return request<VerificationQueuePage>(`/admin/verifications${verificationQuery(filters)}`, { method: 'GET' });
     },
 
+    /**
+     * Work 154: every request matching the filters, whatever its status, newest first, each with its
+     * documents. The queue answers one status at a time (pending when none is named), so each is asked.
+     */
+    async history(filters: Omit<VerificationFilters, 'status' | 'page'>): Promise<VerificationDetail[]> {
+      const pages = await Promise.all(VERIFICATION_STATUSES.map((status) => this.list({ ...filters, status, size: filters.size ?? 50 })));
+      const items = pages.flatMap((p) => p.items).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+      return Promise.all(items.map((i) => this.get(i.requestId)));
+    },
+
     get(id: string): Promise<VerificationDetail> {
       return request<VerificationDetail>(path(id), { method: 'GET' });
     },

@@ -142,6 +142,8 @@ import { AdminDeliverySummaryController } from './interface/controllers/admin-de
 import { AdminOrderSummaryController } from './interface/controllers/admin-order-summary.controller';
 import { AdminFulfillmentOperationsController } from './interface/controllers/admin-fulfillment-operations.controller';
 import { AdminPharmacyOperationsController } from './interface/controllers/admin-pharmacy-operations.controller';
+import { AdminPharmacyRegistrationController } from './interface/controllers/admin-pharmacy-registration.controller';
+import { PharmacyRegistrationService } from './application/services/pharmacy-registration.service';
 import { AdminBranchOperationsController } from './interface/controllers/admin-branch-operations.controller';
 import { AdminInventoryListingOperationsController } from './interface/controllers/admin-inventory-listing-operations.controller';
 import { AdminStockMovementOperationsController } from './interface/controllers/admin-stock-movement-operations.controller';
@@ -402,6 +404,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     ListPharmacyOperationsQuery,
     GetPharmacyOperationsQuery,
     GetPharmacyPeopleQuery,
+    // Work 154: the Super Admin registers a pharmacy for an owner.
+    PharmacyRegistrationService,
     // Work 48 — branch operations visibility, over Module 04's branch operations read port.
     ListBranchOperationsQuery,
     GetBranchOperationsQuery,
@@ -450,6 +454,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminOrderDeclineRecoveryController,
     AdminFulfillmentOperationsController,
     AdminPharmacyOperationsController,
+    // Work 154.
+    AdminPharmacyRegistrationController,
     AdminBranchOperationsController,
     AdminInventoryListingOperationsController,
     AdminStockMovementOperationsController,

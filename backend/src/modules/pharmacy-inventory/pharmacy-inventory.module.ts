@@ -5,6 +5,7 @@ import { CatalogModule } from '../catalog/catalog.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ActivatePharmacyCommand } from './application/commands/activate-pharmacy.command';
 import { SuspendPharmacyCommand } from './application/commands/suspend-pharmacy.command';
+import { PHARMACY_ONBOARDING_PORT, PharmacyOnboardingAdapter } from './application/ports/inbound/pharmacy-onboarding.port';
 import { AddBatchCommand } from './application/commands/add-batch.command';
 import { AdjustBatchCommand } from './application/commands/adjust-batch.command';
 import { ConfirmReservationCommand } from './application/commands/confirm-reservation.command';
@@ -107,6 +108,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     ActivatePharmacyCommand,
     // Work 153: an administrator disables a pharmacy.
     SuspendPharmacyCommand,
+    // Work 154: an administrator registers a pharmacy on an owner's behalf.
+    { provide: PHARMACY_ONBOARDING_PORT, useClass: PharmacyOnboardingAdapter },
     UpdatePharmacyProfileCommand,
     CreateBranchCommand,
     UpdateBranchCommand,
@@ -185,6 +188,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     STOCK_RESERVATION_OPERATIONS_READ_PORT,
     RESERVATION_INTEGRITY_READ_PORT,
     RESERVATION_STATUS_READ_PORT,
+    // Work 154.
+    PHARMACY_ONBOARDING_PORT,
   ],
 })
 export class PharmacyInventoryModule {}

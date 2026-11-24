@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { PharmacyRecord } from './PharmacyRecord';
+import { RegisterPharmacyDialog } from './RegisterPharmacyDialog';
+import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
 import { Alert, Button, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
@@ -34,7 +36,8 @@ export function PharmaciesPage() {
   const canActivate = can('pharmacies:manage');
 
   const [q, setQ] = useState('');
-  const [selected, setSelected] = useState<PharmacyOperations | null>(null);
+  const [selected, setSelected] = useState<{ pharmacyId: string; organizationId: string } | null>(null);
+  const [registering, setRegistering] = useState(false);
   const [status, setStatus] = useState<TransactingStatus | 'all'>('all');
   const [eligible, setEligible] = useState<Flag>('any');
   const [paging, setPaging] = useState<GridPaginationModel>({ page: 0, pageSize: PHARMACY_PAGE_SIZES[1] });
@@ -137,6 +140,13 @@ export function PharmaciesPage() {
         portalName={portal.title}
         title="Pharmacies"
         subtitle="Find a pharmacy by name and open its full record: owner, staff, licence files and history. Disable or enable it there."
+        actions={
+          canActivate ? (
+            <Button variant="contained" startIcon={<AddBusinessRoundedIcon />} onClick={() => setRegistering(true)}>
+              Register pharmacy
+            </Button>
+          ) : undefined
+        }
       />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
@@ -195,7 +205,7 @@ export function PharmaciesPage() {
         columns={columns as GridColDef[]}
         getRowId={(row) => (row as PharmacyOperations).pharmacyId}
         loading={isLoading || isFetching}
-        onRowClick={(row) => setSelected(row as PharmacyOperations)}
+        onRowClick={(row) => setSelected({ pharmacyId: (row as PharmacyOperations).pharmacyId, organizationId: (row as PharmacyOperations).organizationId })}
         emptyTitle="No pharmacies found"
         emptyDescription="Pharmacies matching your filters will appear here."
         server={{
@@ -212,6 +222,16 @@ export function PharmaciesPage() {
         organizationId={selected?.organizationId ?? null}
         onClose={() => setSelected(null)}
       />
+
+      {registering ? (
+        <RegisterPharmacyDialog
+          onClose={() => setRegistering(false)}
+          onRegistered={(opened) => {
+            setRegistering(false);
+            setSelected(opened);
+          }}
+        />
+      ) : null}
     </>
   );
 }

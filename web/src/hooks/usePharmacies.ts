@@ -37,10 +37,8 @@ export function usePharmacyRecord(pharmacyId: string | null, organizationId: str
     queryKey: ['pharmacies', 'files', organizationId],
     enabled: !!organizationId,
     retry: false,
-    queryFn: async () => {
-      const page = await adminVerificationsService.list({ organizationId: organizationId as string, status: 'all', size: 50 });
-      return Promise.all(page.items.map((item) => adminVerificationsService.get(item.requestId)));
-    },
+    // Every status: the queue alone answers only pending requests.
+    queryFn: () => adminVerificationsService.history({ organizationId: organizationId as string }),
   });
   const history = useQuery({
     queryKey: ['pharmacies', 'history', pharmacyId],
