@@ -17,6 +17,8 @@ export type PermissionKey =
   | 'roles:manage'
   | 'pharmacies:view'
   | 'pharmacies:manage'
+  | 'drivers:view'
+  | 'drivers:manage'
   | 'audit:view'
   | 'verifications:view'
   | 'verifications:manage'

@@ -38,6 +38,8 @@ import { IDENTITY_STAFF_READ_PORT } from './application/ports/inbound/identity-s
 import { PrismaIdentityStaffReadAdapter } from './infrastructure/persistence/prisma-identity-staff-read.adapter';
 import { IDENTITY_ORGANIZATION_READ_PORT } from './application/ports/inbound/identity-organization-read.port';
 import { IDENTITY_PHARMACY_ONBOARDING_PORT, IdentityPharmacyOnboardingAdapter } from './application/ports/inbound/identity-pharmacy-onboarding.port';
+import { IDENTITY_DRIVER_ONBOARDING_PORT, IdentityDriverOnboardingAdapter } from './application/ports/inbound/identity-driver-onboarding.port';
+import { MakeDriverCommand } from './application/commands/make-driver.command';
 import { PrismaIdentityOrganizationReadAdapter } from './infrastructure/persistence/prisma-identity-organization-read.adapter';
 import { IDENTITY_CONTACT_READ_PORT } from './application/ports/inbound/identity-contact-read.port';
 import { IDENTITY_LANGUAGE_READ_PORT } from './application/ports/inbound/identity-language-read.port';
@@ -266,6 +268,9 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     { provide: IDENTITY_ORGANIZATION_READ_PORT, useClass: PrismaIdentityOrganizationReadAdapter },
     // Work 154 — an administrator registers a pharmacy on an owner's behalf, through the owner's own commands.
     { provide: IDENTITY_PHARMACY_ONBOARDING_PORT, useClass: IdentityPharmacyOnboardingAdapter },
+    // Work 156 — an administrator registers a driver.
+    MakeDriverCommand,
+    { provide: IDENTITY_DRIVER_ONBOARDING_PORT, useClass: IdentityDriverOnboardingAdapter },
     // Inbound read contract for Module 13's notification rendering (module-13 Work 01): one
     // user's `preferredLanguage`, nothing else.
     { provide: IDENTITY_LANGUAGE_READ_PORT, useClass: PrismaIdentityLanguageReadAdapter },
@@ -328,6 +333,8 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     IDENTITY_ORGANIZATION_READ_PORT,
     // Work 154.
     IDENTITY_PHARMACY_ONBOARDING_PORT,
+    // Work 156.
+    IDENTITY_DRIVER_ONBOARDING_PORT,
     IDENTITY_LANGUAGE_READ_PORT,
     IDENTITY_CONTACT_READ_PORT,
   ],

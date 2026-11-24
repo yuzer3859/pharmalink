@@ -8,6 +8,8 @@ export interface VerificationFilters {
   type?: VerificationType | 'all';
   /** Work 153: one organisation's requests (its licence files). */
   organizationId?: string;
+  /** Work 156: one person's requests (a driver's documents). */
+  userId?: string;
   /** 1-based. */
   page?: number;
   size?: number;
@@ -27,6 +29,7 @@ export function verificationQuery(filters: VerificationFilters): string {
   if (filters.status && filters.status !== 'all') params.set('status', filters.status);
   if (filters.type && filters.type !== 'all') params.set('type', filters.type);
   if (filters.organizationId) params.set('organizationId', filters.organizationId);
+  if (filters.userId) params.set('userId', filters.userId);
   if (filters.page) params.set('page', String(filters.page));
   if (filters.size) params.set('size', String(filters.size));
   const query = params.toString();

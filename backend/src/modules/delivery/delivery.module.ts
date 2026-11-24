@@ -16,6 +16,7 @@ import { DispatchDeliveryJobCommand } from './application/commands/dispatch-deli
 import { PublishJobLocationCommand } from './application/commands/publish-job-location.command';
 import { ReassignDeliveryJobCommand } from './application/commands/reassign-delivery-job.command';
 import { CreateDriverProfileCommand } from './application/commands/create-driver-profile.command';
+import { DRIVER_ONBOARDING_PORT, DriverOnboardingAdapter } from './application/ports/inbound/driver-onboarding.port';
 import { ManageDriverShiftCommand } from './application/commands/manage-driver-shift.command';
 import { SetDriverAvailabilityCommand } from './application/commands/set-driver-availability.command';
 import { UpdateDriverLocationCommand } from './application/commands/update-driver-location.command';
@@ -263,6 +264,8 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     OrderCancelledHandler,
 
     CreateDriverProfileCommand,
+    // Work 156: an administrator registers a driver.
+    { provide: DRIVER_ONBOARDING_PORT, useClass: DriverOnboardingAdapter },
     SetDriverAvailabilityCommand,
     ManageDriverShiftCommand,
     UpdateDriverLocationCommand,
@@ -507,6 +510,8 @@ import { WsAuthService } from './interface/ws/ws-auth.service';
     DELIVERY_BACKLOG_SUMMARY_READ_PORT,
     DELIVERY_JOB_REFERENCE_READ_PORT,
     DELIVERY_PAPER_READ_PORT,
+    // Work 156.
+    DRIVER_ONBOARDING_PORT,
   ],
 })
 export class DeliveryModule {}
