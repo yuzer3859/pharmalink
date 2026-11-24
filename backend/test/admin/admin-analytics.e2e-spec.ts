@@ -652,6 +652,8 @@ describe('Admin operational analytics (e2e)', () => {
         'identity/application/ports/inbound/identity-impersonation.port',
         // Work 153: the organisation behind a pharmacy, for the Super Admin's record.
         'identity/application/ports/inbound/identity-organization-read.port',
+        // Work 154: an administrator registers a pharmacy on an owner's behalf.
+        'identity/application/ports/inbound/identity-pharmacy-onboarding.port',
         // Work 88: admin activity monitoring reads who holds a platform role.
         'identity/application/ports/inbound/identity-staff-read.port',
         'identity/identity.module',
@@ -682,6 +684,8 @@ describe('Admin operational analytics (e2e)', () => {
         'pharmacy-inventory/application/ports/inbound/inventory-listing-operations-read.port',
         'pharmacy-inventory/application/ports/inbound/pharmacy-analytics-read.port',
         // Work 47: pharmacy operations visibility (admin-pharmacy-operations.e2e-spec.ts).
+        // Work 154.
+        'pharmacy-inventory/application/ports/inbound/pharmacy-onboarding.port',
         'pharmacy-inventory/application/ports/inbound/pharmacy-operations-read.port',
         // Work 25: eligible providers with / without anything to sell (admin-inventory-operations.e2e-spec.ts).
         'pharmacy-inventory/application/ports/inbound/pharmacy-stock-availability-read.port',

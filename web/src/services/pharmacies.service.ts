@@ -117,3 +117,76 @@ export function createPharmaciesService(request: SessionRequest) {
 }
 
 export const pharmaciesService = createPharmaciesService(authService.request);
+
+// ---- Work 154: the Super Admin registers a pharmacy for an owner -----------------------------------
+
+export const LICENCE_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const;
+export const MAX_LICENCE_FILE_BYTES = 10 * 1024 * 1024;
+export const LICENCE_KINDS = [
+  { value: 'PHARMACY_LICENSE', label: 'Pharmacy licence' },
+  { value: 'PHARMACIST_LICENSE', label: 'Pharmacist licence' },
+  { value: 'BUSINESS_LICENSE', label: 'Business licence' },
+  { value: 'TAX_REGISTRATION', label: 'Tax registration (TIN)' },
+  { value: 'OTHER', label: 'Other document' },
+] as const;
+export type LicenceKind = (typeof LICENCE_KINDS)[number]['value'];
+
+/** Why a file can't be a licence file, or null when it can. */
+export function licenceFileProblem(file: { type: string; size: number }): string | null {
+  if (!(LICENCE_FILE_TYPES as readonly string[]).includes(file.type)) return 'Choose a PDF, JPEG or PNG file.';
+  if (file.size < 1 || file.size > MAX_LICENCE_FILE_BYTES) return 'A file must be smaller than 10 MB.';
+  return null;
+}
+
+export interface PharmacyRegistrationForm {
+  ownerUserId: string;
+  legalName: string;
+  displayName: string;
+  licenseNumber: string;
+  /** `YYYY-MM-DD`, the licence's last valid day. */
+  licenseExpiresOn: string;
+  documents: Array<{ kind: LicenceKind; storageRef: string }>;
+  idempotencyKey: string;
+}
+
+/** What is still missing from the form, or null when it can be sent. */
+export function registrationProblem(form: Omit<PharmacyRegistrationForm, 'idempotencyKey'>, today = new Date().toISOString().slice(0, 10)): string | null {
+  if (!form.ownerUserId) return 'Find the owner first.';
+  if (form.legalName.trim().length < 2) return 'Enter the organisation’s legal name.';
+  if (form.displayName.trim().length < 2) return 'Enter the name customers will see.';
+  if (!form.licenseNumber.trim()) return 'Enter the licence number.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(form.licenseExpiresOn)) return 'Enter the licence expiry date.';
+  if (form.licenseExpiresOn < today) return 'The licence has already expired.';
+  if (form.documents.length === 0) return 'Upload at least one licence file.';
+  return null;
+}
+
+export function createPharmacyRegistrationService(request: SessionRequest) {
+  return {
+    /** Uploads one licence file under the owner and returns its reference. */
+    async uploadLicenceFile(ownerUserId: string, file: File, put: typeof fetch = (...args) => fetch(...args)): Promise<string> {
+      const problem = licenceFileProblem(file);
+      if (problem) throw new ApiError(400, 'VALIDATION_ERROR', problem);
+      const issued = await request<{ storageRef: string; upload: { url: string; method: 'PUT' | 'GET'; headers: Record<string, string> } }>(
+        '/admin/pharmacy-registrations/uploads',
+        { method: 'POST', body: { ownerUserId, contentType: file.type, bytes: file.size } },
+      );
+      let stored: Response;
+      try {
+        stored = await put(issued.upload.url, { method: issued.upload.method, headers: { ...issued.upload.headers, 'Content-Type': file.type }, body: file });
+      } catch {
+        throw new ApiError(0, 'NETWORK_ERROR', 'The file could not be uploaded. Check the connection and try again.');
+      }
+      if (!stored.ok) throw new ApiError(stored.status, 'UPLOAD_FAILED', 'The file could not be uploaded. Try again.');
+      return issued.storageRef;
+    },
+    register(form: PharmacyRegistrationForm): Promise<{ organizationId: string; pharmacyId: string; ownerUserId: string }> {
+      return request('/admin/pharmacy-registrations', {
+        method: 'POST',
+        body: { ...form, legalName: form.legalName.trim(), displayName: form.displayName.trim(), licenseNumber: form.licenseNumber.trim() },
+      });
+    },
+  };
+}
+
+export const pharmacyRegistrationService = createPharmacyRegistrationService(authService.request);
