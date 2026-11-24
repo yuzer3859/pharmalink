@@ -1,5 +1,6 @@
 import { formatMinorUnits } from '../lib/utils'
 import { AVAILABILITY_LIMIT } from './catalogService'
+import { getLanguage } from '../auth/strings'
 
 // Presentation helpers for catalog data. They only rearrange what the API returned; nothing here
 // supplies a value the backend didn't send.
@@ -33,7 +34,9 @@ export function productDetailsLine(product) {
   ].filter(Boolean).join(' · ')
 }
 
+/** Work 149: the Amharic name for a customer reading in Amharic, when the category has one. */
 export function categoryName(category) {
+  if (getLanguage() === 'am' && category?.nameAm) return category.nameAm
   return category?.nameEn || category?.nameAm || category?.slug || ''
 }
 

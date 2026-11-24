@@ -82,3 +82,15 @@ describe('the pages in Amharic (Work 143)', () => {
     expect(screen.queryByText(/24\/7/)).toBeNull()
   })
 })
+
+describe('category names (Work 149)', () => {
+  it('reads the Amharic name in Amharic, and the English name otherwise', async () => {
+    const { categoryName } = await import('../catalog/format')
+    const pain = { slug: 'pain-fever', nameEn: 'Pain & fever', nameAm: 'ህመም ና ትኩሳት' }
+    expect(categoryName(pain)).toBe('Pain & fever')
+    setLanguage('am')
+    expect(categoryName(pain)).toBe('ህመም ና ትኩሳት')
+    // A category with no Amharic name keeps its English one.
+    expect(categoryName({ slug: 'x', nameEn: 'Only English', nameAm: null })).toBe('Only English')
+  })
+})
