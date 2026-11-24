@@ -6,7 +6,8 @@ import { ActivatePharmacyCommand } from '../../application/commands/activate-pha
 import { RegisterPharmacyCommand } from '../../application/commands/register-pharmacy.command';
 import { UpdatePharmacyProfileCommand } from '../../application/commands/update-pharmacy-profile.command';
 import { ResolveCallerPharmacyQuery } from '../../application/queries/resolve-caller-pharmacy.query';
-import { ActivatePharmacyDto, RegisterPharmacyDto, UpdatePharmacyProfileDto } from '../dtos/pharmacy.dto';
+import { ActivatePharmacyDto, RegisterPharmacyDto, SuspendPharmacyDto, UpdatePharmacyProfileDto } from '../dtos/pharmacy.dto';
+import { SuspendPharmacyCommand } from '../../application/commands/suspend-pharmacy.command';
 
 /** Pharmacy onboarding & profile (module-04 §10.1). */
 @Controller('pharmacy')
@@ -16,6 +17,7 @@ export class PharmacyController {
     private readonly activatePharmacy: ActivatePharmacyCommand,
     private readonly updateProfile: UpdatePharmacyProfileCommand,
     private readonly resolveCallerPharmacy: ResolveCallerPharmacyQuery,
+    private readonly suspendPharmacy: SuspendPharmacyCommand,
   ) {}
 
   @Post('register')
@@ -50,5 +52,13 @@ export class PharmacyController {
   ) {
     await this.activatePharmacy.execute({ actorUserId: user.userId, pharmacyId: body.pharmacyId });
     return { pharmacyId: body.pharmacyId, transactingStatus: 'ACTIVE' };
+  }
+
+  /** Work 153: stop a pharmacy trading; `activate` enables it again after re-checking its licence. */
+  @Post('suspend')
+  @RequirePermissions('provider:verify:any')
+  async suspend(@CurrentUser() user: AuthenticatedPrincipal, @Body() body: SuspendPharmacyDto) {
+    const { suspended } = await this.suspendPharmacy.execute({ actorUserId: user.userId, pharmacyId: body.pharmacyId, reason: body.reason });
+    return { pharmacyId: body.pharmacyId, transactingStatus: 'SUSPENDED', changed: suspended };
   }
 }

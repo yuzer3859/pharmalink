@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { PharmacyRecord } from './PharmacyRecord';
 import { Alert, Button, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
@@ -32,13 +33,15 @@ export function PharmaciesPage() {
   const { can } = useAuth();
   const canActivate = can('pharmacies:manage');
 
+  const [q, setQ] = useState('');
+  const [selected, setSelected] = useState<PharmacyOperations | null>(null);
   const [status, setStatus] = useState<TransactingStatus | 'all'>('all');
   const [eligible, setEligible] = useState<Flag>('any');
   const [paging, setPaging] = useState<GridPaginationModel>({ page: 0, pageSize: PHARMACY_PAGE_SIZES[1] });
 
   const filters = useMemo(
-    () => ({ transactingStatus: status, eligible: toFlag(eligible), page: paging.page + 1, size: paging.pageSize }),
-    [status, eligible, paging],
+    () => ({ q: q.trim().slice(0, 100), transactingStatus: status, eligible: toFlag(eligible), page: paging.page + 1, size: paging.pageSize }),
+    [q, status, eligible, paging],
   );
   const { data, isLoading, isFetching, error } = usePharmacies(filters);
   const activate = useActivatePharmacy();
@@ -117,7 +120,10 @@ export function PharmaciesPage() {
             color="success"
             startIcon={<CheckCircleRoundedIcon />}
             disabled={activate.isPending}
-            onClick={() => activate.mutate(row.pharmacyId)}
+            onClick={(e) => {
+              e.stopPropagation();
+              activate.mutate(row.pharmacyId);
+            }}
           >
             Activate
           </Button>
@@ -130,10 +136,21 @@ export function PharmaciesPage() {
       <PageHeader
         portalName={portal.title}
         title="Pharmacies"
-        subtitle="Live pharmacies, their licence state and whether they can transact."
+        subtitle="Find a pharmacy by name and open its full record: owner, staff, licence files and history. Disable or enable it there."
       />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
+        <TextField
+          size="small"
+          label="Search pharmacy name"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            resetPage();
+          }}
+          inputProps={{ maxLength: 100 }}
+          sx={{ minWidth: 240 }}
+        />
         <TextField
           select
           size="small"
@@ -178,6 +195,7 @@ export function PharmaciesPage() {
         columns={columns as GridColDef[]}
         getRowId={(row) => (row as PharmacyOperations).pharmacyId}
         loading={isLoading || isFetching}
+        onRowClick={(row) => setSelected(row as PharmacyOperations)}
         emptyTitle="No pharmacies found"
         emptyDescription="Pharmacies matching your filters will appear here."
         server={{
@@ -186,6 +204,13 @@ export function PharmaciesPage() {
           onPaginationModelChange: setPaging,
           pageSizeOptions: [...PHARMACY_PAGE_SIZES],
         }}
+      />
+
+      <PharmacyRecord
+        key={selected?.pharmacyId ?? 'none'}
+        pharmacyId={selected?.pharmacyId ?? null}
+        organizationId={selected?.organizationId ?? null}
+        onClose={() => setSelected(null)}
       />
     </>
   );

@@ -7,6 +7,11 @@ import {
   PharmacyOperationsView,
 } from '../../../pharmacy-inventory/application/ports/inbound/pharmacy-operations-read.port';
 import { AdminErrors } from '../../domain/errors';
+import {
+  IDENTITY_ORGANIZATION_READ_PORT,
+  type IIdentityOrganizationReadPort,
+  type OrganizationPeopleView,
+} from '../../../identity/application/ports/inbound/identity-organization-read.port';
 
 export const DEFAULT_PHARMACY_OPERATIONS_PAGE = 1;
 export const DEFAULT_PHARMACY_OPERATIONS_PAGE_SIZE = 20;
@@ -38,6 +43,7 @@ export class ListPharmacyOperationsQuery {
       hasPurchasableInventory: input.hasPurchasableInventory,
       createdFrom: input.createdFrom,
       createdTo: input.createdTo,
+      q: input.q,
     };
     return this.pharmacies.listPharmacies(filter, page, size);
   }
@@ -52,5 +58,26 @@ export class GetPharmacyOperationsQuery {
     const pharmacy = await this.pharmacies.getPharmacy(pharmacyId);
     if (!pharmacy) throw AdminErrors.pharmacyNotFound();
     return pharmacy;
+  }
+}
+
+/**
+ * `GET /admin/operations/pharmacies/:pharmacyId/people` (Work 153): the organisation behind a
+ * pharmacy — when and under which licence it registered, its owner, and everyone holding a role in
+ * it — read through Module 01's `IDENTITY_ORGANIZATION_READ_PORT`. Read-only; not audited.
+ */
+@Injectable()
+export class GetPharmacyPeopleQuery {
+  constructor(
+    @Inject(PHARMACY_OPERATIONS_READ_PORT) private readonly pharmacies: IPharmacyOperationsReadPort,
+    @Inject(IDENTITY_ORGANIZATION_READ_PORT) private readonly organizations: IIdentityOrganizationReadPort,
+  ) {}
+
+  async execute(pharmacyId: string): Promise<OrganizationPeopleView> {
+    const pharmacy = await this.pharmacies.getPharmacy(pharmacyId);
+    if (!pharmacy) throw AdminErrors.pharmacyNotFound();
+    const people = await this.organizations.getOrganizationPeople(pharmacy.organizationId);
+    if (!people) throw AdminErrors.pharmacyNotFound();
+    return people;
   }
 }

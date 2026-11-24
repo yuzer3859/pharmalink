@@ -25,7 +25,7 @@ import { GetPharmacyOperationsQuery, ListPharmacyOperationsQuery, MAX_PHARMACY_O
 const NOW = new Date('2026-10-14T12:00:00Z');
 const P1 = '11111111-1111-4111-8111-111111111111';
 const P2 = '22222222-2222-4222-8222-222222222222';
-const KEYS = ['pharmacyId', 'displayName', 'transactingStatus', 'licenseStatus', 'licenseExpiresAt', 'eligible', 'createdAt', 'updatedAt', 'branches', 'listings'];
+const KEYS = ['pharmacyId', 'organizationId', 'displayName', 'transactingStatus', 'licenseStatus', 'licenseExpiresAt', 'eligible', 'createdAt', 'updatedAt', 'branches', 'listings'];
 const LISTING_KEYS = ['total', 'enabled', 'disabled', 'inStock', 'outOfStock', 'customerPurchasable', 'customerUnpurchasable'];
 const flat = (s: Prisma.Sql) => s.text.replace(/\s+/g, ' ').trim();
 /** Placeholder numbers shift when fragments are embedded; compare shapes. */
@@ -137,7 +137,7 @@ describe('Admin pharmacy operations (Work 47)', () => {
 
   describe('Module 16 surface', () => {
     const view = (over: Partial<PharmacyOperationsView> = {}): PharmacyOperationsView => ({
-      pharmacyId: P1, displayName: 'Bole Pharmacy', transactingStatus: TransactingStatus.ACTIVE, licenseStatus: LicenseStatus.VALID, licenseExpiresAt: null, eligible: true, createdAt: NOW, updatedAt: NOW,
+      pharmacyId: P1, organizationId: 'org-1', displayName: 'Bole Pharmacy', transactingStatus: TransactingStatus.ACTIVE, licenseStatus: LicenseStatus.VALID, licenseExpiresAt: null, eligible: true, createdAt: NOW, updatedAt: NOW,
       branches: { total: 1, active: 1 }, listings: { total: 2, enabled: 2, disabled: 0, inStock: 2, outOfStock: 0, customerPurchasable: 1, customerUnpurchasable: 1 }, ...over,
     });
 
@@ -160,11 +160,15 @@ describe('Admin pharmacy operations (Work 47)', () => {
       for (const [k, v] of [['transactingStatus', 'ELIGIBLE'], ['eligible', 'yes'], ['eligible', 'TRUE'], ['hasPurchasableInventory', '1'], ['createdFrom', 'last week'], ['page', 0], ['size', 101]] as const) {
         expect({ k, v, errors: dtoErrors({ [k]: v }) }).toEqual({ k, v, errors: [k] });
       }
-      for (const field of ['name', 'ownerUserId', 'licenseNumber', 'city', 'q']) expect(dtoErrors({ [field]: 'x' })).toEqual([field]);
+      for (const field of ['name', 'ownerUserId', 'licenseNumber', 'city']) expect(dtoErrors({ [field]: 'x' })).toEqual([field]);
+      // Work 153: search by part of the name, at most 100 characters.
+      expect(dtoErrors({ q: 'Bole' })).toEqual([]);
+      expect(dtoErrors({ q: 'x'.repeat(101) })).toEqual(['q']);
     });
 
-    it('explicit allow-list: the public display name only; owner, contact, address, coordinates and licence number never reach the response', () => {
-      const leaky = Object.assign(view(), { ownerUserId: 'user-secret', phone: '+251911', addressLine: 'Africa Ave', lat: 9.03, licenseNumber: 'LIC-SECRET', organizationId: 'org-secret' });
+    it('explicit allow-list: the display name and organisation id only; owner, contact, address, coordinates and licence number never reach the list response', () => {
+      // Work 153: the organisation id is returned (the record's people come from `:id/people`).
+      const leaky = Object.assign(view(), { ownerUserId: 'user-secret', phone: '+251911', addressLine: 'Africa Ave', lat: 9.03, licenseNumber: 'LIC-SECRET' });
       const res = toPharmacyOperationsResponse(leaky);
       expect(Object.keys(res)).toEqual(KEYS);
       expect(Object.keys(res.listings)).toEqual(LISTING_KEYS);
@@ -177,7 +181,7 @@ describe('Admin pharmacy operations (Work 47)', () => {
       expect(Reflect.getMetadata('path', AdminPharmacyOperationsController)).toBe('admin/operations/pharmacies');
       expect(Reflect.getMetadata(PERMISSIONS_KEY, AdminPharmacyOperationsController)).toEqual(['pharmacy:read:any']);
       const methods = Object.getOwnPropertyNames(AdminPharmacyOperationsController.prototype).filter((m) => m !== 'constructor');
-      expect(methods).toEqual(['search', 'detail']);
+      expect(methods).toEqual(['search', 'detail', 'people']);
       for (const m of methods) expect(Reflect.getMetadata('method', AdminPharmacyOperationsController.prototype[m as 'search'])).toBe(0);
       expect(PERMISSIONS.find((p) => p.key === 'pharmacy:read:any')).toEqual({ key: 'pharmacy:read:any', resource: 'pharmacy', action: 'read', scope: 'any' });
       for (const [role, grants] of Object.entries(ROLE_PERMISSIONS)) {

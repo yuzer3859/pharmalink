@@ -63,7 +63,7 @@ import { GetCodExceptionSummaryQuery } from './application/queries/get-cod-excep
 import { GetDeliveryBacklogSummaryQuery } from './application/queries/get-delivery-backlog-summary.query';
 import { GetOrderBacklogSummaryQuery } from './application/queries/get-order-backlog-summary.query';
 import { GetFulfillmentOperationsQuery, ListFulfillmentOperationsQuery } from './application/queries/fulfillment-operations.queries';
-import { GetPharmacyOperationsQuery, ListPharmacyOperationsQuery } from './application/queries/pharmacy-operations.queries';
+import { GetPharmacyOperationsQuery, GetPharmacyPeopleQuery, ListPharmacyOperationsQuery } from './application/queries/pharmacy-operations.queries';
 import { GetBranchOperationsQuery, ListBranchOperationsQuery } from './application/queries/branch-operations.queries';
 import { GetInventoryListingOperationsQuery, ListInventoryListingOperationsQuery } from './application/queries/inventory-listing-operations.queries';
 import { GetStockMovementOperationsQuery, ListStockMovementOperationsQuery } from './application/queries/stock-movement-operations.queries';
@@ -401,6 +401,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     // Work 47 — pharmacy operations visibility, over Module 04's pharmacy operations read port.
     ListPharmacyOperationsQuery,
     GetPharmacyOperationsQuery,
+    GetPharmacyPeopleQuery,
     // Work 48 — branch operations visibility, over Module 04's branch operations read port.
     ListBranchOperationsQuery,
     GetBranchOperationsQuery,

@@ -51,9 +51,9 @@ describe('pharmaciesService', () => {
     expect(request).toHaveBeenCalledWith('/pharmacy/activate', { method: 'POST', body: { pharmacyId: PHARMACY.pharmacyId } });
   });
 
-  it('offers no suspend or status edit: the backend has no such endpoint', () => {
+  it('offers activate and (Work 153) suspend and the people read; no other status edit', () => {
     const service = createPharmaciesService(vi.fn() as unknown as SessionRequest);
-    expect(Object.keys(service).sort()).toEqual(['activate', 'get', 'list']);
+    expect(Object.keys(service).sort()).toEqual(['activate', 'get', 'list', 'people', 'suspend']);
   });
 });
 

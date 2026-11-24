@@ -9,6 +9,7 @@ import {
  */
 export interface PharmacyOperationsResponse {
   pharmacyId: string;
+  organizationId: string;
   displayName: string;
   transactingStatus: string;
   licenseStatus: string;
@@ -39,6 +40,7 @@ export interface PharmacyOperationsListResponse {
 export function toPharmacyOperationsResponse(p: PharmacyOperationsView): PharmacyOperationsResponse {
   return {
     pharmacyId: p.pharmacyId,
+    organizationId: p.organizationId,
     displayName: p.displayName,
     transactingStatus: p.transactingStatus,
     licenseStatus: p.licenseStatus,

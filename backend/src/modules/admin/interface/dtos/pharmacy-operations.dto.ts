@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsDateString, IsEnum, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { TransactingStatus } from '../../../pharmacy-inventory/application/ports/inbound/pharmacy-operations-read.port';
 import { MAX_PHARMACY_OPERATIONS_PAGE_SIZE } from '../../application/queries/pharmacy-operations.queries';
 
@@ -32,6 +32,12 @@ export class ListPharmacyOperationsQueryDto {
   @IsDateString()
   @IsOptional()
   createdTo?: string;
+
+  /** Work 153: part of the pharmacy's name, any case. */
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  q?: string;
 
   @IsInt()
   @Min(1)

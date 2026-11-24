@@ -6,7 +6,7 @@ import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 
 type User = RegisteredUser & Tokens;
 type Listings = { total: number; enabled: number; disabled: number; inStock: number; outOfStock: number; customerPurchasable: number; customerUnpurchasable: number };
-type Item = { pharmacyId: string; displayName: string; transactingStatus: string; licenseStatus: string; licenseExpiresAt: string | null; eligible: boolean; createdAt: string; updatedAt: string; branches: { total: number; active: number }; listings: Listings };
+type Item = { pharmacyId: string; organizationId: string; displayName: string; transactingStatus: string; licenseStatus: string; licenseExpiresAt: string | null; eligible: boolean; createdAt: string; updatedAt: string; branches: { total: number; active: number }; listings: Listings };
 type Page = { items: Item[]; total: number; page: number; size: number };
 const BASE = '/admin/operations/pharmacies';
 
@@ -146,7 +146,7 @@ describe('Admin pharmacy operations (e2e)', () => {
     expect([...ids(p1), ...ids(p2)]).toEqual(ids(await list()));
     for (const bad of <Array<Record<string, string | number>>>[
       { transactingStatus: 'ELIGIBLE' }, { transactingStatus: 'active' }, { eligible: 'yes' }, { eligible: 'TRUE' }, { hasPurchasableInventory: '1' },
-      { createdFrom: 'yesterday' }, { page: 0 }, { size: 101 }, { name: 'Bole' }, { licenseNumber: 'LIC' }, { q: 'x' },
+      { createdFrom: 'yesterday' }, { page: 0 }, { size: 101 }, { name: 'Bole' }, { licenseNumber: 'LIC' }, { q: 'x'.repeat(101) },
     ]) {
       expect({ bad, status: (await get(BASE, bad)).status }).toEqual({ bad, status: 400 });
     }
@@ -181,17 +181,22 @@ describe('Admin pharmacy operations (e2e)', () => {
     await get('/admin/analytics/overview').expect(200);
   });
 
-  it('privacy: the public display name only; no owner, contact, address, coordinates or licence number', async () => {
+  it('privacy: the public display name and organisation id only; no owner, contact, address, coordinates or licence number', async () => {
     const s = await seedSet();
     const listed = await list();
     // Work 80: the storefront name customers see is shown, so operators can tell pharmacies apart.
     expect(listed.items.every((i) => i.displayName === 'Bole Pharmacy')).toBe(true);
     const raw = JSON.stringify([listed, ...(await Promise.all([s.a, s.b].map((p) => get(`${BASE}/${p.id}`)))).map((r) => r.body)]);
     const orgs = await ctx.prisma.organization.findMany();
-    for (const secret of ['LIC-SECRET', 'Africa Ave', '+251911000111', '9.0312', '38.7421', s.a.ownerId, s.a.ownerPhone!, ...orgs.map((o) => o.id)]) {
+    // Work 153: each row names its organisation (the record's people come from `:id/people`, below).
+    // (A deleted pharmacy is not listed, so its organisation may be missing from the rows.)
+    const orgIds = new Set(orgs.map((o) => o.id));
+    expect(listed.items.every((i) => orgIds.has(i.organizationId))).toBe(true);
+    expect(new Set(listed.items.map((i) => i.organizationId)).size).toBe(listed.items.length);
+    for (const secret of ['LIC-SECRET', 'Africa Ave', '+251911000111', '9.0312', '38.7421', s.a.ownerId, s.a.ownerPhone!]) {
       expect({ secret: secret.slice(0, 10), found: raw.includes(secret) }).toEqual({ secret: secret.slice(0, 10), found: false });
     }
-    expect(raw).not.toMatch(/organizationId|owner|licenseNumber|address|phone|lat"|lng"|catalogProductId|price/i);
+    expect(raw).not.toMatch(/owner|licenseNumber|address|phone|lat"|lng"|catalogProductId|price/i);
   });
 
   it('read-only: pharmacies, branches, listings, batches, reservations, audit and outbox unchanged; other methods are 404', async () => {
