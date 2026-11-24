@@ -1,6 +1,6 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { RequirePermissions } from '../../../../shared/rbac/permissions.decorator';
-import { GetPharmacyOperationsQuery, ListPharmacyOperationsQuery } from '../../application/queries/pharmacy-operations.queries';
+import { GetPharmacyOperationsQuery, GetPharmacyPeopleQuery, ListPharmacyOperationsQuery } from '../../application/queries/pharmacy-operations.queries';
 import { ListPharmacyOperationsQueryDto } from '../dtos/pharmacy-operations.dto';
 import {
   PharmacyOperationsListResponse,
@@ -25,6 +25,7 @@ export class AdminPharmacyOperationsController {
   constructor(
     private readonly list: ListPharmacyOperationsQuery,
     private readonly getOne: GetPharmacyOperationsQuery,
+    private readonly getPeople: GetPharmacyPeopleQuery,
   ) {}
 
   @Get()
@@ -37,6 +38,7 @@ export class AdminPharmacyOperationsController {
         hasPurchasableInventory: flag(q.hasPurchasableInventory),
         createdFrom: q.createdFrom ? new Date(q.createdFrom) : undefined,
         createdTo: q.createdTo ? new Date(q.createdTo) : undefined,
+        q: q.q,
         page: q.page,
         size: q.size,
       }),
@@ -46,5 +48,17 @@ export class AdminPharmacyOperationsController {
   @Get(':pharmacyId')
   async detail(@Param('pharmacyId', new ParseUUIDPipe()) pharmacyId: string): Promise<PharmacyOperationsResponse> {
     return toPharmacyOperationsResponse(await this.getOne.execute(pharmacyId));
+  }
+
+  /** Work 153: the organisation behind the pharmacy — registration, licence, owner and people. */
+  @Get(':pharmacyId/people')
+  async people(@Param('pharmacyId', new ParseUUIDPipe()) pharmacyId: string) {
+    const p = await this.getPeople.execute(pharmacyId);
+    return {
+      ...p,
+      licenseExpiresAt: p.licenseExpiresAt ? p.licenseExpiresAt.toISOString() : null,
+      createdAt: p.createdAt.toISOString(),
+      members: p.members.map((m) => ({ ...m, since: m.since.toISOString() })),
+    };
   }
 }

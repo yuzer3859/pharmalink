@@ -169,7 +169,7 @@ function ReviewDrawer({ id, onClose }: { id: string | null; onClose: () => void 
  * One document of the request (Work 89). "Preview" asks the server for a five-minute signed link,
  * which the server audits, and opens it in a new tab; the link is not kept.
  */
-function DocumentRow({ requestId, index, document }: { requestId: string; index: number; document: VerificationDetail['documents'][number] }) {
+export function DocumentRow({ requestId, index, document }: { requestId: string; index: number; document: VerificationDetail['documents'][number] }) {
   const [state, setState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const detail = document.expiresAt ? `expires ${formatDate(document.expiresAt)}` : document.previewable ? 'file on record' : 'reference only';
   const open = async () => {

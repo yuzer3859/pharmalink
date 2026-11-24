@@ -4,10 +4,12 @@ import { authService, type SessionRequest } from './auth.service';
 
 /**
  * Filters of `GET /admin/operations/pharmacies` (module-16 Work 47). The API exposes no pharmacy
- * name, owner, address or licence number, so there is no text search: filters are the stored
- * statuses and computed flags it reports.
+ * owner, address or licence number in the list; Work 153 added a search on the pharmacy's name.
+ * The rest are the stored statuses and computed flags it reports.
  */
 export interface PharmacyFilters {
+  /** Work 153: part of the pharmacy's name. */
+  q?: string;
   transactingStatus?: TransactingStatus | 'all';
   eligible?: boolean;
   hasPurchasableInventory?: boolean;
@@ -20,6 +22,7 @@ export const PHARMACY_PAGE_SIZES = [10, 25, 50] as const;
 
 export function pharmacyQuery(filters: PharmacyFilters): string {
   const params = new URLSearchParams();
+  if (filters.q?.trim()) params.set('q', filters.q.trim());
   if (filters.transactingStatus && filters.transactingStatus !== 'all') params.set('transactingStatus', filters.transactingStatus);
   if (filters.eligible !== undefined) params.set('eligible', String(filters.eligible));
   if (filters.hasPurchasableInventory !== undefined) params.set('hasPurchasableInventory', String(filters.hasPurchasableInventory));
@@ -51,6 +54,36 @@ export function activationErrorMessage(error: unknown): string {
   return error.message;
 }
 
+/** Work 153: the organisation behind a pharmacy — registration, licence, owner and people. */
+export interface PharmacyPerson {
+  userId: string;
+  email: string | null;
+  phone: string | null;
+  status: string;
+}
+
+export interface PharmacyPeople {
+  organizationId: string;
+  name: string;
+  type: string;
+  status: string;
+  licenseNumber: string | null;
+  licenseExpiresAt: string | null;
+  createdAt: string;
+  owner: PharmacyPerson;
+  members: Array<PharmacyPerson & { roles: string[]; since: string }>;
+}
+
+export const MIN_SUSPEND_REASON = 3;
+export const MAX_SUSPEND_REASON = 500;
+export const isValidSuspendReason = (reason: string) => {
+  const n = reason.trim().length;
+  return n >= MIN_SUSPEND_REASON && n <= MAX_SUSPEND_REASON;
+};
+
+/** How a person is reached, for the record: e-mail, else phone, else their id. */
+export const personLabel = (p: PharmacyPerson) => p.email ?? p.phone ?? p.userId;
+
 export function createPharmaciesService(request: SessionRequest) {
   return {
     /** One page of live pharmacies with their statuses, eligibility and counts (read-only). */
@@ -65,10 +98,20 @@ export function createPharmaciesService(request: SessionRequest) {
     /**
      * `POST /pharmacy/activate` (`provider:verify:any`): the explicit operator action. The server
      * checks the approved licence and refuses with `PHARMACY_NOT_ELIGIBLE` or `LICENSE_EXPIRED`;
-     * the portal decides nothing itself. There is no suspend endpoint, so the portal offers none.
+     * the portal decides nothing itself. It also enables a pharmacy disabled by `suspend`.
      */
     activate(pharmacyId: string): Promise<{ pharmacyId: string; transactingStatus: 'ACTIVE' }> {
       return request('/pharmacy/activate', { method: 'POST', body: { pharmacyId } });
+    },
+
+    /** Work 153: who the pharmacy is. */
+    people(pharmacyId: string): Promise<PharmacyPeople> {
+      return request<PharmacyPeople>(`/admin/operations/pharmacies/${encodeURIComponent(pharmacyId)}/people`, { method: 'GET' });
+    },
+
+    /** Work 153: stop the pharmacy trading; `activate` enables it again after re-checking its licence. */
+    suspend(pharmacyId: string, reason: string): Promise<{ pharmacyId: string; transactingStatus: 'SUSPENDED'; changed: boolean }> {
+      return request('/pharmacy/suspend', { method: 'POST', body: { pharmacyId, reason: reason.trim() } });
     },
   };
 }

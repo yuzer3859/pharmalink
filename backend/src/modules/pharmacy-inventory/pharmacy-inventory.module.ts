@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { CatalogModule } from '../catalog/catalog.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ActivatePharmacyCommand } from './application/commands/activate-pharmacy.command';
+import { SuspendPharmacyCommand } from './application/commands/suspend-pharmacy.command';
 import { AddBatchCommand } from './application/commands/add-batch.command';
 import { AdjustBatchCommand } from './application/commands/adjust-batch.command';
 import { ConfirmReservationCommand } from './application/commands/confirm-reservation.command';
@@ -104,6 +105,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     // Pharmacy/branch use cases
     RegisterPharmacyCommand,
     ActivatePharmacyCommand,
+    // Work 153: an administrator disables a pharmacy.
+    SuspendPharmacyCommand,
     UpdatePharmacyProfileCommand,
     CreateBranchCommand,
     UpdateBranchCommand,

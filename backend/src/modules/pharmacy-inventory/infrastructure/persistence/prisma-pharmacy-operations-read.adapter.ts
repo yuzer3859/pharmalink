@@ -14,6 +14,7 @@ import { ListingCountRow, listingCountColumns, toListingCounts } from './listing
 
 interface PharmacyRow {
   id: string;
+  organizationId: string;
   displayName: string;
   transactingStatus: TransactingStatus;
   licenseStatus: LicenseStatus;
@@ -63,6 +64,11 @@ export class PrismaPharmacyOperationsReadAdapter implements IPharmacyOperationsR
     if (f.hasPurchasableInventory !== undefined) conditions.push(f.hasPurchasableInventory ? purchasable : Prisma.sql`NOT ${purchasable}`);
     if (f.createdFrom) conditions.push(Prisma.sql`ph."createdAt" >= ${f.createdFrom}`);
     if (f.createdTo) conditions.push(Prisma.sql`ph."createdAt" < ${f.createdTo}`);
+    if (f.q?.trim()) {
+      // ILIKE's own wildcards and escape character are matched literally.
+      const term = `%${f.q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      conditions.push(Prisma.sql`ph."displayName" ILIKE ${term}`);
+    }
     return Prisma.join(conditions, ' AND ');
   }
 
@@ -70,7 +76,7 @@ export class PrismaPharmacyOperationsReadAdapter implements IPharmacyOperationsR
     return this.prisma.$transaction(
       async (tx) => {
         const rows = await tx.$queryRaw<PharmacyRow[]>`
-          SELECT ph."id", ph."displayName", ph."transactingStatus", ph."licenseStatus", ph."licenseExpiresAt", ph."createdAt", ph."updatedAt",
+          SELECT ph."id", ph."organizationId", ph."displayName", ph."transactingStatus", ph."licenseStatus", ph."licenseExpiresAt", ph."createdAt", ph."updatedAt",
                  (${eligiblePharmacyWhere('ph', now)}) AS "eligible"
             FROM "pharmacies" ph
            WHERE ${where}
@@ -98,6 +104,7 @@ export class PrismaPharmacyOperationsReadAdapter implements IPharmacyOperationsR
           const b = branches.get(r.id);
           return {
             pharmacyId: r.id,
+            organizationId: r.organizationId,
             displayName: r.displayName,
             transactingStatus: r.transactingStatus,
             licenseStatus: r.licenseStatus,

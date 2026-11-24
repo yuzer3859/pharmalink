@@ -239,3 +239,18 @@ API; none is invented here.
 - **No limit on applications.** A customer may apply for more than one organisation (each needs its
   own key).
 - **Staff invitations:** Module 04, Slice 2.
+
+## The Super Admin's pharmacy register (Work 153)
+
+The gaps above are partly closed: the operations portal has used the live API since Module 16, and Work 89 added document previews.
+
+- **Find a pharmacy.** `GET /admin/operations/pharmacies?q=<part of the name>` (`pharmacy:read:any`) searches the storefront name, any case. Each row now carries `organizationId`.
+- **Its full record.**
+  - `GET /admin/operations/pharmacies/:pharmacyId/people` (`pharmacy:read:any`) returns the organisation behind the pharmacy: name, type, status, licence number and expiry, registration date, the owner (e-mail, phone, account status), and everyone with a role in it, with their roles and since when.
+  - The portal also shows the pharmacy's licence and verification requests with their documents (`GET /admin/verifications?organizationId=…`; each document previewable) and its history (`GET /admin/audit?resourceType=Pharmacy&resourceId=…`).
+- **Disable.** `POST /pharmacy/suspend` with `{ pharmacyId, reason }` (`provider:verify:any`; reason 3–500 characters):
+  - The pharmacy stops trading: `transactingStatus` becomes `SUSPENDED`.
+  - The outbox `PharmacySuspended` (reason `MANUAL`) drops it from search and notifies its owner.
+  - It is audited as `PHARMACY_SUSPENDED` with the reason. The licence is untouched, and a second call changes nothing (`changed: false`).
+- **Enable again.** `POST /pharmacy/activate`, which re-checks the organisation and its approved, current licence.
+- **Portal.** Admin portal → Pharmacies: a name search; a click opens the record (Overview, Owner & staff, Licence & files, History) with Disable / Enable.

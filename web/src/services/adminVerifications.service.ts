@@ -6,6 +6,8 @@ import { authService, type SessionRequest } from './auth.service';
 export interface VerificationFilters {
   status?: VerificationStatus | 'all';
   type?: VerificationType | 'all';
+  /** Work 153: one organisation's requests (its licence files). */
+  organizationId?: string;
   /** 1-based. */
   page?: number;
   size?: number;
@@ -24,6 +26,7 @@ export function verificationQuery(filters: VerificationFilters): string {
   const params = new URLSearchParams();
   if (filters.status && filters.status !== 'all') params.set('status', filters.status);
   if (filters.type && filters.type !== 'all') params.set('type', filters.type);
+  if (filters.organizationId) params.set('organizationId', filters.organizationId);
   if (filters.page) params.set('page', String(filters.page));
   if (filters.size) params.set('size', String(filters.size));
   const query = params.toString();

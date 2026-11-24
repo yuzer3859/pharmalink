@@ -15,6 +15,8 @@ export interface PharmacyOperationsFilter {
   /** Inclusive lower / exclusive upper bound on `createdAt`. */
   createdFrom?: Date;
   createdTo?: Date;
+  /** Work 153: part of the storefront name, any case. */
+  q?: string;
 }
 
 /**
@@ -37,6 +39,8 @@ export interface PharmacyOperationsFilter {
  */
 export interface PharmacyOperationsView {
   pharmacyId: string;
+  /** Work 153: Module 01's organisation behind this pharmacy (its owner, licence and people). */
+  organizationId: string;
   /** The public storefront name (Work 80): what customers see, so an operator can tell pharmacies apart. */
   displayName: string;
   transactingStatus: TransactingStatus;

@@ -80,6 +80,17 @@ export class Pharmacy {
     this.props.updatedAt = now;
   }
 
+  /**
+   * Work 153: a platform administrator stops the pharmacy trading (customers no longer see or buy
+   * from it). The licence is untouched; activating again re-checks it. `false` when already stopped.
+   */
+  suspendByAdmin(now: Date = new Date()): boolean {
+    if (this.props.transactingStatus === TransactingStatus.SUSPENDED) return false;
+    this.props.transactingStatus = TransactingStatus.SUSPENDED;
+    this.props.updatedAt = now;
+    return true;
+  }
+
   applyProfileEdits(
     edits: { displayName?: string; logoUrl?: string | null; description?: string | null },
     now: Date = new Date(),
