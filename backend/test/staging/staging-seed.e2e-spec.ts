@@ -140,6 +140,8 @@ describe('Staging seed (e2e)', () => {
   it('stocks the pharmacy shelf: every category, and every product active, pictured, priced and in stock at Bole Main (Work 146)', async () => {
     const categories = await ctx.prisma.category.findMany({ where: { slug: { in: SHELF_CATEGORIES.map((c) => c.slug) } } });
     expect(categories.map((c) => c.slug).sort()).toEqual(SHELF_CATEGORIES.map((c) => c.slug).sort());
+    // Work 149: the names carry the owner's reviewed Amharic.
+    for (const c of SHELF_CATEGORIES) expect(categories.find((row) => row.slug === c.slug)?.nameAm).toBe(c.nameAm);
 
     for (const fixture of SHELF_PRODUCTS) {
       const product = await ctx.prisma.product.findFirstOrThrow({

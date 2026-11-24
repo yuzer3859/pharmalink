@@ -12,15 +12,15 @@
 export interface ShelfCategory {
   slug: string;
   nameEn: string;
-  /** Draft Amharic, for the owner's review. */
+  /** Amharic reviewed by the owner on 2026-11-23 (Work 149). */
   nameAm: string;
   appliesTo: 'MEDICINE' | 'HEALTH_PRODUCT' | 'BOTH';
 }
 
 export const SHELF_CATEGORIES: readonly ShelfCategory[] = [
-  { slug: 'pain-fever', nameEn: 'Pain & fever', nameAm: 'ህመምና ትኩሳት', appliesTo: 'MEDICINE' },
+  { slug: 'pain-fever', nameEn: 'Pain & fever', nameAm: 'ህመም ና ትኩሳት', appliesTo: 'MEDICINE' },
   { slug: 'cold-flu', nameEn: 'Cold, flu & allergy', nameAm: 'ጉንፋንና አለርጂ', appliesTo: 'MEDICINE' },
-  { slug: 'digestive', nameEn: 'Digestive health', nameAm: 'የምግብ መፈጨት ጤና', appliesTo: 'MEDICINE' },
+  { slug: 'digestive', nameEn: 'Digestive health', nameAm: 'የምግብ መፈጨት', appliesTo: 'MEDICINE' },
   { slug: 'antibiotics', nameEn: 'Antibiotics', nameAm: 'አንቲባዮቲኮች', appliesTo: 'MEDICINE' },
   { slug: 'vitamins', nameEn: 'Vitamins & supplements', nameAm: 'ቫይታሚኖችና ተጨማሪ ምግቦች', appliesTo: 'BOTH' },
   { slug: 'beauty', nameEn: 'Make-up & beauty', nameAm: 'መዋቢያዎች', appliesTo: 'HEALTH_PRODUCT' },

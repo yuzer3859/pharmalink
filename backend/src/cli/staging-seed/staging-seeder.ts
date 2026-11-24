@@ -15,6 +15,7 @@ import { ChangeProductStatusCommand } from '../../modules/catalog/application/co
 import { CreateManufacturerCommand } from '../../modules/catalog/application/commands/create-manufacturer.command';
 import { CreateProductCommand } from '../../modules/catalog/application/commands/create-product.command';
 import { CreateCategoryCommand } from '../../modules/catalog/application/commands/create-category.command';
+import { UpdateCategoryCommand } from '../../modules/catalog/application/commands/update-category.command';
 import { SHELF_CATEGORIES, SHELF_INITIAL_QUANTITY, SHELF_MANUFACTURER, SHELF_PRODUCTS, ShelfProduct, WALK_PRODUCT_SHELF } from './shelf-fixtures';
 import { AcceptJobOfferCommand } from '../../modules/delivery/application/commands/accept-job-offer.command';
 import { AdvanceDeliveryJobCommand } from '../../modules/delivery/application/commands/advance-delivery-job.command';
@@ -553,6 +554,11 @@ export class StagingSeeder {
         ).id;
       categoryIds.set(c.slug, id);
       this.note(!found, `category ${c.slug}`);
+      // Work 149: a category seeded before the owner's Amharic review takes the reviewed name.
+      if (found && found.nameAm !== c.nameAm) {
+        await this.app.get(UpdateCategoryCommand).execute({ actorUserId: operator, categoryId: id, nameAm: c.nameAm });
+        this.note(true, `reviewed Amharic name for category ${c.slug}`);
+      }
     }
 
     for (const walk of WALK_PRODUCT_SHELF) {
