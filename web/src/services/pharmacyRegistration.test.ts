@@ -51,3 +51,23 @@ describe('registering a pharmacy for an owner (Work 154)', () => {
     expect(request).not.toHaveBeenCalled();
   });
 });
+
+describe('a record’s licence files, whatever their status (Work 154)', () => {
+  it('asks the queue for each status and returns them newest first, each with its documents', async () => {
+    const { createAdminVerificationsService } = await import('./adminVerifications.service');
+    const request = vi.fn(async (path: string) => {
+      if (path.startsWith('/admin/verifications?')) {
+        const status = new URLSearchParams(path.split('?')[1]).get('status');
+        if (status === 'APPROVED') return { items: [{ requestId: 'a', submittedAt: '2026-01-02T00:00:00Z' }], total: 1, page: 1, size: 50 };
+        if (status === 'REJECTED') return { items: [{ requestId: 'r', submittedAt: '2026-01-01T00:00:00Z' }], total: 1, page: 1, size: 50 };
+        return { items: [], total: 0, page: 1, size: 50 };
+      }
+      return { requestId: path.split('/').pop() };
+    }) as unknown as SessionRequest;
+    const history = await createAdminVerificationsService(request).history({ organizationId: 'org-1' });
+    expect(history.map((h) => h.requestId)).toEqual(['a', 'r']);
+    const asked = (request as unknown as { mock: { calls: [string][] } }).mock.calls.map(([p]) => p).filter((p) => p.includes('?'));
+    expect(asked.map((p) => new URLSearchParams(p.split('?')[1]).get('status')).sort()).toEqual(['APPROVED', 'EXPIRED', 'PENDING', 'REJECTED']);
+    expect(asked.every((p) => p.includes('organizationId=org-1'))).toBe(true);
+  });
+});

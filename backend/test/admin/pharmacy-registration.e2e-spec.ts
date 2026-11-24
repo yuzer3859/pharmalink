@@ -78,7 +78,7 @@ describe('Admin — registers a pharmacy for an owner (Work 154, e2e)', () => {
     expect(people).toEqual(expect.objectContaining({ status: 'ACTIVE', licenseNumber: 'EFDA/PH/2026/0154', owner: expect.objectContaining({ userId: o.userId, email: o.email }) }));
 
     // The licence file is on record, approved by the administrator, and previewable.
-    const files = body(await request(ctx.server).get(`/admin/verifications?organizationId=${organizationId}`).set(...auth(admin.accessToken)).expect(200));
+    const files = body(await request(ctx.server).get(`/admin/verifications?organizationId=${organizationId}&status=APPROVED`).set(...auth(admin.accessToken)).expect(200));
     const items = files.items as Array<{ requestId: string; status: string; type: string }>;
     expect(items.map((i) => [i.type, i.status])).toEqual([['PHARMACY_LICENSE', 'APPROVED']]);
     const stored = await ctx.prisma.verificationRequest.findUniqueOrThrow({ where: { id: items[0].requestId } });
