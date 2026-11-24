@@ -43,6 +43,22 @@ export function useProductSearch(q: string) {
   });
 }
 
+/** Work 151: a listing's pictures and this pharmacy's suggestions for them. */
+export function useListingPictures(id: string | null) {
+  return useQuery({ queryKey: [...KEY, 'pictures', id] as const, queryFn: () => api.pictures(id as string), enabled: !!id });
+}
+
+export function useSuggestPicture(id: string) {
+  const qc = useQueryClient();
+  const notify = useNotify();
+  return useMutation({
+    mutationFn: (file: File) => api.suggestPicture(id, file),
+    onSuccess: () => notify('Picture sent for review. Customers see it once it is approved.'),
+    onError: (error) => notify(inventoryErrorMessage(error, 'The picture could not be sent.'), 'error'),
+    onSettled: () => qc.invalidateQueries({ queryKey: [...KEY, 'pictures', id] }),
+  });
+}
+
 export function useInventoryActions() {
   const qc = useQueryClient();
   const notify = useNotify();

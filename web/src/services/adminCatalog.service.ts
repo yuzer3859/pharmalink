@@ -41,6 +41,57 @@ export interface PictureUpload {
   upload: { url: string; method: 'PUT' | 'GET'; headers: Record<string, string> };
 }
 
+/**
+ * Checks the file, asks `issuePath` for an upload link, sends the file straight to storage and
+ * returns the picture's address. Shared by catalogue staff (Work 150) and pharmacies (Work 151).
+ */
+export async function sendPicture(file: File, issuePath: string, request: SessionRequest, put: typeof fetch = (...args) => fetch(...args)): Promise<string> {
+  const problem = pictureProblem(file);
+  if (problem) throw new ApiError(400, 'VALIDATION_ERROR', problem);
+  const issued = await request<PictureUpload>(issuePath, { method: 'POST', body: { contentType: file.type, bytes: file.size } });
+  let stored: Response;
+  try {
+    stored = await put(issued.upload.url, { method: issued.upload.method, headers: { ...issued.upload.headers, 'Content-Type': file.type }, body: file });
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', 'The picture could not be uploaded. Check the connection and try again.');
+  }
+  if (!stored.ok) throw new ApiError(stored.status, 'UPLOAD_FAILED', 'The picture could not be uploaded. Try again.');
+  return issued.imageUrl;
+}
+
+// ---- Work 151: pictures suggested by pharmacies -----------------------------------------------
+
+export type PictureSuggestionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface PictureSuggestion {
+  id: string;
+  productId: string;
+  imageUrl: string;
+  status: PictureSuggestionStatus;
+  reason: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface PictureSuggestionReviewItem extends PictureSuggestion {
+  productName: string | null;
+  pharmacyId: string;
+  pharmacyName: string | null;
+  productPictureCount: number;
+}
+
+export interface PictureSuggestionPage {
+  items: PictureSuggestionReviewItem[];
+  meta: { page: number; size: number; total: number };
+}
+
+export const PICTURE_REJECT_REASON_MIN = 3;
+export const PICTURE_REJECT_REASON_MAX = 300;
+export const isValidPictureRejectReason = (reason: string) => {
+  const n = reason.trim().length;
+  return n >= PICTURE_REJECT_REASON_MIN && n <= PICTURE_REJECT_REASON_MAX;
+};
+
 /** Filters of `GET /admin/catalog/review` (`catalog:manage:any`). */
 export interface CatalogReviewFilters {
   status?: CatalogProductStatus | 'all';
@@ -142,21 +193,20 @@ export function createAdminCatalogService(request: SessionRequest) {
       return Array.isArray(detail.images) ? detail.images : [];
     },
     /** Asks for an upload link, sends the file straight to storage, and returns the picture's URL. */
-    async uploadPicture(id: string, file: File, put: typeof fetch = (...args) => fetch(...args)): Promise<string> {
-      const problem = pictureProblem(file);
-      if (problem) throw new ApiError(400, 'VALIDATION_ERROR', problem);
-      const issued = await request<PictureUpload>(`/admin/catalog/products/${encodeURIComponent(id)}/images/uploads`, {
-        method: 'POST',
-        body: { contentType: file.type, bytes: file.size },
-      });
-      let stored: Response;
-      try {
-        stored = await put(issued.upload.url, { method: issued.upload.method, headers: { ...issued.upload.headers, 'Content-Type': file.type }, body: file });
-      } catch {
-        throw new ApiError(0, 'NETWORK_ERROR', 'The picture could not be uploaded. Check the connection and try again.');
-      }
-      if (!stored.ok) throw new ApiError(stored.status, 'UPLOAD_FAILED', 'The picture could not be uploaded. Try again.');
-      return issued.imageUrl;
+    uploadPicture(id: string, file: File, put: typeof fetch = (...args) => fetch(...args)): Promise<string> {
+      return sendPicture(file, `/admin/catalog/products/${encodeURIComponent(id)}/images/uploads`, request, put);
+    },
+
+    // ---- Work 151: pictures suggested by pharmacies ----
+    pictureSuggestions(filters: { status?: PictureSuggestionStatus; page?: number; size?: number } = {}): Promise<PictureSuggestionPage> {
+      const params = new URLSearchParams({ status: filters.status ?? 'PENDING', page: String(filters.page ?? 1), size: String(filters.size ?? 12) });
+      return request<PictureSuggestionPage>(`/admin/catalog/picture-suggestions?${params}`, { method: 'GET' });
+    },
+    approvePictureSuggestion(id: string): Promise<PictureSuggestion & { images: string[] }> {
+      return request(`/admin/catalog/picture-suggestions/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+    },
+    rejectPictureSuggestion(id: string, reason: string): Promise<PictureSuggestion> {
+      return request(`/admin/catalog/picture-suggestions/${encodeURIComponent(id)}/reject`, { method: 'POST', body: { reason: reason.trim() } });
     },
     /** Saves the pictures in this order; the first is the main one. */
     savePictures(id: string, images: string[]): Promise<{ images: string[] }> {

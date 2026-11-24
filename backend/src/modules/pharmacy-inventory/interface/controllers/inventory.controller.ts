@@ -1,4 +1,8 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  CATALOG_PICTURE_SUGGESTION_PORT,
+  type ICatalogPictureSuggestionPort,
+} from '../../../catalog/application/ports/inbound/catalog-picture-suggestion.port';
 import { RequirePermissions } from '../../../../shared/rbac/permissions.decorator';
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { CurrentUser } from '../../../identity/interface/decorators/current-user.decorator';
@@ -16,6 +20,8 @@ import {
   CreateListingDto,
   GetMovementsQueryDto,
   ListListingsQueryDto,
+  RequestPictureUploadDto,
+  SuggestPictureDto,
   UpdateListingDto,
 } from '../dtos/inventory.dto';
 
@@ -32,7 +38,39 @@ export class InventoryController {
     private readonly listListings: ListListingsQuery,
     private readonly getListing: GetListingQuery,
     private readonly getListingMovements: GetListingMovementsQuery,
+    @Inject(CATALOG_PICTURE_SUGGESTION_PORT) private readonly pictures: ICatalogPictureSuggestionPort,
   ) {}
+
+  /** Work 151: the caller's pharmacy and the product of one of its own listings (else not found). */
+  private async stocked(userId: string, listingId: string) {
+    const pharmacy = await this.resolveCallerPharmacy.execute(userId);
+    const listing = await this.getListing.execute({ pharmacyId: pharmacy.id, listingId });
+    return { pharmacyId: pharmacy.id, productId: listing.catalogProductId };
+  }
+
+  // ---- Work 151: pictures a pharmacy suggests for a product it stocks ----------------------
+
+  /** The product's pictures as customers see them, and this pharmacy's suggestions for it. */
+  @Get('listings/:id/pictures')
+  @RequirePermissions('inventory:manage:org')
+  async listingPictures(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') id: string) {
+    return this.pictures.forPharmacy(await this.stocked(user.userId, id));
+  }
+
+  @Post('listings/:id/pictures/uploads')
+  @RequirePermissions('inventory:manage:org')
+  @HttpCode(HttpStatus.CREATED)
+  async requestPictureUpload(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') id: string, @Body() dto: RequestPictureUploadDto) {
+    return this.pictures.requestUpload({ actorUserId: user.userId, ...(await this.stocked(user.userId, id)), ...dto });
+  }
+
+  /** Sends an uploaded picture to catalogue staff; customers see it once they approve it. */
+  @Post('listings/:id/pictures/suggestions')
+  @RequirePermissions('inventory:manage:org')
+  @HttpCode(HttpStatus.CREATED)
+  async suggestPicture(@CurrentUser() user: AuthenticatedPrincipal, @Param('id') id: string, @Body() dto: SuggestPictureDto) {
+    return this.pictures.suggest({ actorUserId: user.userId, ...(await this.stocked(user.userId, id)), imageUrl: dto.imageUrl });
+  }
 
   @Get('listings')
   @RequirePermissions('inventory:manage:org')

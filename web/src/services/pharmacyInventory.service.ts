@@ -1,4 +1,5 @@
 import { authService, type SessionRequest } from './auth.service';
+import { sendPicture, type PictureSuggestion } from './adminCatalog.service';
 
 /**
  * Work 112: the pharmacy portal's inventory on the real API (module-04 §9.3, Work 111's read).
@@ -55,6 +56,15 @@ export interface StockMovement {
   refType: string | null;
   createdAt: string;
 }
+
+/** Work 151: a listing's product pictures and the pharmacy's own suggestions, newest first. */
+export interface ListingPictures {
+  images: string[];
+  suggestions: PictureSuggestion[];
+}
+
+/** A pharmacy may have this many pictures waiting for one product. */
+export const MAX_WAITING_SUGGESTIONS = 3;
 
 export interface Branch {
   id: string;
@@ -198,6 +208,15 @@ export function createPharmacyInventoryService(request: SessionRequest) {
     },
     branches(): Promise<Branch[]> {
       return request<Branch[]>(`/pharmacy/branches`, { method: 'GET' });
+    },
+    /** Work 151: the product's pictures as customers see them, and this pharmacy's suggestions. */
+    pictures(id: string): Promise<ListingPictures> {
+      return request<ListingPictures>(listing(id, '/pictures'), { method: 'GET' });
+    },
+    /** Uploads the file and sends it to catalogue staff; customers see it once they approve it. */
+    async suggestPicture(id: string, file: File, put: typeof fetch = (...args) => fetch(...args)): Promise<PictureSuggestion> {
+      const imageUrl = await sendPicture(file, listing(id, '/pictures/uploads'), request, put);
+      return request<PictureSuggestion>(listing(id, '/pictures/suggestions'), { method: 'POST', body: { imageUrl } });
     },
     searchProducts(q: string): Promise<{ items: CatalogHit[] }> {
       return request(`/catalog/products?q=${encodeURIComponent(q.trim())}&size=10`, { method: 'GET' });

@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminCatalogService, catalogErrorMessage, type CatalogAction, type CatalogReviewFilters } from '@/services/adminCatalog.service';
+import { adminCatalogService, catalogErrorMessage, type CatalogAction, type CatalogReviewFilters, type PictureSuggestionStatus } from '@/services/adminCatalog.service';
 import { useNotify } from '@/context/NotificationContext';
 
 export function useCatalogReview(filters: CatalogReviewFilters) {
@@ -41,6 +41,27 @@ export function useSavePictures() {
       notify('Pictures saved. Customers see them now.');
     },
     onError: (error) => notify(catalogErrorMessage(error, 'The pictures could not be saved.'), 'error'),
+  });
+}
+
+/** Work 151: pictures pharmacies suggested, waiting ones by default. */
+export function usePictureSuggestions(filters: { status?: PictureSuggestionStatus; page?: number; size?: number }) {
+  return useQuery({
+    queryKey: ['admin-catalog', 'picture-suggestions', filters] as const,
+    queryFn: () => adminCatalogService.pictureSuggestions(filters),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useDecidePictureSuggestion() {
+  const qc = useQueryClient();
+  const notify = useNotify();
+  return useMutation({
+    mutationFn: (input: { id: string; approve: true } | { id: string; approve: false; reason: string }) =>
+      input.approve ? adminCatalogService.approvePictureSuggestion(input.id) : adminCatalogService.rejectPictureSuggestion(input.id, input.reason),
+    onSuccess: (_r, input) => notify(input.approve ? 'Picture added. Customers see it now.' : 'Picture turned down. The pharmacy sees your reason.'),
+    onError: (error) => notify(catalogErrorMessage(error, 'The picture could not be decided.'), 'error'),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['admin-catalog'] }),
   });
 }
 

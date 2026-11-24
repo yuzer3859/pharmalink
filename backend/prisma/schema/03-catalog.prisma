@@ -103,6 +103,7 @@ model Product {
   categories       ProductCategory[]
   ingredients      ProductIngredient[]
   images           ProductImage[]
+  imageSuggestions ProductImageSuggestion[]
   tags             ProductTag[]
 
   @@index([genericName])
@@ -158,6 +159,35 @@ model ProductImage {
   product Product @relation(fields: [productId], references: [id])
 
   @@map("product_images")
+}
+
+enum ProductImageSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Work 151: a picture a pharmacy suggests for a product it stocks. Customers see it only after
+/// catalogue staff approve it, when it is added to the product's images. `pharmacyId` is Module
+/// 04's pharmacy id, kept without a relation (ADR-002).
+model ProductImageSuggestion {
+  id             String                       @id @default(uuid())
+  productId      String
+  pharmacyId     String
+  url            String
+  status         ProductImageSuggestionStatus @default(PENDING)
+  suggestedById  String
+  decidedById    String?
+  decisionReason String?
+  createdAt      DateTime                     @default(now())
+  decidedAt      DateTime?
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([url])
+  @@index([status, createdAt])
+  @@index([pharmacyId, productId, createdAt])
+  @@map("product_image_suggestions")
 }
 
 model EquivalenceGroup {

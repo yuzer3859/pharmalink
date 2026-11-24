@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ListingPictures } from './ListingPictures';
 import {
   Alert,
   Autocomplete,
@@ -221,6 +222,13 @@ function ListingDrawer({ id, branchName, onClose }: { id: string | null; branchN
             ) : (
               <Typography variant="body2">Price {money(listing.price, listing.currency)}</Typography>
             )}
+
+            {canManage ? (
+              <>
+                <Divider />
+                <ListingPictures listingId={listing.id} />
+              </>
+            ) : null}
 
             <Divider />
             <Typography variant="subtitle2">Batches (soonest expiry first)</Typography>

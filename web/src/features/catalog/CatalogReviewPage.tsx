@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ProductPictures } from './ProductPictures';
+import { PictureSuggestions } from './PictureSuggestions';
 import { Alert, Box, Button, Divider, Drawer, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
@@ -198,6 +199,8 @@ export function CatalogReviewPage() {
           </Grid>
         </Grid>
       ) : null}
+
+      <PictureSuggestions />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
         <TextField

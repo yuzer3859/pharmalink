@@ -1,6 +1,7 @@
 import { PHARMACY_SEARCH_SOURCE_PORT } from './application/ports/inbound/pharmacy-search-source.port';
 import { PrismaPharmacySearchSourceAdapter } from './infrastructure/persistence/prisma-pharmacy-search-source.adapter';
 import { Module } from '@nestjs/common';
+import { CatalogModule } from '../catalog/catalog.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ActivatePharmacyCommand } from './application/commands/activate-pharmacy.command';
 import { AddBatchCommand } from './application/commands/add-batch.command';
@@ -84,7 +85,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
  * own ranking-candidate shape without an HTTP round-trip.
  */
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  // Work 151: CatalogModule for its picture-suggestion port (Module 03 owns product pictures).
+  imports: [ScheduleModule.forRoot(), CatalogModule],
   controllers: [PharmacyController, BranchController, InventoryController, AvailabilityController],
   providers: [
     // Repositories
