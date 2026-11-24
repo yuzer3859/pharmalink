@@ -286,3 +286,17 @@ An owner may hold several pharmacies (Work 154), and a pharmacist may work at mo
 - **Without the header,** nothing changes. A malformed value is ignored.
 - **`GET /pharmacy/mine`** (any signed-in account) lists every pharmacy the caller works in, `{ pharmacyId, organizationId, displayName, transactingStatus }` by name, whatever the header says.
 - **Portal.** The pharmacy portal's top bar shows a **Pharmacy** switcher when there is more than one. The choice is remembered on the device and sent with every signed-in request, and switching reloads every page's data. The Staff page adds pharmacists to the pharmacy chosen there.
+## Pharmacy owners (Work 157)
+
+An owner is anyone who owns a pharmacy organisation. They may own several (Work 154), and their pharmacists run them (Work 155).
+
+- `GET /admin/pharmacy-owners?identifier&status&page&size` (`pharmacy:read:any`) lists owners newest first, each with the organisations they own (`pharmacyCount`). `identifier` is an exact e-mail (any case) or phone.
+- `GET /admin/pharmacy-owners/:userId` returns the owner's account and every pharmacy they own: the organisation's name and status, and the storefront's id and trading status. An account that owns none is 404.
+- `POST …/:userId/disable` with `{ reason, alsoPharmacies }` (`user:suspend:any` and `provider:verify:any`):
+  - Suspends the account: the owner is signed out and cannot sign in.
+  - With `alsoPharmacies`, disables every pharmacy they own (`SuspendPharmacyCommand`, reason "Owner disabled: …").
+- `POST …/:userId/enable` with `{ alsoPharmacies, reason? }` (`user:reactivate:any` and `provider:verify:any`):
+  - Reinstates the account.
+  - With `alsoPharmacies`, enables each pharmacy again through `ActivatePharmacyCommand`. A pharmacy whose licence no longer passes stays disabled and is reported `not enabled` with the reason.
+- Each step is the existing audited command. Reads go through `IDENTITY_ORGANIZATION_READ_PORT` (`listOwners`, `getOwner`); pharmacy steps go through `PHARMACY_ONBOARDING_PORT` (`suspend` added).
+- **Portal.** Admin portals → **Pharmacy owners**: the list, and each owner's record with their pharmacies. **Open** shows a pharmacy's full record; **Disable owner** and **Enable owner** each offer to include their pharmacies.

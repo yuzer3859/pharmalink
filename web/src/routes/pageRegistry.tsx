@@ -22,6 +22,7 @@ import { ReportsPage } from '@/features/reports/ReportsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { PharmaciesPage } from '@/features/pharmacies/PharmaciesPage';
+import { PharmacyOwnersPage } from '@/features/pharmacies/PharmacyOwnersPage';
 import { AuditPage } from '@/features/audit/AuditPage';
 import { AdminActivityPage } from '@/features/audit/AdminActivityPage';
 import { AdminReportsPage } from '@/features/reports/AdminReportsPage';
@@ -52,6 +53,8 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   verifications: AdminVerificationsPage,
   // Work 156.
   drivers: DriversPage,
+  // Work 157.
+  'pharmacy-owners': PharmacyOwnersPage,
   configuration: ConfigurationPage,
   'catalog-review': CatalogReviewPage,
   finance: FinancePage,

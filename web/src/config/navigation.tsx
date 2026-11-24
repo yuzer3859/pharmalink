@@ -8,6 +8,7 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import TwoWheelerRoundedIcon from '@mui/icons-material/TwoWheelerRounded';
+import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded';
@@ -75,6 +76,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
       { label: 'Pharmacies', path: 'pharmacies', icon: StorefrontRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Drivers', path: 'drivers', icon: TwoWheelerRoundedIcon, permission: 'drivers:view', section: OPS },
+      { label: 'Pharmacy owners', path: 'pharmacy-owners', icon: BadgeRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Verifications', path: 'verifications', icon: VerifiedUserRoundedIcon, permission: 'verifications:view', section: OPS },
       { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
       { label: 'Approvals', path: 'approvals', icon: HowToRegRoundedIcon, permission: 'approvals:view', section: OPS },
@@ -102,6 +104,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Dashboard', path: 'dashboard', icon: DashboardRoundedIcon, permission: 'dashboard:view', section: OPS },
       { label: 'Pharmacies', path: 'pharmacies', icon: StorefrontRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Drivers', path: 'drivers', icon: TwoWheelerRoundedIcon, permission: 'drivers:view', section: OPS },
+      { label: 'Pharmacy owners', path: 'pharmacy-owners', icon: BadgeRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Verifications', path: 'verifications', icon: VerifiedUserRoundedIcon, permission: 'verifications:view', section: OPS },
       { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
       { label: 'Approvals', path: 'approvals', icon: HowToRegRoundedIcon, permission: 'approvals:view', section: OPS },
