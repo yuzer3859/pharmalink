@@ -8,6 +8,7 @@ import { UpdatePharmacyProfileCommand } from '../../application/commands/update-
 import { ResolveCallerPharmacyQuery } from '../../application/queries/resolve-caller-pharmacy.query';
 import { ActivatePharmacyDto, RegisterPharmacyDto, SuspendPharmacyDto, UpdatePharmacyProfileDto } from '../dtos/pharmacy.dto';
 import { SuspendPharmacyCommand } from '../../application/commands/suspend-pharmacy.command';
+import { ListMyPharmaciesQuery } from '../../application/queries/list-my-pharmacies.query';
 
 /** Pharmacy onboarding & profile (module-04 §10.1). */
 @Controller('pharmacy')
@@ -18,7 +19,17 @@ export class PharmacyController {
     private readonly updateProfile: UpdatePharmacyProfileCommand,
     private readonly resolveCallerPharmacy: ResolveCallerPharmacyQuery,
     private readonly suspendPharmacy: SuspendPharmacyCommand,
+    private readonly myPharmacies: ListMyPharmaciesQuery,
   ) {}
+
+  /**
+   * Work 155: every pharmacy the caller works in (an owner may hold several). Any signed-in account;
+   * someone who works in none gets an empty list. Choose one with the `X-Organization-Id` header.
+   */
+  @Get('mine')
+  mine(@CurrentUser() user: AuthenticatedPrincipal) {
+    return this.myPharmacies.execute(user.userId);
+  }
 
   @Post('register')
   @RequirePermissions('pharmacy:register')

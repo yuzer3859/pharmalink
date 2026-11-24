@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { narrowToSelectedOrganization } from '../../../../shared/http/selected-organization';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
 import { IIdentityPort } from '../../application/ports/outbound/identity.port';
 
@@ -18,8 +19,9 @@ export class IdentityPortAdapter implements IIdentityPort {
       where: { userId, organizationId: { not: null } },
       select: { organizationId: true },
     });
-    return [
+    // Work 155: only the organisation the request chose, when it chose one.
+    return narrowToSelectedOrganization([
       ...new Set(roles.map((r) => r.organizationId).filter((id): id is string => id !== null)),
-    ];
+    ]);
   }
 }

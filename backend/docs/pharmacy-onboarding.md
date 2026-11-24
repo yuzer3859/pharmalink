@@ -276,3 +276,13 @@ An administrator with `provider:verify:any` can register a working pharmacy for 
   2. Enter the legal and storefront names, licence number and expiry.
   3. Upload the licence files.
   4. Register. The new pharmacy's record opens.
+
+## Working in one of several pharmacies (Work 155)
+
+An owner may hold several pharmacies (Work 154), and a pharmacist may work at more than one.
+
+- **Before.** Every module decided "the caller's pharmacy" from the organisations the caller holds a role in (`getUserOrganizationIds`) and took the first.
+- **The header.** A request may now name one: `X-Organization-Id: <organisation id>`. A global middleware (`shared/http/selected-organization.ts`) keeps it for the request. Each module's `getUserOrganizationIds` returns only that organisation, or none when the caller holds no role there, so naming someone else's pharmacy reaches nothing. The modules covered are inventory, orders, payment, prescription matching, and staff management (`PharmacyStaffService.managedOrganization`).
+- **Without the header,** nothing changes. A malformed value is ignored.
+- **`GET /pharmacy/mine`** (any signed-in account) lists every pharmacy the caller works in, `{ pharmacyId, organizationId, displayName, transactingStatus }` by name, whatever the header says.
+- **Portal.** The pharmacy portal's top bar shows a **Pharmacy** switcher when there is more than one. The choice is remembered on the device and sent with every signed-in request, and switching reloads every page's data. The Staff page adds pharmacists to the pharmacy chosen there.

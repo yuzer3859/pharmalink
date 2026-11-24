@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { selectedOrganization } from '../../../../shared/http/selected-organization';
 import { ApiException } from '../../../../shared/errors/api-exception';
 import { IRbacRepository, RBAC_REPOSITORY } from '../../domain/repositories/rbac.repository';
 import { IUserRepository, USER_REPOSITORY } from '../../domain/repositories/user.repository';
@@ -52,7 +53,9 @@ export class PharmacyStaffService {
   async managedOrganization(actorUserId: string): Promise<string> {
     const [assignments, roles] = await Promise.all([this.rbac.listAssignmentsForUser(actorUserId), this.rbac.listRoles()]);
     const managing = new Set(roles.filter((r) => r.permissionKeys.includes(MANAGE_STAFF)).map((r) => r.id));
-    const organizationId = assignments.find((a) => a.organizationId && managing.has(a.roleId))?.organizationId;
+    // Work 155: in the pharmacy the request chose, when it chose one.
+    const chosen = selectedOrganization();
+    const organizationId = assignments.find((a) => a.organizationId && managing.has(a.roleId) && (!chosen || a.organizationId.toLowerCase() === chosen))?.organizationId;
     if (!organizationId) throw ApiException.forbidden('You do not manage the staff of a pharmacy.');
     return organizationId;
   }
