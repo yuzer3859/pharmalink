@@ -607,3 +607,19 @@ Following `00-implementation-roadmap.md` §5 and the proof-of-pattern establishe
 - Saving `images` accepts a stored picture (`/media/catalog/<productId>/<uuid>`) only if it is this product's own and is in storage as an image. A new product (`POST`) cannot name one: pictures are uploaded after it exists.
 - `GET /media/catalog/:productId/:objectId` (public) redirects (302) to a 15-minute signed read of the picture, cacheable for 5 minutes. Storage stays private; an unknown or not-yet-uploaded picture is 404.
 - The customer app loads `/media/…` pictures from the API; the operations portal manages them in the catalogue drawer (`VITE_CUSTOMER_APP_URL` lets it show pictures shipped with the customer app).
+
+## Work 151: pictures suggested by pharmacies
+
+Owner decision (2026-11-24): pictures are shared by every pharmacy that stocks a product, so a pharmacy suggests them and catalogue staff approve them before customers see them.
+
+- A pharmacy works from its own listing (`inventory:manage:org`; another pharmacy's listing is 404), so it reaches only products it stocks:
+  - `GET /inventory/listings/:id/pictures` returns `{ images, suggestions }`: the product's pictures as customers see them, and the pharmacy's last 20 suggestions for it, newest first (`status` `PENDING`, `APPROVED` or `REJECTED`, with the `reason` when turned down).
+  - `POST /inventory/listings/:id/pictures/uploads` with `{ contentType, bytes }` issues the same signed upload as Work 150 (audited `CATALOG_IMAGE_UPLOAD_ISSUED`).
+  - `POST /inventory/listings/:id/pictures/suggestions` with `{ imageUrl }` records the uploaded picture as a suggestion (audited `CATALOG_IMAGE_SUGGESTED`). It must be an uploaded picture of this product, not already on it and not suggested before. A pharmacy may have at most 3 waiting per product.
+- Catalogue staff (`catalog:manage:any`):
+  - `GET /admin/catalog/picture-suggestions?status=PENDING&page&size` lists the waiting ones oldest first, each with the product's and the pharmacy's names and the product's picture count.
+  - `POST …/:id/approve` adds the picture last to the product's `images` through `PATCH`'s own path (audited `PRODUCT_UPDATED`, search refreshed), then audits `CATALOG_IMAGE_SUGGESTION_APPROVED`. A product with 8 pictures is refused.
+  - `POST …/:id/reject` with `{ reason }` (3–300 characters, which the pharmacy sees) is audited `CATALOG_IMAGE_SUGGESTION_REJECTED`.
+  - Deciding one twice is 409.
+- Suggestions live in `product_image_suggestions`. Module 04 reaches them through `CATALOG_PICTURE_SUGGESTION_PORT`, and the review list reads pharmacy names without a relation (ADR-002).
+- The portal shows the product's pictures and a "Suggest a picture" button in the pharmacy inventory drawer, and a "Pictures from pharmacies" queue at the top of the catalogue review page.

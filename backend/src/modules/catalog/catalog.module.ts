@@ -53,6 +53,10 @@ import { AdminCatalogController } from './interface/controllers/admin-catalog.co
 import { CatalogController } from './interface/controllers/catalog.controller';
 import { CatalogMediaController } from './interface/controllers/catalog-media.controller';
 import { CatalogImageService } from './application/services/catalog-image.service';
+import { CatalogPictureSuggestionService } from './application/services/catalog-picture-suggestion.service';
+import { CATALOG_PICTURE_SUGGESTION_PORT } from './application/ports/inbound/catalog-picture-suggestion.port';
+import { PICTURE_SUGGESTION_STORE } from './application/ports/picture-suggestion.store';
+import { PrismaPictureSuggestionStore } from './infrastructure/persistence/prisma-picture-suggestion.store';
 
 /**
  * Catalog module composition root (module-03 §10). No new `APP_GUARD`s — `JwtAuthGuard` and
@@ -63,6 +67,10 @@ import { CatalogImageService } from './application/services/catalog-image.servic
   providers: [
     // Work 150: product pictures
     CatalogImageService,
+    // Work 151: pictures suggested by pharmacies; Module 04 reaches them through the port.
+    CatalogPictureSuggestionService,
+    { provide: PICTURE_SUGGESTION_STORE, useClass: PrismaPictureSuggestionStore },
+    { provide: CATALOG_PICTURE_SUGGESTION_PORT, useExisting: CatalogPictureSuggestionService },
     // Repositories
     { provide: PRODUCT_REPOSITORY, useClass: PrismaProductRepository },
     { provide: CATEGORY_REPOSITORY, useClass: PrismaCategoryRepository },
@@ -128,6 +136,7 @@ import { CatalogImageService } from './application/services/catalog-image.servic
     CATALOG_REVIEW_RESUBMISSION_PORT,
     CATALOG_REVIEW_HISTORY_PORT,
     CATALOG_REVIEW_SUMMARY_READ_PORT,
+    CATALOG_PICTURE_SUGGESTION_PORT,
   ],
 })
 export class CatalogModule {}

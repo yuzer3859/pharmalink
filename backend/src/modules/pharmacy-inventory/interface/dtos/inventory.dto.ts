@@ -8,9 +8,30 @@ import {
   IsString,
   IsUUID,
   Length,
+  Matches,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
+
+/** `POST /inventory/listings/:id/pictures/uploads` (Work 151): one picture to suggest. */
+export class RequestPictureUploadDto {
+  @IsIn(['image/jpeg', 'image/png', 'image/webp'])
+  contentType!: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(5 * 1024 * 1024)
+  bytes!: number;
+}
+
+/** `POST /inventory/listings/:id/pictures/suggestions` (Work 151): the uploaded picture's address. */
+export class SuggestPictureDto {
+  @IsString()
+  @MaxLength(200)
+  @Matches(/^\/media\/catalog\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i, { message: 'imageUrl must be an uploaded picture.' })
+  imageUrl!: string;
+}
 
 /** `POST /inventory/listings` (module-04 §5.3). */
 export class CreateListingDto {

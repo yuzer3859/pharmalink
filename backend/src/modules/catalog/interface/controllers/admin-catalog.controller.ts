@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { CatalogPictureSuggestionService } from '../../application/services/catalog-picture-suggestion.service';
+import { ListPictureSuggestionsQueryDto, RejectPictureSuggestionDto } from '../dtos/picture-suggestion.dto';
 import { RequirePermissions } from '../../../../shared/rbac/permissions.decorator';
 import { AuthenticatedPrincipal } from '../../../../shared/rbac/rbac.types';
 import { CurrentUser } from '../../../identity/interface/decorators/current-user.decorator';
@@ -39,6 +41,7 @@ export class AdminCatalogController {
     private readonly updateManufacturer: UpdateManufacturerCommand,
     private readonly listManufacturers: ListManufacturersQuery,
     private readonly catalogImages: CatalogImageService,
+    private readonly pictureSuggestions: CatalogPictureSuggestionService,
   ) {}
 
   // ---- Products ----------------------------------------------------------------------------
@@ -72,6 +75,30 @@ export class AdminCatalogController {
     @Body() dto: RequestImageUploadDto,
   ) {
     return this.catalogImages.requestUpload({ actorUserId: user.userId, productId: id, ...dto });
+  }
+
+  // ---- Work 151: pictures suggested by pharmacies ------------------------------------------
+
+  @Get('picture-suggestions')
+  listPictureSuggestions(@Query() query: ListPictureSuggestionsQueryDto) {
+    return this.pictureSuggestions.listForReview(query);
+  }
+
+  /** Adds the picture to the product (last); customers see it at once. */
+  @Post('picture-suggestions/:id/approve')
+  @HttpCode(HttpStatus.OK)
+  approvePictureSuggestion(@CurrentUser() user: AuthenticatedPrincipal, @Param('id', ParseUUIDPipe) id: string) {
+    return this.pictureSuggestions.approve({ actorUserId: user.userId, suggestionId: id });
+  }
+
+  @Post('picture-suggestions/:id/reject')
+  @HttpCode(HttpStatus.OK)
+  rejectPictureSuggestion(
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectPictureSuggestionDto,
+  ) {
+    return this.pictureSuggestions.reject({ actorUserId: user.userId, suggestionId: id, reason: dto.reason });
   }
 
   @Post('products/:id/status')
