@@ -42,3 +42,23 @@ export const HERO_PICTURES = [
   '/products/thermometer.webp',
   '/products/wheelchair.webp',
 ]
+
+/** Work 152: the pictures floating in each customer page's header. */
+export const PAGE_PICTURES = {
+  orders: ['/products/first-aid-kit.webp', '/products/multivitamin.webp', '/products/thermometer.webp'],
+  prescriptions: ['/products/amoxicillin.webp', '/products/paracetamol.webp', '/products/cough-syrup.webp'],
+  requests: ['/products/azithromycin.webp', '/products/vitamin-c.webp', '/products/ibuprofen.webp'],
+  account: ['/products/moisturiser.webp', '/products/lipstick.webp', '/products/toothbrush.webp'],
+  /** The picture wall beside the sign-in and registration forms. */
+  auth: [
+    '/products/vitamin-d.webp',
+    '/products/lipstick.webp',
+    '/products/toothbrush.webp',
+    '/products/thermometer.webp',
+    '/products/sunscreen.webp',
+    '/products/wheelchair.webp',
+    '/products/baby-lotion.webp',
+    '/products/first-aid-kit.webp',
+    '/products/mascara.webp',
+  ],
+}
