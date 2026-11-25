@@ -32,6 +32,7 @@ import { GetListingMovementsQuery } from './application/queries/get-listing-move
 import { GetReservationFulfillmentQuery } from './application/queries/get-reservation-fulfillment.query';
 import { GetListingQuery, ListListingsQuery } from './application/queries/list-listings.query';
 import { ResolveCallerPharmacyQuery } from './application/queries/resolve-caller-pharmacy.query';
+import { ListMyPharmaciesQuery } from './application/queries/list-my-pharmacies.query';
 import { InventoryPortService } from './application/services/inventory-port.service';
 import { BRANCH_REPOSITORY } from './domain/repositories/branch.repository';
 import { LISTING_REPOSITORY } from './domain/repositories/listing.repository';
@@ -115,6 +116,8 @@ import { PharmacyController } from './interface/controllers/pharmacy.controller'
     UpdateBranchCommand,
     SetOperatingHoursCommand,
     ResolveCallerPharmacyQuery,
+    // Work 155: the pharmacies the caller works in.
+    ListMyPharmaciesQuery,
 
     // Listing/batch use cases
     CreateListingCommand,

@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/env';
+import { selectedOrganizationId } from './pharmacySelection';
 
 // Simulated network client. Swap the internals for a real HTTP client (axios/fetch)
 // without touching the service or hook layers.
@@ -145,6 +146,9 @@ export class ApiClient {
     headers.set('Accept', 'application/json');
     if (body !== undefined) headers.set('Content-Type', 'application/json');
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+    // Work 155: the pharmacy this portal works in, for someone who works in several.
+    const organizationId = selectedOrganizationId();
+    if (accessToken && organizationId && !headers.has('X-Organization-Id')) headers.set('X-Organization-Id', organizationId);
 
     return this.fetcher(this.toUrl(path), {
       ...init,

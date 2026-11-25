@@ -1,6 +1,7 @@
 import { SearchModule } from './modules/search/search.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
-import { Module, ValidationPipe } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, ValidationPipe } from '@nestjs/common';
+import { SelectedOrganizationMiddleware } from './shared/http/selected-organization';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { SharedModule } from './shared/shared.module';
 import { HealthModule } from './shared/health/health.module';
@@ -57,4 +58,9 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /** Work 155: the organisation a request works in (`X-Organization-Id`), for every route. */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(SelectedOrganizationMiddleware).forRoutes('*');
+  }
+}

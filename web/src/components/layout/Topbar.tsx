@@ -25,6 +25,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { initials } from '@/utils/format';
 import { DRAWER_WIDTH } from './Sidebar';
+import { PharmacySwitcher } from './PharmacySwitcher';
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const { user, logout } = useAuth();
@@ -54,6 +55,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
           <MenuRoundedIcon />
         </IconButton>
 
+        {user?.portal === 'pharmacy' ? <PharmacySwitcher /> : null}
         <Box sx={{ flexGrow: 1 }} />
 
         <Tooltip title={mode === 'light' ? 'Dark mode' : 'Light mode'}>
