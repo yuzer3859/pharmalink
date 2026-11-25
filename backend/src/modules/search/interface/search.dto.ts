@@ -1,6 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsLatitude, IsLongitude, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
-import { DEFAULT_RADIUS_KM, MAX_RADIUS_KM } from '../application/search-query.service';
+import { DEFAULT_RADIUS_KM, MAX_RADIUS_KM, MAX_SUGGESTIONS } from '../application/search-query.service';
 
 class GeoQueryDto {
   /** Latitude and longitude come together; either alone is refused by the controller. */
@@ -83,4 +83,28 @@ export class SearchPharmaciesQueryDto extends GeoQueryDto {
   @Min(1)
   @Max(50)
   size?: number = 20;
+}
+
+/** Work 158: suggestions while typing. */
+export class SearchSuggestQueryDto {
+  @IsString()
+  @MaxLength(60)
+  q!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(MAX_SUGGESTIONS)
+  limit?: number = 8;
+}
+
+/** Work 158: the most made searches this week. */
+export class SearchTrendingQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  limit?: number = 10;
 }

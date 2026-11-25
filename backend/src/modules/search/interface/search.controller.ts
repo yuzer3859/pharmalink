@@ -3,7 +3,7 @@ import { ApiException } from '../../../shared/errors/api-exception';
 import { ErrorCode } from '../../../shared/errors/error-codes';
 import { Public } from '../../../shared/rbac/public.decorator';
 import { DEFAULT_RADIUS_KM, GeoFilter, SearchQueryService } from '../application/search-query.service';
-import { SearchMedicinesQueryDto, SearchOffersQueryDto, SearchPharmaciesQueryDto } from './search.dto';
+import { SearchMedicinesQueryDto, SearchOffersQueryDto, SearchPharmaciesQueryDto, SearchSuggestQueryDto, SearchTrendingQueryDto } from './search.dto';
 
 function geoOf(dto: { lat?: number; lng?: number; radiusKm?: number }): GeoFilter | undefined {
   const hasLat = dto.lat !== undefined;
@@ -47,5 +47,17 @@ export class SearchController {
   @Get('pharmacies')
   pharmacies(@Query() dto: SearchPharmaciesQueryDto) {
     return this.search.pharmacies({ q: dto.q, geo: geoOf(dto), page: dto.page ?? 1, size: dto.size ?? 20 });
+  }
+
+  /** Work 158: popular searches, products and pharmacies to offer while the customer types. */
+  @Get('suggest')
+  async suggest(@Query() dto: SearchSuggestQueryDto) {
+    return { items: await this.search.suggest(dto.q, dto.limit ?? 8) };
+  }
+
+  /** Work 158: the searches most made this week that found something. */
+  @Get('trending')
+  async trending(@Query() dto: SearchTrendingQueryDto) {
+    return { items: await this.search.trending(dto.limit ?? 10) };
   }
 }

@@ -211,6 +211,6 @@ export class SearchProjectorService {
   }
 
   private async setVector(documentId: string, text: string): Promise<void> {
-    await this.prisma.$executeRaw`UPDATE "search_documents" SET "searchTsv" = to_tsvector('simple', ${text}) WHERE "id" = ${documentId}`;
+    await this.prisma.$executeRaw`UPDATE "search_documents" SET "searchTsv" = to_tsvector('simple', ${text}), "searchText" = lower(${text}) WHERE "id" = ${documentId}`;
   }
 }
