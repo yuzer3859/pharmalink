@@ -106,6 +106,8 @@ export class PrismaUserRepository implements IUserRepository {
         email: props.email,
         passwordHash: props.passwordHash,
         status: props.status as unknown as PrismaUser['status'],
+        // Work 156: a customer can become a driver.
+        primaryRole: props.primaryRole as unknown as PrismaUser['primaryRole'],
         preferredLanguage: props.preferredLanguage as unknown as PrismaUser['preferredLanguage'],
         phoneVerifiedAt: props.phoneVerifiedAt,
         emailVerifiedAt: props.emailVerifiedAt,

@@ -84,6 +84,15 @@ export class User {
     }
   }
 
+  /**
+   * Work 156: a platform administrator makes an active customer a driver. Their primary role
+   * becomes DRIVER (what delivery eligibility checks); nothing else changes.
+   */
+  becomeDriver(now: Date = new Date()): void {
+    this.props.primaryRole = PrimaryRole.DRIVER;
+    this.props.updatedAt = now;
+  }
+
   /** Marks the phone verified; activates a PENDING_VERIFICATION customer (module-01 §7.1). */
   markPhoneVerified(now: Date = new Date()): void {
     this.props.phoneVerifiedAt = now;

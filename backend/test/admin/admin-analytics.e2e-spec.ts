@@ -643,11 +643,15 @@ describe('Admin operational analytics (e2e)', () => {
         'delivery/application/ports/inbound/delivery-backlog-summary-read.port',
         // Work 36: delivery operations visibility (admin-delivery-operations.e2e-spec.ts).
         'delivery/application/ports/inbound/delivery-operations-read.port',
+        // Work 156: an administrator registers a driver (driver-registration.e2e-spec.ts).
+        'delivery/application/ports/inbound/driver-onboarding.port',
         // Work 37: driver operations visibility (admin-driver-operations.e2e-spec.ts).
         'delivery/application/ports/inbound/driver-operations-read.port',
         'delivery/delivery.module',
         'identity/application/ports/inbound/identity-admin.port',
         'identity/application/ports/inbound/identity-analytics-read.port',
+        // Work 156: an administrator registers a driver.
+        'identity/application/ports/inbound/identity-driver-onboarding.port',
         // Work 85: support impersonation.
         'identity/application/ports/inbound/identity-impersonation.port',
         // Work 153: the organisation behind a pharmacy, for the Super Admin's record.
