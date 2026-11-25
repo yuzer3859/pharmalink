@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ActivatePharmacyCommand } from '../../commands/activate-pharmacy.command';
 import { RegisterPharmacyCommand } from '../../commands/register-pharmacy.command';
+import { SuspendPharmacyCommand } from '../../commands/suspend-pharmacy.command';
 import { IPharmacyRepository, PHARMACY_REPOSITORY } from '../../../domain/repositories/pharmacy.repository';
 
 export const PHARMACY_ONBOARDING_PORT = Symbol('PHARMACY_ONBOARDING_PORT');
@@ -15,6 +16,8 @@ export interface IPharmacyOnboardingPort {
   findByOrganization(organizationId: string): Promise<{ pharmacyId: string; transactingStatus: string } | null>;
   register(input: { ownerUserId: string; organizationId: string; displayName: string }): Promise<{ pharmacyId: string }>;
   activate(input: { actorUserId: string; pharmacyId: string }): Promise<void>;
+  /** Work 157: `SuspendPharmacyCommand` (Work 153); `false` when it was already disabled. */
+  suspend(input: { actorUserId: string; pharmacyId: string; reason: string }): Promise<boolean>;
 }
 
 @Injectable()
@@ -23,6 +26,7 @@ export class PharmacyOnboardingAdapter implements IPharmacyOnboardingPort {
     @Inject(PHARMACY_REPOSITORY) private readonly pharmacies: IPharmacyRepository,
     private readonly registerPharmacy: RegisterPharmacyCommand,
     private readonly activatePharmacy: ActivatePharmacyCommand,
+    private readonly suspendPharmacy: SuspendPharmacyCommand,
   ) {}
 
   async findByOrganization(organizationId: string) {
@@ -39,5 +43,9 @@ export class PharmacyOnboardingAdapter implements IPharmacyOnboardingPort {
 
   async activate(input: { actorUserId: string; pharmacyId: string }) {
     await this.activatePharmacy.execute({ actorUserId: input.actorUserId, pharmacyId: input.pharmacyId });
+  }
+
+  async suspend(input: { actorUserId: string; pharmacyId: string; reason: string }) {
+    return (await this.suspendPharmacy.execute(input)).suspended;
   }
 }
