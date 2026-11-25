@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { SearchProjectorService } from '../../src/modules/search/application/search-projector.service';
-import { toPrefixTsQuery } from '../../src/modules/search/application/search-query.service';
+import { normalizeQuery, toPrefixTsQuery } from '../../src/modules/search/application/search-query.service';
 import { body } from '../support/fixtures';
 import { closeTestApp, createTestApp, TestContext } from '../support/test-app';
 import { createPricedProduct, createStockedPharmacy } from '../orders/support';
@@ -144,5 +144,86 @@ describe('Search — minimal Module 14 (Work 98, e2e)', () => {
     expect(toPrefixTsQuery("a'b & | ! ( ) :*")).toBe('a:* & b:*');
     expect(toPrefixTsQuery('ኢቡ ፕሮ')).toBe('ኢቡ:* & ፕሮ:*');
     expect(toPrefixTsQuery('   ')).toBeNull();
+  });
+  describe('typo tolerance and suggestions (Work 158)', () => {
+    it('a misspelt medicine is still found, and the page says what it is showing', async () => {
+      const { productId } = await stockedProduct();
+      await projector.reindexAll();
+
+      const exact = body(await get('/search/medicines?q=ibu').expect(200));
+      expect(exact).toMatchObject({ match: 'EXACT', didYouMean: null, total: 1 });
+
+      for (const q of ['ibuprofin', 'ibuprofen 40mg', 'ibuprfen']) {
+        const page = body(await get(`/search/medicines?q=${encodeURIComponent(q)}`).expect(200));
+        expect(page).toMatchObject({ match: 'SIMILAR', didYouMean: 'Ibuprofen 400mg', total: 1 });
+        expect((page.items as Array<{ productId: string }>)[0].productId).toBe(productId);
+      }
+
+      const none = body(await get('/search/medicines?q=paracetamol').expect(200));
+      expect(none).toMatchObject({ match: 'SIMILAR', didYouMean: null, total: 0, items: [] });
+      expect(body(await get('/search/medicines').expect(200))).toMatchObject({ match: null, didYouMean: null });
+    });
+
+    it('a misspelt pharmacy name is still found', async () => {
+      const { pharmacy } = await stockedProduct();
+      await ctx.prisma.pharmacy.update({ where: { id: pharmacy.pharmacyId }, data: { displayName: 'Selam Pharmacy' } });
+      await projector.reindexAll();
+      const page = body(await get('/search/pharmacies?q=selem%20pharmacy').expect(200));
+      expect(page).toMatchObject({ match: 'SIMILAR', didYouMean: 'Selam Pharmacy' });
+      expect((page.items as Array<{ pharmacyId: string }>).map((h) => h.pharmacyId)).toEqual([pharmacy.pharmacyId]);
+    });
+
+    it('suggests products and pharmacies while typing, close spellings included', async () => {
+      const { productId, pharmacy } = await stockedProduct();
+      await ctx.prisma.pharmacy.update({ where: { id: pharmacy.pharmacyId }, data: { displayName: 'Ibex Pharmacy' } });
+      await projector.reindexAll();
+
+      const typed = await items('/search/suggest?q=ib');
+      expect(typed).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'PRODUCT', id: productId, text: 'Ibuprofen 400mg', subtitle: 'ኢቡፕሮፌን' }),
+          expect.objectContaining({ kind: 'PHARMACY', id: pharmacy.pharmacyId, text: 'Ibex Pharmacy' }),
+        ]),
+      );
+      expect(await items('/search/suggest?q=ibuprofin')).toEqual([expect.objectContaining({ kind: 'PRODUCT', id: productId })]);
+      expect(await items(`/search/suggest?q=${encodeURIComponent('ኢቡ')}`)).toEqual([expect.objectContaining({ kind: 'PRODUCT', id: productId })]);
+      expect(await items('/search/suggest?q=ib&limit=1')).toHaveLength(1);
+      expect(await items(`/search/suggest?q=${encodeURIComponent("'&|!")}`)).toEqual([]);
+
+      await get('/search/suggest').expect(400);
+      await get('/search/suggest?q=ib&limit=11').expect(400);
+      await get(`/search/suggest?q=${'a'.repeat(61)}`).expect(400);
+    });
+
+    it('popular searches lead the suggestions, and trending counts only searches that found something', async () => {
+      await stockedProduct();
+      await projector.reindexAll();
+
+      await get('/search/medicines?q=Ibuprofen%20400').expect(200);
+      await get('/search/medicines?q=ibuprofen%20%20400!').expect(200);
+      await get('/search/medicines?q=ibuprofen%20400&page=2').expect(200); // later pages are not counted
+      await get('/search/medicines?q=zzzzzz').expect(200);
+      await get('/search/medicines?q=zzzzzz').expect(200);
+      await get('/search/medicines?q=ibu').expect(200); // once only: not yet popular
+
+      const suggestions = await items('/search/suggest?q=ibup');
+      expect(suggestions[0]).toEqual({ kind: 'QUERY', text: 'ibuprofen 400', id: null, subtitle: null, imageUrl: null });
+      expect(suggestions.filter((s) => s.kind === 'QUERY')).toHaveLength(1);
+      // The query being typed is not offered back to itself.
+      expect((await items('/search/suggest?q=ibuprofen%20400')).some((s) => s.kind === 'QUERY')).toBe(false);
+
+      expect(await items('/search/trending')).toEqual([{ term: 'ibuprofen 400', searches: 2 }]);
+      const logged = await ctx.prisma.searchQueryLog.findMany({ select: { userId: true, rawQuery: true } });
+      expect(logged.every((l) => l.userId === null)).toBe(true);
+      expect(logged).toHaveLength(5);
+      await get('/search/trending?limit=21').expect(400);
+    });
+
+    it('normalises queries to plain words', () => {
+      expect(normalizeQuery('  Ibuprofen,  400MG! ')).toBe('ibuprofen 400mg');
+      expect(normalizeQuery('ኢቡ ፕሮ')).toBe('ኢቡ ፕሮ');
+      expect(normalizeQuery("'%_\\")).toBeNull();
+      expect(normalizeQuery(undefined)).toBeNull();
+    });
   });
 });

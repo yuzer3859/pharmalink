@@ -41,6 +41,8 @@ model SearchDocument {
   sourceVersion Int              @default(0)
   /// Work 98: full-text vector (English + Amharic names), maintained by the search projector in raw SQL.
   searchTsv     Unsupported("tsvector")?
+  /// Work 158: the same searchable text in lower case, trigram-indexed for typo tolerance (raw SQL).
+  searchText    String?
   updatedAt     DateTime         @updatedAt
   createdAt     DateTime         @default(now())
 
@@ -89,6 +91,7 @@ model SearchQueryLog {
   createdAt       DateTime          @default(now())
 
   @@index([createdAt])
+  @@index([normalized, createdAt])
   @@map("search_query_log")
 }
 

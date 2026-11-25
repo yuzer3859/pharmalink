@@ -11,6 +11,15 @@
 
 ---
 
+## Implementation status
+
+| Work | What is built |
+|---|---|
+| 98 | `GET /search/medicines`, `GET /search/medicines/{productId}/pharmacies`, `GET /search/pharmacies` over Search-owned projections (`search_documents`, `search_offers`), Postgres full-text prefix search in English and Amharic, kept in sync by the outbox. |
+| 158 | **Typo tolerance (F-SR-01):** when the words as typed match nothing, close spellings are matched with `pg_trgm` `word_similarity` (threshold 0.4) over a trigram-indexed `searchText` column; the page says `match: EXACT \| SIMILAR` and `didYouMean`. **Suggestions (F-SR-11):** `GET /search/suggest?q=&limit=` returns popular searches starting with the words typed (searched at least twice in 30 days, and found something), then products and pharmacies by prefix or close spelling. **Trending (F-SR-14):** `GET /search/trending` lists the searches made at least twice in the last 7 days that found something. First-page text searches are logged in `search_query_log` without any user id. |
+
+---
+
 ## 1. Module Objectives
 
 This is the **unified discovery surface** of the platform. It consolidates the per-domain search read-models designed across Modules 3 (catalog), 4 (pharmacy availability), 9 (providers), and 10 (doctors) into one fast, **geo-aware, typo-tolerant** search experience — the primary way users find medicines, pharmacies, hospitals, labs, and doctors.
