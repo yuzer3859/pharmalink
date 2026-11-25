@@ -81,7 +81,7 @@ describe('SubmitVerificationDocumentsCommand', () => {
     const result = await submit();
 
     expect(uow.run).toHaveBeenCalledWith(expect.any(Function), { isolation: 'serializable' });
-    expect(verifications.findPendingPharmacyLicense).toHaveBeenCalledWith('user-1', 'org-1', 'tx');
+    expect(verifications.findPendingPharmacyLicense).toHaveBeenCalledWith('user-1', 'org-1', 'tx', 'PHARMACY_LICENSE');
     expect(verifications.create).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-1', organizationId: 'org-1', type: VerificationType.PHARMACY_LICENSE }),
       'tx',

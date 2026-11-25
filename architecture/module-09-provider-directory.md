@@ -11,6 +11,14 @@
 
 ---
 
+## Implementation status
+
+| Work | What is built |
+|---|---|
+| 160 | **Facility licence and registration.** Module 01 has a `FACILITY_LICENSE` verification type, organisation-scoped like `PHARMACY_LICENSE`: it licenses HOSPITAL, CLINIC and LAB organisations (a diagnostic centre is a LAB organisation), and its approval sets the licence number and expiry and makes the organisation ACTIVE; its expiry suspends it. `ApplyFacilityOrganizationCommand` gives the applicant `HOSPITAL_ADMIN` (hospital, clinic) or `DIAGNOSTIC_CENTER_ADMIN` (lab, diagnostic centre). `src/modules/provider-directory` holds `ProviderOnboardingService` (register, activate on an ACTIVE organisation with a current licence, manual suspend and reactivate, all audited with `provider.provider.activated` / `suspended` outbox events) and a daily licence-expiry sweeper. The Super Admin: `POST /admin/provider-registrations/uploads`, `POST /admin/provider-registrations` (`provider:verify:any`), `GET /admin/providers`, `GET /admin/providers/{id}` (`provider:read:any`, new, ADMIN), `POST /admin/providers/{id}/suspend` and `/reactivate` (`provider:verify:any`). |
+
+---
+
 ## 1. Module Objectives
 
 This module is the **healthcare-provider registry** — the Phase 2 foundation. It maintains verified profiles for **hospitals, clinics, diagnostic centers, and laboratories**, their locations, departments/specialties, facilities, operating hours, and service offerings. It is the structural backbone that **Doctor & Appointment (Module 10)** and **Diagnostics (Module 11)** build upon.

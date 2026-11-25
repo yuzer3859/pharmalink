@@ -23,14 +23,20 @@ export interface RoleRecord {
  * Identity-owned persistence for organisations and their org-scoped memberships (Work 65,
  * module-01 §5). Module 04 reads organisations through its `IIdentityPort`; it never writes here.
  */
+/** Work 160: the organisation types that apply and are licensed this way. */
+export type PendingOrganizationType = 'PHARMACY' | 'HOSPITAL' | 'CLINIC' | 'LAB';
+
 export interface IOrganizationRepository {
   /** Includes soft-deleted organisations; callers check `deletedAt`. */
   findById(id: string, tx?: unknown): Promise<OrganizationRecord | null>;
   findByOwnerAndApplicationKey(ownerUserId: string, applicationKey: string, tx?: unknown): Promise<OrganizationRecord | null>;
   findRoleByKey(roleKey: string, tx?: unknown): Promise<RoleRecord | null>;
-  /** Always `type = PHARMACY`, `status = PENDING_APPROVAL`, no licence fields. */
+  /**
+   * `status = PENDING_APPROVAL`, no licence fields; `type = PHARMACY` unless a facility type is
+   * given (Work 160: a hospital, clinic or lab applies the same way).
+   */
   createPendingPharmacy(
-    input: { ownerUserId: string; name: string; applicationKey: string },
+    input: { ownerUserId: string; name: string; applicationKey: string; type?: PendingOrganizationType },
     tx: unknown,
   ): Promise<OrganizationRecord>;
   /** Creates one org-scoped `user_roles` row. */

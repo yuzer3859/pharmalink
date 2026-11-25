@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { isOrganizationLicence } from '../../domain/organization-licence';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { ApiException } from '../../../../shared/errors/api-exception';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
@@ -64,7 +65,7 @@ export class ApproveVerificationCommand {
       throw ApiException.notFound('User not found');
     }
 
-    if (request.type === VerificationType.PHARMACY_LICENSE) {
+    if (isOrganizationLicence(request.type)) {
       return this.approvePharmacyLicense(request, user, input);
     }
 

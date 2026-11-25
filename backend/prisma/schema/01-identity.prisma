@@ -94,6 +94,8 @@ enum VerificationType {
   PHARMACY_LICENSE
   DRIVER_DOCS
   DOCTOR_LICENSE
+  /// Work 160: a hospital's, clinic's or lab's operating licence (organisation-scoped, like PHARMACY_LICENSE).
+  FACILITY_LICENSE
 }
 
 enum VerificationStatus {

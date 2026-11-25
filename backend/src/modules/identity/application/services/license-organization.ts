@@ -1,5 +1,6 @@
 import { VerificationRequest } from '../../domain/entities/verification-request.entity';
 import { IdentityErrors } from '../../domain/errors';
+import { licenceFitsOrganization } from '../../domain/organization-licence';
 import {
   IOrganizationRepository,
   OrganizationRecord,
@@ -21,7 +22,7 @@ export async function resolveLicenseOrganization(
   if (!organization || organization.deletedAt) {
     throw IdentityErrors.licenseOrganizationMismatch('ORGANIZATION_NOT_FOUND');
   }
-  if (organization.type !== 'PHARMACY') {
+  if (!licenceFitsOrganization(request.type, organization.type)) {
     throw IdentityErrors.licenseOrganizationMismatch('ORGANIZATION_NOT_PHARMACY');
   }
   if (organization.ownerUserId !== request.userId) {

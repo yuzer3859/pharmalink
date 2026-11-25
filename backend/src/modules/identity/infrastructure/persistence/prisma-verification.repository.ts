@@ -71,12 +71,13 @@ export class PrismaVerificationRepository implements IVerificationRepository {
     userId: string,
     organizationId: string,
     tx?: unknown,
+    type: VerificationType = VerificationType.PHARMACY_LICENSE,
   ): Promise<VerificationRequest | null> {
     const row = await this.client(tx).verificationRequest.findFirst({
       where: {
         userId,
         organizationId,
-        type: VerificationType.PHARMACY_LICENSE as unknown as PrismaVerificationRequest['type'],
+        type: type as unknown as PrismaVerificationRequest['type'],
         status: VerificationStatus.PENDING as unknown as PrismaVerificationRequest['status'],
       },
       orderBy: { submittedAt: 'desc' },
