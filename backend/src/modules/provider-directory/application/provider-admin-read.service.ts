@@ -4,9 +4,12 @@ import { PrismaService } from '../../../shared/prisma/prisma.service';
 import type { ProviderStatus, ProviderType } from '../domain/provider-rules';
 import type { IProviderAdminReadPort, ProviderListItem, ProviderRecord } from './ports/inbound/provider-admin-read.port';
 
-/** `ILIKE` with the user's text taken literally. */
+/**
+ * `ILIKE` with the user's text taken literally: Prisma's `contains` passes `%`, `_` and `\`
+ * through as wildcards, so they are escaped first.
+ */
 function containsInsensitive(q: string): Prisma.StringFilter {
-  return { contains: q, mode: 'insensitive' };
+  return { contains: q.replace(/[\\%_]/g, (c) => `\\${c}`), mode: 'insensitive' };
 }
 
 /** Work 160: `IProviderAdminReadPort` over `healthcare_providers` and its locations, departments and services. */
