@@ -174,6 +174,8 @@ export const PERMISSIONS: Array<{
   { key: 'pharmacy:read:any', resource: 'pharmacy', action: 'read', scope: 'any' },
   // Work 160 — reading any healthcare provider's record (Module 09). Read only. ADMIN only.
   { key: 'provider:read:any', resource: 'provider', action: 'read', scope: 'any' },
+  // Work 161 — a facility administrator runs their own directory profile (Module 09).
+  { key: 'provider:manage:org', resource: 'provider', action: 'manage', scope: 'org' },
   // Module 16 Work 82 — seeing the maker-checker queue (`/admin/approvals`). Read and decide share
   // the route; *deciding* a request also needs that action's own permission (e.g.
   // `finance:refund:any`), checked in the command, and never one's own request. ADMIN and
@@ -316,6 +318,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'profile:update:own',
     'hospital:manage:org',
     'staff:manage:org',
+    'provider:manage:org',
   ],
   DIAGNOSTIC_CENTER_ADMIN: [
     'auth:login',
@@ -325,6 +328,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'profile:update:own',
     'lab:manage:org',
     'labresult:release:org',
+    'provider:manage:org',
   ],
   CUSTOMER_SUPPORT: [
     'auth:login',

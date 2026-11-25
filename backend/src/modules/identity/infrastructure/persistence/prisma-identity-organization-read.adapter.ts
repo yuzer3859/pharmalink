@@ -89,6 +89,15 @@ export class PrismaIdentityOrganizationReadAdapter implements IIdentityOrganizat
     const row = await this.prisma.user.findUnique({ where: { id: userId }, select: OWNER });
     return row && row.ownedOrganizations.length > 0 ? toOwner(row) : null;
   }
+
+  async organizationIdsWhereUserHolds(userId: string, roleKeys: string[]): Promise<string[]> {
+    const rows = await this.prisma.userRole.findMany({
+      where: { userId, organizationId: { not: null }, role: { key: { in: roleKeys } }, organization: { deletedAt: null } },
+      select: { organizationId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return [...new Set(rows.map((r) => r.organizationId as string))];
+  }
 }
 
 function toOwner(row: {

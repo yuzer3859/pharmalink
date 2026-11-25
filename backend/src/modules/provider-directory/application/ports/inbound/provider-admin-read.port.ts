@@ -32,12 +32,29 @@ export interface ProviderRecord extends ProviderListItem {
     lat: number | null;
     lng: number | null;
     phone: string | null;
+    region: string | null;
+    woreda: string | null;
     emergencyAvailability: string;
     isPrimary: boolean;
     isActive: boolean;
+    /** Work 161: 0 = Sunday … 6 = Saturday; a day not listed is unknown. */
+    hours: Array<{ weekday: number; openTime: string | null; closeTime: string | null; isClosed: boolean }>;
+    facilities: string[];
   }>;
-  departments: Array<{ departmentId: string; name: string; specialty: string | null; isActive: boolean }>;
-  services: Array<{ serviceId: string; type: string; name: string; price: number | null; currency: string; isAvailable: boolean }>;
+  departments: Array<{ departmentId: string; name: string; specialty: string | null; description: string | null; contactPhone: string | null; isActive: boolean }>;
+  services: Array<{
+    serviceId: string;
+    type: string;
+    name: string;
+    code: string | null;
+    description: string | null;
+    price: number | null;
+    currency: string;
+    durationMinutes: number | null;
+    preparationInstructions: string | null;
+    locationId: string | null;
+    isAvailable: boolean;
+  }>;
 }
 
 /** Work 160: the Super Admin's view of healthcare providers (module-09 §8.3). Read-only. */

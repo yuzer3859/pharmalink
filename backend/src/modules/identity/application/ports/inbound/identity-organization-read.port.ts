@@ -49,4 +49,9 @@ export interface IIdentityOrganizationReadPort {
   listOwners(filter: { identifier?: string; status?: string }, page: number, size: number): Promise<{ items: OwnerView[]; total: number }>;
   /** Work 157: one owner, or `null` when the account owns no pharmacy organisation. */
   getOwner(userId: string): Promise<OwnerView | null>;
+  /**
+   * Work 161: the live organisations where the user holds any of these organisation roles, oldest
+   * role first — how a provider portal request finds "the caller's facility".
+   */
+  organizationIdsWhereUserHolds(userId: string, roleKeys: string[]): Promise<string[]>;
 }

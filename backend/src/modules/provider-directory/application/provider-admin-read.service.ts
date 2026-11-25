@@ -57,7 +57,11 @@ export class ProviderAdminReadService implements IProviderAdminReadPort {
     const r = await this.prisma.healthcareProvider.findFirst({
       where: { id: providerId, deletedAt: null },
       include: {
-        locations: { where: { deletedAt: null }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
+        locations: {
+          where: { deletedAt: null },
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+          include: { operatingHours: { orderBy: { weekday: 'asc' } }, facilities: { orderBy: { facility: 'asc' } } },
+        },
         departments: { orderBy: { name: 'asc' } },
         serviceOfferings: { orderBy: { name: 'asc' } },
       },
@@ -90,12 +94,35 @@ export class ProviderAdminReadService implements IProviderAdminReadPort {
         lat: l.lat,
         lng: l.lng,
         phone: l.phone,
+        region: l.region,
+        woreda: l.woreda,
         emergencyAvailability: l.emergencyAvailability,
         isPrimary: l.isPrimary,
         isActive: l.isActive,
+        hours: l.operatingHours.map((h) => ({ weekday: h.weekday, openTime: h.openTime, closeTime: h.closeTime, isClosed: h.isClosed })),
+        facilities: l.facilities.map((f) => f.facility),
       })),
-      departments: r.departments.map((d) => ({ departmentId: d.id, name: d.name, specialty: d.specialty, isActive: d.isActive })),
-      services: r.serviceOfferings.map((s) => ({ serviceId: s.id, type: s.type, name: s.name, price: s.price, currency: s.currency, isAvailable: s.isAvailable })),
+      departments: r.departments.map((d) => ({
+        departmentId: d.id,
+        name: d.name,
+        specialty: d.specialty,
+        description: d.description,
+        contactPhone: d.contactPhone,
+        isActive: d.isActive,
+      })),
+      services: r.serviceOfferings.map((s) => ({
+        serviceId: s.id,
+        type: s.type,
+        name: s.name,
+        code: s.code,
+        description: s.description,
+        price: s.price,
+        currency: s.currency,
+        durationMinutes: s.durationMinutes,
+        preparationInstructions: s.preparationInstructions,
+        locationId: s.locationId,
+        isAvailable: s.isAvailable,
+      })),
     };
   }
 }
