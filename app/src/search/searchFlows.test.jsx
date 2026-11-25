@@ -66,7 +66,7 @@ describe('search page (Work 99)', () => {
   it('debounces typing into one request and sends the Rx filter', async () => {
     const { callsTo } = renderApp('/search', { [SEARCH]: ok(results([])) })
     await screen.findByText(/No medicines match/)
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search medicines' }), { target: { value: 'ፓራ' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search medicines' }), { target: { value: 'ፓራ' } })
     await waitFor(() => expect(callsTo(SEARCH).some((c) => params(c).q === 'ፓራ')).toBe(true))
     fireEvent.click(screen.getByRole('button', { name: 'Prescription (Rx)' }))
     await waitFor(() => expect(params(callsTo(SEARCH).at(-1))).toMatchObject({ q: 'ፓራ', rx: 'RX' }))
@@ -97,6 +97,93 @@ describe('search page (Work 99)', () => {
     fireEvent.change(boxes[0], { target: { value: 'amox' } })
     fireEvent.submit(boxes[0].closest('form'))
     await waitFor(() => expect(callsTo(SEARCH).some((c) => params(c).q === 'amox')).toBe(true))
+  })
+})
+
+describe('suggestions, close spellings and popular searches (Work 159)', () => {
+  const SUGGEST = 'GET /search/suggest'
+  const TRENDING = 'GET /search/trending'
+  const suggestions = ok({
+    items: [
+      { kind: 'QUERY', text: 'ibuprofen 400', id: null, subtitle: null, imageUrl: null },
+      { kind: 'PRODUCT', text: 'Ibuprofen 400mg', id: PRODUCT_ID, subtitle: 'ኢቡፕሮፌን', imageUrl: null },
+      { kind: 'PHARMACY', text: 'Ibex Pharmacy', id: '22222222-2222-4222-8222-222222222222', subtitle: null, imageUrl: null },
+      { kind: 'PRODUCT', text: 'Broken', id: 'not-a-uuid' },
+    ],
+  })
+
+  it('offers popular searches and products while typing; pharmacies and malformed items are left out', async () => {
+    const { callsTo } = renderApp('/search', { [SEARCH]: ok(results([])), [TRENDING]: ok({ items: [] }), [SUGGEST]: suggestions })
+    const box = await screen.findByRole('combobox', { name: 'Search medicines' })
+    fireEvent.change(box, { target: { value: 'i' } })
+    fireEvent.change(box, { target: { value: 'ibu' } })
+    const options = await screen.findAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual(['ibuprofen 400Popular search', 'Ibuprofen 400mgኢቡፕሮፌን'])
+    expect(box.getAttribute('aria-expanded')).toBe('true')
+    expect(callsTo(SUGGEST).map(params)).toEqual([{ q: 'ibu', limit: '8' }])
+
+    // Picking a popular search runs it.
+    fireEvent.mouseDown(options[0])
+    await waitFor(() => expect(callsTo(SEARCH).some((c) => params(c).q === 'ibuprofen 400')).toBe(true))
+    expect(screen.queryByRole('option')).toBeNull()
+  })
+
+  it('arrow keys and Enter open a suggested product', async () => {
+    const { callsTo } = renderApp('/search', {
+      [SEARCH]: ok(results([])),
+      [TRENDING]: ok({ items: [] }),
+      [SUGGEST]: suggestions,
+      [`GET /catalog/products/${PRODUCT_ID}`]: fail(404, 'NOT_FOUND'),
+      [`GET /availability/product/${PRODUCT_ID}`]: ok({ items: [] }),
+    })
+    const box = await screen.findByRole('combobox', { name: 'Search medicines' })
+    fireEvent.change(box, { target: { value: 'ibu' } })
+    await screen.findAllByRole('option')
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    expect(screen.getAllByRole('option')[1].getAttribute('aria-selected')).toBe('true')
+    expect(box.getAttribute('aria-activedescendant')).toBe(screen.getAllByRole('option')[1].id)
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await waitFor(() => expect(callsTo(`GET /catalog/products/${PRODUCT_ID}`).length).toBeGreaterThan(0))
+  })
+
+  it('Escape closes the list, and a failed suggestion request shows none', async () => {
+    renderApp('/search', { [SEARCH]: ok(results([])), [TRENDING]: ok({ items: [] }), [SUGGEST]: [suggestions, fail(503, 'SEARCH_BACKEND_UNAVAILABLE')] })
+    const box = await screen.findByRole('combobox', { name: 'Search medicines' })
+    fireEvent.change(box, { target: { value: 'ibu' } })
+    await screen.findAllByRole('option')
+    fireEvent.keyDown(box, { key: 'Escape' })
+    expect(screen.queryByRole('option')).toBeNull()
+    fireEvent.change(box, { target: { value: 'ibup' } })
+    await waitFor(() => expect(box.getAttribute('aria-expanded')).toBe('false'))
+    expect(screen.queryByRole('option')).toBeNull()
+  })
+
+  it('says when results are for a close spelling, and can search for that name', async () => {
+    const { callsTo } = renderApp('/search?q=ibuprofin', {
+      [SEARCH]: (req) => ok({ ...results([hit()]), match: params(req).q === 'ibuprofin' ? 'SIMILAR' : 'EXACT', didYouMean: params(req).q === 'ibuprofin' ? 'Ibuprofen 400mg' : null }),
+    })
+    expect(await screen.findByText('Nothing matched “ibuprofin” exactly. Showing results for “Ibuprofen 400mg”.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Search for “Ibuprofen 400mg”' }))
+    await waitFor(() => expect(params(callsTo(SEARCH).at(-1)).q).toBe('Ibuprofen 400mg'))
+    await waitFor(() => expect(screen.queryByText(/Showing results for/)).toBeNull())
+    expect(screen.getByRole('combobox', { name: 'Search medicines' }).value).toBe('Ibuprofen 400mg')
+  })
+
+  it('shows this week’s popular searches while the box is empty, and runs one when tapped', async () => {
+    const { callsTo } = renderApp('/search', { [SEARCH]: ok(results([])), [TRENDING]: ok({ items: [{ term: 'paracetamol', searches: 9 }, { term: '', searches: 2 }] }) })
+    const chip = await screen.findByRole('button', { name: 'paracetamol' })
+    expect(screen.getByRole('group', { name: 'Popular this week' })).toBeTruthy()
+    expect(params(callsTo(TRENDING)[0])).toEqual({ limit: '8' })
+    fireEvent.click(chip)
+    await waitFor(() => expect(callsTo(SEARCH).some((c) => params(c).q === 'paracetamol')).toBe(true))
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Popular this week' })).toBeNull())
+  })
+
+  it('popular searches stay hidden when they cannot be read', async () => {
+    renderApp('/search', { [SEARCH]: ok(results([])) })
+    await screen.findByText(/No medicines match/)
+    expect(screen.queryByRole('group', { name: 'Popular this week' })).toBeNull()
   })
 })
 

@@ -9,6 +9,10 @@ import { isUuid } from '../catalog/catalogService'
 
 export const SEARCH_PAGE_SIZE = 20
 export const DEFAULT_RADIUS_KM = 25
+export const SUGGEST_MIN_LENGTH = 2
+export const SUGGEST_MAX_LENGTH = 60
+export const SUGGEST_LIMIT = 8
+export const TRENDING_LIMIT = 8
 
 const isRecord = (value) => typeof value === 'object' && value !== null
 const malformed = () => new ApiError(0, 'MALFORMED_RESPONSE', t('common.unexpected'))
@@ -42,6 +46,22 @@ function readHit(item) {
   return { ...item, categories: Array.isArray(item.categories) ? item.categories : [] }
 }
 
+/** One suggestion, or none when it is malformed or names something the app can't open yet. */
+function readSuggestion(item) {
+  if (!isRecord(item) || typeof item.text !== 'string' || !item.text.trim()) return []
+  if (item.kind === 'QUERY') return [{ kind: 'QUERY', text: item.text, id: null, subtitle: null, imageUrl: null }]
+  if (item.kind === 'PRODUCT' && isUuid(item.id)) {
+    return [{
+      kind: 'PRODUCT',
+      text: item.text,
+      id: item.id,
+      subtitle: typeof item.subtitle === 'string' ? item.subtitle : null,
+      imageUrl: typeof item.imageUrl === 'string' ? item.imageUrl : null,
+    }]
+  }
+  return []
+}
+
 function readOffer(item) {
   if (!isRecord(item) || !Number.isSafeInteger(item.price) || typeof item.pharmacyName !== 'string') throw malformed()
   return item
@@ -52,7 +72,35 @@ export function createSearchService({ api }) {
     async searchMedicines(filters, { signal } = {}) {
       const data = await api.get(`/search/medicines?${buildMedicineSearchQuery(filters)}`, { signal })
       if (!isRecord(data) || !Array.isArray(data.items) || !Number.isInteger(data.total)) throw malformed()
-      return { items: data.items.map(readHit), total: data.total, page: data.page, size: data.size }
+      return {
+        items: data.items.map(readHit),
+        total: data.total,
+        page: data.page,
+        size: data.size,
+        // Work 159: whether the words matched as typed, or as close spellings ("Showing results for …").
+        match: data.match === 'SIMILAR' || data.match === 'EXACT' ? data.match : null,
+        didYouMean: data.match === 'SIMILAR' && typeof data.didYouMean === 'string' ? data.didYouMean : null,
+      }
+    },
+
+    /**
+     * Work 159: suggestions while typing (Work 158's `GET /search/suggest`): popular searches and
+     * products. Pharmacies are left out until the app has a pharmacy page to open.
+     */
+    async suggest(text, { signal } = {}) {
+      const q = typeof text === 'string' ? text.trim().slice(0, SUGGEST_MAX_LENGTH) : ''
+      if (q.length < SUGGEST_MIN_LENGTH) return []
+      const params = new URLSearchParams({ q, limit: String(SUGGEST_LIMIT) })
+      const data = await api.get(`/search/suggest?${params}`, { signal })
+      if (!isRecord(data) || !Array.isArray(data.items)) throw malformed()
+      return data.items.flatMap(readSuggestion)
+    },
+
+    /** Work 159: this week's most made searches (`GET /search/trending`). */
+    async trending({ signal } = {}) {
+      const data = await api.get(`/search/trending?limit=${TRENDING_LIMIT}`, { signal })
+      if (!isRecord(data) || !Array.isArray(data.items)) throw malformed()
+      return data.items.filter((i) => isRecord(i) && typeof i.term === 'string' && i.term.trim()).map((i) => i.term)
     },
 
     /** Where a product can be bought now; nearest first when a location is given. */
