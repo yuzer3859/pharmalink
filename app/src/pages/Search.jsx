@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { Search as SearchIcon, MapPin, RefreshCw, PackageSearch, ArrowRight, Navigation } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { MapPin, RefreshCw, PackageSearch, ArrowRight, Navigation, TrendingUp } from 'lucide-react'
 import ProductImage from '../components/ProductImage'
-import { Button, Card, Badge, Input, Segmented, Skeleton } from '../components/ui'
+import SearchSuggestBox from '../components/SearchSuggestBox'
+import { Button, Card, Badge, Segmented, Skeleton } from '../components/ui'
 import { formatMinorUnits } from '../lib/utils'
 import { RxBadge } from './Medicines'
 import { SEARCH_PAGE_SIZE, requestLocation, useSearch } from '../search/searchService'
@@ -80,10 +81,12 @@ function ResultCard({ hit }) {
  */
 export default function SearchPage() {
   const search = useSearch()
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const filters = useMemo(() => readFilters(params), [params])
   const [text, setText] = useState(filters.q)
-  const [results, setResults] = useState({ status: 'loading', items: [], total: 0, error: null })
+  const [results, setResults] = useState({ status: 'loading', items: [], total: 0, match: null, didYouMean: null, error: null })
+  const [trending, setTrending] = useState([])
   const [attempt, setAttempt] = useState(0)
   const [locating, setLocating] = useState(false)
   const [locationRefused, setLocationRefused] = useState(false)
@@ -114,10 +117,32 @@ export default function SearchPage() {
     setResults((r) => ({ ...r, status: 'loading', error: null }))
     search
       .searchMedicines({ ...filters, size: SEARCH_PAGE_SIZE }, { signal: controller.signal })
-      .then((data) => id === latest.current && setResults({ status: 'ready', items: data.items, total: data.total, error: null }))
-      .catch((error) => id === latest.current && error?.code !== 'ABORTED' && setResults({ status: 'error', items: [], total: 0, error }))
+      .then((data) => id === latest.current && setResults({ status: 'ready', items: data.items, total: data.total, match: data.match, didYouMean: data.didYouMean, error: null }))
+      .catch((error) => id === latest.current && error?.code !== 'ABORTED' && setResults({ status: 'error', items: [], total: 0, match: null, didYouMean: null, error }))
     return () => controller.abort()
   }, [search, filters, attempt])
+
+  // Work 159: this week's popular searches, offered while the box is empty. None when unavailable.
+  const showTrending = filters.q === ''
+  useEffect(() => {
+    if (!showTrending) return undefined
+    const controller = new AbortController()
+    search
+      .trending({ signal: controller.signal })
+      .then(setTrending)
+      .catch(() => setTrending([]))
+    return () => controller.abort()
+  }, [search, showTrending])
+
+  function searchFor(q) {
+    setText(q)
+    update({ q })
+  }
+
+  function pickSuggestion(item) {
+    if (item.kind === 'PRODUCT') navigate(`/medicines/${item.id}`, { state: { from: '/search' } })
+    else searchFor(item.text)
+  }
 
   async function nearMe() {
     setLocating(true)
@@ -138,14 +163,13 @@ export default function SearchPage() {
       </div>
 
       <div className="space-y-3">
-        <Input
-          type="search"
-          role="searchbox"
-          aria-label={t('search.label')}
-          icon={SearchIcon}
+        <SearchSuggestBox
+          label={t('search.label')}
           placeholder={t('search.placeholder')}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={setText}
+          onPick={pickSuggestion}
+          suggest={search.suggest}
         />
         <div className="flex flex-wrap items-center gap-3">
           <Segmented options={rxOptions.map((o) => ({ ...o, label: t(o.label) }))} value={filters.rx} onChange={(rx) => update({ rx })} />
@@ -164,6 +188,16 @@ export default function SearchPage() {
             </Button>
           )}
         </div>
+        {showTrending && trending.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2" aria-label={t('search.trending')} role="group">
+            <span className="flex items-center gap-1 text-caption text-muted">
+              <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" /> {t('search.trending')}
+            </span>
+            {trending.map((term) => (
+              <Button key={term} variant="secondary" size="sm" onClick={() => searchFor(term)}>{term}</Button>
+            ))}
+          </div>
+        )}
         {locationRefused && (
           <p role="status" className="text-caption text-muted">{t('search.noLocation')}</p>
         )}
@@ -189,6 +223,14 @@ export default function SearchPage() {
         )}
         {results.status === 'ready' && results.items.length > 0 && (
           <div className="space-y-3">
+            {results.match === 'SIMILAR' && results.didYouMean && (
+              <div role="status" className="flex flex-wrap items-center gap-2 rounded-2xl bg-brand-50 px-4 py-3 text-body text-fg">
+                <span>{t('search.didYouMean', { query: filters.q, suggestion: results.didYouMean })}</span>
+                <Button variant="ghost" size="sm" onClick={() => searchFor(results.didYouMean)}>
+                  {t('search.searchFor', { suggestion: results.didYouMean })}
+                </Button>
+              </div>
+            )}
             <p className="text-caption text-muted">{results.total === 1 ? t('search.count.one') : t('search.count.many', { count: results.total })}</p>
             {results.items.map((hit) => <ResultCard key={hit.productId} hit={hit} />)}
             {pages > 1 && (
