@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { isOrganizationLicence } from '../../domain/organization-licence';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { ApiException } from '../../../../shared/errors/api-exception';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
@@ -54,7 +55,7 @@ export class RejectVerificationCommand {
     }
 
     request.reject(input.reviewerId, input.reason);
-    if (request.type === VerificationType.PHARMACY_LICENSE) {
+    if (isOrganizationLicence(request.type)) {
       return this.rejectPharmacyLicense(request, input);
     }
     // Compare-and-set on PENDING — see ApproveVerificationCommand.

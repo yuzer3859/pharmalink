@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Organization, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
+import { LICENSED_ORGANIZATION_TYPES } from '../../domain/organization-licence';
 import {
   IOrganizationRepository,
   OrganizationRecord,
+  PendingOrganizationType,
   RoleRecord,
 } from '../../domain/repositories/organization.repository';
 
@@ -53,12 +55,12 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
   }
 
   async createPendingPharmacy(
-    input: { ownerUserId: string; name: string; applicationKey: string },
+    input: { ownerUserId: string; name: string; applicationKey: string; type?: PendingOrganizationType },
     tx: unknown,
   ): Promise<OrganizationRecord> {
     const org = await (tx as Client).organization.create({
       data: {
-        type: 'PHARMACY',
+        type: input.type ?? 'PHARMACY',
         status: 'PENDING_APPROVAL',
         name: input.name,
         ownerUserId: input.ownerUserId,
@@ -83,7 +85,7 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
     tx: unknown,
   ): Promise<boolean> {
     const result = await (tx as Client).organization.updateMany({
-      where: { id: input.organizationId, ownerUserId: input.ownerUserId, type: 'PHARMACY', deletedAt: null },
+      where: { id: input.organizationId, ownerUserId: input.ownerUserId, type: { in: [...LICENSED_ORGANIZATION_TYPES] }, deletedAt: null },
       data: { status: 'ACTIVE', licenseNumber: input.licenseNumber, licenseExpiresAt: input.licenseExpiresAt },
     });
     return result.count === 1;
@@ -105,7 +107,7 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
     const result = await (tx as Client).organization.updateMany({
       where: {
         id: input.organizationId,
-        type: 'PHARMACY',
+        type: { in: [...LICENSED_ORGANIZATION_TYPES] },
         status: 'ACTIVE',
         licenseNumber: input.licenseNumber,
         licenseExpiresAt: input.licenseExpiresAt,

@@ -38,6 +38,7 @@ import { IDENTITY_STAFF_READ_PORT } from './application/ports/inbound/identity-s
 import { PrismaIdentityStaffReadAdapter } from './infrastructure/persistence/prisma-identity-staff-read.adapter';
 import { IDENTITY_ORGANIZATION_READ_PORT } from './application/ports/inbound/identity-organization-read.port';
 import { IDENTITY_PHARMACY_ONBOARDING_PORT, IdentityPharmacyOnboardingAdapter } from './application/ports/inbound/identity-pharmacy-onboarding.port';
+import { IDENTITY_FACILITY_ONBOARDING_PORT, IdentityFacilityOnboardingAdapter } from './application/ports/inbound/identity-facility-onboarding.port';
 import { IDENTITY_DRIVER_ONBOARDING_PORT, IdentityDriverOnboardingAdapter } from './application/ports/inbound/identity-driver-onboarding.port';
 import { MakeDriverCommand } from './application/commands/make-driver.command';
 import { PrismaIdentityOrganizationReadAdapter } from './infrastructure/persistence/prisma-identity-organization-read.adapter';
@@ -80,6 +81,7 @@ import { PrismaPlatformBootstrapRepository } from './infrastructure/persistence/
 import { PrismaOrganizationRepository } from './infrastructure/persistence/prisma-organization.repository';
 import { BootstrapSuperAdminCommand } from './application/commands/bootstrap-super-admin.command';
 import { ApplyPharmacyOrganizationCommand } from './application/commands/apply-pharmacy-organization.command';
+import { ApplyFacilityOrganizationCommand } from './application/commands/apply-facility-organization.command';
 import { OrganizationsController } from './interface/controllers/organizations.controller';
 import { ADMIN_MFA_REPOSITORY } from './domain/repositories/admin-mfa.repository';
 import { PrismaAdminMfaRepository } from './infrastructure/persistence/prisma-admin-mfa.repository';
@@ -200,6 +202,7 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     ResendOtpCommand,
     BootstrapSuperAdminCommand,
     ApplyPharmacyOrganizationCommand,
+    ApplyFacilityOrganizationCommand,
     LoginUserCommand,
     RefreshTokenCommand,
     LogoutCommand,
@@ -268,6 +271,7 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     { provide: IDENTITY_ORGANIZATION_READ_PORT, useClass: PrismaIdentityOrganizationReadAdapter },
     // Work 154 — an administrator registers a pharmacy on an owner's behalf, through the owner's own commands.
     { provide: IDENTITY_PHARMACY_ONBOARDING_PORT, useClass: IdentityPharmacyOnboardingAdapter },
+    { provide: IDENTITY_FACILITY_ONBOARDING_PORT, useClass: IdentityFacilityOnboardingAdapter },
     // Work 156 — an administrator registers a driver.
     MakeDriverCommand,
     { provide: IDENTITY_DRIVER_ONBOARDING_PORT, useClass: IdentityDriverOnboardingAdapter },
@@ -333,6 +337,7 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     IDENTITY_ORGANIZATION_READ_PORT,
     // Work 154.
     IDENTITY_PHARMACY_ONBOARDING_PORT,
+    IDENTITY_FACILITY_ONBOARDING_PORT,
     // Work 156.
     IDENTITY_DRIVER_ONBOARDING_PORT,
     IDENTITY_LANGUAGE_READ_PORT,

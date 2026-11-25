@@ -59,6 +59,8 @@ export interface IVerificationRepository {
     userId: string,
     organizationId: string,
     tx?: unknown,
+    /** Work 160: a facility licence is found the same way; defaults to PHARMACY_LICENSE. */
+    type?: VerificationType,
   ): Promise<VerificationRequest | null>;
   /** Every request for a user, newest first — powers GET /verification/status. */
   listForUser(userId: string): Promise<VerificationRequest[]>;

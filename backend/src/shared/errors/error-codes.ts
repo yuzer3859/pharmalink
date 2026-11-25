@@ -276,6 +276,11 @@ export enum ErrorCode {
   // An authenticator or recovery code that didn't verify (wrong, outside the time window, or
   // already used). Counts against the challenge's attempt limit.
   AUTH_MFA_CODE_INVALID = 'AUTH_MFA_CODE_INVALID',
+
+  // Module 09 — Provider Directory (Work 160, module-09 §8).
+  PROVIDER_NOT_FOUND = 'PROVIDER_NOT_FOUND',
+  PROVIDER_NOT_ELIGIBLE = 'PROVIDER_NOT_ELIGIBLE',
+  PROVIDER_SUSPENDED = 'PROVIDER_SUSPENDED',
 }
 
 /** Default HTTP status mapping for each error code. */
@@ -454,4 +459,9 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   // Module 01 — administrator MFA (Work 66).
   [ErrorCode.AUTH_MFA_CHALLENGE_INVALID]: 401,
   [ErrorCode.AUTH_MFA_CODE_INVALID]: 401,
+
+  // Module 09 — Provider Directory (Work 160).
+  [ErrorCode.PROVIDER_NOT_FOUND]: 404,
+  [ErrorCode.PROVIDER_NOT_ELIGIBLE]: 403,
+  [ErrorCode.PROVIDER_SUSPENDED]: 403,
 };

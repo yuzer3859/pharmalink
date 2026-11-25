@@ -1,9 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { isOrganizationLicence } from '../../domain/organization-licence';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import { ApiException } from '../../../../shared/errors/api-exception';
 import { OutboxService } from '../../../../shared/outbox/outbox.service';
 import { VerificationRequest } from '../../domain/entities/verification-request.entity';
-import { VerificationStatus, VerificationType } from '../../domain/enums';
+import { VerificationStatus } from '../../domain/enums';
 import { licenseExpiredEvent } from '../../domain/events';
 import {
   IOrganizationRepository,
@@ -49,7 +50,7 @@ export class ExpireVerificationsCommand {
 
     let processed = 0;
     for (const request of expired) {
-      if (request.type === VerificationType.PHARMACY_LICENSE) {
+      if (isOrganizationLicence(request.type)) {
         if (await this.expirePharmacyLicense(request, now)) processed += 1;
         continue;
       }

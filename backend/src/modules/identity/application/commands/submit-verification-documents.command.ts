@@ -1,4 +1,5 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
+import { isOrganizationLicence, licenceFitsOrganization } from '../../domain/organization-licence';
 import { AuditService } from '../../../../shared/audit/audit.service';
 import {
   ALLOWED_DOCUMENT_CONTENT_TYPES,
@@ -62,7 +63,7 @@ export class SubmitVerificationDocumentsCommand {
     input: SubmitVerificationDocumentsInput,
   ): Promise<SubmitVerificationDocumentsResult> {
     await this.checkUploads(input);
-    if (input.type === VerificationType.PHARMACY_LICENSE) {
+    if (isOrganizationLicence(input.type)) {
       return this.submitPharmacyLicense(input);
     }
 
@@ -114,7 +115,7 @@ export class SubmitVerificationDocumentsCommand {
     if (!organization || organization.deletedAt || organization.ownerUserId !== input.userId) {
       throw IdentityErrors.organizationNotFound();
     }
-    if (organization.type !== 'PHARMACY') {
+    if (!licenceFitsOrganization(input.type, organization.type)) {
       throw IdentityErrors.notPharmacyOrganization();
     }
 
@@ -122,12 +123,12 @@ export class SubmitVerificationDocumentsCommand {
       this.uow.run(
         async (tx) => {
           const request =
-            (await this.verifications.findPendingPharmacyLicense(input.userId, organizationId, tx)) ??
+            (await this.verifications.findPendingPharmacyLicense(input.userId, organizationId, tx, input.type)) ??
             (await this.verifications.create(
               {
                 userId: input.userId,
                 organizationId,
-                type: VerificationType.PHARMACY_LICENSE,
+                type: input.type,
                 faydaIdEncrypted: null,
                 documents: [],
               },

@@ -1,4 +1,5 @@
 import { VerificationStatus, VerificationType } from '../enums';
+import { isOrganizationLicence } from '../organization-licence';
 import { IdentityErrors } from '../errors';
 
 export interface VerificationDocument {
@@ -109,7 +110,7 @@ export class VerificationRequest {
    */
   approve(reviewerId: string, expiresAt: Date | null, now: Date = new Date()): void {
     this.assertReviewable(reviewerId);
-    if (this.props.type === VerificationType.PHARMACY_LICENSE) {
+    if (isOrganizationLicence(this.props.type)) {
       throw IdentityErrors.validation(
         'A pharmacy licence approval requires the licence number and its expiry.',
         { fields: ['licenseNumber', 'expiresAt'] },
@@ -131,7 +132,7 @@ export class VerificationRequest {
     licence: { licenseNumber: string; expiresAt: Date },
     now: Date = new Date(),
   ): void {
-    if (this.props.type !== VerificationType.PHARMACY_LICENSE) {
+    if (!isOrganizationLicence(this.props.type)) {
       throw IdentityErrors.validation('Only a pharmacy licence request records a licence number.');
     }
     this.assertReviewable(reviewerId);
