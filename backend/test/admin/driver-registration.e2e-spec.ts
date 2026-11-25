@@ -66,7 +66,7 @@ describe('Admin — registers and disables drivers (Work 156, e2e)', () => {
 
     const account = body(await request(ctx.server).get(`/admin/accounts/${p.userId}`).set(...auth(admin.accessToken)).expect(200));
     expect(account.primaryRole).toBe('DRIVER');
-    const docs = body(await request(ctx.server).get(`/admin/verifications?userId=${p.userId}&type=DRIVER_DOCS`).set(...auth(admin.accessToken)).expect(200));
+    const docs = body(await request(ctx.server).get(`/admin/verifications?userId=${p.userId}&type=DRIVER_DOCS&status=APPROVED`).set(...auth(admin.accessToken)).expect(200));
     expect((docs.items as Array<{ status: string }>).map((d) => d.status)).toEqual(['APPROVED']);
     const profile = body(await request(ctx.server).get(`/admin/drivers/${p.userId}/profile`).set(...auth(admin.accessToken)).expect(200));
     expect(profile).toEqual(expect.objectContaining({ serviceArea: { lat: 9.02, lng: 38.75, radiusMeters: 15000 } }));

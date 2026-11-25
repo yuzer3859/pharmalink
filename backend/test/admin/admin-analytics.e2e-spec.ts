@@ -650,11 +650,11 @@ describe('Admin operational analytics (e2e)', () => {
         'delivery/delivery.module',
         'identity/application/ports/inbound/identity-admin.port',
         'identity/application/ports/inbound/identity-analytics-read.port',
+        // Work 156: an administrator registers a driver.
+        'identity/application/ports/inbound/identity-driver-onboarding.port',
         // Work 85: support impersonation.
         'identity/application/ports/inbound/identity-impersonation.port',
         // Work 153: the organisation behind a pharmacy, for the Super Admin's record.
-        // Work 156: an administrator registers a driver.
-        'identity/application/ports/inbound/identity-driver-onboarding.port',
         'identity/application/ports/inbound/identity-organization-read.port',
         // Work 154: an administrator registers a pharmacy on an owner's behalf.
         'identity/application/ports/inbound/identity-pharmacy-onboarding.port',
