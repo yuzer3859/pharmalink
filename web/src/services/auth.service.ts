@@ -79,6 +79,9 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   // Work 156.
   'drivers:view',
   'drivers:manage',
+  // Work 163.
+  'providers:view',
+  'providers:manage',
   'audit:view',
   'verifications:view',
   'verifications:manage',
@@ -293,6 +296,10 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     // registering approves documents (provider:verify:any), disabling suspends (user:suspend:any).
     if (has('driver:read:any') && has('rbac:read')) result.add('drivers:view');
     if (has('provider:verify:any') && has('user:suspend:any') && has('user:reactivate:any')) result.add('drivers:manage');
+    // Work 163: healthcare providers are read with provider:read:any; registering, disabling and
+    // enabling one is provider:verify:any.
+    if (has('provider:read:any')) result.add('providers:view');
+    if (has('provider:read:any') && has('provider:verify:any')) result.add('providers:manage');
     // Order operations are read-only for administrators (GET /admin/operations/orders).
     if (has('order:read:any')) result.add('orders:view');
     // Inventory operations are read-only for administrators (GET /admin/operations/inventory/listings).

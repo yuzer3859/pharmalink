@@ -16,7 +16,7 @@ export interface VerificationFilters {
 }
 
 export const VERIFICATION_STATUSES: VerificationStatus[] = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'];
-export const VERIFICATION_TYPES: VerificationType[] = ['PHARMACY_LICENSE', 'FAYDA', 'DRIVER_DOCS', 'DOCTOR_LICENSE'];
+export const VERIFICATION_TYPES: VerificationType[] = ['PHARMACY_LICENSE', 'FACILITY_LICENSE', 'FAYDA', 'DRIVER_DOCS', 'DOCTOR_LICENSE'];
 export const VERIFICATION_PAGE_SIZES = [10, 25, 50] as const;
 
 /** The server's bounds (Module 01 / Module 16). */

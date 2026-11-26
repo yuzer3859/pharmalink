@@ -1,4 +1,5 @@
 import { DriversPage } from '@/features/drivers/DriversPage';
+import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import type { ComponentType } from 'react';
 import { RxRequestsPage } from '@/features/rxRequests/RxRequestsPage';
 import type { PortalKey } from '@/types';
@@ -53,6 +54,7 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   verifications: AdminVerificationsPage,
   // Work 156.
   drivers: DriversPage,
+  providers: ProvidersPage,
   // Work 157.
   'pharmacy-owners': PharmacyOwnersPage,
   configuration: ConfigurationPage,

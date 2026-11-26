@@ -19,6 +19,8 @@ export type PermissionKey =
   | 'pharmacies:manage'
   | 'drivers:view'
   | 'drivers:manage'
+  | 'providers:view'
+  | 'providers:manage'
   | 'audit:view'
   | 'verifications:view'
   | 'verifications:manage'
@@ -405,7 +407,7 @@ export interface RoleCatalogueEntry {
 }
 
 export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
-export type VerificationType = 'FAYDA' | 'PHARMACY_LICENSE' | 'DRIVER_DOCS' | 'DOCTOR_LICENSE';
+export type VerificationType = 'FAYDA' | 'PHARMACY_LICENSE' | 'DRIVER_DOCS' | 'DOCTOR_LICENSE' | 'FACILITY_LICENSE';
 
 /** One request of `GET /admin/verifications`. */
 export interface VerificationQueueItem {
