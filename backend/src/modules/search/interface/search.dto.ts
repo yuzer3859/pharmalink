@@ -108,3 +108,85 @@ export class SearchTrendingQueryDto {
   @Max(20)
   limit?: number = 10;
 }
+
+/** Work 162: `GET /search/providers`. */
+export class SearchProvidersQueryDto extends GeoQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @IsOptional()
+  @IsIn(['HOSPITAL', 'CLINIC', 'DIAGNOSTIC_CENTER', 'LAB'])
+  type?: 'HOSPITAL' | 'CLINIC' | 'DIAGNOSTIC_CENTER' | 'LAB';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  specialty?: string;
+
+  @IsOptional()
+  @IsIn(['LAB_TEST', 'IMAGING', 'SCREENING_PACKAGE'])
+  serviceType?: 'LAB_TEST' | 'IMAGING' | 'SCREENING_PACKAGE';
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  emergency?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  size?: number = 20;
+}
+
+/** Work 162: `GET /search/services`. */
+export class SearchServicesQueryDto extends GeoQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @IsOptional()
+  @IsIn(['LAB_TEST', 'IMAGING', 'SCREENING_PACKAGE'])
+  serviceType?: 'LAB_TEST' | 'IMAGING' | 'SCREENING_PACKAGE';
+
+  @IsOptional()
+  @IsUUID()
+  providerId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  city?: string;
+
+  @IsOptional()
+  @IsIn(['relevance', 'price', 'distance'])
+  sort?: 'relevance' | 'price' | 'distance';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  size?: number = 20;
+}

@@ -3,7 +3,15 @@ import { ApiException } from '../../../shared/errors/api-exception';
 import { ErrorCode } from '../../../shared/errors/error-codes';
 import { Public } from '../../../shared/rbac/public.decorator';
 import { DEFAULT_RADIUS_KM, GeoFilter, SearchQueryService } from '../application/search-query.service';
-import { SearchMedicinesQueryDto, SearchOffersQueryDto, SearchPharmaciesQueryDto, SearchSuggestQueryDto, SearchTrendingQueryDto } from './search.dto';
+import {
+  SearchMedicinesQueryDto,
+  SearchOffersQueryDto,
+  SearchPharmaciesQueryDto,
+  SearchProvidersQueryDto,
+  SearchServicesQueryDto,
+  SearchSuggestQueryDto,
+  SearchTrendingQueryDto,
+} from './search.dto';
 
 function geoOf(dto: { lat?: number; lng?: number; radiusKm?: number }): GeoFilter | undefined {
   const hasLat = dto.lat !== undefined;
@@ -47,6 +55,41 @@ export class SearchController {
   @Get('pharmacies')
   pharmacies(@Query() dto: SearchPharmaciesQueryDto) {
     return this.search.pharmacies({ q: dto.q, geo: geoOf(dto), page: dto.page ?? 1, size: dto.size ?? 20 });
+  }
+
+  /** Work 162: hospitals, clinics, diagnostic centres and labs; nearest first with a location. */
+  @Get('providers')
+  providers(@Query() dto: SearchProvidersQueryDto) {
+    return this.search.providers({
+      q: dto.q,
+      type: dto.type,
+      city: dto.city,
+      specialty: dto.specialty,
+      serviceType: dto.serviceType,
+      emergency: dto.emergency,
+      geo: geoOf(dto),
+      page: dto.page ?? 1,
+      size: dto.size ?? 20,
+    });
+  }
+
+  /** Work 162: lab tests, imaging and screening packages across providers, by price or distance. */
+  @Get('services')
+  services(@Query() dto: SearchServicesQueryDto) {
+    const geo = geoOf(dto);
+    if (dto.sort === 'distance' && !geo) {
+      throw new ApiException(ErrorCode.VALIDATION_ERROR, 'Sorting by distance needs a location.', { code: 'LOCATION_REQUIRED_FOR_DISTANCE_SORT' });
+    }
+    return this.search.services({
+      q: dto.q,
+      serviceType: dto.serviceType,
+      providerId: dto.providerId,
+      city: dto.city,
+      geo,
+      sort: dto.sort,
+      page: dto.page ?? 1,
+      size: dto.size ?? 20,
+    });
   }
 
   /** Work 158: popular searches, products and pharmacies to offer while the customer types. */

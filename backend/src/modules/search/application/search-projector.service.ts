@@ -11,8 +11,27 @@ import {
   IPharmacySearchSourcePort,
   PHARMACY_SEARCH_SOURCE_PORT,
 } from '../../pharmacy-inventory/application/ports/inbound/pharmacy-search-source.port';
+import {
+  IProviderSearchSourcePort,
+  PROVIDER_SEARCH_SOURCE_PORT,
+} from '../../provider-directory/application/ports/inbound/provider-search-source.port';
 
 const LOCALE = 'en';
+
+/** Work 162: words a provider type is found by, in English and Amharic. */
+const PROVIDER_TYPE_WORDS: Record<string, string> = {
+  HOSPITAL: 'hospital ሆስፒታል',
+  CLINIC: 'clinic ክሊኒክ',
+  DIAGNOSTIC_CENTER: 'diagnostic center centre imaging ምርመራ',
+  LAB: 'lab laboratory ላብራቶሪ',
+};
+
+/** Work 162: words a service type is found by. */
+const SERVICE_TYPE_WORDS: Record<string, string> = {
+  LAB_TEST: 'lab test laboratory ምርመራ',
+  IMAGING: 'imaging scan radiology',
+  SCREENING_PACKAGE: 'screening package checkup check-up',
+};
 
 /** The text a product is found by: both names, generic and brand names, maker, strength, categories. */
 export function productSearchText(p: SearchProductSource): string {
@@ -51,6 +70,7 @@ export class SearchProjectorService {
     private readonly prisma: PrismaService,
     @Inject(CATALOG_SEARCH_SOURCE_PORT) private readonly catalog: ICatalogSearchSourcePort,
     @Inject(PHARMACY_SEARCH_SOURCE_PORT) private readonly pharmacies: IPharmacySearchSourcePort,
+    @Inject(PROVIDER_SEARCH_SOURCE_PORT) private readonly providers: IProviderSearchSourcePort,
   ) {
     this.logger.setContext(SearchProjectorService.name);
   }
@@ -184,9 +204,139 @@ export class SearchProjectorService {
     return outcome;
   }
 
+  /**
+   * Work 162: a healthcare provider changed (activated, suspended, profile, locations,
+   * departments or services). One `PROVIDER` document for the provider, at its primary location,
+   * and one `DIAGNOSTIC_SERVICE` document per available service — or none of them when it is not
+   * eligible. Rebuilt whole from Module 09 each time.
+   */
+  async refreshProvider(providerId: string): Promise<'INDEXED' | 'REMOVED'> {
+    const source = await this.providers.provider(providerId);
+    const serviceDocs = { entityType: 'DIAGNOSTIC_SERVICE' as const, attributes: { path: ['providerId'], equals: providerId } };
+    if (!source || !source.eligible) {
+      await this.prisma.$transaction([
+        this.prisma.searchDocument.deleteMany({ where: serviceDocs }),
+        this.prisma.searchDocument.deleteMany({ where: { entityType: 'PROVIDER', entityId: providerId } }),
+      ]);
+      return 'REMOVED';
+    }
+
+    const located = source.locations.filter((l) => l.lat !== null && l.lng !== null);
+    const primary = located.find((l) => l.isPrimary) ?? located[0] ?? source.locations[0];
+    const emergency = source.locations.some((l) => l.emergencyAvailability === 'H24_7')
+      ? 'H24_7'
+      : source.locations.some((l) => l.emergencyAvailability === 'BUSINESS_HOURS')
+        ? 'BUSINESS_HOURS'
+        : 'NONE';
+    const specialties = [...new Set(source.departments.map((d) => d.specialty ?? d.name).filter((v): v is string => Boolean(v)))].sort();
+    const serviceTypes = [...new Set(source.services.map((s) => s.type))].sort();
+    const cities = [...new Set(source.locations.map((l) => l.city).filter((v): v is string => Boolean(v)))];
+    const data = {
+      title: source.displayName,
+      subtitle: source.nameAm,
+      description: source.description,
+      keywords: [...specialties, ...source.departments.map((d) => d.name), ...source.services.map((s) => s.name)].slice(0, 200),
+      categories: [source.type],
+      city: primary?.city ?? null,
+      latitude: primary?.lat ?? null,
+      longitude: primary?.lng ?? null,
+      ratingAvg: source.ratingCount > 0 ? source.ratingAvg : null,
+      isAvailable: true,
+      attributes: {
+        type: source.type,
+        nameAm: source.nameAm,
+        emergency,
+        specialties,
+        serviceTypes,
+        cities,
+        locationCount: source.locations.length,
+        serviceCount: source.services.length,
+        ratingCount: source.ratingCount,
+      } as unknown as Prisma.InputJsonValue,
+      status: 'ACTIVE' as const,
+    };
+    const doc = await this.prisma.searchDocument.upsert({
+      where: { entityType_entityId_locale: { entityType: 'PROVIDER', entityId: providerId, locale: LOCALE } },
+      create: { entityType: 'PROVIDER', entityId: providerId, locale: LOCALE, ...data },
+      update: data,
+      select: { id: true },
+    });
+    await this.setVector(
+      doc.id,
+      [
+        source.displayName,
+        source.nameAm,
+        PROVIDER_TYPE_WORDS[source.type] ?? '',
+        ...cities,
+        ...source.locations.map((l) => l.subcity),
+        ...specialties,
+        ...source.departments.map((d) => d.name),
+        ...source.services.map((s) => s.name),
+      ]
+        .filter((v): v is string => Boolean(v && v.trim()))
+        .join(' ')
+        .toLowerCase(),
+    );
+
+    // The provider's services: a removed or unavailable one disappears; the rest are upserted, so a
+    // concurrent refresh of the same provider converges instead of colliding.
+    await this.prisma.searchDocument.deleteMany({ where: { ...serviceDocs, entityId: { notIn: source.services.map((x) => x.serviceId) } } });
+    for (const s of source.services) {
+      const at = (s.locationId ? located.find((l) => l.locationId === s.locationId) : undefined) ?? primary;
+      const serviceData = {
+        title: s.name,
+        subtitle: source.displayName,
+        description: s.preparationInstructions,
+        keywords: [s.code, s.type].filter((v): v is string => Boolean(v)),
+        categories: [s.type],
+        city: at?.city ?? null,
+        latitude: at?.lat ?? null,
+        longitude: at?.lng ?? null,
+        price: s.price,
+        currency: s.currency,
+        ratingAvg: data.ratingAvg,
+        isAvailable: true,
+        attributes: {
+          providerId,
+          providerName: source.displayName,
+          providerType: source.type,
+          serviceType: s.type,
+          code: s.code,
+          durationMinutes: s.durationMinutes,
+          preparationInstructions: s.preparationInstructions,
+          locationId: at?.locationId ?? null,
+          locationName: at?.name ?? null,
+        } as unknown as Prisma.InputJsonValue,
+        status: 'ACTIVE' as const,
+      };
+      const service = await this.prisma.searchDocument.upsert({
+        where: { entityType_entityId_locale: { entityType: 'DIAGNOSTIC_SERVICE', entityId: s.serviceId, locale: LOCALE } },
+        create: { entityType: 'DIAGNOSTIC_SERVICE', entityId: s.serviceId, locale: LOCALE, ...serviceData },
+        update: serviceData,
+        select: { id: true },
+      });
+      await this.setVector(
+        service.id,
+        [s.name, s.code, SERVICE_TYPE_WORDS[s.type] ?? '', source.displayName, at?.city]
+          .filter((v): v is string => Boolean(v && v.trim()))
+          .join(' ')
+          .toLowerCase(),
+      );
+    }
+    return 'INDEXED';
+  }
+
   /** Rebuilds everything from the source modules (bootstrap, recovery). Idempotent. */
-  async reindexAll(): Promise<{ products: number; pharmacies: number; failures: number }> {
-    const report = { products: 0, pharmacies: 0, failures: 0 };
+  async reindexAll(): Promise<{ products: number; pharmacies: number; providers: number; failures: number }> {
+    const report = { products: 0, pharmacies: 0, providers: 0, failures: 0 };
+    for (const providerId of await this.providers.providerIds()) {
+      try {
+        if ((await this.refreshProvider(providerId)) === 'INDEXED') report.providers += 1;
+      } catch (err) {
+        report.failures += 1;
+        this.logger.error({ message: 'Search reindex failed for a healthcare provider', providerId, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
     for (const pharmacyId of await this.pharmacies.pharmacyIds()) {
       try {
         if ((await this.refreshPharmacy(pharmacyId, { withOffers: false })) === 'INDEXED') report.pharmacies += 1;
