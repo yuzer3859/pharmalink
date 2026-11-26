@@ -8,6 +8,9 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded';
+import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
+import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
+import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded';
 import TwoWheelerRoundedIcon from '@mui/icons-material/TwoWheelerRounded';
 import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
@@ -142,6 +145,21 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Disputes', path: 'disputes', icon: ForumRoundedIcon, permission: 'disputes:manage', section: OPS },
       // Work 90: payment and refund reports.
       { label: 'Reports', path: 'reports', icon: SummarizeRoundedIcon, permission: 'reports:view', section: INSIGHTS },
+    ],
+  },
+  // Work 164: a hospital, clinic, diagnostic centre or lab runs its directory profile (Module 09).
+  facility: {
+    key: 'facility',
+    title: 'Facility Portal',
+    shortTitle: 'Facility',
+    basePath: '/facility',
+    landingPath: 'profile',
+    accent: '#1565c0',
+    nav: [
+      { label: 'Profile', path: 'profile', icon: LocalHospitalRoundedIcon, permission: 'facility:view', section: OPS },
+      { label: 'Locations', path: 'locations', icon: PlaceRoundedIcon, permission: 'facility:view', section: OPS },
+      { label: 'Departments', path: 'departments', icon: ApartmentRoundedIcon, permission: 'facility:view', section: OPS },
+      { label: 'Services', path: 'services', icon: ScienceRoundedIcon, permission: 'facility:view', section: OPS },
     ],
   },
 };

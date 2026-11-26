@@ -82,6 +82,9 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   // Work 163.
   'providers:view',
   'providers:manage',
+  // Work 164: a facility's own portal.
+  'facility:view',
+  'facility:manage',
   'audit:view',
   'verifications:view',
   'verifications:manage',
@@ -107,7 +110,12 @@ const ROLE_NAMES: Record<string, string> = {
   PHARMACIST: 'Pharmacist',
   CASHIER: 'Cashier',
   INVENTORY_STAFF: 'Inventory Staff',
+  HOSPITAL_ADMIN: 'Hospital Administrator',
+  DIAGNOSTIC_CENTER_ADMIN: 'Diagnostic Centre Administrator',
 };
+
+/** Work 164: the roles that run a hospital, clinic, diagnostic centre or lab (Module 09). */
+const FACILITY_ROLES = new Set(['HOSPITAL_ADMIN', 'DIAGNOSTIC_CENTER_ADMIN']);
 
 const PHARMACY_ROLES = new Set([
   'PHARMACY_OWNER',
@@ -232,6 +240,8 @@ function portalFor(currentUser: BackendCurrentUser): PortalKey {
   // Work 81: Finance Officers get the finance portal (financial oversight and COD disputes only).
   if (roles.has('FINANCE_OFFICER')) return 'finance';
   if ([...roles].some((role) => PHARMACY_ROLES.has(role))) return 'pharmacy';
+  // Work 164: hospital, clinic, diagnostic centre and lab administrators get the facility portal.
+  if ([...roles].some((role) => FACILITY_ROLES.has(role))) return 'facility';
   throw new ApiError(403, 'PORTAL_ACCESS_DENIED', 'This account is not provisioned for an operations portal.');
 }
 
@@ -264,6 +274,15 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('order:read:org', 'inventory:manage:org')) result.add('analytics:view');
     // Work 110: the pharmacist's review queue (module-05 Model A, owner decision 2026-11-09).
     if (has('prescription:verify')) result.add('prescriptions:verify');
+  }
+
+  if (portal === 'facility') {
+    // Work 164: the facility's profile, locations, departments and services (provider:manage:org).
+    if (has('provider:manage:org')) {
+      result.add('facility:view');
+      result.add('facility:manage');
+    }
+    result.delete('dashboard:view');
   }
 
   if (portal === 'finance') {
@@ -352,6 +371,9 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
 }
 
 function displayRole(currentUser: BackendCurrentUser): string {
+  // Work 164: a facility administrator's primary role stays CUSTOMER; their organisation role names them.
+  const facilityRole = currentUser.primaryRole === 'CUSTOMER' ? currentUser.roles.find((r) => FACILITY_ROLES.has(r.roleKey)) : undefined;
+  if (facilityRole) return ROLE_NAMES[facilityRole.roleKey];
   return ROLE_NAMES[currentUser.primaryRole] ?? currentUser.primaryRole.replace(/_/g, ' ');
 }
 
@@ -364,7 +386,15 @@ export function toAuthUser(currentUser: BackendCurrentUser): AuthUser {
   const identifier = currentUser.email ?? currentUser.phone ?? currentUser.id;
   const name = currentUser.email?.split('@')[0] ?? currentUser.phone ?? 'PharmaLink user';
   const avatarColor =
-    portal === 'pharmacy' ? '#00838f' : portal === 'admin' ? '#7b1fa2' : portal === 'finance' ? '#2e7d32' : '#005662';
+    portal === 'pharmacy'
+      ? '#00838f'
+      : portal === 'admin'
+        ? '#7b1fa2'
+        : portal === 'finance'
+          ? '#2e7d32'
+          : portal === 'facility'
+            ? '#1565c0'
+            : '#005662';
 
   return {
     id: currentUser.id,

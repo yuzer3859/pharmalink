@@ -1,5 +1,9 @@
 import { DriversPage } from '@/features/drivers/DriversPage';
 import { ProvidersPage } from '@/features/providers/ProvidersPage';
+import { FacilityProfilePage } from '@/features/facility/FacilityProfilePage';
+import { FacilityLocationsPage } from '@/features/facility/FacilityLocationsPage';
+import { FacilityDepartmentsPage } from '@/features/facility/FacilityDepartmentsPage';
+import { FacilityServicesPage } from '@/features/facility/FacilityServicesPage';
 import type { ComponentType } from 'react';
 import { RxRequestsPage } from '@/features/rxRequests/RxRequestsPage';
 import type { PortalKey } from '@/types';
@@ -82,7 +86,16 @@ const PHARMACY_PAGES: Record<string, ComponentType> = {
   'rx-requests': RxRequestsPage,
 };
 
+/** Work 164: a hospital, clinic, diagnostic centre or lab runs its directory profile. */
+const FACILITY_PAGES: Record<string, ComponentType> = {
+  profile: FacilityProfilePage,
+  locations: FacilityLocationsPage,
+  departments: FacilityDepartmentsPage,
+  services: FacilityServicesPage,
+};
+
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {
+  facility: FACILITY_PAGES,
   pharmacy: PHARMACY_PAGES,
   admin: ADMIN_PAGES,
   superadmin: ADMIN_PAGES,
