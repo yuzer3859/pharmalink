@@ -134,6 +134,61 @@ export interface PharmacyHit {
   distanceMeters: number | null;
 }
 
+/** Work 162: provider search (module-14 §9 `GET /search/providers`). */
+export interface ProviderSearchInput {
+  q?: string;
+  type?: 'HOSPITAL' | 'CLINIC' | 'DIAGNOSTIC_CENTER' | 'LAB';
+  city?: string;
+  specialty?: string;
+  serviceType?: 'LAB_TEST' | 'IMAGING' | 'SCREENING_PACKAGE';
+  /** Only providers with emergency service (business hours or 24/7). */
+  emergency?: boolean;
+  geo?: GeoFilter;
+  page: number;
+  size: number;
+}
+
+export interface ProviderHit {
+  providerId: string;
+  type: string;
+  name: string;
+  nameAm: string | null;
+  description: string | null;
+  city: string | null;
+  emergency: string;
+  specialties: string[];
+  serviceTypes: string[];
+  ratingAvg: number | null;
+  distanceMeters: number | null;
+}
+
+/** Work 162: diagnostic service search (module-14 §9 `GET /search/services`). */
+export interface ServiceSearchInput {
+  q?: string;
+  serviceType?: 'LAB_TEST' | 'IMAGING' | 'SCREENING_PACKAGE';
+  providerId?: string;
+  city?: string;
+  geo?: GeoFilter;
+  sort?: 'relevance' | 'price' | 'distance';
+  page: number;
+  size: number;
+}
+
+export interface ServiceHit {
+  serviceId: string;
+  name: string;
+  serviceType: string;
+  code: string | null;
+  price: number | null;
+  currency: string;
+  durationMinutes: number | null;
+  preparationInstructions: string | null;
+  provider: { providerId: string; name: string; type: string };
+  locationName: string | null;
+  city: string | null;
+  distanceMeters: number | null;
+}
+
 export interface Page<T> {
   items: T[];
   total: number;
@@ -328,6 +383,151 @@ export class SearchQueryService {
   }
 
   /**
+   * Work 162 (F-SR-07): hospitals, clinics, diagnostic centres and labs by name, specialty,
+   * department, service or city — typo-tolerant like medicines. With a location: within the
+   * radius of the provider's primary location, nearest first; without: best rated, then name.
+   */
+  async providers(input: ProviderSearchInput): Promise<SearchPage<ProviderHit>> {
+    const started = Date.now();
+    const tsq = toPrefixTsQuery(input.q);
+    const normalized = normalizeQuery(input.q);
+    let match: TextMatch | null = tsq ? exactMatch(tsq) : null;
+    let page = await this.providersMatching(input, match);
+    if (match && page.total === 0 && normalized) {
+      match = similarMatch(normalized);
+      page = await this.providersMatching(input, match);
+    }
+    await this.logQuery('PROVIDER', input.page, normalized, input.q, page.total, started);
+    return {
+      ...page,
+      page: input.page,
+      size: input.size,
+      match: match?.mode ?? null,
+      didYouMean: match?.mode === 'SIMILAR' ? (page.items[0]?.name ?? null) : null,
+    };
+  }
+
+  private async providersMatching(input: ProviderSearchInput, match: TextMatch | null): Promise<{ items: ProviderHit[]; total: number }> {
+    const where: Prisma.Sql[] = [Prisma.sql`d."entityType" = 'PROVIDER'`, Prisma.sql`d."status" = 'ACTIVE'`];
+    if (match) where.push(match.where);
+    if (input.type) where.push(Prisma.sql`d."attributes"->>'type' = ${input.type}`);
+    if (input.city) where.push(Prisma.sql`lower(d."city") = lower(${input.city})`);
+    if (input.specialty) {
+      where.push(Prisma.sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(d."attributes"->'specialties') sp WHERE lower(sp) = lower(${input.specialty}))`);
+    }
+    if (input.serviceType) {
+      where.push(Prisma.sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(d."attributes"->'serviceTypes') st WHERE st = ${input.serviceType})`);
+    }
+    if (input.emergency) where.push(Prisma.sql`d."attributes"->>'emergency' <> 'NONE'`);
+    const dist = input.geo ? distanceSql(Prisma.sql`d."latitude"`, Prisma.sql`d."longitude"`, input.geo) : Prisma.sql`NULL::double precision`;
+    if (input.geo) where.push(Prisma.sql`d."latitude" IS NOT NULL AND d."longitude" IS NOT NULL AND ${dist} <= ${input.geo.radiusKm * 1000}`);
+    const whereSql = Prisma.join(where, ' AND ');
+    const byScore = match ? Prisma.sql`${match.score} DESC,` : Prisma.empty;
+    const order =
+      input.geo && match?.mode !== 'SIMILAR'
+        ? Prisma.sql`ORDER BY ${dist} ASC, d."title" ASC`
+        : Prisma.sql`ORDER BY ${byScore} d."ratingAvg" DESC NULLS LAST, d."title" ASC`;
+    const offset = (input.page - 1) * input.size;
+    const rows = await this.prisma.$queryRaw<
+      Array<{ entityId: string; title: string; subtitle: string | null; description: string | null; city: string | null; ratingAvg: number | null; attributes: Record<string, unknown> | null; distanceMeters: number | null }>
+    >(Prisma.sql`
+      SELECT d."entityId", d."title", d."subtitle", d."description", d."city", d."ratingAvg", d."attributes", ${dist} AS "distanceMeters"
+      FROM "search_documents" d WHERE ${whereSql} ${order} LIMIT ${input.size} OFFSET ${offset}`);
+    const [{ total }] = await this.prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`
+      SELECT COUNT(*)::int AS total FROM "search_documents" d WHERE ${whereSql}`);
+    return {
+      items: rows.map((r) => {
+        const a = (r.attributes ?? {}) as Record<string, unknown>;
+        const list = (k: string) => (Array.isArray(a[k]) ? (a[k] as string[]) : []);
+        return {
+          providerId: r.entityId,
+          type: String(a.type ?? ''),
+          name: r.title,
+          nameAm: r.subtitle,
+          description: r.description,
+          city: r.city,
+          emergency: typeof a.emergency === 'string' ? a.emergency : 'NONE',
+          specialties: list('specialties'),
+          serviceTypes: list('serviceTypes'),
+          ratingAvg: r.ratingAvg,
+          distanceMeters: r.distanceMeters === null ? null : Math.round(r.distanceMeters),
+        };
+      }),
+      total,
+    };
+  }
+
+  /**
+   * Work 162 (F-SR-08): lab tests, imaging and screening packages across eligible providers, to
+   * compare price and distance. Sort: `price` (cheapest first, unknown prices last), `distance`
+   * (needs a location), or relevance (the default; nearest first with a location).
+   */
+  async services(input: ServiceSearchInput): Promise<SearchPage<ServiceHit>> {
+    const started = Date.now();
+    const tsq = toPrefixTsQuery(input.q);
+    const normalized = normalizeQuery(input.q);
+    let match: TextMatch | null = tsq ? exactMatch(tsq) : null;
+    let page = await this.servicesMatching(input, match);
+    if (match && page.total === 0 && normalized) {
+      match = similarMatch(normalized);
+      page = await this.servicesMatching(input, match);
+    }
+    await this.logQuery('DIAGNOSTIC_SERVICE', input.page, normalized, input.q, page.total, started);
+    return {
+      ...page,
+      page: input.page,
+      size: input.size,
+      match: match?.mode ?? null,
+      didYouMean: match?.mode === 'SIMILAR' ? (page.items[0]?.name ?? null) : null,
+    };
+  }
+
+  private async servicesMatching(input: ServiceSearchInput, match: TextMatch | null): Promise<{ items: ServiceHit[]; total: number }> {
+    const where: Prisma.Sql[] = [Prisma.sql`d."entityType" = 'DIAGNOSTIC_SERVICE'`, Prisma.sql`d."status" = 'ACTIVE'`];
+    if (match) where.push(match.where);
+    if (input.serviceType) where.push(Prisma.sql`d."attributes"->>'serviceType' = ${input.serviceType}`);
+    if (input.providerId) where.push(Prisma.sql`d."attributes"->>'providerId' = ${input.providerId}`);
+    if (input.city) where.push(Prisma.sql`lower(d."city") = lower(${input.city})`);
+    const dist = input.geo ? distanceSql(Prisma.sql`d."latitude"`, Prisma.sql`d."longitude"`, input.geo) : Prisma.sql`NULL::double precision`;
+    if (input.geo) where.push(Prisma.sql`d."latitude" IS NOT NULL AND d."longitude" IS NOT NULL AND ${dist} <= ${input.geo.radiusKm * 1000}`);
+    const whereSql = Prisma.join(where, ' AND ');
+    const byScore = match ? Prisma.sql`${match.score} DESC,` : Prisma.empty;
+    let order: Prisma.Sql;
+    if (input.sort === 'price') order = Prisma.sql`ORDER BY d."price" ASC NULLS LAST, ${byScore} d."title" ASC`;
+    else if (input.geo && (input.sort === 'distance' || match?.mode !== 'SIMILAR')) order = Prisma.sql`ORDER BY ${dist} ASC, d."price" ASC NULLS LAST`;
+    else order = Prisma.sql`ORDER BY ${byScore} d."price" ASC NULLS LAST, d."title" ASC`;
+    const offset = (input.page - 1) * input.size;
+    const rows = await this.prisma.$queryRaw<
+      Array<{ entityId: string; title: string; city: string | null; price: number | null; currency: string | null; attributes: Record<string, unknown> | null; distanceMeters: number | null }>
+    >(Prisma.sql`
+      SELECT d."entityId", d."title", d."city", d."price", d."currency", d."attributes", ${dist} AS "distanceMeters"
+      FROM "search_documents" d WHERE ${whereSql} ${order} LIMIT ${input.size} OFFSET ${offset}`);
+    const [{ total }] = await this.prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`
+      SELECT COUNT(*)::int AS total FROM "search_documents" d WHERE ${whereSql}`);
+    return {
+      items: rows.map((r) => {
+        const a = (r.attributes ?? {}) as Record<string, unknown>;
+        const str = (k: string) => (typeof a[k] === 'string' ? (a[k] as string) : null);
+        return {
+          serviceId: r.entityId,
+          name: r.title,
+          serviceType: str('serviceType') ?? '',
+          code: str('code'),
+          price: r.price,
+          currency: r.currency ?? 'ETB',
+          durationMinutes: typeof a.durationMinutes === 'number' ? a.durationMinutes : null,
+          preparationInstructions: str('preparationInstructions'),
+          provider: { providerId: str('providerId') ?? '', name: str('providerName') ?? '', type: str('providerType') ?? '' },
+          locationName: str('locationName'),
+          city: r.city,
+          distanceMeters: r.distanceMeters === null ? null : Math.round(r.distanceMeters),
+        };
+      }),
+      total,
+    };
+  }
+
+  /**
    * Work 158 (F-SR-11): what to offer while the customer types. Popular searches that start with
    * the words so far (searched at least twice in 30 days, and found something), then products
    * and pharmacies whose names start with them or are spelt close to them.
@@ -385,7 +585,7 @@ export class SearchQueryService {
    * that identifies the person is kept. A failure here never fails the search.
    */
   private async logQuery(
-    entityType: 'PRODUCT' | 'PHARMACY',
+    entityType: 'PRODUCT' | 'PHARMACY' | 'PROVIDER' | 'DIAGNOSTIC_SERVICE',
     page: number,
     normalized: string | null,
     raw: string | undefined,

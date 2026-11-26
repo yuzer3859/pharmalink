@@ -8,6 +8,7 @@ import {
   ICatalogSearchSourcePort,
 } from '../../catalog/application/ports/inbound/catalog-search-source.port';
 import { PharmacyInventoryEventType } from '../../pharmacy-inventory/domain/events';
+import { ProviderEventType } from '../../provider-directory/domain/events';
 import { SearchProjectorService } from '../application/search-projector.service';
 
 type Payload = Record<string, unknown>;
@@ -78,6 +79,16 @@ export class SearchEventsHandler implements OnModuleInit {
         this.run(e, async (p) => {
           const id = str(p, 'pharmacyId');
           if (id) await this.projector.refreshPharmacy(id);
+        }),
+      );
+    }
+
+    // Work 162: healthcare providers and their services (Module 09).
+    for (const type of [ProviderEventType.ProviderActivated, ProviderEventType.ProviderSuspended, ProviderEventType.ProviderProfileChanged]) {
+      this.bus.subscribe<Payload>(type, (e) =>
+        this.run(e, async (p) => {
+          const id = str(p, 'providerId');
+          if (id) await this.projector.refreshProvider(id);
         }),
       );
     }
