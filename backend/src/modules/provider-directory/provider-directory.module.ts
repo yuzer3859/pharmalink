@@ -5,15 +5,20 @@ import { PROVIDER_ONBOARDING_PORT } from './application/ports/inbound/provider-o
 import { ProviderAdminReadService } from './application/provider-admin-read.service';
 import { ProviderOnboardingService } from './application/provider-onboarding.service';
 import { ProviderLicenceExpirySweeper } from './infrastructure/provider-licence-expiry.sweeper';
+import { ProviderPortalService } from './application/provider-portal.service';
+import { ProviderPortalController } from './interface/provider-portal.controller';
 
 /**
  * Module 09 — Provider Directory (architecture/module-09-provider-directory.md): hospitals,
  * clinics, diagnostic centres and labs. Work 160 builds registration, activation on an approved
- * facility licence, manual suspension and licence-expiry suspension, and the administrator's read.
+ * facility licence, manual suspension and licence-expiry suspension, and the administrator's read;
+ * Work 161 the facility's own profile, locations, hours, facilities, departments and services.
  */
 @Module({
   imports: [IdentityModule],
+  controllers: [ProviderPortalController],
   providers: [
+    ProviderPortalService,
     ProviderOnboardingService,
     ProviderAdminReadService,
     ProviderLicenceExpirySweeper,

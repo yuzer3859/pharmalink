@@ -4,6 +4,8 @@ import { createDomainEvent, DomainEvent } from '../../../shared/events/domain-ev
 export const ProviderEventType = {
   ProviderActivated: 'provider.provider.activated',
   ProviderSuspended: 'provider.provider.suspended',
+  /** Work 161: the profile, a location, its hours or facilities, a department or a service changed. */
+  ProviderProfileChanged: 'provider.provider.profile_changed',
 } as const;
 
 export interface ProviderActivatedPayload {
@@ -23,4 +25,14 @@ export function providerActivatedEvent(payload: ProviderActivatedPayload): Domai
 
 export function providerSuspendedEvent(payload: ProviderSuspendedPayload): DomainEvent<ProviderSuspendedPayload> {
   return createDomainEvent({ type: ProviderEventType.ProviderSuspended, aggregateType: 'HealthcareProvider', aggregateId: payload.providerId, payload });
+}
+
+export interface ProviderProfileChangedPayload {
+  providerId: string;
+  /** The audit action of the change, e.g. `PROVIDER_LOCATION_ADDED`. */
+  change: string;
+}
+
+export function providerProfileChangedEvent(payload: ProviderProfileChangedPayload): DomainEvent<ProviderProfileChangedPayload> {
+  return createDomainEvent({ type: ProviderEventType.ProviderProfileChanged, aggregateType: 'HealthcareProvider', aggregateId: payload.providerId, payload });
 }
