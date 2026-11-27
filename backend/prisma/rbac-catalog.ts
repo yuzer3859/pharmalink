@@ -179,6 +179,8 @@ export const PERMISSIONS: Array<{
   // Work 166 — a doctor runs their own professional profile; administrators read any doctor (Module 10).
   { key: 'doctor:manage:own', resource: 'doctor', action: 'manage', scope: 'own' },
   { key: 'doctor:read:any', resource: 'doctor', action: 'read', scope: 'any' },
+  // Work 168 — a patient books, reads, reschedules and cancels their own appointments (Module 10).
+  { key: 'appointment:book:own', resource: 'appointment', action: 'book', scope: 'own' },
   // Module 16 Work 82 — seeing the maker-checker queue (`/admin/approvals`). Read and decide share
   // the route; *deciding* a request also needs that action's own permission (e.g.
   // `finance:refund:any`), checked in the command, and never one's own request. ADMIN and
@@ -238,6 +240,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // Work 65 — apply for a pending pharmacy organisation; the org-scoped PHARMACY_OWNER
     // membership it creates carries the owner's permissions, not this role.
     'pharmacy:apply:own',
+    // Work 168 — book a doctor.
+    'appointment:book:own',
   ],
   PHARMACY_OWNER: [
     'auth:login',

@@ -38,4 +38,6 @@ export interface IProviderFacilityPort {
   summaries(providerIds: string[]): Promise<FacilitySummary[]>;
   /** Work 167: an active, undeleted location, or `null`. */
   locationOf(locationId: string): Promise<FacilityLocationSummary | null>;
+  /** Work 168: every location id of a facility, removed ones included (past appointments were there). */
+  locationIdsOf(providerId: string): Promise<string[]>;
 }

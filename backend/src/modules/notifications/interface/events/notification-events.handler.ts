@@ -1,4 +1,5 @@
 import { AdminEventType, DisputeUpdatedPayload } from '../../../admin/domain/events';
+import { AppointmentEventType, type AppointmentEventPayload } from '../../../doctors/domain/appointment-rules';
 import { ReviewEventType, ReviewModeratedPayload } from '../../../reviews/domain/events';
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { DomainEvent } from '../../../../shared/events/domain-event';
@@ -68,6 +69,7 @@ import {
   DriverNotifications,
   PaymentNotifications,
   RxRequestNotifications,
+  AppointmentNotifications,
   PharmacyNotifications,
   PrescriptionNotifications,
 } from '../../application/support/event-notifications';
@@ -183,6 +185,11 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.on<RxRequestCustomerPayload>(RxRequestEventType.Reopened, RxRequestNotifications.reopened);
     this.on<RxRequestCustomerPayload>(RxRequestEventType.Ended, RxRequestNotifications.ended);
     this.on<RxRequestCustomerPayload>(RxRequestEventType.Quoted, RxRequestNotifications.quoted);
+
+    // Work 168: doctor appointments.
+    this.onEach<AppointmentEventPayload>(AppointmentEventType.Booked, AppointmentNotifications.booked);
+    this.onEach<AppointmentEventPayload>(AppointmentEventType.Cancelled, AppointmentNotifications.cancelled);
+    this.onEach<AppointmentEventPayload>(AppointmentEventType.Rescheduled, AppointmentNotifications.rescheduled);
   }
 
   /**

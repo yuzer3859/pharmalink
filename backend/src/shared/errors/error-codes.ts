@@ -285,6 +285,12 @@ export enum ErrorCode {
   // Module 10 — Doctor & Appointment (Work 166, module-10 §9).
   DOCTOR_NOT_FOUND = 'DOCTOR_NOT_FOUND',
   DOCTOR_NOT_VERIFIED = 'DOCTOR_NOT_VERIFIED',
+  // Work 168: booking (module-10 §9).
+  SLOT_UNAVAILABLE = 'SLOT_UNAVAILABLE',
+  APPOINTMENT_NOT_FOUND = 'APPOINTMENT_NOT_FOUND',
+  CANCELLATION_WINDOW_CLOSED = 'CANCELLATION_WINDOW_CLOSED',
+  RESCHEDULE_WINDOW_CLOSED = 'RESCHEDULE_WINDOW_CLOSED',
+  INVALID_APPOINTMENT_STATE = 'INVALID_APPOINTMENT_STATE',
 }
 
 /** Default HTTP status mapping for each error code. */
@@ -472,4 +478,9 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   // Module 10 — Doctor & Appointment (Work 166).
   [ErrorCode.DOCTOR_NOT_FOUND]: 404,
   [ErrorCode.DOCTOR_NOT_VERIFIED]: 403,
+  [ErrorCode.SLOT_UNAVAILABLE]: 409,
+  [ErrorCode.APPOINTMENT_NOT_FOUND]: 404,
+  [ErrorCode.CANCELLATION_WINDOW_CLOSED]: 409,
+  [ErrorCode.RESCHEDULE_WINDOW_CLOSED]: 409,
+  [ErrorCode.INVALID_APPOINTMENT_STATE]: 409,
 };
