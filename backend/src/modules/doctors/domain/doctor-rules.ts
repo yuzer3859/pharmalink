@@ -23,6 +23,8 @@ export const DoctorEventType = {
   DoctorSuspended: 'doctor.doctor.suspended',
   /** The profile, a fee or an affiliation changed. */
   DoctorProfileChanged: 'doctor.doctor.profile_changed',
+  /** Work 167: the doctor's slots changed (availability, a block, a booking). */
+  DoctorAvailabilityChanged: 'doctor.doctor.availability_changed',
 } as const;
 
 export interface DoctorEventPayload {

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { narrowToSelectedOrganization } from '../../../shared/http/selected-organization';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import {
@@ -9,10 +10,28 @@ import type { ProviderType } from '../domain/provider-rules';
 import type { FacilitySummary, IProviderFacilityPort } from './ports/inbound/provider-facility.port';
 import { FACILITY_ADMIN_ROLES } from './provider-portal.service';
 
-const SELECT = { id: true, type: true, displayName: true, transactingStatus: true, licenseExpiresAt: true } as const;
+const SELECT = Prisma.validator<Prisma.HealthcareProviderSelect>()({
+  id: true,
+  type: true,
+  displayName: true,
+  transactingStatus: true,
+  licenseExpiresAt: true,
+  locations: { where: { deletedAt: null, isActive: true }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], take: 1, select: { city: true, lat: true, lng: true } },
+});
 
-function toSummary(r: { id: string; type: string; displayName: string; transactingStatus: string; licenseExpiresAt: Date | null }): FacilitySummary {
+function toSummary(r: {
+  id: string;
+  type: string;
+  displayName: string;
+  transactingStatus: string;
+  licenseExpiresAt: Date | null;
+  locations: Array<{ city: string | null; lat: number | null; lng: number | null }>;
+}): FacilitySummary {
+  const main = r.locations[0];
   return {
+    city: main?.city ?? null,
+    lat: main?.lat ?? null,
+    lng: main?.lng ?? null,
     providerId: r.id,
     type: r.type as ProviderType,
     displayName: r.displayName,
@@ -49,5 +68,13 @@ export class ProviderFacilityService implements IProviderFacilityPort {
     if (providerIds.length === 0) return [];
     const rows = await this.prisma.healthcareProvider.findMany({ where: { id: { in: providerIds }, deletedAt: null }, select: SELECT });
     return rows.map(toSummary);
+  }
+
+  async locationOf(locationId: string) {
+    const row = await this.prisma.providerLocation.findFirst({
+      where: { id: locationId, deletedAt: null, isActive: true, provider: { deletedAt: null } },
+      select: { id: true, providerId: true, name: true, city: true, lat: true, lng: true },
+    });
+    return row ? { locationId: row.id, providerId: row.providerId, name: row.name, city: row.city, lat: row.lat, lng: row.lng } : null;
   }
 }

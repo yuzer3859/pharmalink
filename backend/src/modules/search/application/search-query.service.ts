@@ -134,6 +134,39 @@ export interface PharmacyHit {
   distanceMeters: number | null;
 }
 
+/** Work 167: doctor search (module-14 §9 `GET /search/doctors`). */
+export interface DoctorSearchInput {
+  q?: string;
+  specialty?: string;
+  providerId?: string;
+  telemedicine?: boolean;
+  /** Only doctors with an open slot ahead. */
+  availableOnly?: boolean;
+  geo?: GeoFilter;
+  sort?: 'next_available' | 'rating' | 'distance';
+  page: number;
+  size: number;
+}
+
+export interface DoctorHit {
+  doctorId: string;
+  fullName: string;
+  fullNameAm: string | null;
+  specialty: string | null;
+  subSpecialties: string[];
+  languages: string[];
+  acceptsTelemedicine: boolean;
+  feeInPerson: number | null;
+  feeTele: number | null;
+  currency: string;
+  practices: Array<{ providerId: string; name: string; city: string | null }>;
+  /** ISO time of the soonest open slot, or `null`. */
+  nextAvailableAt: string | null;
+  city: string | null;
+  ratingAvg: number | null;
+  distanceMeters: number | null;
+}
+
 /** Work 162: provider search (module-14 §9 `GET /search/providers`). */
 export interface ProviderSearchInput {
   q?: string;
@@ -528,6 +561,84 @@ export class SearchQueryService {
   }
 
   /**
+   * Work 167 (F-SR-09): doctors by name, specialty, facility or language — typo-tolerant — with
+   * filters for specialty, facility and telemedicine. Sort: `next_available` (the soonest open
+   * slot first; the default), `rating`, or nearest first with a location.
+   */
+  async doctors(input: DoctorSearchInput): Promise<SearchPage<DoctorHit>> {
+    const started = Date.now();
+    const tsq = toPrefixTsQuery(input.q);
+    const normalized = normalizeQuery(input.q);
+    let match: TextMatch | null = tsq ? exactMatch(tsq) : null;
+    let page = await this.doctorsMatching(input, match);
+    if (match && page.total === 0 && normalized) {
+      match = similarMatch(normalized);
+      page = await this.doctorsMatching(input, match);
+    }
+    await this.logQuery('DOCTOR', input.page, normalized, input.q, page.total, started);
+    return {
+      ...page,
+      page: input.page,
+      size: input.size,
+      match: match?.mode ?? null,
+      didYouMean: match?.mode === 'SIMILAR' ? (page.items[0]?.fullName ?? null) : null,
+    };
+  }
+
+  private async doctorsMatching(input: DoctorSearchInput, match: TextMatch | null): Promise<{ items: DoctorHit[]; total: number }> {
+    const where: Prisma.Sql[] = [Prisma.sql`d."entityType" = 'DOCTOR'`, Prisma.sql`d."status" = 'ACTIVE'`];
+    if (match) where.push(match.where);
+    if (input.specialty) {
+      where.push(Prisma.sql`(lower(d."attributes"->>'specialty') = lower(${input.specialty}) OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(d."attributes"->'subSpecialties') ss WHERE lower(ss) = lower(${input.specialty})))`);
+    }
+    if (input.providerId) where.push(Prisma.sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(d."attributes"->'providerIds') pid WHERE pid = ${input.providerId})`);
+    if (input.telemedicine) where.push(Prisma.sql`(d."attributes"->>'acceptsTelemedicine')::boolean IS TRUE`);
+    if (input.availableOnly) where.push(Prisma.sql`d."isAvailable" IS TRUE`);
+    const dist = input.geo ? distanceSql(Prisma.sql`d."latitude"`, Prisma.sql`d."longitude"`, input.geo) : Prisma.sql`NULL::double precision`;
+    if (input.geo) where.push(Prisma.sql`d."latitude" IS NOT NULL AND d."longitude" IS NOT NULL AND ${dist} <= ${input.geo.radiusKm * 1000}`);
+    const whereSql = Prisma.join(where, ' AND ');
+    const byScore = match ? Prisma.sql`${match.score} DESC,` : Prisma.empty;
+    const next = Prisma.sql`(d."attributes"->>'nextAvailableAt') ASC NULLS LAST`;
+    let order: Prisma.Sql;
+    if (input.sort === 'rating') order = Prisma.sql`ORDER BY d."ratingAvg" DESC NULLS LAST, ${byScore} d."title" ASC`;
+    else if (input.geo && match?.mode !== 'SIMILAR' && input.sort !== 'next_available') order = Prisma.sql`ORDER BY ${dist} ASC, ${next}`;
+    else order = Prisma.sql`ORDER BY ${byScore} ${next}, d."title" ASC`;
+    const offset = (input.page - 1) * input.size;
+    const rows = await this.prisma.$queryRaw<
+      Array<{ entityId: string; title: string; city: string | null; ratingAvg: number | null; currency: string | null; attributes: Record<string, unknown> | null; distanceMeters: number | null }>
+    >(Prisma.sql`
+      SELECT d."entityId", d."title", d."city", d."ratingAvg", d."currency", d."attributes", ${dist} AS "distanceMeters"
+      FROM "search_documents" d WHERE ${whereSql} ${order} LIMIT ${input.size} OFFSET ${offset}`);
+    const [{ total }] = await this.prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`
+      SELECT COUNT(*)::int AS total FROM "search_documents" d WHERE ${whereSql}`);
+    return {
+      items: rows.map((r) => {
+        const a = (r.attributes ?? {}) as Record<string, unknown>;
+        const str = (k: string) => (typeof a[k] === 'string' ? (a[k] as string) : null);
+        const num = (k: string) => (typeof a[k] === 'number' ? (a[k] as number) : null);
+        return {
+          doctorId: r.entityId,
+          fullName: r.title,
+          fullNameAm: str('fullNameAm'),
+          specialty: str('specialty'),
+          subSpecialties: Array.isArray(a.subSpecialties) ? (a.subSpecialties as string[]) : [],
+          languages: Array.isArray(a.languages) ? (a.languages as string[]) : [],
+          acceptsTelemedicine: a.acceptsTelemedicine === true,
+          feeInPerson: num('feeInPerson'),
+          feeTele: num('feeTele'),
+          currency: r.currency ?? 'ETB',
+          practices: Array.isArray(a.practices) ? (a.practices as DoctorHit['practices']) : [],
+          nextAvailableAt: str('nextAvailableAt'),
+          city: r.city,
+          ratingAvg: r.ratingAvg,
+          distanceMeters: r.distanceMeters === null ? null : Math.round(r.distanceMeters),
+        };
+      }),
+      total,
+    };
+  }
+
+  /**
    * Work 158 (F-SR-11): what to offer while the customer types. Popular searches that start with
    * the words so far (searched at least twice in 30 days, and found something), then products
    * and pharmacies whose names start with them or are spelt close to them.
@@ -585,7 +696,7 @@ export class SearchQueryService {
    * that identifies the person is kept. A failure here never fails the search.
    */
   private async logQuery(
-    entityType: 'PRODUCT' | 'PHARMACY' | 'PROVIDER' | 'DIAGNOSTIC_SERVICE',
+    entityType: 'PRODUCT' | 'PHARMACY' | 'PROVIDER' | 'DIAGNOSTIC_SERVICE' | 'DOCTOR',
     page: number,
     normalized: string | null,
     raw: string | undefined,

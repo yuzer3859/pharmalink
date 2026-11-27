@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CatalogModule } from '../catalog/catalog.module';
 import { PharmacyInventoryModule } from '../pharmacy-inventory/pharmacy-inventory.module';
 import { ProviderDirectoryModule } from '../provider-directory/provider-directory.module';
+import { DoctorsModule } from '../doctors/doctors.module';
 import { SearchProjectorService } from './application/search-projector.service';
 import { SearchQueryService } from './application/search-query.service';
 import { SearchBootstrapJob } from './infrastructure/search-bootstrap.job';
@@ -15,7 +16,7 @@ import { SearchEventsHandler } from './interface/search-events.handler';
  * `search_offers`. Work 162 adds healthcare providers and their diagnostic services (Module 09).
  */
 @Module({
-  imports: [CatalogModule, PharmacyInventoryModule, ProviderDirectoryModule],
+  imports: [CatalogModule, PharmacyInventoryModule, ProviderDirectoryModule, DoctorsModule],
   controllers: [SearchController],
   providers: [SearchProjectorService, SearchQueryService, SearchEventsHandler, SearchBootstrapJob],
   exports: [SearchProjectorService],
