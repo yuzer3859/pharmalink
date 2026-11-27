@@ -12,7 +12,7 @@ import { PermissionChangeService } from '../services/permission-change.service';
  * Work 166: a platform administrator makes an existing account a doctor — the doctor twin of
  * Work 156's `MakeDriverCommand`. The person signs up in the PharmaLink app first. Only a customer
  * account can become one, never an administrator or anyone holding an organisation role (a
- * pharmacy's or a facility's). Their primary role becomes DOCTOR and they gain the DOCTOR role;
+ * pharmacy's or a facility's), nor anyone holding another role such as DRIVER. Their primary role becomes DOCTOR and they gain the DOCTOR role;
  * the change takes effect on their next request. Audited as `identity.user.made_doctor`. Already
  * a doctor: nothing changes.
  */
@@ -40,6 +40,10 @@ export class MakeDoctorCommand {
     const assignments = await this.rbac.listAssignmentsForUser(user.id);
     if (assignments.some((a) => a.organizationId)) {
       throw ApiException.businessRule('This account works for a pharmacy or facility, so it cannot also be a doctor.', { reason: 'HAS_ORGANIZATION_ROLE' });
+    }
+    // A driver, or anyone holding a platform role, is not a doctor too.
+    if (assignments.some((a) => a.roleKey !== 'CUSTOMER')) {
+      throw ApiException.businessRule('This account already has another role, so it cannot also be a doctor.', { reason: 'HAS_OTHER_ROLE' });
     }
 
     await this.uow.run(async (tx) => {
