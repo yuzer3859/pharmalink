@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home, Pill, Stethoscope, FlaskConical, Truck, Palette,
   Search, Bell, Moon, Sun, ShoppingBag, Menu, X, ShieldAlert, Upload,
-  LogIn, LogOut, UserPlus, UserRound, Send,
+  LogIn, LogOut, UserPlus, UserRound, Send, Building2,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/theme'
@@ -20,6 +20,7 @@ const nav = [
   { to: '/medicines', labelKey: 'layout.nav.medicines', icon: Pill },
   { to: '/prescriptions', labelKey: 'layout.nav.prescriptions', icon: Upload },
   { to: '/requests', labelKey: 'layout.nav.requests', icon: Send },
+  { to: '/care', labelKey: 'layout.nav.care', icon: Building2 },
   { to: '/doctors', labelKey: 'layout.nav.doctors', icon: Stethoscope },
   { to: '/diagnostics', labelKey: 'layout.nav.diagnostics', icon: FlaskConical },
   { to: '/orders', labelKey: 'layout.nav.orders', icon: Truck },

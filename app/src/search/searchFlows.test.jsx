@@ -188,7 +188,8 @@ describe('suggestions, close spellings and popular searches (Work 159)', () => {
 })
 
 describe('deferred services (Work 99)', () => {
-  it.each([['/doctors', 'Doctor appointments'], ['/diagnostics', 'Lab tests and diagnostics']])('%s says "coming later" and shows no sample data', async (path, title) => {
+  // Work 165: /diagnostics now compares real tests (care/careFlows.test.jsx); doctors are still to come.
+  it.each([['/doctors', 'Doctor appointments']])('%s says "coming later" and shows no sample data', async (path, title) => {
     renderApp(path, {})
     expect(await screen.findByRole('heading', { name: title })).toBeTruthy()
     expect(screen.getByText(/Coming later/)).toBeTruthy()

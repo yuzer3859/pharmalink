@@ -49,6 +49,9 @@ export const PAGE_PICTURES = {
   prescriptions: ['/products/amoxicillin.webp', '/products/paracetamol.webp', '/products/cough-syrup.webp'],
   requests: ['/products/azithromycin.webp', '/products/vitamin-c.webp', '/products/ibuprofen.webp'],
   account: ['/products/moisturiser.webp', '/products/lipstick.webp', '/products/toothbrush.webp'],
+  /** Work 165: hospitals, clinics and labs; lab tests. */
+  care: ['/products/stethoscope.webp', '/products/first-aid-kit.webp', '/products/wheelchair.webp'],
+  diagnostics: ['/products/glucometer.webp', '/products/bp-monitor.webp', '/products/thermometer.webp'],
   /** The picture wall beside the sign-in and registration forms. */
   auth: [
     '/products/vitamin-d.webp',

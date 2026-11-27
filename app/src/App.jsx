@@ -8,6 +8,8 @@ import Prescriptions from './pages/Prescriptions'
 import MedicineDetail from './pages/MedicineDetail'
 import Doctors from './pages/Doctors'
 import Diagnostics from './pages/Diagnostics'
+import Care from './pages/Care'
+import ProviderDetail from './pages/ProviderDetail'
 import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import Checkout from './pages/Checkout'
@@ -49,6 +51,8 @@ export default function App() {
           <Route path="/medicines/:id" element={<Page><MedicineDetail /></Page>} />
           <Route path="/doctors" element={<Page><Doctors /></Page>} />
           <Route path="/diagnostics" element={<Page><Diagnostics /></Page>} />
+          <Route path="/care" element={<Page><Care /></Page>} />
+          <Route path="/care/:id" element={<Page><ProviderDetail /></Page>} />
           <Route path="/orders" element={<Page><RequireCustomer><Orders /></RequireCustomer></Page>} />
           <Route path="/orders/:id" element={<Page><RequireCustomer><OrderDetail /></RequireCustomer></Page>} />
           {/* Work 102: the old tracking prototype's address now opens the real orders. */}
