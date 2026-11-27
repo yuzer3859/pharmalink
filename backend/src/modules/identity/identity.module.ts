@@ -40,7 +40,9 @@ import { IDENTITY_ORGANIZATION_READ_PORT } from './application/ports/inbound/ide
 import { IDENTITY_PHARMACY_ONBOARDING_PORT, IdentityPharmacyOnboardingAdapter } from './application/ports/inbound/identity-pharmacy-onboarding.port';
 import { IDENTITY_FACILITY_ONBOARDING_PORT, IdentityFacilityOnboardingAdapter } from './application/ports/inbound/identity-facility-onboarding.port';
 import { IDENTITY_DRIVER_ONBOARDING_PORT, IdentityDriverOnboardingAdapter } from './application/ports/inbound/identity-driver-onboarding.port';
+import { IDENTITY_DOCTOR_ONBOARDING_PORT, IdentityDoctorOnboardingAdapter } from './application/ports/inbound/identity-doctor-onboarding.port';
 import { MakeDriverCommand } from './application/commands/make-driver.command';
+import { MakeDoctorCommand } from './application/commands/make-doctor.command';
 import { PrismaIdentityOrganizationReadAdapter } from './infrastructure/persistence/prisma-identity-organization-read.adapter';
 import { IDENTITY_CONTACT_READ_PORT } from './application/ports/inbound/identity-contact-read.port';
 import { IDENTITY_LANGUAGE_READ_PORT } from './application/ports/inbound/identity-language-read.port';
@@ -274,7 +276,9 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     { provide: IDENTITY_FACILITY_ONBOARDING_PORT, useClass: IdentityFacilityOnboardingAdapter },
     // Work 156 — an administrator registers a driver.
     MakeDriverCommand,
+    MakeDoctorCommand,
     { provide: IDENTITY_DRIVER_ONBOARDING_PORT, useClass: IdentityDriverOnboardingAdapter },
+    { provide: IDENTITY_DOCTOR_ONBOARDING_PORT, useClass: IdentityDoctorOnboardingAdapter },
     // Inbound read contract for Module 13's notification rendering (module-13 Work 01): one
     // user's `preferredLanguage`, nothing else.
     { provide: IDENTITY_LANGUAGE_READ_PORT, useClass: PrismaIdentityLanguageReadAdapter },
@@ -340,6 +344,7 @@ import { IDENTITY_IMPERSONATION_PORT } from './application/ports/inbound/identit
     IDENTITY_FACILITY_ONBOARDING_PORT,
     // Work 156.
     IDENTITY_DRIVER_ONBOARDING_PORT,
+    IDENTITY_DOCTOR_ONBOARDING_PORT,
     IDENTITY_LANGUAGE_READ_PORT,
     IDENTITY_CONTACT_READ_PORT,
   ],

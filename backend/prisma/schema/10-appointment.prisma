@@ -34,6 +34,12 @@ enum AppointmentStatus {
   EXPIRED
 }
 
+/// Work 166: whether a doctor appears and can be booked (an administrator's decision, or an expired licence).
+enum DoctorStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 enum WaitlistStatus {
   WAITING
   NOTIFIED
@@ -42,8 +48,15 @@ enum WaitlistStatus {
 }
 
 model DoctorProfile {
-  id                      String    @id @default(uuid())
-  userId                  String    @unique
+  id                      String       @id @default(uuid())
+  userId                  String       @unique
+  /// Work 166: the name patients see, e.g. "Dr. Selamawit Bekele"; Amharic optional.
+  fullName                String       @default("")
+  fullNameAm              String?
+  /// Work 166: ACTIVE doctors with a current licence appear and can be booked.
+  status                  DoctorStatus @default(ACTIVE)
+  licenseNumber           String?
+  licenseExpiresAt        DateTime?
   specialty               String?
   subSpecialties          String[]
   qualifications          Json?
@@ -53,13 +66,13 @@ model DoctorProfile {
   photoUrl                String?
   consultationFeeInPerson Int?
   consultationFeeTele     Int?
-  currency                String    @default("ETB")
-  isVerified              Boolean   @default(false)
-  acceptsTelemedicine     Boolean   @default(false)
-  ratingAvg               Float     @default(0)
-  ratingCount             Int       @default(0)
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  currency                String       @default("ETB")
+  isVerified              Boolean      @default(false)
+  acceptsTelemedicine     Boolean      @default(false)
+  ratingAvg               Float        @default(0)
+  ratingCount             Int          @default(0)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
   deletedAt               DateTime?
 
   affiliations      DoctorAffiliation[]
@@ -69,6 +82,7 @@ model DoctorProfile {
   waitlistEntries   WaitlistEntry[]
   departmentDoctors DepartmentDoctor[]
 
+  @@index([status, specialty])
   @@map("doctor_profiles")
 }
 
@@ -83,6 +97,7 @@ model DoctorAffiliation {
 
   doctor DoctorProfile @relation(fields: [doctorId], references: [id])
 
+  @@unique([doctorId, providerId])
   @@map("doctor_affiliations")
 }
 

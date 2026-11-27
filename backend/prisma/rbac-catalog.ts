@@ -176,6 +176,9 @@ export const PERMISSIONS: Array<{
   { key: 'provider:read:any', resource: 'provider', action: 'read', scope: 'any' },
   // Work 161 — a facility administrator runs their own directory profile (Module 09).
   { key: 'provider:manage:org', resource: 'provider', action: 'manage', scope: 'org' },
+  // Work 166 — a doctor runs their own professional profile; administrators read any doctor (Module 10).
+  { key: 'doctor:manage:own', resource: 'doctor', action: 'manage', scope: 'own' },
+  { key: 'doctor:read:any', resource: 'doctor', action: 'read', scope: 'any' },
   // Module 16 Work 82 — seeing the maker-checker queue (`/admin/approvals`). Read and decide share
   // the route; *deciding* a request also needs that action's own permission (e.g.
   // `finance:refund:any`), checked in the command, and never one's own request. ADMIN and
@@ -309,6 +312,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'notification:manage:own',
     'profile:update:own',
     'appointment:manage:own',
+    'doctor:manage:own',
   ],
   HOSPITAL_ADMIN: [
     'auth:login',
@@ -399,6 +403,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'pharmacy:read:any',
     // Work 160 — healthcare provider records.
     'provider:read:any',
+    // Work 166 — doctor records.
+    'doctor:read:any',
     // Module 16 Work 82 — the maker-checker queue.
     'approval:read:any',
     // Module 16 Work 85 — support "view as".

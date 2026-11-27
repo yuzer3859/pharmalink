@@ -93,6 +93,12 @@ export class User {
     this.props.updatedAt = now;
   }
 
+  /** Work 166: a platform administrator registered this customer account as a doctor. */
+  becomeDoctor(now: Date = new Date()): void {
+    this.props.primaryRole = PrimaryRole.DOCTOR;
+    this.props.updatedAt = now;
+  }
+
   /** Marks the phone verified; activates a PENDING_VERIFICATION customer (module-01 §7.1). */
   markPhoneVerified(now: Date = new Date()): void {
     this.props.phoneVerifiedAt = now;

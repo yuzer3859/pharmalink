@@ -10,6 +10,8 @@ import { ProviderPortalController } from './interface/provider-portal.controller
 import { ProviderDiscoveryController } from './interface/provider-discovery.controller';
 import { PROVIDER_SEARCH_SOURCE_PORT } from './application/ports/inbound/provider-search-source.port';
 import { ProviderSearchSourceService } from './application/provider-search-source.service';
+import { PROVIDER_FACILITY_PORT } from './application/ports/inbound/provider-facility.port';
+import { ProviderFacilityService } from './application/provider-facility.service';
 
 /**
  * Module 09 — Provider Directory (architecture/module-09-provider-directory.md): hospitals,
@@ -24,6 +26,8 @@ import { ProviderSearchSourceService } from './application/provider-search-sourc
   providers: [
     ProviderPortalService,
     ProviderSearchSourceService,
+    ProviderFacilityService,
+    { provide: PROVIDER_FACILITY_PORT, useExisting: ProviderFacilityService },
     { provide: PROVIDER_SEARCH_SOURCE_PORT, useExisting: ProviderSearchSourceService },
     ProviderOnboardingService,
     ProviderAdminReadService,
@@ -31,6 +35,6 @@ import { ProviderSearchSourceService } from './application/provider-search-sourc
     { provide: PROVIDER_ONBOARDING_PORT, useExisting: ProviderOnboardingService },
     { provide: PROVIDER_ADMIN_READ_PORT, useExisting: ProviderAdminReadService },
   ],
-  exports: [PROVIDER_ONBOARDING_PORT, PROVIDER_ADMIN_READ_PORT, PROVIDER_SEARCH_SOURCE_PORT, ProviderLicenceExpirySweeper],
+  exports: [PROVIDER_ONBOARDING_PORT, PROVIDER_ADMIN_READ_PORT, PROVIDER_SEARCH_SOURCE_PORT, PROVIDER_FACILITY_PORT, ProviderLicenceExpirySweeper],
 })
 export class ProviderDirectoryModule {}

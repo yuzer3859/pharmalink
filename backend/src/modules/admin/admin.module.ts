@@ -25,6 +25,7 @@ import {
 import { PaymentModule } from '../payment/payment.module';
 import { PharmacyInventoryModule } from '../pharmacy-inventory/pharmacy-inventory.module';
 import { ProviderDirectoryModule } from '../provider-directory/provider-directory.module';
+import { DoctorsModule } from '../doctors/doctors.module';
 import { ApproveVerificationCommand } from './application/commands/approve-verification.command';
 import { AssignRoleCommand } from './application/commands/assign-role.command';
 import { ReinstateUserCommand } from './application/commands/reinstate-user.command';
@@ -145,10 +146,12 @@ import { AdminFulfillmentOperationsController } from './interface/controllers/ad
 import { AdminPharmacyOperationsController } from './interface/controllers/admin-pharmacy-operations.controller';
 import { AdminPharmacyRegistrationController } from './interface/controllers/admin-pharmacy-registration.controller';
 import { AdminProviderRegistrationController, AdminProvidersController } from './interface/controllers/admin-providers.controller';
+import { AdminDoctorRegistrationController, AdminDoctorsController } from './interface/controllers/admin-doctors.controller';
 import { AdminPharmacyOwnersController } from './interface/controllers/admin-pharmacy-owners.controller';
 import { PharmacyOwnersService } from './application/services/pharmacy-owners.service';
 import { PharmacyRegistrationService } from './application/services/pharmacy-registration.service';
 import { ProviderRegistrationService } from './application/services/provider-registration.service';
+import { DoctorRegistrationService } from './application/services/doctor-registration.service';
 import { AdminDriversController } from './interface/controllers/admin-drivers.controller';
 import { DriverRegistrationService } from './application/services/driver-registration.service';
 import { AdminBranchOperationsController } from './interface/controllers/admin-branch-operations.controller';
@@ -256,6 +259,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     PharmacyInventoryModule,
     // Work 160: PROVIDER_ONBOARDING_PORT and PROVIDER_ADMIN_READ_PORT (Module 09).
     ProviderDirectoryModule,
+    // Work 166: DOCTOR_ADMIN_PORT (Module 10).
+    DoctorsModule,
     OrdersModule,
     // Work 91: REVIEW_MODERATION_PORT.
     ReviewsModule,
@@ -416,6 +421,7 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     // Work 154: the Super Admin registers a pharmacy for an owner.
     PharmacyRegistrationService,
     ProviderRegistrationService,
+    DoctorRegistrationService,
     // Work 156: the Super Admin registers drivers.
     DriverRegistrationService,
     // Work 157: pharmacy owners.
@@ -472,6 +478,8 @@ import { AdminVerificationsController } from './interface/controllers/admin-veri
     AdminPharmacyRegistrationController,
     AdminProviderRegistrationController,
     AdminProvidersController,
+    AdminDoctorRegistrationController,
+    AdminDoctorsController,
     // Work 156.
     AdminDriversController,
     // Work 157.

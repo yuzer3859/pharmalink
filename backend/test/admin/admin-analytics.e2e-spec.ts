@@ -650,6 +650,8 @@ describe('Admin operational analytics (e2e)', () => {
         'delivery/delivery.module',
         'identity/application/ports/inbound/identity-admin.port',
         'identity/application/ports/inbound/identity-analytics-read.port',
+        // Work 166: an administrator registers a doctor.
+        'identity/application/ports/inbound/identity-doctor-onboarding.port',
         // Work 156: an administrator registers a driver.
         'identity/application/ports/inbound/identity-driver-onboarding.port',
         // Work 160: an administrator registers a hospital, clinic or lab.
