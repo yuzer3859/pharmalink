@@ -9,6 +9,20 @@ export interface FacilitySummary {
   status: string;
   /** ACTIVE with a current licence (module-09 §6). */
   eligible: boolean;
+  /** Work 167: the main location's city and map position, for showing and ranking doctors there. */
+  city: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
+/** Work 167: one of a facility's active locations. */
+export interface FacilityLocationSummary {
+  locationId: string;
+  providerId: string;
+  name: string;
+  city: string | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 /**
@@ -22,4 +36,6 @@ export interface IProviderFacilityPort {
   /** The department's name when it belongs to that facility, else `null`. */
   departmentOf(providerId: string, departmentId: string): Promise<{ departmentId: string; name: string } | null>;
   summaries(providerIds: string[]): Promise<FacilitySummary[]>;
+  /** Work 167: an active, undeleted location, or `null`. */
+  locationOf(locationId: string): Promise<FacilityLocationSummary | null>;
 }

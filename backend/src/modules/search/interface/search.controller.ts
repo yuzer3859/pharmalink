@@ -7,6 +7,7 @@ import {
   SearchMedicinesQueryDto,
   SearchOffersQueryDto,
   SearchPharmaciesQueryDto,
+  SearchDoctorsQueryDto,
   SearchProvidersQueryDto,
   SearchServicesQueryDto,
   SearchSuggestQueryDto,
@@ -68,6 +69,26 @@ export class SearchController {
       serviceType: dto.serviceType,
       emergency: dto.emergency,
       geo: geoOf(dto),
+      page: dto.page ?? 1,
+      size: dto.size ?? 20,
+    });
+  }
+
+  /** Work 167: doctors by name, specialty, facility or language; soonest available first. */
+  @Get('doctors')
+  doctors(@Query() dto: SearchDoctorsQueryDto) {
+    const geo = geoOf(dto);
+    if (dto.sort === 'distance' && !geo) {
+      throw new ApiException(ErrorCode.VALIDATION_ERROR, 'Sorting by distance needs a location.', { code: 'LOCATION_REQUIRED_FOR_DISTANCE_SORT' });
+    }
+    return this.search.doctors({
+      q: dto.q,
+      specialty: dto.specialty,
+      providerId: dto.providerId,
+      telemedicine: dto.telemedicine,
+      availableOnly: dto.availableOnly,
+      geo,
+      sort: dto.sort,
       page: dto.page ?? 1,
       size: dto.size ?? 20,
     });

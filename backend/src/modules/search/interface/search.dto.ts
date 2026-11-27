@@ -190,3 +190,47 @@ export class SearchServicesQueryDto extends GeoQueryDto {
   @Max(50)
   size?: number = 20;
 }
+
+/** Work 167: `GET /search/doctors`. */
+export class SearchDoctorsQueryDto extends GeoQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  specialty?: string;
+
+  @IsOptional()
+  @IsUUID()
+  providerId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  telemedicine?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  availableOnly?: boolean;
+
+  @IsOptional()
+  @IsIn(['next_available', 'rating', 'distance'])
+  sort?: 'next_available' | 'rating' | 'distance';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  size?: number = 20;
+}

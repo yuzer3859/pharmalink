@@ -9,6 +9,7 @@ import {
 } from '../../catalog/application/ports/inbound/catalog-search-source.port';
 import { PharmacyInventoryEventType } from '../../pharmacy-inventory/domain/events';
 import { ProviderEventType } from '../../provider-directory/domain/events';
+import { DoctorEventType } from '../../doctors/domain/doctor-rules';
 import { SearchProjectorService } from '../application/search-projector.service';
 
 type Payload = Record<string, unknown>;
@@ -83,15 +84,29 @@ export class SearchEventsHandler implements OnModuleInit {
       );
     }
 
+    // Work 167: doctors (Module 10).
+    for (const type of Object.values(DoctorEventType)) this.bus.subscribe<Payload>(type, (e) => this.runDoctor(e));
+
     // Work 162: healthcare providers and their services (Module 09).
     for (const type of [ProviderEventType.ProviderActivated, ProviderEventType.ProviderSuspended, ProviderEventType.ProviderProfileChanged]) {
       this.bus.subscribe<Payload>(type, (e) =>
         this.run(e, async (p) => {
           const id = str(p, 'providerId');
-          if (id) await this.projector.refreshProvider(id);
+          if (id) {
+            await this.projector.refreshProvider(id);
+            // Work 167: the doctors practising there show its name, place and eligibility.
+            await this.projector.refreshDoctorsAt(id);
+          }
         }),
       );
     }
+  }
+
+  private async runDoctor(event: DomainEvent<Payload>): Promise<void> {
+    await this.run(event, async (p) => {
+      const id = str(p, 'doctorId');
+      if (id) await this.projector.refreshDoctor(id);
+    });
   }
 
   private async run(event: DomainEvent<Payload>, work: (payload: Payload) => Promise<void>): Promise<void> {

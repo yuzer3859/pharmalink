@@ -1,4 +1,7 @@
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
+
+const TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** `PATCH /doctor/profile` (Work 166). The name, specialty and licence are set at registration. */
 export class UpdateDoctorProfileDto {
@@ -20,4 +23,34 @@ export class AddFacilityDoctorDto {
   @IsString() @Length(3, 254) identifier!: string;
   @IsOptional() @IsUUID() departmentId?: string;
   @IsOptional() @IsString() @MaxLength(120) roleTitle?: string;
+}
+
+/** `POST /doctor/availability` (Work 167): a weekly pattern, one-off extra time, or time off. */
+export class AvailabilityRuleDto {
+  @IsIn(['RECURRING', 'EXCEPTION_AVAILABLE', 'EXCEPTION_BLOCK']) type!: 'RECURRING' | 'EXCEPTION_AVAILABLE' | 'EXCEPTION_BLOCK';
+  /** RECURRING: 0 = Sunday … 6 = Saturday. */
+  @IsOptional() @IsInt() @Min(0) @Max(6) weekday?: number;
+  /** `HH:MM`, Ethiopian local time. */
+  @IsOptional() @Matches(TIME) startTime?: string;
+  @IsOptional() @Matches(TIME) endTime?: string;
+  /** `YYYY-MM-DD`: RECURRING, the first day it applies; an exception, its day. */
+  @IsOptional() @Matches(DATE) fromDate?: string;
+  /** `YYYY-MM-DD`: RECURRING only, the last day it applies. */
+  @IsOptional() @Matches(DATE) toDate?: string;
+  @IsOptional() @IsInt() @Min(10) @Max(240) slotDurationMinutes?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(120) bufferMinutes?: number;
+  @IsIn(['IN_PERSON', 'TELEMEDICINE', 'BOTH']) appointmentType!: 'IN_PERSON' | 'TELEMEDICINE' | 'BOTH';
+  /** Where in-person patients are seen: a location of a facility the doctor practises at. */
+  @IsOptional() @IsUUID() providerLocationId?: string;
+}
+
+/** `GET /doctor/slots`, `GET /doctors/:id/slots` (Work 167): local dates, at most 31 days. */
+export class SlotRangeQueryDto {
+  @IsOptional() @Matches(DATE) from?: string;
+  @IsOptional() @Matches(DATE) to?: string;
+}
+
+export class OpenSlotsQueryDto extends SlotRangeQueryDto {
+  @IsOptional() @IsIn(['IN_PERSON', 'TELEMEDICINE']) type?: 'IN_PERSON' | 'TELEMEDICINE';
+  @IsOptional() @IsUUID() locationId?: string;
 }

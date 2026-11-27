@@ -15,6 +15,7 @@ import {
   IProviderSearchSourcePort,
   PROVIDER_SEARCH_SOURCE_PORT,
 } from '../../provider-directory/application/ports/inbound/provider-search-source.port';
+import { DOCTOR_SEARCH_SOURCE_PORT, IDoctorSearchSourcePort } from '../../doctors/application/ports/inbound/doctor-search-source.port';
 
 const LOCALE = 'en';
 
@@ -71,6 +72,7 @@ export class SearchProjectorService {
     @Inject(CATALOG_SEARCH_SOURCE_PORT) private readonly catalog: ICatalogSearchSourcePort,
     @Inject(PHARMACY_SEARCH_SOURCE_PORT) private readonly pharmacies: IPharmacySearchSourcePort,
     @Inject(PROVIDER_SEARCH_SOURCE_PORT) private readonly providers: IProviderSearchSourcePort,
+    @Inject(DOCTOR_SEARCH_SOURCE_PORT) private readonly doctors: IDoctorSearchSourcePort,
   ) {
     this.logger.setContext(SearchProjectorService.name);
   }
@@ -326,9 +328,79 @@ export class SearchProjectorService {
     return 'INDEXED';
   }
 
+  /**
+   * Work 167: a doctor changed (registered, suspended, profile, where they practise, or their
+   * slots). One `DOCTOR` document per listed doctor, at their primary facility's main location,
+   * with the next open slot; none when the doctor is not listed.
+   */
+  async refreshDoctor(doctorId: string): Promise<'INDEXED' | 'REMOVED'> {
+    const source = await this.doctors.doctor(doctorId);
+    if (!source || !source.listed) {
+      await this.prisma.searchDocument.deleteMany({ where: { entityType: 'DOCTOR', entityId: doctorId } });
+      return 'REMOVED';
+    }
+    const at = source.practices.find((p) => p.lat !== null && p.lng !== null) ?? source.practices[0];
+    const fee = source.consultationFeeInPerson ?? source.consultationFeeTele;
+    const data = {
+      title: source.fullName,
+      subtitle: source.fullNameAm,
+      description: source.specialty,
+      keywords: [source.specialty, ...source.subSpecialties, ...source.practices.map((p) => p.providerName), ...source.languages].filter((v): v is string => Boolean(v)).slice(0, 100),
+      categories: source.specialty ? [source.specialty] : [],
+      city: at?.city ?? null,
+      latitude: at?.lat ?? null,
+      longitude: at?.lng ?? null,
+      price: fee,
+      currency: source.currency,
+      ratingAvg: source.ratingCount > 0 ? source.ratingAvg : null,
+      isAvailable: source.nextAvailableAt !== null,
+      attributes: {
+        fullNameAm: source.fullNameAm,
+        specialty: source.specialty,
+        subSpecialties: source.subSpecialties,
+        languages: source.languages,
+        acceptsTelemedicine: source.acceptsTelemedicine,
+        feeInPerson: source.consultationFeeInPerson,
+        feeTele: source.consultationFeeTele,
+        practices: source.practices.map((p) => ({ providerId: p.providerId, name: p.providerName, city: p.city })),
+        providerIds: source.practices.map((p) => p.providerId),
+        nextAvailableAt: source.nextAvailableAt?.toISOString() ?? null,
+        ratingCount: source.ratingCount,
+      } as unknown as Prisma.InputJsonValue,
+      status: 'ACTIVE' as const,
+    };
+    const doc = await this.prisma.searchDocument.upsert({
+      where: { entityType_entityId_locale: { entityType: 'DOCTOR', entityId: doctorId, locale: LOCALE } },
+      create: { entityType: 'DOCTOR', entityId: doctorId, locale: LOCALE, ...data },
+      update: data,
+      select: { id: true },
+    });
+    await this.setVector(
+      doc.id,
+      ['doctor dr ሐኪም ዶክተር', source.fullName, source.fullNameAm, source.specialty, ...source.subSpecialties, ...source.languages, ...source.practices.flatMap((p) => [p.providerName, p.departmentName, p.city])]
+        .filter((v): v is string => Boolean(v && v.trim()))
+        .join(' ')
+        .toLowerCase(),
+    );
+    return 'INDEXED';
+  }
+
+  /** Work 167: the doctors practising at a facility, after the facility changed. */
+  async refreshDoctorsAt(providerId: string): Promise<void> {
+    for (const doctorId of await this.doctors.doctorIdsAt(providerId)) await this.refreshDoctor(doctorId);
+  }
+
   /** Rebuilds everything from the source modules (bootstrap, recovery). Idempotent. */
-  async reindexAll(): Promise<{ products: number; pharmacies: number; providers: number; failures: number }> {
-    const report = { products: 0, pharmacies: 0, providers: 0, failures: 0 };
+  async reindexAll(): Promise<{ products: number; pharmacies: number; providers: number; doctors: number; failures: number }> {
+    const report = { products: 0, pharmacies: 0, providers: 0, doctors: 0, failures: 0 };
+    for (const doctorId of await this.doctors.doctorIds()) {
+      try {
+        if ((await this.refreshDoctor(doctorId)) === 'INDEXED') report.doctors += 1;
+      } catch (err) {
+        report.failures += 1;
+        this.logger.error({ message: 'Search reindex failed for a doctor', doctorId, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
     for (const providerId of await this.providers.providerIds()) {
       try {
         if ((await this.refreshProvider(providerId)) === 'INDEXED') report.providers += 1;
