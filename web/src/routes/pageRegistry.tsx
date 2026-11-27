@@ -4,6 +4,9 @@ import { FacilityProfilePage } from '@/features/facility/FacilityProfilePage';
 import { FacilityLocationsPage } from '@/features/facility/FacilityLocationsPage';
 import { FacilityDepartmentsPage } from '@/features/facility/FacilityDepartmentsPage';
 import { FacilityServicesPage } from '@/features/facility/FacilityServicesPage';
+import { FacilityDoctorsPage } from '@/features/facility/FacilityDoctorsPage';
+import { FacilityAppointmentsPage } from '@/features/facility/FacilityAppointmentsPage';
+import { DoctorsPage } from '@/features/doctors/DoctorsPage';
 import type { ComponentType } from 'react';
 import { RxRequestsPage } from '@/features/rxRequests/RxRequestsPage';
 import type { PortalKey } from '@/types';
@@ -59,6 +62,7 @@ const ADMIN_PAGES: Record<string, ComponentType> = {
   // Work 156.
   drivers: DriversPage,
   providers: ProvidersPage,
+  doctors: DoctorsPage,
   // Work 157.
   'pharmacy-owners': PharmacyOwnersPage,
   configuration: ConfigurationPage,
@@ -92,6 +96,8 @@ const FACILITY_PAGES: Record<string, ComponentType> = {
   locations: FacilityLocationsPage,
   departments: FacilityDepartmentsPage,
   services: FacilityServicesPage,
+  doctors: FacilityDoctorsPage,
+  appointments: FacilityAppointmentsPage,
 };
 
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {

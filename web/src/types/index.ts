@@ -21,6 +21,8 @@ export type PermissionKey =
   | 'drivers:manage'
   | 'providers:view'
   | 'providers:manage'
+  | 'doctors:view'
+  | 'doctors:manage'
   | 'facility:view'
   | 'facility:manage'
   | 'audit:view'
