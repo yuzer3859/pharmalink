@@ -11,6 +11,14 @@
 
 ---
 
+## Implementation status
+
+| Work | What is built |
+|---|---|
+| 166 | **Doctors.** `MakeDoctorCommand` (Module 01): an active customer account with no organisation role becomes a doctor (primary role DOCTOR, role DOCTOR); the Super Admin registers them in one step (`POST /admin/doctor-registrations/uploads`, `POST /admin/doctor-registrations`, `provider:verify:any`): the medical licence and certificates are stored and approved as `DOCTOR_LICENSE` with the licence's expiry, and the profile (name patients see, specialty, licence number and expiry) is created and listed. `doctor_profiles` gains `fullName`, `fullNameAm`, `status` (ACTIVE/SUSPENDED), `licenseNumber`, `licenseExpiresAt`. A doctor is listed while ACTIVE, verified and on a current licence. `GET /admin/doctors`, `GET /admin/doctors/{id}` (`doctor:read:any`, new, ADMIN); `POST /admin/doctors/{id}/suspend` hides the doctor and suspends the account, `/reactivate` restores both on a current licence. `GET`/`PATCH /doctor/profile` (`doctor:manage:own`, new, DOCTOR). A facility names its doctors (`GET`/`POST /provider/doctors`, `DELETE /provider/doctors/{id}`, by sign-in e-mail or phone, optionally in a department). Public: `GET /doctors/{id}`, `GET /providers/{id}/doctors`. On `identity.license.expired` for a `DOCTOR_LICENSE`, the doctor leaves the directory. Events: `doctor.doctor.activated`, `suspended`, `profile_changed`. |
+
+---
+
 ## 1. Module Objectives
 
 This module manages **doctors as bookable healthcare professionals** and the **appointment lifecycle**: discover a doctor, view real availability, **book a slot without double-booking**, pay (if required), attend (in-person or telemedicine handoff), and reschedule/cancel within policy.

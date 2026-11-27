@@ -281,6 +281,10 @@ export enum ErrorCode {
   PROVIDER_NOT_FOUND = 'PROVIDER_NOT_FOUND',
   PROVIDER_NOT_ELIGIBLE = 'PROVIDER_NOT_ELIGIBLE',
   PROVIDER_SUSPENDED = 'PROVIDER_SUSPENDED',
+
+  // Module 10 — Doctor & Appointment (Work 166, module-10 §9).
+  DOCTOR_NOT_FOUND = 'DOCTOR_NOT_FOUND',
+  DOCTOR_NOT_VERIFIED = 'DOCTOR_NOT_VERIFIED',
 }
 
 /** Default HTTP status mapping for each error code. */
@@ -464,4 +468,8 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCode.PROVIDER_NOT_FOUND]: 404,
   [ErrorCode.PROVIDER_NOT_ELIGIBLE]: 403,
   [ErrorCode.PROVIDER_SUSPENDED]: 403,
+
+  // Module 10 — Doctor & Appointment (Work 166).
+  [ErrorCode.DOCTOR_NOT_FOUND]: 404,
+  [ErrorCode.DOCTOR_NOT_VERIFIED]: 403,
 };

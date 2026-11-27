@@ -54,4 +54,11 @@ export interface IIdentityOrganizationReadPort {
    * role first — how a provider portal request finds "the caller's facility".
    */
   organizationIdsWhereUserHolds(userId: string, roleKeys: string[]): Promise<string[]>;
+  /**
+   * Work 166: an account by exact e-mail (any case) or phone, or `null`. Used where a person is
+   * named by how they sign in, such as a facility adding one of its doctors.
+   */
+  findAccount(identifier: string): Promise<(OrganizationPersonView & { primaryRole: string }) | null>;
+  /** Work 166: accounts by id (e-mail, phone, status), for showing who someone is. Missing ids are left out. */
+  accountsById(userIds: string[]): Promise<Array<OrganizationPersonView & { primaryRole: string }>>;
 }

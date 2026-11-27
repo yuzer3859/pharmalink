@@ -90,6 +90,22 @@ export class PrismaIdentityOrganizationReadAdapter implements IIdentityOrganizat
     return row && row.ownedOrganizations.length > 0 ? toOwner(row) : null;
   }
 
+  async findAccount(identifier: string) {
+    const id = identifier.trim();
+    if (!id) return null;
+    const row = await this.prisma.user.findFirst({
+      where: { deletedAt: null, ...(id.includes('@') ? { email: id.toLowerCase() } : { phone: id }) },
+      select: { ...PERSON, primaryRole: true },
+    });
+    return row ? { userId: row.id, email: row.email, phone: row.phone, status: row.status, primaryRole: row.primaryRole } : null;
+  }
+
+  async accountsById(userIds: string[]) {
+    if (userIds.length === 0) return [];
+    const rows = await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { ...PERSON, primaryRole: true } });
+    return rows.map((row) => ({ userId: row.id, email: row.email, phone: row.phone, status: row.status, primaryRole: row.primaryRole }));
+  }
+
   async organizationIdsWhereUserHolds(userId: string, roleKeys: string[]): Promise<string[]> {
     const rows = await this.prisma.userRole.findMany({
       where: { userId, organizationId: { not: null }, role: { key: { in: roleKeys } }, organization: { deletedAt: null } },
