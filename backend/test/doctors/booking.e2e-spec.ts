@@ -146,7 +146,9 @@ describe('Doctors — booking appointments (Work 168, e2e)', () => {
 
   it('the doctor checks in, completes, marks a no-show, and cancels with a reason', async () => {
     const d = await bookableDoctor();
-    const patients = await Promise.all([0, 1, 2].map(() => createUserWithRole(ctx, 'CUSTOMER')));
+    // One at a time: each sign-up reads its own code.
+    const patients = [];
+    for (let i = 0; i < 3; i += 1) patients.push(await createUserWithRole(ctx, 'CUSTOMER'));
     const ids = await Promise.all(patients.map(async (p, i) => body(await as(p.accessToken).post('/appointments', { slotId: d.slots[i] }).expect(201)).appointmentId as string));
     const doctor = as(d.token);
 
