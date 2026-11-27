@@ -38,6 +38,7 @@ import type {
 } from '../../../prescription-matching/domain/events';
 import type { PharmacyActivatedPayload, PharmacySuspendedPayload } from '../../../pharmacy-inventory/domain/events';
 import type { RxRequestCustomerPayload, RxRequestPharmaciesPayload } from '../../../orders/domain/rx-request-events';
+import type { AppointmentEventPayload } from '../../../doctors/domain/appointment-rules';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** The currency `WalletMovementPayload.amount` is defined in by Module 07's event contract. */
@@ -417,3 +418,26 @@ export const PharmacyNotifications = {
 export function dedupeKeyFor(eventId: string, recipientUserId: string): string {
   return `${eventId}:${recipientUserId}`;
 }
+
+/** Work 168: doctor appointments, to the patient and to the doctor, each in their own words. */
+const appointmentIntent =
+  (templateCode: NotificationTemplateCode) =>
+  (p: AppointmentEventPayload, recipientUserId: string): NotificationIntent => ({
+    recipientUserId,
+    templateCode,
+    data: {
+      role: recipientUserId === p.doctorUserId ? 'DOCTOR' : 'PATIENT',
+      doctorName: p.doctorName,
+      startsAtLabel: p.startsAtLabel,
+      previousLabel: p.previousLabel ?? null,
+      appointmentType: p.appointmentType,
+      by: p.by ?? null,
+      appointmentId: p.appointmentId,
+    },
+  });
+
+export const AppointmentNotifications = {
+  booked: appointmentIntent(NotificationTemplateCode.APPOINTMENT_BOOKED),
+  cancelled: appointmentIntent(NotificationTemplateCode.APPOINTMENT_CANCELLED),
+  rescheduled: appointmentIntent(NotificationTemplateCode.APPOINTMENT_RESCHEDULED),
+};

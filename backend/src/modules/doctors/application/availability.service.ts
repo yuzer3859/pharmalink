@@ -36,8 +36,8 @@ const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.sl
  * Ethiopian time, each at one of the doctor's facilities' locations or none (telemedicine or
  * independent practice). Every change regenerates the doctor's future slots for the 60-day
  * horizon: missing OPEN slots are created (idempotent on doctor + start + type) and OPEN or
- * ad-hoc BLOCKED slots the rules no longer give are removed. HELD and BOOKED slots are never
- * touched. A daily job extends the horizon. Booking (Work 168) holds a slot with one atomic
+ * ad-hoc BLOCKED slots the rules no longer give are removed (or, when they carry a cancelled
+ * appointment's history, blocked). HELD and BOOKED slots are never touched. A daily job extends the horizon. Booking (Work 168) holds a slot with one atomic
  * conditional update.
  */
 @Injectable()
@@ -172,8 +172,10 @@ export class AvailabilityService {
     const have = new Set(existing.map(key));
     const missing = wanted.filter((s) => !have.has(key(s)));
     await this.prisma.$transaction([
-      // Conditional: a slot held a moment ago stays.
-      this.prisma.appointmentSlot.deleteMany({ where: { id: { in: stale }, status: { in: ['OPEN', 'BLOCKED'] } } }),
+      // Conditional: a slot held a moment ago stays. A slot with past (cancelled) appointments is
+      // kept for their history, but no longer offered.
+      this.prisma.appointmentSlot.deleteMany({ where: { id: { in: stale }, status: { in: ['OPEN', 'BLOCKED'] }, appointments: { none: {} } } }),
+      this.prisma.appointmentSlot.updateMany({ where: { id: { in: stale }, status: 'OPEN', appointments: { some: {} } }, data: { status: 'BLOCKED' } }),
       this.prisma.appointmentSlot.createMany({
         data: missing.map((s) => ({ doctorId, startAt: s.startAt, endAt: s.endAt, appointmentType: s.appointmentType, providerLocationId: s.providerLocationId, status: 'OPEN' as const })),
         skipDuplicates: true,
@@ -187,7 +189,7 @@ export class AvailabilityService {
   async regenerateAll(now = new Date()): Promise<number> {
     const doctors = await this.prisma.doctorProfile.findMany({ where: { deletedAt: null, status: 'ACTIVE', availabilityRules: { some: {} } }, select: { id: true } });
     for (const d of doctors) await this.regenerate(d.id, now);
-    await this.prisma.appointmentSlot.deleteMany({ where: { startAt: { lt: new Date(now.getTime() - DAY_MS) }, status: { in: ['OPEN', 'BLOCKED'] } } });
+    await this.prisma.appointmentSlot.deleteMany({ where: { startAt: { lt: new Date(now.getTime() - DAY_MS) }, status: { in: ['OPEN', 'BLOCKED'] }, appointments: { none: {} } } });
     return doctors.length;
   }
 

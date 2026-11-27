@@ -77,4 +77,8 @@ export class ProviderFacilityService implements IProviderFacilityPort {
     });
     return row ? { locationId: row.id, providerId: row.providerId, name: row.name, city: row.city, lat: row.lat, lng: row.lng } : null;
   }
+
+  async locationIdsOf(providerId: string): Promise<string[]> {
+    return (await this.prisma.providerLocation.findMany({ where: { providerId }, select: { id: true } })).map((l) => l.id);
+  }
 }

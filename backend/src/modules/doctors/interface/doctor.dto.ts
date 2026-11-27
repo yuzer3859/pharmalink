@@ -54,3 +54,34 @@ export class OpenSlotsQueryDto extends SlotRangeQueryDto {
   @IsOptional() @IsIn(['IN_PERSON', 'TELEMEDICINE']) type?: 'IN_PERSON' | 'TELEMEDICINE';
   @IsOptional() @IsUUID() locationId?: string;
 }
+
+/** `POST /appointments` (Work 168). */
+export class BookAppointmentDto {
+  @IsUUID() slotId!: string;
+  /** Required when the time is offered both in person and by video. */
+  @IsOptional() @IsIn(['IN_PERSON', 'TELEMEDICINE']) appointmentType?: 'IN_PERSON' | 'TELEMEDICINE';
+  /** What it is about, for the doctor. */
+  @IsOptional() @IsString() @MaxLength(1000) reasonNote?: string;
+}
+
+export class RescheduleAppointmentDto {
+  @IsUUID() slotId!: string;
+}
+
+export class CancelAppointmentDto {
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+
+export class DoctorCancelDto {
+  @IsString() @Length(3, 500) reason!: string;
+}
+
+export class MyAppointmentsQueryDto {
+  @IsOptional() @IsIn(['upcoming', 'past']) scope?: 'upcoming' | 'past';
+}
+
+export class AppointmentRangeQueryDto {
+  @IsOptional() @Matches(DATE) from?: string;
+  @IsOptional() @Matches(DATE) to?: string;
+  @IsOptional() @IsIn(['CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW']) status?: string;
+}

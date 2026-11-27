@@ -148,8 +148,10 @@ model AppointmentSlot {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  doctor      DoctorProfile @relation(fields: [doctorId], references: [id])
-  appointment Appointment?
+  doctor       DoctorProfile @relation(fields: [doctorId], references: [id])
+  /// Work 168: a slot keeps its past (cancelled, rescheduled) appointments; at most one is active
+  /// (a partial unique index, raw SQL).
+  appointments Appointment[]
 
   @@unique([doctorId, startAt, appointmentType])
   @@index([doctorId, startAt, status])
@@ -158,7 +160,7 @@ model AppointmentSlot {
 
 model Appointment {
   id                    String            @id @default(uuid())
-  slotId                String            @unique
+  slotId                String
   doctorId              String
   patientUserId         String
   beneficiarySnapshot   Json?
@@ -179,6 +181,9 @@ model Appointment {
   doctor        DoctorProfile              @relation(fields: [doctorId], references: [id])
   statusHistory AppointmentStatusHistory[]
 
+  @@index([slotId])
+  @@index([patientUserId, scheduledStart])
+  @@index([doctorId, scheduledStart])
   @@map("appointments")
 }
 

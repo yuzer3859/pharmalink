@@ -56,6 +56,10 @@ export enum NotificationTemplateCode {
   RX_REQUEST_ENDED = 'RX_REQUEST_ENDED',
   // Work 135: the pharmacy sent its medicines and price.
   RX_REQUEST_QUOTED = 'RX_REQUEST_QUOTED',
+  // Work 168: doctor appointments; each of the patient and the doctor gets their own wording.
+  APPOINTMENT_BOOKED = 'APPOINTMENT_BOOKED',
+  APPOINTMENT_CANCELLED = 'APPOINTMENT_CANCELLED',
+  APPOINTMENT_RESCHEDULED = 'APPOINTMENT_RESCHEDULED',
 }
 
 /** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
@@ -583,6 +587,51 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
             : d.status === 'QUOTE_EXPIRED'
               ? 'የፋርማሲው ዋጋ በጊዜው ስላልተረጋገጠ ጥያቄዎ አብቅቷል። እንደገና መላክ ይችላሉ።'
               : 'አሁን በአቅራቢያዎ የሐኪም ማዘዣዎን ማቅረብ የሚችል ፋርማሲ የለም። በኋላ እንደገና መላክ ይችላሉ።',
+      }),
+    },
+  },
+  [NotificationTemplateCode.APPOINTMENT_BOOKED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) =>
+        d.role === 'DOCTOR'
+          ? { title: 'New appointment', body: `A patient booked ${String(d.startsAtLabel)}${d.appointmentType === 'TELEMEDICINE' ? ' (video)' : ''}.` }
+          : { title: 'Appointment confirmed', body: `${String(d.doctorName)}, ${String(d.startsAtLabel)}${d.appointmentType === 'TELEMEDICINE' ? ' by video' : ''}. The fee is paid at the visit.` },
+      am: (d) =>
+        d.role === 'DOCTOR'
+          ? { title: 'አዲስ ቀጠሮ', body: `አንድ ታካሚ ${String(d.startsAtLabel)} ቀጠሮ ይዟል${d.appointmentType === 'TELEMEDICINE' ? ' (በቪዲዮ)' : ''}።` }
+          : { title: 'ቀጠሮዎ ተረጋግጧል', body: `${String(d.doctorName)}፣ ${String(d.startsAtLabel)}${d.appointmentType === 'TELEMEDICINE' ? ' በቪዲዮ' : ''}። ክፍያው በጉብኝቱ ጊዜ ይከፈላል።` },
+    },
+  },
+  [NotificationTemplateCode.APPOINTMENT_CANCELLED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Appointment cancelled',
+        body:
+          d.role === 'DOCTOR'
+            ? `${d.by === 'DOCTOR' ? 'You cancelled' : 'The patient cancelled'} the appointment on ${String(d.startsAtLabel)}.`
+            : `${d.by === 'DOCTOR' ? `${String(d.doctorName)} cancelled` : 'You cancelled'} your appointment on ${String(d.startsAtLabel)}.${d.by === 'DOCTOR' ? ' Please book another time.' : ''}`,
+      }),
+      am: (d) => ({
+        title: 'ቀጠሮው ተሰርዟል',
+        body:
+          d.role === 'DOCTOR'
+            ? `የ${String(d.startsAtLabel)} ቀጠሮ ${d.by === 'DOCTOR' ? 'በእርስዎ' : 'በታካሚው'} ተሰርዟል።`
+            : `የ${String(d.startsAtLabel)} ቀጠሮዎ ${d.by === 'DOCTOR' ? `በ${String(d.doctorName)}` : 'በእርስዎ'} ተሰርዟል።${d.by === 'DOCTOR' ? ' እባክዎ ሌላ ጊዜ ይያዙ።' : ''}`,
+      }),
+    },
+  },
+  [NotificationTemplateCode.APPOINTMENT_RESCHEDULED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Appointment moved',
+        body: `${d.role === 'DOCTOR' ? 'A patient moved their appointment' : `Your appointment with ${String(d.doctorName)} is moved`} from ${String(d.previousLabel)} to ${String(d.startsAtLabel)}.`,
+      }),
+      am: (d) => ({
+        title: 'ቀጠሮው ተዛውሯል',
+        body: `${d.role === 'DOCTOR' ? 'አንድ ታካሚ ቀጠሮውን' : `ከ${String(d.doctorName)} ጋር ያለዎ ቀጠሮ`} ከ${String(d.previousLabel)} ወደ ${String(d.startsAtLabel)} ተዛውሯል።`,
       }),
     },
   },
