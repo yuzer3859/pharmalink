@@ -7,6 +7,10 @@ import { FacilityServicesPage } from '@/features/facility/FacilityServicesPage';
 import { FacilityDoctorsPage } from '@/features/facility/FacilityDoctorsPage';
 import { FacilityAppointmentsPage } from '@/features/facility/FacilityAppointmentsPage';
 import { DoctorsPage } from '@/features/doctors/DoctorsPage';
+import { DoctorAppointmentsPage } from '@/features/doctor-portal/DoctorAppointmentsPage';
+import { DoctorSchedulePage } from '@/features/doctor-portal/DoctorSchedulePage';
+import { DoctorAvailabilityPage } from '@/features/doctor-portal/DoctorAvailabilityPage';
+import { DoctorProfilePage } from '@/features/doctor-portal/DoctorProfilePage';
 import type { ComponentType } from 'react';
 import { RxRequestsPage } from '@/features/rxRequests/RxRequestsPage';
 import type { PortalKey } from '@/types';
@@ -100,7 +104,16 @@ const FACILITY_PAGES: Record<string, ComponentType> = {
   appointments: FacilityAppointmentsPage,
 };
 
+/** Work 170: a doctor's own portal. */
+const DOCTOR_PAGES: Record<string, ComponentType> = {
+  appointments: DoctorAppointmentsPage,
+  schedule: DoctorSchedulePage,
+  availability: DoctorAvailabilityPage,
+  profile: DoctorProfilePage,
+};
+
 const PORTAL_PAGES: Partial<Record<PortalKey, Record<string, ComponentType>>> = {
+  doctor: DOCTOR_PAGES,
   facility: FACILITY_PAGES,
   pharmacy: PHARMACY_PAGES,
   admin: ADMIN_PAGES,

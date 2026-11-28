@@ -85,6 +85,9 @@ const ALL_PORTAL_PERMISSIONS: PermissionKey[] = [
   // Work 169.
   'doctors:view',
   'doctors:manage',
+  // Work 170: a doctor's own portal.
+  'doctor:view',
+  'doctor:manage',
   // Work 164: a facility's own portal.
   'facility:view',
   'facility:manage',
@@ -115,6 +118,7 @@ const ROLE_NAMES: Record<string, string> = {
   INVENTORY_STAFF: 'Inventory Staff',
   HOSPITAL_ADMIN: 'Hospital Administrator',
   DIAGNOSTIC_CENTER_ADMIN: 'Diagnostic Centre Administrator',
+  DOCTOR: 'Doctor',
 };
 
 /** Work 164: the roles that run a hospital, clinic, diagnostic centre or lab (Module 09). */
@@ -243,6 +247,8 @@ function portalFor(currentUser: BackendCurrentUser): PortalKey {
   // Work 81: Finance Officers get the finance portal (financial oversight and COD disputes only).
   if (roles.has('FINANCE_OFFICER')) return 'finance';
   if ([...roles].some((role) => PHARMACY_ROLES.has(role))) return 'pharmacy';
+  // Work 170: doctors get their own portal.
+  if (roles.has('DOCTOR')) return 'doctor';
   // Work 164: hospital, clinic, diagnostic centre and lab administrators get the facility portal.
   if ([...roles].some((role) => FACILITY_ROLES.has(role))) return 'facility';
   throw new ApiError(403, 'PORTAL_ACCESS_DENIED', 'This account is not provisioned for an operations portal.');
@@ -284,6 +290,15 @@ function frontendPermissions(currentUser: BackendCurrentUser, portal: PortalKey)
     if (has('provider:manage:org')) {
       result.add('facility:view');
       result.add('facility:manage');
+    }
+    result.delete('dashboard:view');
+  }
+
+  if (portal === 'doctor') {
+    // Work 170: the doctor's profile, availability, schedule and appointments (doctor:manage:own).
+    if (has('doctor:manage:own')) {
+      result.add('doctor:view');
+      result.add('doctor:manage');
     }
     result.delete('dashboard:view');
   }
@@ -401,7 +416,9 @@ export function toAuthUser(currentUser: BackendCurrentUser): AuthUser {
           ? '#2e7d32'
           : portal === 'facility'
             ? '#1565c0'
-            : '#005662';
+            : portal === 'doctor'
+              ? '#6a1b9a'
+              : '#005662';
 
   return {
     id: currentUser.id,

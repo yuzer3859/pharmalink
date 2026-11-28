@@ -13,6 +13,8 @@ import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded';
 import MedicalServicesRoundedIcon from '@mui/icons-material/MedicalServicesRounded';
 import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
 import TwoWheelerRoundedIcon from '@mui/icons-material/TwoWheelerRounded';
 import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
@@ -167,6 +169,21 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       // Work 169: the doctors who practise here, and their appointments.
       { label: 'Doctors', path: 'doctors', icon: MedicalServicesRoundedIcon, permission: 'facility:view', section: OPS },
       { label: 'Appointments', path: 'appointments', icon: EventAvailableRoundedIcon, permission: 'facility:view', section: OPS },
+    ],
+  },
+  // Work 170: a doctor runs their profile, availability and appointments (Module 10).
+  doctor: {
+    key: 'doctor',
+    title: 'Doctor Portal',
+    shortTitle: 'Doctor',
+    basePath: '/doctor',
+    landingPath: 'appointments',
+    accent: '#6a1b9a',
+    nav: [
+      { label: 'Appointments', path: 'appointments', icon: EventAvailableRoundedIcon, permission: 'doctor:view', section: OPS },
+      { label: 'Schedule', path: 'schedule', icon: CalendarMonthRoundedIcon, permission: 'doctor:view', section: OPS },
+      { label: 'Availability', path: 'availability', icon: ScheduleRoundedIcon, permission: 'doctor:view', section: OPS },
+      { label: 'Profile', path: 'profile', icon: MedicalServicesRoundedIcon, permission: 'doctor:view', section: OPS },
     ],
   },
 };

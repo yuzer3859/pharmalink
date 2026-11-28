@@ -21,6 +21,7 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded';
+import MedicalServicesRoundedIcon from '@mui/icons-material/MedicalServicesRounded';
 import { useAuth } from '@/context/AuthContext';
 import { landingUrl, PORTALS } from '@/config/navigation';
 import { getAuthErrorMessage, MfaRequiredError, type MfaChallenge } from '@/services/auth.service';
@@ -47,6 +48,11 @@ const PORTAL_META: Record<PortalKey, { icon: typeof StorefrontRoundedIcon; blurb
     icon: LocalHospitalRoundedIcon,
     blurb: 'Run your hospital, clinic, diagnostic centre or lab: profile, locations, departments and services.',
     tags: ['Profile', 'Locations', 'Departments', 'Services'],
+  },
+  doctor: {
+    icon: MedicalServicesRoundedIcon,
+    blurb: 'Your professional profile, when you see patients, and your appointments.',
+    tags: ['Profile', 'Availability', 'Schedule', 'Appointments'],
   },
   finance: {
     icon: AccountBalanceRoundedIcon,
