@@ -15,6 +15,21 @@ export interface FacilitySummary {
   lng: number | null;
 }
 
+/** Work 172: one of a lab's services, as booked. */
+export interface FacilityServiceSummary {
+  serviceId: string;
+  providerId: string;
+  type: string;
+  name: string;
+  code: string | null;
+  price: number | null;
+  currency: string;
+  durationMinutes: number | null;
+  preparationInstructions: string | null;
+  locationId: string | null;
+  isAvailable: boolean;
+}
+
 /** Work 167: one of a facility's active locations. */
 export interface FacilityLocationSummary {
   locationId: string;
@@ -40,4 +55,6 @@ export interface IProviderFacilityPort {
   locationOf(locationId: string): Promise<FacilityLocationSummary | null>;
   /** Work 168: every location id of a facility, removed ones included (past appointments were there). */
   locationIdsOf(providerId: string): Promise<string[]>;
+  /** Work 172: these services of the facility (unknown or another facility's are left out). */
+  servicesOf(providerId: string, serviceIds: string[]): Promise<FacilityServiceSummary[]>;
 }

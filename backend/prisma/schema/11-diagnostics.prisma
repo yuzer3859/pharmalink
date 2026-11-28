@@ -71,6 +71,11 @@ model DiagnosticBooking {
   currency            String                  @default("ETB")
   paymentId           String?
   scheduledAt         DateTime?
+  /// Work 172: the at-centre capacity slot booked (null for home collection).
+  slotId              String?
+  /// Work 172: the patient's note for the lab, and why it was cancelled.
+  notes               String?
+  cancelReason        String?
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
@@ -78,6 +83,8 @@ model DiagnosticBooking {
   homeCollection HomeCollection?
   statusHistory  DiagnosticStatusHistory[]
 
+  @@index([patientUserId, scheduledAt])
+  @@index([providerId, scheduledAt])
   @@map("diagnostic_bookings")
 }
 
@@ -109,6 +116,7 @@ model DiagnosticSlot {
   status      DiagnosticSlotStatus @default(OPEN)
   createdAt   DateTime             @default(now())
 
+  @@unique([locationId, startAt])
   @@index([providerId, startAt])
   @@map("diagnostic_slots")
 }
