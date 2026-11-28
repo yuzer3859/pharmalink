@@ -10,6 +10,8 @@ import Doctors from './pages/Doctors'
 import Diagnostics from './pages/Diagnostics'
 import Care from './pages/Care'
 import ProviderDetail from './pages/ProviderDetail'
+import DoctorDetail from './pages/DoctorDetail'
+import Appointments from './pages/Appointments'
 import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import Checkout from './pages/Checkout'
@@ -50,6 +52,8 @@ export default function App() {
           <Route path="/medicines" element={<Page><Medicines /></Page>} />
           <Route path="/medicines/:id" element={<Page><MedicineDetail /></Page>} />
           <Route path="/doctors" element={<Page><Doctors /></Page>} />
+          <Route path="/doctors/:id" element={<Page><DoctorDetail /></Page>} />
+          <Route path="/appointments" element={<Page><RequireCustomer><Appointments /></RequireCustomer></Page>} />
           <Route path="/diagnostics" element={<Page><Diagnostics /></Page>} />
           <Route path="/care" element={<Page><Care /></Page>} />
           <Route path="/care/:id" element={<Page><ProviderDetail /></Page>} />

@@ -333,11 +333,15 @@ export default function Home() {
         )}
       </motion.section>
 
-      {/* Doctors: deferred by the owner (Work 99); no sample profiles. */}
+      {/* Work 171: doctors, hospitals and labs (Modules 09–10). */}
       <motion.section {...reveal}>
         <SectionHead title={t('home.later.title')} subtitle={t('home.later.subtitle')} />
-        <Card className="p-5">
-          <p className="text-body text-muted">{t('home.later.body')}</p>
+        <Card className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
+          <p className="flex-1 text-body text-muted">{t('home.later.body')}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button as={Link} to="/doctors" size="sm">{t('home.care.doctors')}</Button>
+            <Button as={Link} to="/care" variant="secondary" size="sm">{t('home.care.places')}</Button>
+          </div>
         </Card>
       </motion.section>
 

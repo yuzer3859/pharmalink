@@ -187,16 +187,6 @@ describe('suggestions, close spellings and popular searches (Work 159)', () => {
   })
 })
 
-describe('deferred services (Work 99)', () => {
-  // Work 165: /diagnostics now compares real tests (care/careFlows.test.jsx); doctors are still to come.
-  it.each([['/doctors', 'Doctor appointments']])('%s says "coming later" and shows no sample data', async (path, title) => {
-    renderApp(path, {})
-    expect(await screen.findByRole('heading', { name: title })).toBeTruthy()
-    expect(screen.getByText(/Coming later/)).toBeTruthy()
-    expect(screen.queryByText(/Dr\. |Selamawit|Complete Blood Count|Pioneer Diagnostic/)).toBeNull()
-  })
-})
-
 describe('search query building', () => {
   it('sends only validated parameters', () => {
     expect(buildMedicineSearchQuery({ q: '  ibu  ', rx: 'CONTROLLED', categoryId: 'nope', page: 0 })).toBe('q=ibu&size=20')

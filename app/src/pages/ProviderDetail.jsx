@@ -5,6 +5,7 @@ import { Badge, Button, Card, Skeleton } from '../components/ui'
 import { PageHero } from '../components/PageHero'
 import { formatMinorUnits } from '../lib/utils'
 import { mapLink, useCare } from '../care/careService'
+import { useDoctors } from '../doctors/doctorsService'
 import { providerTypeLabel } from './Care'
 import { t } from '../auth/strings'
 
@@ -32,6 +33,18 @@ export default function ProviderDetail() {
   const { id } = useParams()
   const care = useCare()
   const [state, setState] = useState({ status: 'loading', provider: null })
+  const doctorsService = useDoctors()
+  const [doctors, setDoctors] = useState([])
+
+  // Work 171: the doctors who practise here; none shown when they cannot be read.
+  useEffect(() => {
+    const controller = new AbortController()
+    doctorsService
+      .providerDoctors(id, { signal: controller.signal })
+      .then(setDoctors)
+      .catch(() => setDoctors([]))
+    return () => controller.abort()
+  }, [doctorsService, id])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -118,6 +131,20 @@ export default function ProviderDetail() {
           )
         })}
       </section>
+
+      {doctors.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-display text-h3 text-fg">{t('care.doctors')}</h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {doctors.map((d) => (
+              <Link key={d.doctorId} to={`/doctors/${d.doctorId}`} className="rounded-2xl border border-border bg-surface p-4 hover:border-brand-400">
+                <p className="text-body font-semibold text-fg">{d.fullName}</p>
+                <p className="text-caption text-muted">{[d.specialty, d.roleTitle].filter(Boolean).join(' · ')}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {p.departments.length > 0 && (
         <section className="space-y-3">

@@ -9,6 +9,7 @@ import { createAuthService } from '../auth/authService'
 import { CatalogContext, createCatalogService } from '../catalog/catalogService'
 import { SearchContext, createSearchService } from '../search/searchService'
 import { CareContext, buildProviderQuery, buildServiceQuery, createCareService, mapLink } from './careService'
+import { DoctorsContext, createDoctorsService } from '../doctors/doctorsService'
 import { fakeFetch, fail, ok } from '../test/fakeBackend'
 import { categoryTree } from '../test/catalogFixtures'
 
@@ -62,7 +63,9 @@ function renderApp(path, routes) {
         <CatalogContext.Provider value={createCatalogService({ api })}>
           <SearchContext.Provider value={createSearchService({ api })}>
             <CareContext.Provider value={createCareService({ api })}>
-              <App />
+              <DoctorsContext.Provider value={createDoctorsService({ api })}>
+                <App />
+              </DoctorsContext.Provider>
             </CareContext.Provider>
           </SearchContext.Provider>
         </CatalogContext.Provider>

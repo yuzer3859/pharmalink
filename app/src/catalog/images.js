@@ -52,6 +52,8 @@ export const PAGE_PICTURES = {
   /** Work 165: hospitals, clinics and labs; lab tests. */
   care: ['/products/stethoscope.webp', '/products/first-aid-kit.webp', '/products/wheelchair.webp'],
   diagnostics: ['/products/glucometer.webp', '/products/bp-monitor.webp', '/products/thermometer.webp'],
+  /** Work 171: doctors and appointments. */
+  doctors: ['/products/stethoscope.webp', '/products/bp-monitor.webp', '/products/oximeter.webp'],
   /** The picture wall beside the sign-in and registration forms. */
   auth: [
     '/products/vitamin-d.webp',
