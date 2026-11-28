@@ -449,10 +449,14 @@ const labIntent =
   (p: LabEventPayload, recipientUserId: string): NotificationIntent => ({
     recipientUserId,
     templateCode,
-    data: { bookingId: p.bookingId, bookingNumber: p.bookingNumber, providerName: p.providerName, scheduledLabel: p.scheduledLabel, testCount: p.testCount, by: p.by ?? null },
+    data: { bookingId: p.bookingId, bookingNumber: p.bookingNumber, providerName: p.providerName, scheduledLabel: p.scheduledLabel, testCount: p.testCount, by: p.by ?? null, detail: p.detail ?? null },
   });
 
 export const LabNotifications = {
   booked: labIntent(NotificationTemplateCode.LAB_BOOKED),
   cancelled: labIntent(NotificationTemplateCode.LAB_CANCELLED),
+  // Work 173.
+  resultReady: labIntent(NotificationTemplateCode.LAB_RESULT_READY),
+  resultAmended: labIntent(NotificationTemplateCode.LAB_RESULT_AMENDED),
+  sampleRejected: labIntent(NotificationTemplateCode.LAB_SAMPLE_REJECTED),
 };

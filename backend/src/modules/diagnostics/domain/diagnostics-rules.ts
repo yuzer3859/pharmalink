@@ -44,6 +44,12 @@ export function bookingNumber(now = new Date()): string {
 export const LabEventType = {
   Booked: 'diagnostics.booking.booked',
   Cancelled: 'diagnostics.booking.cancelled',
+  /** Work 173: every test's result is in. */
+  ResultReady: 'diagnostics.booking.result_ready',
+  /** Work 173: a result was corrected (a new version). */
+  ResultAmended: 'diagnostics.booking.result_amended',
+  /** Work 173: the sample could not be used; the patient is asked to come again. */
+  SampleRejected: 'diagnostics.booking.sample_rejected',
 } as const;
 
 export interface LabEventPayload {
@@ -59,6 +65,8 @@ export interface LabEventPayload {
   /** "Mon 30 Nov 2026, 09:00" (Addis Ababa). */
   scheduledLabel: string | null;
   by?: 'PATIENT' | 'LAB';
+  /** Work 173: a rejected sample's reason, or the amended test's name. */
+  detail?: string | null;
 }
 
 export function labEvent(type: (typeof LabEventType)[keyof typeof LabEventType], payload: LabEventPayload): DomainEvent<LabEventPayload> {

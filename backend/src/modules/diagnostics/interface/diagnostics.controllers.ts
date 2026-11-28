@@ -1,6 +1,8 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ALLOWED_DOCUMENT_CONTENT_TYPES } from '../../../shared/storage/document-storage.port';
 import { Public } from '../../../shared/rbac/public.decorator';
 import { RequirePermissions } from '../../../shared/rbac/permissions.decorator';
 import { AuthenticatedPrincipal } from '../../../shared/rbac/rbac.types';
@@ -8,6 +10,7 @@ import { CurrentUser } from '../../identity/interface/decorators/current-user.de
 import { localInstant } from '../../doctors/domain/slot-generation';
 import { LabBookingService } from '../application/lab-booking.service';
 import { LabSlotsService } from '../application/lab-slots.service';
+import { LabResultsService } from '../application/lab-results.service';
 
 const TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -52,6 +55,28 @@ export class CancelLabBookingDto {
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
 
+export class LabReasonDto {
+  @IsString() @Length(3, 500) reason!: string;
+}
+
+export class ResultUploadDto {
+  @IsIn([...ALLOWED_DOCUMENT_CONTENT_TYPES]) contentType!: string;
+  @Type(() => Number) @IsInt() @Min(1) @Max(10 * 1024 * 1024) bytes!: number;
+}
+
+export class AnalyteDto {
+  @IsString() @Length(1, 120) name!: string;
+  @IsOptional() @IsString() @MaxLength(60) value?: string;
+  @IsOptional() @IsString() @MaxLength(30) unit?: string;
+  @IsOptional() @IsString() @MaxLength(60) referenceRange?: string;
+  @IsOptional() @IsIn(['NORMAL', 'HIGH', 'LOW', 'CRITICAL']) flag?: 'NORMAL' | 'HIGH' | 'LOW' | 'CRITICAL';
+}
+
+export class IssueResultDto {
+  @IsOptional() @IsString() @MaxLength(512) @Matches(/^doc:/, { message: 'storageRef must be an uploaded file.' }) storageRef?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(60) @ValidateNested({ each: true }) @Type(() => AnalyteDto) analytes?: AnalyteDto[];
+}
+
 const range = (dto: { from?: string; to?: string }) => ({
   from: dto.from ? localInstant(dto.from, '00:00') : undefined,
   to: dto.to ? new Date(localInstant(dto.to, '00:00').getTime() + DAY_MS) : undefined,
@@ -73,7 +98,83 @@ export class LabPortalController {
   constructor(
     private readonly slots: LabSlotsService,
     private readonly bookings: LabBookingService,
+    private readonly results: LabResultsService,
   ) {}
+
+  // Work 173: the lab's day and the results.
+  @Get('bookings/:bookingId')
+  booking(@CurrentUser() user: AuthenticatedPrincipal, @Param('bookingId', new ParseUUIDPipe()) bookingId: string) {
+    return this.results.labBookingDetail(user.userId, bookingId);
+  }
+
+  @Post('bookings/:bookingId/check-in')
+  @HttpCode(HttpStatus.OK)
+  checkIn(@CurrentUser() user: AuthenticatedPrincipal, @Param('bookingId', new ParseUUIDPipe()) bookingId: string) {
+    return this.results.labAction(user.userId, bookingId, 'check-in');
+  }
+
+  @Post('bookings/:bookingId/collect')
+  @HttpCode(HttpStatus.OK)
+  collect(@CurrentUser() user: AuthenticatedPrincipal, @Param('bookingId', new ParseUUIDPipe()) bookingId: string) {
+    return this.results.labAction(user.userId, bookingId, 'collect');
+  }
+
+  @Post('bookings/:bookingId/processing')
+  @HttpCode(HttpStatus.OK)
+  processing(@CurrentUser() user: AuthenticatedPrincipal, @Param('bookingId', new ParseUUIDPipe()) bookingId: string) {
+    return this.results.labAction(user.userId, bookingId, 'processing');
+  }
+
+  @Post('bookings/:bookingId/no-show')
+  @HttpCode(HttpStatus.OK)
+  noShow(@CurrentUser() user: AuthenticatedPrincipal, @Param('bookingId', new ParseUUIDPipe()) bookingId: string) {
+    return this.results.labAction(user.userId, bookingId, 'no-show');
+  }
+
+  @Post('bookings/:bookingId/cancel')
+  @HttpCode(HttpStatus.OK)
+  cancel(@CurrentUser() user: AuthenticatedPrincipal, @Param('bookingId', new ParseUUIDPipe()) bookingId: string, @Body() dto: LabReasonDto) {
+    return this.results.labAction(user.userId, bookingId, 'cancel', dto.reason);
+  }
+
+  @Post('bookings/:bookingId/reject-sample')
+  @HttpCode(HttpStatus.OK)
+  rejectSample(@CurrentUser() user: AuthenticatedPrincipal, @Param('bookingId', new ParseUUIDPipe()) bookingId: string, @Body() dto: LabReasonDto) {
+    return this.results.labAction(user.userId, bookingId, 'reject-sample', dto.reason);
+  }
+
+  @Post('bookings/:bookingId/items/:itemId/result/uploads')
+  @HttpCode(HttpStatus.CREATED)
+  resultUpload(
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
+    @Param('itemId', new ParseUUIDPipe()) itemId: string,
+    @Body() dto: ResultUploadDto,
+  ) {
+    return this.results.requestResultUpload(user.userId, bookingId, itemId, dto.contentType, dto.bytes);
+  }
+
+  @Post('bookings/:bookingId/items/:itemId/result')
+  @HttpCode(HttpStatus.CREATED)
+  issueResult(
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
+    @Param('itemId', new ParseUUIDPipe()) itemId: string,
+    @Body() dto: IssueResultDto,
+  ) {
+    return this.results.issueResult(user.userId, bookingId, itemId, dto);
+  }
+
+  @Post('bookings/:bookingId/results/:resultId/link')
+  @HttpCode(HttpStatus.OK)
+  labLink(
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
+    @Param('resultId', new ParseUUIDPipe()) resultId: string,
+    @Req() req: Request,
+  ) {
+    return this.results.labResultLink(user.userId, bookingId, resultId, req.ip ?? null);
+  }
 
   @Post('slots')
   @HttpCode(HttpStatus.CREATED)
@@ -137,7 +238,28 @@ export class LabDiscoveryController {
 @Controller('diagnostics/bookings')
 @RequirePermissions('diagnostics:book:own')
 export class PatientLabBookingsController {
-  constructor(private readonly bookings: LabBookingService) {}
+  constructor(
+    private readonly bookings: LabBookingService,
+    private readonly results: LabResultsService,
+  ) {}
+
+  /** Work 173: the current result of each test. */
+  @Get(':bookingId/results')
+  myResults(@CurrentUser() user: AuthenticatedPrincipal, @Param('bookingId', new ParseUUIDPipe()) bookingId: string) {
+    return this.results.patientResults(user.userId, bookingId);
+  }
+
+  /** Work 173: a 5-minute link to a result file; every link is logged. */
+  @Post(':bookingId/results/:resultId/link')
+  @HttpCode(HttpStatus.OK)
+  myResultLink(
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
+    @Param('resultId', new ParseUUIDPipe()) resultId: string,
+    @Req() req: Request,
+  ) {
+    return this.results.patientResultLink(user.userId, bookingId, resultId, req.ip ?? null);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
