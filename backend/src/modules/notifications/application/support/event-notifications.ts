@@ -39,6 +39,7 @@ import type {
 import type { PharmacyActivatedPayload, PharmacySuspendedPayload } from '../../../pharmacy-inventory/domain/events';
 import type { RxRequestCustomerPayload, RxRequestPharmaciesPayload } from '../../../orders/domain/rx-request-events';
 import type { AppointmentEventPayload } from '../../../doctors/domain/appointment-rules';
+import type { LabEventPayload } from '../../../diagnostics/domain/diagnostics-rules';
 import { NotificationData, NotificationTemplateCode } from '../../domain/templates';
 
 /** The currency `WalletMovementPayload.amount` is defined in by Module 07's event contract. */
@@ -440,4 +441,18 @@ export const AppointmentNotifications = {
   booked: appointmentIntent(NotificationTemplateCode.APPOINTMENT_BOOKED),
   cancelled: appointmentIntent(NotificationTemplateCode.APPOINTMENT_CANCELLED),
   rescheduled: appointmentIntent(NotificationTemplateCode.APPOINTMENT_RESCHEDULED),
+};
+
+/** Work 172: lab test bookings, to the patient. */
+const labIntent =
+  (templateCode: NotificationTemplateCode) =>
+  (p: LabEventPayload, recipientUserId: string): NotificationIntent => ({
+    recipientUserId,
+    templateCode,
+    data: { bookingId: p.bookingId, bookingNumber: p.bookingNumber, providerName: p.providerName, scheduledLabel: p.scheduledLabel, testCount: p.testCount, by: p.by ?? null },
+  });
+
+export const LabNotifications = {
+  booked: labIntent(NotificationTemplateCode.LAB_BOOKED),
+  cancelled: labIntent(NotificationTemplateCode.LAB_CANCELLED),
 };

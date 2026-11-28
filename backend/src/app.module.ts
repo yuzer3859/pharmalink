@@ -18,6 +18,7 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
 
 /**
  * Root module. Phase 0 wires the cross-cutting SharedModule + HealthModule and registers the
@@ -43,6 +44,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     // Work 98: Module 14 minimal search.
     SearchModule,
     NotificationsModule,
+    // Work 172: Module 11, lab bookings.
+    DiagnosticsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

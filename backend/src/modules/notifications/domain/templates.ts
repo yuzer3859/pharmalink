@@ -60,6 +60,9 @@ export enum NotificationTemplateCode {
   APPOINTMENT_BOOKED = 'APPOINTMENT_BOOKED',
   APPOINTMENT_CANCELLED = 'APPOINTMENT_CANCELLED',
   APPOINTMENT_RESCHEDULED = 'APPOINTMENT_RESCHEDULED',
+  // Work 172: lab test bookings, to the patient.
+  LAB_BOOKED = 'LAB_BOOKED',
+  LAB_CANCELLED = 'LAB_CANCELLED',
 }
 
 /** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
@@ -632,6 +635,32 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
       am: (d) => ({
         title: 'ቀጠሮው ተዛውሯል',
         body: `${d.role === 'DOCTOR' ? 'አንድ ታካሚ ቀጠሮውን' : `ከ${String(d.doctorName)} ጋር ያለዎ ቀጠሮ`} ከ${String(d.previousLabel)} ወደ ${String(d.startsAtLabel)} ተዛውሯል።`,
+      }),
+    },
+  },
+  [NotificationTemplateCode.LAB_BOOKED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Lab test booked',
+        body: `${String(d.providerName)}, ${String(d.scheduledLabel)}. Booking ${String(d.bookingNumber)}: show it at the desk and pay there.`,
+      }),
+      am: (d) => ({
+        title: 'የላብራቶሪ ምርመራ ተይዟል',
+        body: `${String(d.providerName)}፣ ${String(d.scheduledLabel)}። የቀጠሮ ቁጥር ${String(d.bookingNumber)}፦ በመቀበያው ያሳዩና እዚያው ይክፈሉ።`,
+      }),
+    },
+  },
+  [NotificationTemplateCode.LAB_CANCELLED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({
+        title: 'Lab booking cancelled',
+        body: `${d.by === 'LAB' ? `${String(d.providerName)} cancelled` : 'You cancelled'} booking ${String(d.bookingNumber)} on ${String(d.scheduledLabel)}.`,
+      }),
+      am: (d) => ({
+        title: 'የላብራቶሪ ቀጠሮው ተሰርዟል',
+        body: `የ${String(d.scheduledLabel)} ቀጠሮ ${String(d.bookingNumber)} ${d.by === 'LAB' ? `በ${String(d.providerName)}` : 'በእርስዎ'} ተሰርዟል።`,
       }),
     },
   },

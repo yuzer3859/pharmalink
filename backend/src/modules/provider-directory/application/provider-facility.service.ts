@@ -81,4 +81,22 @@ export class ProviderFacilityService implements IProviderFacilityPort {
   async locationIdsOf(providerId: string): Promise<string[]> {
     return (await this.prisma.providerLocation.findMany({ where: { providerId }, select: { id: true } })).map((l) => l.id);
   }
+
+  async servicesOf(providerId: string, serviceIds: string[]) {
+    if (serviceIds.length === 0) return [];
+    const rows = await this.prisma.serviceOffering.findMany({ where: { providerId, id: { in: serviceIds } } });
+    return rows.map((s) => ({
+      serviceId: s.id,
+      providerId: s.providerId,
+      type: s.type,
+      name: s.name,
+      code: s.code,
+      price: s.price,
+      currency: s.currency,
+      durationMinutes: s.durationMinutes,
+      preparationInstructions: s.preparationInstructions,
+      locationId: s.locationId,
+      isAvailable: s.isAvailable,
+    }));
+  }
 }

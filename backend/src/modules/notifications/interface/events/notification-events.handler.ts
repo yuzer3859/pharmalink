@@ -1,5 +1,6 @@
 import { AdminEventType, DisputeUpdatedPayload } from '../../../admin/domain/events';
 import { AppointmentEventType, type AppointmentEventPayload } from '../../../doctors/domain/appointment-rules';
+import { LabEventType, type LabEventPayload } from '../../../diagnostics/domain/diagnostics-rules';
 import { ReviewEventType, ReviewModeratedPayload } from '../../../reviews/domain/events';
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { DomainEvent } from '../../../../shared/events/domain-event';
@@ -70,6 +71,7 @@ import {
   PaymentNotifications,
   RxRequestNotifications,
   AppointmentNotifications,
+  LabNotifications,
   PharmacyNotifications,
   PrescriptionNotifications,
 } from '../../application/support/event-notifications';
@@ -190,6 +192,10 @@ export class NotificationEventsHandler implements OnModuleInit {
     this.onEach<AppointmentEventPayload>(AppointmentEventType.Booked, AppointmentNotifications.booked);
     this.onEach<AppointmentEventPayload>(AppointmentEventType.Cancelled, AppointmentNotifications.cancelled);
     this.onEach<AppointmentEventPayload>(AppointmentEventType.Rescheduled, AppointmentNotifications.rescheduled);
+
+    // Work 172: lab test bookings.
+    this.onEach<LabEventPayload>(LabEventType.Booked, LabNotifications.booked);
+    this.onEach<LabEventPayload>(LabEventType.Cancelled, LabNotifications.cancelled);
   }
 
   /**

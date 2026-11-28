@@ -11,6 +11,14 @@
 
 ---
 
+## Implementation status
+
+| Work | What is built |
+|---|---|
+| 172 | **At-centre booking.** `src/modules/diagnostics`. A lab or diagnostic centre (`provider:manage:org`) creates capacity slots in batches (`POST /provider/diagnostics/slots`: location, dates up to 60 days, weekdays, hours, interval, capacity), Ethiopian local time, one per location and start; `GET /provider/diagnostics/slots`, block, unblock, remove an empty one; `GET /provider/diagnostics/bookings`. Patients see open slots with places left (`GET /diagnostics/providers/{id}/slots`, public) and book 1–10 of the lab's available tests at one slot (`POST /diagnostics/bookings`, `diagnostics:book:own`, new, CUSTOMER); tests with preparation need `prepAcknowledged` (`PREP_NOT_ACKNOWLEDGED`). A place is taken with one conditional update (`bookedCount < capacity`), backed by a CHECK constraint, so a slot is never overbooked. **No online payment yet** (as for doctors): CONFIRMED at booking, prices snapshotted, paid at the centre. Patients list, read and cancel up to 2 hours before (the place is given back). Status history, audit, `diagnostics.booking.booked/cancelled` events, and `LAB_BOOKED`/`LAB_CANCELLED` notifications to the patient. |
+
+---
+
 ## 1. Module Objectives
 
 This module lets patients **book diagnostic services** (lab tests, imaging, screening packages) offered by verified diagnostic centers/labs (Module 9), optionally with **home sample collection**, follow **preparation instructions**, and **securely receive results** into their health records.
