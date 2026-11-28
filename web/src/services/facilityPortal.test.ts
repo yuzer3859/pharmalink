@@ -50,13 +50,15 @@ describe('the facility portal (Work 164)', () => {
     expect(toAuthUser(facilityAdmin('HOSPITAL_ADMIN', ['auth:login'])).permissions).toEqual([]);
   });
 
-  it('has Profile, Locations, Departments and Services behind facility:view', () => {
+  it('has Profile, Locations, Departments, Services, Doctors and Appointments behind facility:view', () => {
     expect(PORTALS.facility.basePath).toBe('/facility');
     expect(PORTALS.facility.nav.map((i) => [i.path, i.permission])).toEqual([
       ['profile', 'facility:view'],
       ['locations', 'facility:view'],
       ['departments', 'facility:view'],
       ['services', 'facility:view'],
+      ['doctors', 'facility:view'],
+      ['appointments', 'facility:view'],
     ]);
     for (const item of PORTALS.facility.nav) expect(pageFor('facility', item.path)).toBeDefined();
     expect(pageFor('facility', 'services')).toBe(FacilityServicesPage);

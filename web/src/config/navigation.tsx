@@ -11,6 +11,8 @@ import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded';
 import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded';
+import MedicalServicesRoundedIcon from '@mui/icons-material/MedicalServicesRounded';
+import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded';
 import TwoWheelerRoundedIcon from '@mui/icons-material/TwoWheelerRounded';
 import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
@@ -81,6 +83,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Pharmacies', path: 'pharmacies', icon: StorefrontRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Drivers', path: 'drivers', icon: TwoWheelerRoundedIcon, permission: 'drivers:view', section: OPS },
       { label: 'Healthcare providers', path: 'providers', icon: LocalHospitalRoundedIcon, permission: 'providers:view', section: OPS },
+      { label: 'Doctors', path: 'doctors', icon: MedicalServicesRoundedIcon, permission: 'doctors:view', section: OPS },
       { label: 'Pharmacy owners', path: 'pharmacy-owners', icon: BadgeRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Verifications', path: 'verifications', icon: VerifiedUserRoundedIcon, permission: 'verifications:view', section: OPS },
       { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
@@ -110,6 +113,7 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Pharmacies', path: 'pharmacies', icon: StorefrontRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Drivers', path: 'drivers', icon: TwoWheelerRoundedIcon, permission: 'drivers:view', section: OPS },
       { label: 'Healthcare providers', path: 'providers', icon: LocalHospitalRoundedIcon, permission: 'providers:view', section: OPS },
+      { label: 'Doctors', path: 'doctors', icon: MedicalServicesRoundedIcon, permission: 'doctors:view', section: OPS },
       { label: 'Pharmacy owners', path: 'pharmacy-owners', icon: BadgeRoundedIcon, permission: 'pharmacies:view', section: OPS },
       { label: 'Verifications', path: 'verifications', icon: VerifiedUserRoundedIcon, permission: 'verifications:view', section: OPS },
       { label: 'Catalogue review', path: 'catalog-review', icon: MedicationRoundedIcon, permission: 'catalog:review', section: OPS },
@@ -160,6 +164,9 @@ export const PORTALS: Record<PortalKey, PortalDefinition> = {
       { label: 'Locations', path: 'locations', icon: PlaceRoundedIcon, permission: 'facility:view', section: OPS },
       { label: 'Departments', path: 'departments', icon: ApartmentRoundedIcon, permission: 'facility:view', section: OPS },
       { label: 'Services', path: 'services', icon: ScienceRoundedIcon, permission: 'facility:view', section: OPS },
+      // Work 169: the doctors who practise here, and their appointments.
+      { label: 'Doctors', path: 'doctors', icon: MedicalServicesRoundedIcon, permission: 'facility:view', section: OPS },
+      { label: 'Appointments', path: 'appointments', icon: EventAvailableRoundedIcon, permission: 'facility:view', section: OPS },
     ],
   },
 };
