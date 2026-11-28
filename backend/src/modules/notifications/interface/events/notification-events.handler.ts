@@ -196,6 +196,9 @@ export class NotificationEventsHandler implements OnModuleInit {
     // Work 172: lab test bookings.
     this.onEach<LabEventPayload>(LabEventType.Booked, LabNotifications.booked);
     this.onEach<LabEventPayload>(LabEventType.Cancelled, LabNotifications.cancelled);
+    this.onEach<LabEventPayload>(LabEventType.ResultReady, LabNotifications.resultReady);
+    this.onEach<LabEventPayload>(LabEventType.ResultAmended, LabNotifications.resultAmended);
+    this.onEach<LabEventPayload>(LabEventType.SampleRejected, LabNotifications.sampleRejected);
   }
 
   /**

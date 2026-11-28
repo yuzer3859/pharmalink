@@ -3,6 +3,7 @@ import { IdentityModule } from '../identity/identity.module';
 import { ProviderDirectoryModule } from '../provider-directory/provider-directory.module';
 import { LabBookingService } from './application/lab-booking.service';
 import { LabSlotsService } from './application/lab-slots.service';
+import { LabResultsService } from './application/lab-results.service';
 import { LabDiscoveryController, LabPortalController, PatientLabBookingsController } from './interface/diagnostics.controllers';
 
 /**
@@ -14,7 +15,7 @@ import { LabDiscoveryController, LabPortalController, PatientLabBookingsControll
 @Module({
   imports: [IdentityModule, ProviderDirectoryModule],
   controllers: [LabPortalController, LabDiscoveryController, PatientLabBookingsController],
-  providers: [LabSlotsService, LabBookingService],
+  providers: [LabSlotsService, LabBookingService, LabResultsService],
   exports: [LabBookingService],
 })
 export class DiagnosticsModule {}

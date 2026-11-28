@@ -332,3 +332,12 @@ Reuses hash-chained `audit_logs`; `booking_status_history`, `result_access_log`,
 ---
 
 **End of Module 11 design.** Awaiting your approval to proceed. Recommended next module: **Consultation / Telemedicine & Health Records** — video/chat consultations (from telemedicine appointments), e-prescriptions issued by doctors, and the unified health-records vault (results, prescriptions, consult notes) with strict privacy/access (FR-CONS, FR-REC, BRULE-37..41).
+
+---
+
+## As built — Work 173 (lab workflow and results)
+
+- **Lab steps** (`/provider/diagnostics/bookings/:id/...`): `check-in` (from an hour before the booking), `collect` (items become COLLECTED), `processing`, `no-show` (only after the start), `cancel` (before the start, reason 3–500 chars; gives the slot place back) and `reject-sample` (reason; the patient is told to book again). Each step is a compare-and-set on the booking status, writes `diagnostic_status_history` and an audit row.
+- **Results** (Open Question 3 → both): per test, a file (signed upload under `doc:lab-result/<bookingId>/…`, checked as stored and for this booking) and/or analyte values (name, value, unit, reference range, flag). Each issue is an immutable version; a correction marks the previous version AMENDED and sets `supersedesId`. The booking becomes RESULT_READY once every non-cancelled test has a result.
+- **Release** (Open Question 2 → direct): results go to the patient on issue (`LAB_RESULT_READY`, `LAB_RESULT_AMENDED`). The patient sees only the current version (`corrected` when version > 1).
+- **Access**: result files open only through 5-minute signed links; every open writes `result_access_log` (role PATIENT or LAB, VIEW/ALLOW) and audit `LAB_RESULT_OPENED`. Another patient or lab gets 404.

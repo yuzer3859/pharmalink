@@ -63,6 +63,10 @@ export enum NotificationTemplateCode {
   // Work 172: lab test bookings, to the patient.
   LAB_BOOKED = 'LAB_BOOKED',
   LAB_CANCELLED = 'LAB_CANCELLED',
+  // Work 173: results and samples.
+  LAB_RESULT_READY = 'LAB_RESULT_READY',
+  LAB_RESULT_AMENDED = 'LAB_RESULT_AMENDED',
+  LAB_SAMPLE_REJECTED = 'LAB_SAMPLE_REJECTED',
 }
 
 /** `pharmacy.pharmacy.suspended`'s reason when the licence on file passed its expiry date. */
@@ -662,6 +666,27 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateCode, TemplateEn
         title: 'የላብራቶሪ ቀጠሮው ተሰርዟል',
         body: `የ${String(d.scheduledLabel)} ቀጠሮ ${String(d.bookingNumber)} ${d.by === 'LAB' ? `በ${String(d.providerName)}` : 'በእርስዎ'} ተሰርዟል።`,
       }),
+    },
+  },
+  [NotificationTemplateCode.LAB_RESULT_READY]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({ title: 'Your lab results are ready', body: `${String(d.providerName)} has issued the results for booking ${String(d.bookingNumber)}. Open them in the app.` }),
+      am: (d) => ({ title: 'የላብራቶሪ ውጤትዎ ዝግጁ ነው', body: `${String(d.providerName)} የቀጠሮ ${String(d.bookingNumber)} ውጤትን አውጥቷል። በመተግበሪያው ውስጥ ይክፈቱት።` }),
+    },
+  },
+  [NotificationTemplateCode.LAB_RESULT_AMENDED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({ title: 'A lab result was corrected', body: `${String(d.providerName)} corrected the result of ${String(d.detail)} (booking ${String(d.bookingNumber)}). Open the new version in the app.` }),
+      am: (d) => ({ title: 'የላብራቶሪ ውጤት ተስተካክሏል', body: `${String(d.providerName)} የ${String(d.detail)} ውጤትን አስተካክሏል (ቀጠሮ ${String(d.bookingNumber)})። አዲሱን ቅጂ በመተግበሪያው ውስጥ ይክፈቱ።` }),
+    },
+  },
+  [NotificationTemplateCode.LAB_SAMPLE_REJECTED]: {
+    category: NotificationCategory.TRANSACTIONAL,
+    render: {
+      en: (d) => ({ title: 'Please give a new sample', body: `${String(d.providerName)} could not use your sample for booking ${String(d.bookingNumber)}: ${String(d.detail)}. Please book again.` }),
+      am: (d) => ({ title: 'እባክዎ አዲስ ናሙና ይስጡ', body: `${String(d.providerName)} ለቀጠሮ ${String(d.bookingNumber)} የሰጡትን ናሙና መጠቀም አልቻለም፦ ${String(d.detail)}። እባክዎ እንደገና ቀጠሮ ይያዙ።` }),
     },
   },
   [NotificationTemplateCode.RX_REQUEST_QUOTED]: {
