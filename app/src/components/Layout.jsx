@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home, Pill, Stethoscope, FlaskConical, Truck, Palette,
   Search, Bell, Moon, Sun, ShoppingBag, Menu, X, ShieldAlert, Upload,
-  LogIn, LogOut, UserPlus, UserRound, Send, Building2,
+  LogIn, LogOut, UserPlus, UserRound, Send, Building2, CalendarCheck,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/theme'
@@ -23,6 +23,7 @@ const nav = [
   { to: '/care', labelKey: 'layout.nav.care', icon: Building2 },
   { to: '/doctors', labelKey: 'layout.nav.doctors', icon: Stethoscope },
   { to: '/diagnostics', labelKey: 'layout.nav.diagnostics', icon: FlaskConical },
+  { to: '/appointments', labelKey: 'layout.nav.appointments', icon: CalendarCheck },
   { to: '/orders', labelKey: 'layout.nav.orders', icon: Truck },
   // The design system page is for the team and stays in English.
   { to: '/design-system', label: 'Design system', icon: Palette },

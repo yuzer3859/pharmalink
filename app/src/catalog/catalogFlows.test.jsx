@@ -267,8 +267,9 @@ describe('home page', () => {
     expect((await screen.findByRole('link', { name: 'Antibiotics' })).getAttribute('href')).toBe(`/medicines?category=${CATEGORY_ID}`)
     expect(main().textContent).not.toMatch(MOCK_NAMES)
     expect(main().textContent).not.toMatch(/Bole, Addis Ababa/)
-    // Work 99: doctors and lab tests are deferred by the owner; the home page says so, with no sample doctors.
-    expect(screen.getByText(/Doctor appointments and diagnostics are planned for a later phase/)).toBeTruthy()
+    // Work 171: the home page leads to doctors and to hospitals and labs, with no sample doctors.
+    expect(screen.getByRole('link', { name: 'Find a doctor' }).getAttribute('href')).toBe('/doctors')
+    expect(screen.getAllByRole('link', { name: 'Hospitals & labs' }).every((l) => l.getAttribute('href') === '/care')).toBe(true)
     expect(main().textContent).not.toMatch(/Dr\. |Selamawit/)
   })
 
