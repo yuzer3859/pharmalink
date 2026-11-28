@@ -1,6 +1,6 @@
 // Domain types for PharmaLink Ethiopia operations console.
 
-export type PortalKey = 'pharmacy' | 'admin' | 'superadmin' | 'finance' | 'facility';
+export type PortalKey = 'pharmacy' | 'admin' | 'superadmin' | 'finance' | 'facility' | 'doctor';
 
 export type PermissionKey =
   | 'dashboard:view'
@@ -23,6 +23,8 @@ export type PermissionKey =
   | 'providers:manage'
   | 'doctors:view'
   | 'doctors:manage'
+  | 'doctor:view'
+  | 'doctor:manage'
   | 'facility:view'
   | 'facility:manage'
   | 'audit:view'
